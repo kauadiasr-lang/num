@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroMobs AI — IA avançada para mobs · Minecraft Bedrock</title>
+<meta name="description" content="Addon gratuito para Minecraft Bedrock 1.21.100+: mobs com memória, alerta em grupo, cerco, emboscadas e um mundo que reage. Sem experimentos, compatível com Realms.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <span class="brand">NeuroMobs<span class="dot">●</span>AI</span>
+    <nav aria-label="Seções">
+      <a href="#instalacao">Instalação</a>
+      <a href="#mecanicas">Mecânicas</a>
+      <a href="#mobs">Mobs</a>
+      <a href="#configuracao">Configuração</a>
+      <a href="#faq">FAQ</a>
+      <a href="#problemas">Problemas</a>
+      <a href="o-que-mudou.html">O que mudou?</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap grid">
+    <div>
+      <ul class="badges">
+        <li>100% GRATUITO</li>
+        <li>BEDROCK 1.21.100+</li>
+        <li>SEM EXPERIMENTOS</li>
+        <li>REALMS OK</li>
+      </ul>
+      <h1>Os mobs agora pensam.</h1>
+      <p class="lead">Memória da última posição em que te viram, gritos de alerta, cerco pelos flancos, emboscadas, retirada tática e um mundo que reage à lua, ao clima e às suas escolhas — <strong>sem aumentar dano nem vida</strong>.</p>
+      <div class="cta">
+        <a class="btn primary" href="#instalacao">Instalar em 3 passos</a>
+        <a class="btn ghost" href="o-que-mudou.html">Ver o que mudou</a>
+      </div>
+    </div>
+    <div class="log" role="img" aria-label="Exemplo de partida: um zumbi avista o jogador, alerta aliados, o esqueleto recua atirando, dois zumbis flanqueiam e o creeper congela quando observado.">
+      <div class="title">registro de uma noite qualquer</div>
+      <ol>
+        <li><span class="t">19:04</span>Zumbi te avistou — <span class="a">e gritou</span>.</li>
+        <li><span class="t">19:04</span><span class="g">3 aliados</span> receberam sua última posição.</li>
+        <li><span class="t">19:05</span>Esqueleto <span class="g">recuando enquanto atira</span>.</li>
+        <li><span class="t">19:05</span>Dois zumbis <span class="g">abrindo o cerco</span> pelos flancos.</li>
+        <li><span class="t">19:06</span>Você olhou para o creeper. <span class="a">Ele parou.</span></li>
+        <li><span class="t">19:06</span>Você desviou o olhar. Ele voltou a andar.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="instalacao">
+  <div class="wrap">
+    <p class="eyebrow">Começar</p>
+    <h2>Instalação</h2>
+    <ol class="steps">
+      <li><strong>Abra o arquivo</strong> <code>NeuroMobs_vX.Y.Z.mcaddon</code> (toque duplo no PC, ou "compartilhar → Minecraft" no celular). Behavior Pack e Resource Pack são importados juntos.</li>
+      <li><strong>Ative o Behavior Pack</strong> "NeuroMobs AI [BP]" nas configurações do mundo. O Resource Pack é dependência e entra sozinho.</li>
+      <li><strong>Entre no mundo.</strong> Não precisa de comando nem de experimento — os mobs já acordam diferentes.</li>
+    </ol>
+    <h3 id="atualizacao">Atualização</h3>
+    <p>Importe o novo <code>.mcaddon</code> por cima: as UUIDs são as mesmas, então a versão nova substitui a antiga. Configurações feitas no menu ficam salvas no mundo e sobrevivem à atualização.</p>
+    <h3 id="compatibilidade">Compatibilidade</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Versão do jogo</th><td>Bedrock <strong>1.21.100 ou superior</strong>, incluindo toda a linha 26.x atual. Script API estável 2.x — nenhum toggle experimental.</td></tr>
+      <tr><th>Realms e servidores</th><td>Funciona: só APIs estáveis, sem experimentos. Em servidores, restrinja <code>/scriptevent</code> a operadores pelas permissões normais.</td></tr>
+      <tr><th>Outros addons</th><td>Conflita apenas com packs que sobrescrevem <em>os mesmos 13 mobs</em> — nesse caso, vence o pack mais acima na lista. Addons de itens, biomas, dimensões e mobs novos convivem normalmente.</td></tr>
+      <tr><th>Mundos existentes</th><td>Seguro ativar e desativar. O addon não altera terreno nem itens; desativar devolve os mobs vanilla.</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<section id="mecanicas">
+  <div class="wrap">
+    <p class="eyebrow">Sistemas</p>
+    <h2>Mecânicas</h2>
+    <p>Arquitetura híbrida: <em>o script decide, o JSON executa</em>. Cada sistema abaixo pode ser desligado individualmente no menu.</p>
+    <div class="cards">
+      <div class="card"><h3>Memória e busca ativa</h3><p>Perdeu você de vista? O mob lembra a última posição por 30 s e vai <em>investigar o local exato</em> — com visão honesta (raycast), sem enxergar através de paredes.</p></div>
+      <div class="card"><h3>Alerta em grupo</h3><p>Quem te vê grita: até 8 aliados num raio de 24 recebem sua posição. Explosões deixam monstros surdos por 5 s — e chuva abafa os sons.</p></div>
+      <div class="card"><h3>Cerco e flanqueamento</h3><p>Com 3+ no mesmo alvo, metade circunda enquanto metade ataca — e os papéis giram. Fim da fila indiana.</p></div>
+      <div class="card"><h3>Anti-torre</h3><p>Subiu num pilar? Corpo a corpo abre cerco a distância, esqueletos atiram, o enderman teleporta — e creepers detonam a base.</p></div>
+      <div class="card"><h3>Emboscada e retirada</h3><p>O solitário que te vê primeiro <em>segura o bote</em> até aliados chegarem; o ferido sem apoio desengaja, busca reforço e volta acompanhado.</p></div>
+      <div class="card"><h3>Personalidades e veteranos</h3><p>Cauteloso, normal ou audaz — sorteado e persistente por mob. ~5% viram <strong>Veteranos</strong> nomeados: líderes cuja morte quebra a moral do bando.</p></div>
+      <div class="card"><h3>Rotas que evitam perigos</h3><p>Magma, cacto, bagas, fogueiras e penhascos entram no custo do caminho. Mobs param de se matar sozinhos.</p></div>
+      <div class="card"><h3>Lua, clima e som</h3><p>Lua cheia amplia alertas; trovoada agita; raios espantam rebanhos; quebrar blocos atrai investigadores ao ponto exato.</p></div>
+      <div class="card"><h3>Vila viva</h3><p>Alarme com golems direcionados, sino tático com patrulha em leque, resgate priorizado de aldeões e <em>memória regional</em>: vilas atacadas respondem mais forte.</p></div>
+      <div class="card"><h3>Fauna e ecossistema</h3><p>Alcateias arrancam juntas, rebanhos debandam em grupo, filhotes são protegidos, abates atraem necrófagos — e caçar demais deixa a região arisca.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="mobs">
+  <div class="wrap">
+    <p class="eyebrow">Cobertura</p>
+    <h2>Mobs modificados</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Mob</th><th>Melhoria característica</th></tr>
+      <tr><td>Zumbi</td><td>Cerco rotativo, emboscada, busca ativa, quebra de portas no Difícil preservada</td></tr>
+      <tr><td>Husk</td><td>Tudo do zumbi + Fome no golpe e conversão em zumbi na água</td></tr>
+      <tr><td>Esqueleto</td><td><em>Kiting</em>: recua em disparada sem parar de atirar; navega pela sombra</td></tr>
+      <tr><td>Stray</td><td>Kiting glacial com flechas de lentidão</td></tr>
+      <tr><td>Creeper</td><td>Furtivo: congela quando observado; demolidor de pilares no anti-torre</td></tr>
+      <tr><td>Aranha</td><td>Espreita você de dia a 10–14 blocos; flanqueia à noite</td></tr>
+      <tr><td>Aranha-de-caverna</td><td>Veneno, sempre hostil, cerco e escalada</td></tr>
+      <tr><td>Drowned</td><td>Navegação anfíbia unificada, 15% com tridente, busca água de dia</td></tr>
+      <tr><td>Enderman</td><td>Perseguição vertical por teleporte — pilar não salva; solitário</td></tr>
+      <tr><td>Bruxa</td><td>Artilheira de poções mantendo distância</td></tr>
+      <tr><td>Esqueleto Wither</td><td>Corpo a corpo com efeito Wither, imune a fogo, matilha completa (cerco/emboscada/retirada)</td></tr>
+      <tr><td>Golem de Ferro</td><td>Caça proativa, atende alarme e sino, prioriza resgate de aldeões, reparo com ferro</td></tr>
+      <tr><td>Vaca</td><td>Foge de monstros, protege filhotes, descansa à noite, fica arisca sob caça excessiva</td></tr>
+      <tr><td>Galinha</td><td>Foge de raposas e gatos de verdade; ovos e reprodução intactos</td></tr>
+    </table></div>
+    <p class="note"><strong>Todos os outros animais</strong> também participam sem override: pânico de rebanho universal, proteção de filhotes e susto com raios funcionam em qualquer espécie.</p>
+  </div>
+</section>
+
+<section id="configuracao">
+  <div class="wrap">
+    <p class="eyebrow">Controle</p>
+    <h2>Configuração</h2>
+    <p>Digite <code>/scriptevent neuro:menu</code> no chat para abrir o menu — toque numa opção para alterná-la. Tudo fica salvo no mundo. Atalhos: <code>neuro:stats</code> (desempenho), <code>neuro:ver</code> (visão de desenvolvedor: waypoints visíveis + inspetor de cérebro + diagnóstico de override), <code>neuro:on</code> / <code>neuro:off</code>, <code>neuro:reset</code>.</p>
+    <div class="cfg">
+      <div><h3>Percepção &amp; memória</h3><ul>
+        <li><code>memorySearch</code> — última posição vista + investigação</li>
+        <li><code>hearing</code> — investigam sons de blocos (raio 20)</li>
+        <li><code>blastDeafen</code> — explosões ensurdecem por 5 s</li>
+      </ul></div>
+      <div><h3>Grupo &amp; tática</h3><ul>
+        <li><code>packAlert</code> — grito de alerta (raio 12/24/36)</li>
+        <li><code>tactics</code> — cerco rotativo com 3+ mobs</li>
+        <li><code>ambush</code> — emboscadas coordenadas</li>
+        <li><code>retreat</code> — retirada com recrutamento</li>
+        <li><code>leadership</code> — aura e moral dos veteranos</li>
+      </ul></div>
+      <div><h3>Combate &amp; adaptação</h3><ul>
+        <li><code>creeperStalk</code> — creeper furtivo</li>
+        <li><code>antiTower</code> + <code>creeperBreach</code> — resposta a pilares</li>
+        <li><code>adaptive</code> — reforços contra alvos bem equipados</li>
+        <li><code>priorityTargeting</code> — matilha foca o mais vulnerável</li>
+        <li><code>personalities</code> + <code>veterans</code> — perfis e chefes naturais</li>
+      </ul></div>
+      <div><h3>Vila</h3><ul>
+        <li><code>villageDefense</code> — alarme com golems direcionados</li>
+        <li><code>tacticalBell</code> — sino mobiliza a vila</li>
+        <li><code>villageMemory</code> — trauma regional persistente</li>
+        <li><code>villageAmbience</code> — conversas entre aldeões</li>
+      </ul></div>
+      <div><h3>Fauna &amp; mundo</h3><ul>
+        <li><code>herdPanic</code> + <code>babyGuard</code> — rebanhos e filhotes</li>
+        <li><code>wolfPacks</code> — surto de alcateia</li>
+        <li><code>carrionScent</code> — abates atraem necrófagos</li>
+        <li><code>beeSwarm</code> — enxame se enfurece junto</li>
+        <li><code>huntingPressure</code> — fauna arisca sob caça excessiva</li>
+        <li><code>moonEvents</code> + <code>weatherMoods</code> — lua e clima</li>
+      </ul></div>
+      <div><h3>Sistema</h3><ul>
+        <li><code>enabled</code> — liga/desliga o núcleo de script</li>
+        <li><code>budgetPerTick</code> — 4/6/10 cérebros por tick</li>
+        <li><code>debug</code> — diagnóstico no console</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<section id="tecnica">
+  <div class="wrap">
+    <p class="eyebrow">Por dentro</p>
+    <h2>Documentação técnica</h2>
+    <p>O núcleo mantém um <strong>cérebro leve por mob engajado</strong> e processa no máximo <code>budgetPerTick</code> deles por tick, em rodízio — o custo é constante e mede a si mesmo (<code>/scriptevent neuro:stats</code>, esperado 0–1 ms). A visão usa cone frontal + raycast de oclusão; a comunicação JSON↔script passa por <code>dataDrivenEntityTrigger</code> e <code>triggerEvent</code>; a "busca" entrega ao pathfinder nativo um destino escolhido pelo script (waypoints invisíveis com autodespawn). Todo grupo ligado por script tem <em>timer de segurança</em> no JSON: nenhum estado fica preso se o script for desativado no meio.</p>
+    <p>A explicação completa — camadas, diagrama de fluxo, convenções, receita para adicionar mobs e cada limite da engine com justificativa — acompanha o projeto em <code>docs/ARQUITETURA.md</code> e <code>docs/LIMITES-DA-ENGINE.md</code>.</p>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <p class="eyebrow">Dúvidas</p>
+    <h2>FAQ</h2>
+    <details><summary>Funciona no Realms? Precisa ativar experimentos?</summary><p>Sim e não, respectivamente. O addon usa apenas a Script API estável (2.x) e comportamentos oficiais — nenhum toggle experimental, então Realms, mundos Survival e multiplayer funcionam normalmente.</p></details>
+    <details><summary>Os mobs ficaram mais fortes?</summary><p>Não. Dano e vida são os do vanilla — a dificuldade vem de percepção, memória e coordenação. Se quiser aliviar, desligue sistemas específicos no menu.</p></details>
+    <details><summary>Por que os aldeões não foram sobrescritos?</summary><p>O villager_v2 concentra profissões, trocas e o sistema de descontos (gossip). Sobrescrevê-lo quebraria a economia em silêncio. A "vila viva" foi construída por fora: alarme, sino, golems direcionados, resgate e memória regional — com o comércio 100% intacto.</p></details>
+    <details><summary>Instalei outro addon e os mobs voltaram ao normal.</summary><p>Outro Behavior Pack está sobrescrevendo os mesmos mobs e vencendo por estar acima na lista. Arraste o NeuroMobs para o topo dos packs do mundo.</p></details>
+    <details><summary>Isso pesa no servidor?</summary><p>O custo por tick é fixo e configurável (orçamento de cérebros); tudo o mais é orientado a evento com limites e intervalos mínimos. Meça no seu mundo com <code>/scriptevent neuro:stats</code>.</p></details>
+    <details><summary>Posso usar em versões antigas?</summary><p>O mínimo é 1.21.100. Abaixo disso o pack não carrega (a Script API 2.x não existe). Num 1.21.10x específico, o flanqueamento pode não ocorrer — veja Solução de problemas.</p></details>
+    <details><summary>Posso desativar no meio de um mundo?</summary><p>Sim. Desative o pack e os mobs voltam ao vanilla; os timers de segurança garantem que ninguém fica "preso" em estados do addon.</p></details>
+  </div>
+</section>
+
+<section id="problemas">
+  <div class="wrap">
+    <p class="eyebrow">Suporte</p>
+    <h2>Solução de problemas</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Sintoma</th><th>Causa provável e correção</th></tr>
+      <tr><td>O pack não aparece na lista</td><td>Versão do jogo abaixo de 1.21.100, ou importação incompleta — abra o <code>.mcaddon</code> de novo e confira em Configurações → Armazenamento.</td></tr>
+      <tr><td>Mobs agindo 100% vanilla</td><td>Ligue <code>/scriptevent neuro:ver</code> e olhe para um monstro: <strong>override:AUSENTE</strong> confirma que outro pack está por cima na lista (arraste o NeuroMobs para o topo) ou que a versão do jogo está abaixo do mínimo; <strong>override:OK</strong> = tudo carregado, teste à noite com <code>/summon zombie</code>.</td></tr>
+      <tr><td>Comandos <code>neuro:*</code> mudos</td><td>Cheats desativados no mundo, ou você não tem permissão de operador no servidor.</td></tr>
+      <tr><td>Flanqueamento nunca acontece</td><td>Em algum 1.21.10x antigo o campo <code>destination_position_range</code> (forma-objeto) pode não parsear; confira o Content Log. A falha é isolada — todo o resto segue normal.</td></tr>
+      <tr><td>Quero investigar um erro</td><td>Ative o Content Log (Configurações → Criador) e o <code>debug</code> no menu; os módulos assinam mensagens como <code>[NeuroMobs]</code>.</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <p class="eyebrow">Futuro</p>
+    <h2>Roadmap</h2>
+    <p><strong>Pós-1.0:</strong> família pillager/vindicator/ravager com bateria de testes de raid (exige testes ao vivo — decisão de segurança documentada), lobos com flanco coordenado (aguarda estratégia sem regressões nas variantes/armadura), territórios de alcateia e censo populacional. O histórico completo de decisões e adiamentos vive em <code>docs/IDEIAS.md</code> e <code>docs/LIMITES-DA-ENGINE.md</code>.</p>
+  </div>
+</section>
+
+<section id="creditos">
+  <div class="wrap">
+    <p class="eyebrow">Sobre</p>
+    <h2>Créditos, licença e changelog</h2>
+    <p><strong>NeuroMobs AI</strong> — projeto 100% gratuito, construído apenas com recursos oficiais da Bedrock (Behavior Packs + Script API estável). Licença <strong>MIT</strong>: use, modifique e redistribua com crédito. O changelog completo, versão a versão — incluindo as revisões e os bugs encontrados nas auditorias — acompanha o projeto em <code>CHANGELOG.md</code>.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">NeuroMobs AI · Minecraft Bedrock 1.21.100+ · <a href="o-que-mudou.html">O que mudou?</a> · Licença MIT</div>
+</footer>
+
+</body>
+</html>

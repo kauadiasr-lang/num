@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O que mudou? — NeuroMobs AI</title>
+<meta name="description" content="Comparação detalhada entre a IA vanilla do Minecraft Bedrock e a IA do NeuroMobs, sistema por sistema e mob por mob.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <span class="brand">NeuroMobs<span class="dot">●</span>AI</span>
+    <nav aria-label="Seções">
+      <a href="index.html">Início</a>
+      <a href="index.html#instalacao">Instalação</a>
+      <a href="index.html#configuracao">Configuração</a>
+      <a href="#sistemas" aria-current="page">O que mudou?</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="sistemas">
+  <div class="wrap">
+    <p class="eyebrow">Vanilla ▸ NeuroMobs</p>
+    <h1>O que mudou?</h1>
+    <p class="lead">Cada linha abaixo compara o comportamento original com o novo. Nada aqui aumenta dano ou vida — a diferença é <em>o que os mobs percebem, lembram e decidem</em>.</p>
+
+    <h2>Sistemas globais</h2>
+    <div class="tablewrap"><table class="vs">
+      <tr><th>Vanilla</th><th>NeuroMobs</th></tr>
+      <tr><td>Perdeu você de vista, esqueceu em segundos</td><td>Lembra a última posição por 30 s e vai investigar o local exato; reavistar (com visão real) reengaja na hora</td></tr>
+      <tr><td>Cada mob luta sozinho</td><td>Quem te vê grita: até 8 aliados num raio de 24 recebem sua posição — e quem não te vê ganha um ponto de investigação</td></tr>
+      <tr><td>Fila indiana atrás do jogador</td><td>Com 3+ no mesmo alvo, metade circunda e metade ataca, girando papéis a cada ~3 s</td></tr>
+      <tr><td>Pilar de 3 blocos = invencibilidade</td><td>Cerco a distância, flechas, teleporte do enderman — e creepers detonando a base</td></tr>
+      <tr><td>Encontro solitário = corrida reta</td><td>Emboscada: sozinho e não visto, ele segura o bote até aliados se posicionarem</td></tr>
+      <tr><td>Luta até morrer, sempre</td><td>Ferido e sem apoio, recua, busca reforço e volta acompanhado</td></tr>
+      <tr><td>Todo zumbi é idêntico</td><td>Personalidades (cauteloso/normal/audaz) + ~5% de Veteranos nomeados que lideram — e cuja morte quebra a moral</td></tr>
+      <tr><td>Pisam em magma, cacto, caem de penhascos</td><td>Perigos entram no custo da rota; quedas voluntárias limitadas</td></tr>
+      <tr><td>Sons, lua e clima não existem para a IA</td><td>Quebrar blocos atrai investigadores; lua cheia amplia alertas; chuva abafa a audição; raios espantam rebanhos; explosões ensurdecem</td></tr>
+      <tr><td>Escolhe o alvo mais próximo</td><td>Com 2+ jogadores, a matilha prioriza o mais vulnerável; mobs ganham reforços só contra alvos bem equipados</td></tr>
+    </table></div>
+
+    <h2 id="vila">Vila</h2>
+    <div class="tablewrap"><table class="vs">
+      <tr><th>Vanilla</th><th>NeuroMobs</th></tr>
+      <tr><td>Golem reage se o monstro passar perto</td><td>Alarme direciona golems até a ameaça; o "sequestrador" de aldeão vira prioridade absoluta (resgate)</td></tr>
+      <tr><td>Sino só assusta aldeões em raid</td><td>Badalar (mão ou flecha) dispersa aldeões e manda golems patrulharem em leque ao redor</td></tr>
+      <tr><td>Cada ataque é igual ao primeiro</td><td>Memória regional: vilas atacadas respondem mais forte por 3 dias; morte de aldeão marca em dobro; sitiada, avisa jogadores no HUD</td></tr>
+      <tr><td>Aldeões ociosos são estátuas</td><td>Pares próximos conversam (ambiência); explosões perto da vila são investigadas pelo golem</td></tr>
+    </table></div>
+
+    <h2 id="fauna">Fauna e ecossistema</h2>
+    <div class="tablewrap"><table class="vs">
+      <tr><th>Vanilla</th><th>NeuroMobs</th></tr>
+      <tr><td>Ferir 1 animal não afeta os outros</td><td>Pânico de rebanho universal: a espécie debanda junta (raio 12) — mais longe e por mais tempo se a vítima é um filhote</td></tr>
+      <tr><td>Lobos caçam cada um por si</td><td>Um lobo atacando faz a alcateia inteira arrancar junto</td></tr>
+      <tr><td>Morte de animal não tem consequência</td><td>O abate atrai monstros necrófagos ao ponto exato — caçar à noite tem preço</td></tr>
+      <tr><td>Caçar sempre no mesmo pasto é grátis</td><td>Pressão de caça: a fauna da região fica arisca por 1 dia (pânico maior; vacas/galinhas evitam você por 20 s)</td></tr>
+      <tr><td>Fazenda à noite igual ao dia</td><td>Rebanhos descansam: andam menos e mais devagar</td></tr>
+      <tr><td>Só a abelha ferida ataca</td><td>O enxame inteiro se enfurece</td></tr>
+    </table></div>
+
+    <h2 id="pormob">Mob a mob</h2>
+
+    <h3>Zumbi e Husk</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Perseguição curta, com visão obrigatória</td><td>Alcance 40 (56 alertado), busca ativa, cerco rotativo, emboscada, retirada e anti-torre; bebês, conversões e quebra de portas no Difícil preservados; husk mantém a Fome no golpe</td></tr>
+    </table></div>
+
+    <h3>Esqueleto e Stray</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Atira parado; deixa você colar</td><td>Kiting: recua em disparada a &lt;4 blocos sem parar de atirar; navega pela sombra; stray mantém flechas de lentidão</td></tr>
+    </table></div>
+
+    <h3>Creeper</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Avança sempre no mesmo ritmo</td><td>Furtivo: congela quando você olha (o quanto congela depende da personalidade) e avança quando você desvia; no anti-torre, detona a base do seu pilar; carregado e ignição manual preservados</td></tr>
+    </table></div>
+
+    <h3>Aranhas</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Neutra de dia, hostil à noite, e só</td><td>De dia ela te <em>espreita</em> a 10–14 blocos até anoitecer (ou até você provocá-la); à noite flanqueia; a aranha-de-caverna é sempre hostil, com veneno e cerco</td></tr>
+    </table></div>
+
+    <h3>Drowned</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Alterna nadar/andar de forma engessada</td><td>Navegação anfíbia unificada; 15% com tridente arremessável; busca água de dia; cerco, memória e alerta completos</td></tr>
+    </table></div>
+
+    <h3>Enderman</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Ataca quem encara, teleporta ao acaso</td><td>Encarar agride (com exceção de abóbora), imune a flechas, dano por água — e <strong>perseguição vertical por teleporte</strong>: pilar não salva. Solitário: não grita para o bando</td></tr>
+    </table></div>
+
+    <h3>Bruxa</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Para no lugar arremessando</td><td>Artilheira que mantém distância (kiting) com memória, busca e resposta a alertas</td></tr>
+    </table></div>
+
+    <h3>Esqueleto Wither</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Espadachim lento de fortaleza</td><td>Matilha completa (alerta, cerco, emboscada, retirada, veterania), efeito Wither no golpe e imunidade a fogo — atravessa magma sem desviar</td></tr>
+    </table></div>
+
+    <h3>Golem de Ferro</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Defensor passivo de curto alcance</td><td>Caça monstros num raio de 24 (ignora creepers), atende alarme e sino sendo <em>direcionado</em> à ameaça, prioriza o resgate de aldeões, investiga explosões e aceita reparo com ferro; nunca retalia jogadores</td></tr>
+    </table></div>
+
+    <h3>Vaca e Galinha</h3>
+    <div class="tablewrap"><table class="vs">
+      <tr><td>Só fogem depois de apanhar</td><td>Fuga proativa (galinhas temem raposas/gatos a 10 blocos; filhotes fogem antes e mais rápido), descanso noturno e estado arisco sob pressão de caça — ordenha, ovos e reprodução intactos</td></tr>
+    </table></div>
+
+    <h2 id="cenario">Uma noite, na prática</h2>
+    <p>Você minera perto de uma caverna. Um zumbi te vê e <strong>grita</strong> — o esqueleto na cornija e o creeper atrás da parede recebem sua última posição. Você corre e dobra a esquina: eles <strong>não desistem</strong>, vão até onde te viram e vasculham. O esqueleto que te reencontra recua atirando; dois zumbis <strong>circulam por lados opostos</strong>; o creeper para toda vez que você olha… e avança quando você pisca. Em pânico, você ergue um pilar: o cerco se abre embaixo, esperando — até um creeper encostar na base e <strong>explodir o seu apoio</strong>. Você sobrevive, mata o <span style="color: var(--torch)">Veterano</span> que liderava o bando… e vê os cautelosos <strong>debandarem</strong>.</p>
+
+    <p class="note"><strong>GIFs e vídeos:</strong> este site é estático e pronto para os seus clipes — crie a pasta <code>site/media/</code>, grave os momentos acima e insira com <code>&lt;video&gt;</code> ou <code>&lt;img&gt;</code> ao lado de cada tabela. As legendas já contam a história; a mídia é a prova.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap"><a href="index.html">← Voltar ao início</a> · NeuroMobs AI · Licença MIT</div>
+</footer>
+
+</body>
+</html>

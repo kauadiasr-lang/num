@@ -1,0 +1,64 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "pack.name",
+    "description": "pack.description",
+    "uuid": "fd164ddb-655a-44fa-99c7-e73bdaa370b0",
+    "version": [
+      1,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      100
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "672a39fa-e391-4c3a-a1a2-22ce1a63786a",
+      "version": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "4372f8ec-3745-4945-897d-1f55fefbadc2",
+      "version": [
+        1,
+        1,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0"
+    },
+    {
+      "uuid": "d6329828-e046-4e7c-9fa7-b151c88361e8",
+      "version": [
+        1,
+        1,
+        0
+      ]
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "NeuroMobs Project"
+    ],
+    "license": "MIT"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "neuro:waypoint",
+      "materials": { "default": "entity_alphatest" },
+      "geometry": { "default": "geometry.neuro.waypoint" },
+      "textures": { "default": "textures/entity/neuro_waypoint" },
+      "render_controllers": ["controller.render.default"]
+    }
+  }
+}

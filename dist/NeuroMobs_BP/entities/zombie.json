@@ -1,0 +1,581 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "minecraft:zombie",
+      "spawn_category": "monster",
+      "is_spawnable": true,
+      "is_summonable": true
+    },
+    "component_groups": {
+      "minecraft:zombie_adult": {
+        "minecraft:experience_reward": {
+          "on_death": "query.last_hit_by_player ? 5 : 0"
+        }
+      },
+      "minecraft:zombie_baby": {
+        "minecraft:is_baby": {},
+        "minecraft:scale": {
+          "value": 0.5
+        },
+        "minecraft:movement": {
+          "value": 0.35
+        },
+        "minecraft:experience_reward": {
+          "on_death": "query.last_hit_by_player ? 12 : 0"
+        }
+      },
+      "minecraft:can_break_doors": {
+        "minecraft:annotation.break_door": {}
+      },
+      "neuro:in_water_transform": {
+        "minecraft:transformation": {
+          "into": "minecraft:drowned",
+          "delay": {
+            "value": 30
+          }
+        }
+      },
+      "neuro:alerted": {
+        "minecraft:follow_range": {
+          "value": 56,
+          "max": 56
+        },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_see_forget_duration": 60.0,
+          "reselect_targets": true,
+          "within_radius": 48,
+          "entity_types": [
+            {
+              "filters": {
+                "all_of": [
+                  {
+                    "test": "is_family",
+                    "subject": "other",
+                    "value": "player"
+                  },
+                  {
+                    "test": "has_tag",
+                    "subject": "other",
+                    "value": "neuro_prio"
+                  }
+                ]
+              },
+              "max_dist": 48
+            },
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "max_dist": 48
+            }
+          ]
+        },
+        "minecraft:timer": {
+          "time": 15,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:calm"
+          }
+        }
+      },
+      "neuro:searching": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "reselect_targets": true,
+          "within_radius": 64,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "neuro_waypoint"
+              },
+              "max_dist": 64
+            }
+          ]
+        },
+        "minecraft:timer": {
+          "time": 22,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:stop_search"
+          }
+        }
+      },
+      "neuro:flank": {
+        "minecraft:behavior.move_around_target": {
+          "priority": 2,
+          "destination_position_range": {
+            "min": 3.0,
+            "max": 7.0
+          }
+        },
+        "minecraft:timer": {
+          "time": 12,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:role_direct"
+          }
+        }
+      },
+      "neuro:siege": {
+        "minecraft:behavior.move_around_target": {
+          "priority": 2,
+          "destination_position_range": {
+            "min": 4.0,
+            "max": 9.0
+          }
+        },
+        "minecraft:timer": {
+          "time": 15,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:siege_stop"
+          }
+        }
+      },
+      "neuro:veteran": {
+        "minecraft:knockback_resistance": {
+          "value": 0.6
+        }
+      },
+      "neuro:ambush": {
+        "minecraft:movement": {
+          "value": 0.03
+        },
+        "minecraft:timer": {
+          "time": 10,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:ambush_stop"
+          }
+        }
+      },
+      "neuro:retreat": {
+        "minecraft:behavior.avoid_mob_type": {
+          "priority": 1,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "max_dist": 12.0,
+              "walk_speed_multiplier": 1.3,
+              "sprint_speed_multiplier": 1.4
+            }
+          ]
+        },
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "reselect_targets": true,
+          "within_radius": 64,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "neuro_waypoint"
+              },
+              "max_dist": 64
+            }
+          ]
+        },
+        "minecraft:timer": {
+          "time": 12,
+          "looping": false,
+          "time_down_event": {
+            "event": "neuro:retreat_stop"
+          }
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "zombie",
+          "undead",
+          "monster",
+          "mob",
+          "neuro_smart"
+        ]
+      },
+      "minecraft:nameable": {},
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.9
+      },
+      "minecraft:health": {
+        "value": 20,
+        "max": 20
+      },
+      "minecraft:attack": {
+        "damage": 3
+      },
+      "minecraft:movement": {
+        "value": 0.23
+      },
+      "minecraft:follow_range": {
+        "value": 40,
+        "max": 40
+      },
+      "minecraft:breathable": {
+        "total_supply": 15,
+        "suffocate_time": 0,
+        "breathes_air": true,
+        "breathes_water": true
+      },
+      "minecraft:hurt_on_condition": {
+        "damage_conditions": [
+          {
+            "filters": {
+              "test": "in_lava"
+            },
+            "cause": "lava",
+            "damage_per_tick": 4
+          }
+        ]
+      },
+      "minecraft:loot": {
+        "table": "loot_tables/entities/zombie.json"
+      },
+      "minecraft:despawn": {
+        "despawn_from_distance": {}
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
+      "minecraft:jump.static": {},
+      "minecraft:movement.basic": {},
+      "minecraft:burns_in_daylight": {},
+      "minecraft:navigation.walk": {
+        "is_amphibious": true,
+        "can_walk": true,
+        "can_pass_doors": true,
+        "can_break_doors": true,
+        "avoid_damage_blocks": true
+      },
+      "minecraft:preferred_path": {
+        "max_fall_blocks": 3,
+        "jump_cost": 5,
+        "default_block_cost": 1.5,
+        "preferred_path_blocks": [
+          {
+            "cost": 50,
+            "blocks": [
+              "magma",
+              "cactus",
+              "sweet_berry_bush",
+              "campfire",
+              "soul_campfire",
+              "wither_rose"
+            ]
+          }
+        ]
+      },
+      "minecraft:on_target_acquired": {
+        "event": "neuro:on_target_acquired",
+        "target": "self"
+      },
+      "minecraft:on_target_escape": {
+        "event": "neuro:on_target_escape",
+        "target": "self"
+      },
+      "minecraft:environment_sensor": {
+        "triggers": [
+          {
+            "filters": {
+              "test": "in_water",
+              "value": true
+            },
+            "event": "neuro:begin_drowned_conversion"
+          },
+          {
+            "filters": {
+              "test": "in_water",
+              "value": false
+            },
+            "event": "neuro:cancel_drowned_conversion"
+          },
+          {
+            "filters": {
+              "test": "is_difficulty",
+              "value": "hard"
+            },
+            "event": "neuro:enable_door_breaking"
+          }
+        ]
+      },
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 1
+      },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 2,
+        "must_see": true,
+        "must_see_forget_duration": 12.0,
+        "reselect_targets": true,
+        "within_radius": 32,
+        "entity_types": [
+          {
+            "filters": {
+              "all_of": [
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "player"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "neuro_prio"
+                }
+              ]
+            },
+            "max_dist": 40
+          },
+          {
+            "filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "player"
+            },
+            "max_dist": 35
+          },
+          {
+            "filters": {
+              "any_of": [
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "villager"
+                },
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "irongolem"
+                },
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "snowgolem"
+                },
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "wandering_trader"
+                }
+              ]
+            },
+            "max_dist": 35
+          }
+        ]
+      },
+      "minecraft:behavior.melee_box_attack": {
+        "priority": 3,
+        "track_target": true
+      },
+      "minecraft:behavior.random_stroll": {
+        "priority": 7,
+        "speed_multiplier": 1.0
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 8,
+        "look_distance": 8.0
+      },
+      "minecraft:behavior.random_look_around": {
+        "priority": 9
+      }
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "randomize": [
+          {
+            "weight": 95,
+            "add": {
+              "component_groups": [
+                "minecraft:zombie_adult"
+              ]
+            }
+          },
+          {
+            "weight": 5,
+            "add": {
+              "component_groups": [
+                "minecraft:zombie_baby"
+              ]
+            }
+          }
+        ]
+      },
+      "minecraft:as_adult": {
+        "add": {
+          "component_groups": [
+            "minecraft:zombie_adult"
+          ]
+        }
+      },
+      "minecraft:as_baby": {
+        "add": {
+          "component_groups": [
+            "minecraft:zombie_baby"
+          ]
+        }
+      },
+      "neuro:begin_drowned_conversion": {
+        "add": {
+          "component_groups": [
+            "neuro:in_water_transform"
+          ]
+        }
+      },
+      "neuro:cancel_drowned_conversion": {
+        "remove": {
+          "component_groups": [
+            "neuro:in_water_transform"
+          ]
+        }
+      },
+      "neuro:enable_door_breaking": {
+        "add": {
+          "component_groups": [
+            "minecraft:can_break_doors"
+          ]
+        }
+      },
+      "neuro:on_target_acquired": {
+        "remove": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        }
+      },
+      "neuro:on_target_escape": {},
+      "neuro:alert": {
+        "remove": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:alerted"
+          ]
+        }
+      },
+      "neuro:calm": {
+        "remove": {
+          "component_groups": [
+            "neuro:alerted"
+          ]
+        }
+      },
+      "neuro:start_search": {
+        "add": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        }
+      },
+      "neuro:stop_search": {
+        "remove": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        }
+      },
+      "neuro:role_flank": {
+        "add": {
+          "component_groups": [
+            "neuro:flank"
+          ]
+        }
+      },
+      "neuro:role_direct": {
+        "remove": {
+          "component_groups": [
+            "neuro:flank"
+          ]
+        }
+      },
+      "neuro:siege_start": {
+        "remove": {
+          "component_groups": [
+            "neuro:flank"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:siege"
+          ]
+        }
+      },
+      "neuro:siege_stop": {
+        "remove": {
+          "component_groups": [
+            "neuro:siege"
+          ]
+        }
+      },
+      "neuro:make_veteran": {
+        "add": {
+          "component_groups": [
+            "neuro:veteran"
+          ]
+        }
+      },
+      "neuro:ambush_start": {
+        "remove": {
+          "component_groups": [
+            "neuro:flank"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:ambush"
+          ]
+        }
+      },
+      "neuro:ambush_stop": {
+        "remove": {
+          "component_groups": [
+            "neuro:ambush"
+          ]
+        }
+      },
+      "neuro:retreat_start": {
+        "remove": {
+          "component_groups": [
+            "neuro:flank",
+            "neuro:siege",
+            "neuro:ambush"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:retreat"
+          ]
+        }
+      },
+      "neuro:retreat_stop": {
+        "remove": {
+          "component_groups": [
+            "neuro:retreat"
+          ]
+        }
+      }
+    }
+  }
+}
