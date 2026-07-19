@@ -73,7 +73,7 @@ function evictOldest() {
       oldestId = id;
     }
   }
-  if (oldestId) brains.delete(oldestId);
+  if (oldestId !== null) brains.delete(oldestId);
 }
 
 // ---------------------------------------------------------------- escalonador

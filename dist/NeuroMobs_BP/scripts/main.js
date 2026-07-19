@@ -60,6 +60,6 @@ system.run(() => {
   }
 
   if (getConfig().debug) {
-    console.warn("[NeuroMobs] núcleo de IA iniciado (v1.1.0)");
+    console.warn("[NeuroMobs] núcleo de IA iniciado (v1.1.1)");
   }
 });

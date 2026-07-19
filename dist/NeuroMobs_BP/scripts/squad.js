@@ -49,14 +49,11 @@ export function initSquad() {
   // Levar dano de um jogador também conta como "descobrir" o atacante,
   // mesmo para mobs vanilla não modificados (camada genérica).
   world.afterEvents.entityHurt.subscribe((ev) => {
+    if (!getConfig().enabled) return; // núcleo desligado: nenhum cérebro novo
     const src = ev.damageSource && ev.damageSource.damagingEntity;
     if (!src || src.typeId !== PLAYER) return;
     const victim = ev.hurtEntity;
-    try {
-      if (!victim.matches({ families: ["monster"] })) return;
-    } catch {
-      return;
-    }
+    if (!V.hasFamily(victim, "monster")) return;
     const b = getBrain(victim);
     b.targetId = src.id;
     b.lastKnown = { ...src.location };
@@ -67,6 +64,15 @@ export function initSquad() {
     }
     onAggro(victim, src);
   });
+
+  // Higiene: sem o jogador, o relógio de papéis dele não serve para nada.
+  try {
+    world.afterEvents.playerLeave.subscribe((ev) => {
+      roleClock.delete(ev.playerId);
+    });
+  } catch {
+    /* evento indisponível: o teto natural de jogadores limita o mapa */
+  }
 }
 
 function onAggro(mob, knownTarget) {
@@ -77,16 +83,7 @@ function onAggro(mob, knownTarget) {
   if (!target) return;
   if (target.typeId !== PLAYER) {
     // Monstro caçando aldeão/comerciante => alarme de vila.
-    try {
-      if (
-        target.matches({ families: ["villager"] }) ||
-        target.typeId === "minecraft:wandering_trader"
-      ) {
-        villageAlarm(mob, target, cfg);
-      }
-    } catch {
-      /* alvo descarregou */
-    }
+    if (V.isVillagerLike(target)) villageAlarm(mob, target, cfg);
     return;
   }
 

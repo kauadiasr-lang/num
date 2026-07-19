@@ -21,7 +21,7 @@
  */
 import { world, system } from "@minecraft/server";
 import { getConfig } from "./config.js";
-import { tryEffect } from "./utils.js";
+import { tryEffect, explosionOrigin } from "./utils.js";
 
 let moonFull = false;
 const weatherByDim = new Map(); // dimensionId -> "Clear" | "Rain" | "Thunder"
@@ -126,6 +126,12 @@ export function initMoods() {
     } catch {
       moonFull = false;
     }
+    // Expurgo do mapa de surdez: isDeaf() só limpa entradas consultadas;
+    // mobs que morrem surdos ficariam no mapa para sempre (leak lento).
+    const t = system.currentTick;
+    for (const [id, until] of deafUntil) {
+      if (t > until) deafUntil.delete(id);
+    }
   };
   system.run(readMoon);
   system.runInterval(readMoon, 1200);
@@ -170,23 +176,11 @@ export function initMoods() {
     world.afterEvents.explosion.subscribe((ev) => {
       const cfg = getConfig();
       if (!cfg.enabled || !cfg.blastDeafen) return;
-      let origin = ev.source && ev.source.location;
-      let dim = (ev.source && ev.source.dimension) || ev.dimension;
-      if (!origin) {
-        try {
-          const blocks = ev.getImpactedBlocks ? ev.getImpactedBlocks() : [];
-          if (blocks.length) {
-            origin = blocks[0].location;
-            dim = dim || blocks[0].dimension;
-          }
-        } catch {
-          /* ignorar */
-        }
-      }
-      if (!origin || !dim) return;
+      const blast = explosionOrigin(ev);
+      if (!blast) return;
       try {
-        const mobs = dim.getEntities({
-          location: origin,
+        const mobs = blast.dimension.getEntities({
+          location: blast.origin,
           maxDistance: 10,
           families: ["monster"]
         });

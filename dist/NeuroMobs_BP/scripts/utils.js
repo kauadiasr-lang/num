@@ -63,3 +63,47 @@ export function safeTarget(e) {
     return undefined;
   }
 }
+
+/** Teste seguro de família (falha => false; entidade pode ter descarregado). */
+export function hasFamily(e, family) {
+  try {
+    return !!e && e.matches({ families: [family] });
+  } catch {
+    return false;
+  }
+}
+
+/** Aldeão ou comerciante ambulante (as "vítimas" que acionam a vila). */
+export function isVillagerLike(e) {
+  try {
+    return (
+      !!e &&
+      (e.matches({ families: ["villager"] }) ||
+        e.typeId === "minecraft:wandering_trader")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Origem de uma explosão: a fonte quando existe, senão o primeiro bloco
+ * atingido. Retorna { origin, dimension } ou null (compartilhado por
+ * moods.js/defense.js — mesma resolução, zero duplicação).
+ */
+export function explosionOrigin(ev) {
+  let origin = ev.source && ev.source.location;
+  let dimension = (ev.source && ev.source.dimension) || ev.dimension;
+  if (!origin) {
+    try {
+      const blocks = ev.getImpactedBlocks ? ev.getImpactedBlocks() : [];
+      if (blocks.length) {
+        origin = blocks[0].location;
+        dimension = dimension || blocks[0].dimension;
+      }
+    } catch {
+      /* ignorar */
+    }
+  }
+  return origin && dimension ? { origin, dimension } : null;
+}

@@ -1,5 +1,42 @@
 # Changelog
 
+## v1.1.1 — Auditoria de estabilização (produção)
+### Corrigido
+- **Retirada tática herdando busca antiga (lógico, crítico):** ao entrar
+  em retirada com uma busca de memória ativa, `beginRetreat` não limpava
+  `searching`/`waypointId`. Se nenhum recruta fosse achado, o waypoint
+  antigo — apontando para a ÚLTIMA POSIÇÃO DO JOGADOR — era tratado como
+  ponto de encontro: chegar nele contava como "recrutou reforços" e
+  mandava o mob ferido de volta ao combate sozinho. A retirada agora
+  começa com a busca zerada; sem recruta, vale a fuga pura até o timeout.
+- **Recrutamento contando o próprio mob:** em `finishRetreat`, o
+  retirante entrava na própria lista de até 5 recrutas (a consulta de
+  área inclui quem consulta) — um alerta desperdiçado e duplicado.
+- **Velocidade composta em reengajamento (silencioso):** um cérebro
+  reidratado (evicção + novo engajamento) que sorteava veterania
+  reaplicava TAMBÉM o multiplicador de personalidade já gravado no
+  atributo real — ex.: audaz+veterano acumulava ~1,35× em vez de ~1,21×.
+  Cada fator agora só é aplicado quando acabou de ser sorteado.
+- **Veterania re-sorteada a cada reengajamento (silencioso):** o sorteio
+  negativo não era persistido, então cada reidratação do cérebro dava
+  nova chance de 5% — mobs longevos convergiam para "todos veteranos".
+  O resultado (true OU false) agora persiste em `neuro:vet`.
+- **Cérebros criados com o núcleo desligado:** o handler genérico de
+  dano (squad) criava cérebros mesmo com `enabled: false`; o escalonador
+  não os processava, mas a memória crescia até o teto. Agora há
+  checagem de config antes de qualquer criação.
+- **Vazamentos lentos de memória:** `roleClock` (relógio de papéis por
+  jogador) nunca esquecia jogadores que saíram — limpo no `playerLeave`;
+  `deafUntil` (surdez por explosão) só limpava entradas consultadas —
+  expurgo periódico no intervalo lento já existente (custo zero novo).
+### Refatorado (sem mudança de comportamento)
+- `utils.js` ganhou `hasFamily`, `isVillagerLike` e `explosionOrigin`:
+  os testes de família com try/catch e a resolução de origem de
+  explosão (duplicada em moods/defense) agora têm UMA implementação.
+- Filtros de vítima em `defense.js`/`fauna.js` reescritos sobre os
+  helpers (menos aninhamento, mesma semântica de degradação graciosa).
+- Removido parâmetro morto em `beginRetreat`.
+
 ## v1.1.0 — "Kit de Teste + Nether à Vista" + correções do teste em campo
 ### Correções do PRIMEIRO teste real (obrigado pelo relato!)
 - **Waypoints empilhando no jogador (crítico):** audição e carcaça

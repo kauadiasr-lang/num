@@ -124,10 +124,15 @@ export function ambushTick(brain, cfg) {
   V.tryTrigger(mob, "neuro:ambush_start");
 }
 
-function beginRetreat(brain, cfg) {
+function beginRetreat(brain) {
   const mob = brain.entity;
   brain.retreating = true;
   brain.retreatUntil = system.currentTick + 300; // 15 s no máximo
+  // Uma busca herdada (memória do jogador) apontaria para o waypoint
+  // ERRADO: chegar nele contaria como "recrutou" e mandaria o ferido de
+  // volta ao combate sem reforço algum. A retirada começa sem busca.
+  brain.searching = false;
+  brain.waypointId = null;
   V.tryTrigger(mob, "neuro:retreat_start");
   V.tryEffect(mob, "speed", 100, 0); // adrenalina da fuga
 
@@ -169,6 +174,7 @@ function finishRetreat(brain, cfg, recruited) {
       });
       let n = 0;
       for (const ally of pack) {
+        if (ally.id === mob.id) continue; // não se recruta a si mesmo
         if (n++ >= 5) break;
         V.tryTrigger(ally, "neuro:alert");
         const ab = peekBrain(ally.id);
@@ -220,7 +226,7 @@ export function retreatTick(brain, cfg) {
   if (healthFrac(mob) > thr) return;
   if (alliesOnTarget(brain, target.id, 20, mob.location) > 0) return; // com apoio, luta
 
-  beginRetreat(brain, cfg);
+  beginRetreat(brain);
 }
 
 /** Moral: matar um veterano desorganiza o bando. */

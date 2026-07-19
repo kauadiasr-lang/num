@@ -60,23 +60,29 @@ export function ensureTraits(brain, cfg) {
   brain.personality = trait;
 
   // -------------------------------------------------------------- veterania
+  // O resultado do sorteio persiste MESMO quando negativo: sem isso, cada
+  // reidratação do cérebro (evicção + reengajamento) daria nova chance de
+  // 5% e mobs longevos convergiriam todos para veteranos.
   let vet = false;
+  let vetDecided = false;
   let rolledVet = false;
   try {
-    vet = mob.getDynamicProperty("neuro:vet") === true;
+    const saved = mob.getDynamicProperty("neuro:vet");
+    if (typeof saved === "boolean") {
+      vet = saved;
+      vetDecided = true;
+    }
   } catch {
     /* ignorar */
   }
-  if (!vet && cfg.veterans) {
+  if (!vetDecided && cfg.veterans) {
     const chance = VETERAN_CHANCE * (cfg.moonEvents && fullMoon() ? 2 : 1);
-    if (Math.random() < chance) {
-      vet = true;
-      rolledVet = true;
-      try {
-        mob.setDynamicProperty("neuro:vet", true);
-      } catch {
-        /* ignorar */
-      }
+    vet = Math.random() < chance;
+    rolledVet = vet;
+    try {
+      mob.setDynamicProperty("neuro:vet", vet);
+    } catch {
+      /* ignorar */
     }
   }
   brain.veteran = vet;
@@ -93,8 +99,13 @@ export function ensureTraits(brain, cfg) {
     tryTrigger(mob, "neuro:make_veteran"); // knockback_resistance via JSON
   }
 
-  const factor = (SPEED[trait] ?? 1) * (rolledVet ? 1.08 : 1);
-  if ((rolledTrait || rolledVet) && factor !== 1) {
+  // Cada parcela só entra quando acabou de ser sorteada: um cérebro
+  // reidratado (evicção + reengajamento) com traço já salvo NÃO pode
+  // reaplicar SPEED[trait] — o atributo real já carrega esse fator e a
+  // multiplicação composta aceleraria o mob a cada reengajamento.
+  const factor =
+    (rolledTrait ? SPEED[trait] ?? 1 : 1) * (rolledVet ? 1.08 : 1);
+  if (factor !== 1) {
     try {
       const mv = mob.getComponent("minecraft:movement");
       if (mv) mv.setCurrentValue(mv.currentValue * factor);

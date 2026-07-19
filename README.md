@@ -6,7 +6,9 @@ Script API estável: alerta em grupo, memória da última posição vista, busca
 ativa, cerco/flanqueamento, rotas que evitam perigos, audição, creeper
 furtivo, kiting de esqueleto e dificuldade adaptativa.
 
-**Status: v1.1.0** — 14 mobs + kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inclui o site oficial de documentação em `site/` (GitHub Pages). — núcleo + 13 mobs + anti-torre + vila viva + personalidades/veteranos/clima + alcateias, carcaças e proteção de filhotes. Roadmap em `docs/IDEIAS.md`. Veja
+**Status: v1.1.1** — auditoria de estabilização (correções de retirada
+tática, veterania e vazamentos lentos — ver `CHANGELOG.md`). 14 mobs +
+kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inclui o site oficial de documentação em `site/` (GitHub Pages). — núcleo + 13 mobs + anti-torre + vila viva + personalidades/veteranos/clima + alcateias, carcaças e proteção de filhotes. Roadmap em `docs/IDEIAS.md`. Veja
 `docs/ROADMAP.md`.
 
 ## Requisitos
@@ -16,7 +18,7 @@ furtivo, kiting de esqueleto e dificuldade adaptativa.
   compatibilidade com mundos Survival, multiplayer e **Realms**.
 
 ## Instalação
-1. Abra o arquivo `NeuroMobs_v1.1.0.mcaddon` (duplo clique / compartilhar
+1. Abra o arquivo `NeuroMobs_v1.1.1.mcaddon` (duplo clique / compartilhar
    com o Minecraft). BP e RP são importados juntos.
 2. Nas configurações do mundo, ative o Behavior Pack **NeuroMobs AI [BP]**
    (o RP é dependência e entra automaticamente).

@@ -99,12 +99,12 @@ export function initFauna() {
     const cfg = getConfig();
     if (!cfg.enabled) return; // carrionScent é checado adiante — a pressão
     const victim = ev.deadEntity; // de caça registra mesmo com carcaça off
+    if (!victim || victim.typeId === "minecraft:player") return;
+    if (V.hasFamily(victim, "monster")) return;
+    if (V.hasFamily(victim, "villager")) return;
+    if (V.hasFamily(victim, "inanimate")) return;
+    if (!V.hasFamily(victim, "mob")) return; // exige "mob" vivo e válido
     try {
-      if (!victim || victim.typeId === "minecraft:player") return;
-      if (victim.matches({ families: ["monster"] })) return;
-      if (victim.matches({ families: ["villager"] })) return;
-      if (victim.matches({ families: ["inanimate"] })) return;
-      if (!victim.matches({ families: ["mob"] })) return;
       if (victim.isInWater) return; // água dispersa o cheiro
     } catch {
       return;

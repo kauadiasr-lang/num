@@ -253,21 +253,9 @@ export function initDefense() {
     const src = ev.damageSource && ev.damageSource.damagingEntity;
 
     // --- Alarme de vila: aldeão ferido por monstro ---
-    if (src) {
-      let victimIsVillager = false;
-      let srcIsMonster = false;
-      try {
-        victimIsVillager =
-          victim.matches({ families: ["villager"] }) ||
-          victim.typeId === "minecraft:wandering_trader";
-        srcIsMonster = src.matches({ families: ["monster"] });
-      } catch {
-        /* entidade descarregou */
-      }
-      if (victimIsVillager && srcIsMonster) {
-        villageAlarm(src, victim, cfg);
-        return;
-      }
+    if (src && V.isVillagerLike(victim) && V.hasFamily(src, "monster")) {
+      villageAlarm(src, victim, cfg);
+      return;
     }
 
     // --- Enxame: ferir uma abelha enfurece a colmeia (não dispersa) ---
@@ -279,13 +267,10 @@ export function initDefense() {
     // --- Pânico de rebanho: pacífico/neutro ferido assusta a espécie ---
     if (!cfg.herdPanic) return;
     if (system.currentTick - lastPanicTick < 20) return;
-    try {
-      if (victim.typeId === "minecraft:player") return;
-      if (victim.matches({ families: ["monster"] })) return;
-      if (victim.matches({ families: ["inanimate"] })) return; // waypoints
-    } catch {
-      return;
-    }
+    if (!V.alive(victim)) return;
+    if (victim.typeId === "minecraft:player") return;
+    if (V.hasFamily(victim, "monster")) return;
+    if (V.hasFamily(victim, "inanimate")) return; // waypoints
     lastPanicTick = system.currentTick;
     // Filhote ferido? (babyGuard) O rebanho reage mais longe e por mais
     // tempo — adultos debandam JUNTO com a cria (o follow_parent do bebê
@@ -362,17 +347,7 @@ export function initDefense() {
     const dead = ev.deadEntity;
     const killer = ev.damageSource && ev.damageSource.damagingEntity;
     if (!dead || !killer) return;
-    let deadVillager = false;
-    let killerMonster = false;
-    try {
-      deadVillager =
-        dead.matches({ families: ["villager"] }) ||
-        dead.typeId === "minecraft:wandering_trader";
-      killerMonster = killer.matches({ families: ["monster"] });
-    } catch {
-      return;
-    }
-    if (!deadVillager || !killerMonster) return;
+    if (!V.isVillagerLike(dead) || !V.hasFamily(killer, "monster")) return;
     if (cfg.villageMemory) {
       recordVillageEvent(dead.dimension, dead.location, 2);
     }
@@ -387,20 +362,10 @@ export function initDefense() {
       const cfg = getConfig();
       if (!cfg.enabled || !cfg.villageDefense) return;
       if (system.currentTick - lastInvestigateTick < 200) return; // 10 s
-      let origin = ev.source && ev.source.location;
-      let dim = (ev.source && ev.source.dimension) || ev.dimension;
-      if (!origin) {
-        try {
-          const blocks = ev.getImpactedBlocks ? ev.getImpactedBlocks() : [];
-          if (blocks.length) {
-            origin = blocks[0].location;
-            dim = dim || blocks[0].dimension;
-          }
-        } catch {
-          /* ignorar */
-        }
-      }
-      if (!origin || !dim) return;
+      const blast = V.explosionOrigin(ev);
+      if (!blast) return;
+      const origin = blast.origin;
+      const dim = blast.dimension;
       try {
         // Só interessa se há aldeões por perto (é assunto da vila).
         const near = dim.getEntities({
