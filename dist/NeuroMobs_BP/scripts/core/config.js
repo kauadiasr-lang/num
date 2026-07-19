@@ -6,7 +6,7 @@
 import { world } from "@minecraft/server";
 
 /** Versão única do addon — main/ui/welcome leem daqui (zero deriva). */
-export const VERSION = "1.2.0";
+export const VERSION = "1.2.1";
 
 export const DEFAULTS = {
   enabled: true,          // liga/desliga todo o núcleo de script

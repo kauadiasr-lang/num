@@ -16,7 +16,7 @@
  * algo mudou. Zero polling além disso.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
+import { getConfig } from "../core/config.js";
 
 const KEY = "neuro:stats";
 const ZERO = {

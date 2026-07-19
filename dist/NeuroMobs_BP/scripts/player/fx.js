@@ -27,9 +27,9 @@
  * degradam em silêncio (try/catch).
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { allBrains } from "./core.js";
-import { alive } from "./utils.js";
+import { getConfig } from "../core/config.js";
+import { allBrains } from "../core/core.js";
+import { alive } from "../core/utils.js";
 
 /** Voz vanilla de cada espécie (o grito usa a própria voz do mob). */
 const VOICE = {

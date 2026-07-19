@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.1 — Revisão de loops + arquitetura em camadas + build
+### Corrigido (bugs de repetição/loop)
+- **Creeper demolidor nunca explodia (crítico):** `siegeTick` disparava
+  `start_exploding_forced` a CADA passada do cérebro (~0,4 s), e
+  re-adicionar o grupo `forced_exploding` reseta o pavio de 1,5 s — o
+  creeper ficava chiando na base do pilar para sempre. Agora detona UMA
+  vez por cerco (`brain.breachFired`, rearmado quando o cerco termina).
+- **Menu "não abria" pelo chat (UserBusy):** o comando é digitado no
+  chat, e o form tentava abrir com a tela de chat ainda na frente — o
+  `show()` voltava cancelado na hora. Novo `showWhenReady`: re-tenta a
+  cada 0,5 s até o jogador fechar o chat (teto de 10 s).
+### Estrutura (scripts/ em 4 camadas)
+- `core/` (config · core · utils) — fundação sem dependências de cima.
+- `ai/` (senses · squad · tactics · siege · traits · adaptive) — o
+  comportamento dos monstros.
+- `world/` (moods · defense · fauna · regionmem · villagemind ·
+  wildmind) — o mundo que reage.
+- `player/` (ui · fx · stats · welcome · devtools) — tudo que fala com
+  o jogador. `main.js` continua como entrada (manifest inalterado);
+  imports reescritos e verificados mecanicamente.
+### Build
+- `tools/build.py` gera o `.mcaddon` pronto para instalar (BP + RP) em
+  `build/`, lendo a versão do manifest — nome sempre sincronizado.
+
 ## v1.2.0 — "Sentir a IA" (feedback, crônica e onboarding)
 A IA sempre esteve lá — agora ela se APRESENTA. Nada de mecânica nova
 escondida: esta versão dá som, luz e história ao que já acontecia.

@@ -20,8 +20,8 @@
  * versões são assinadas dentro de try/catch (degradação graciosa).
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { tryEffect, explosionOrigin } from "./utils.js";
+import { getConfig } from "../core/config.js";
+import { tryEffect, explosionOrigin } from "../core/utils.js";
 
 let moonFull = false;
 const weatherByDim = new Map(); // dimensionId -> "Clear" | "Rain" | "Thunder"

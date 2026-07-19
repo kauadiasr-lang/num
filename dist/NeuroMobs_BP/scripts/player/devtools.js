@@ -15,8 +15,8 @@
  * tem a tag — em produção o módulo é inerte.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { allBrains, peekBrain, perf } from "./core.js";
+import { getConfig } from "../core/config.js";
+import { allBrains, peekBrain, perf } from "../core/core.js";
 
 const TAG = "neuro_dev";
 const PERSONA = { shy: "cauteloso", normal: "normal", bold: "audaz" };

@@ -15,16 +15,16 @@
  * ~3s, produzindo o padrão cercar -> atacar por outro ângulo.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { getBrain, allBrains } from "./core.js";
+import { getConfig } from "../core/config.js";
+import { getBrain, allBrains } from "../core/core.js";
 import { canSee, startSearch } from "./senses.js";
 import { adaptiveBuff } from "./adaptive.js";
-import { villageAlarm } from "./defense.js";
+import { villageAlarm } from "../world/defense.js";
 import { ensureTraits } from "./traits.js";
-import { alertFactor, isDeaf, isDaytime } from "./moods.js";
-import { fxAlert } from "./fx.js";
-import { bump } from "./stats.js";
-import * as V from "./utils.js";
+import { alertFactor, isDeaf, isDaytime } from "../world/moods.js";
+import { fxAlert } from "../player/fx.js";
+import { bump } from "../player/stats.js";
+import * as V from "../core/utils.js";
 
 const PLAYER = "minecraft:player";
 const SOLITARY = new Set(["minecraft:enderman"]); // não gritam para o bando

@@ -24,13 +24,13 @@
  * (mesmo custo por tick de sempre); moral é evento de morte com teto.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { allBrains, peekBrain } from "./core.js";
+import { getConfig } from "../core/config.js";
+import { allBrains, peekBrain } from "../core/core.js";
 import { canSee, startSearch } from "./senses.js";
 import { isObserver } from "./squad.js";
-import { fxPounce, fxRetreat, fxMoralBreak } from "./fx.js";
-import { bump } from "./stats.js";
-import * as V from "./utils.js";
+import { fxPounce, fxRetreat, fxMoralBreak } from "../player/fx.js";
+import { bump } from "../player/stats.js";
+import * as V from "../core/utils.js";
 
 const PLAYER = "minecraft:player";
 const AMBUSH_SET = new Set([

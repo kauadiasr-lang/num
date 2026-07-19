@@ -21,11 +21,11 @@
  * nada entra no escalonador por tick.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { getBrain } from "./core.js";
+import { getConfig } from "../core/config.js";
+import { getBrain } from "../core/core.js";
 import { recordHunt } from "./wildmind.js";
-import { startSearch } from "./senses.js";
-import * as V from "./utils.js";
+import { startSearch } from "../ai/senses.js";
+import * as V from "../core/utils.js";
 
 let lastPackTick = 0;
 let lastCarrionTick = 0;

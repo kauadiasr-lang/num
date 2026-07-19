@@ -13,12 +13,16 @@
  * Custos: 1 evento (playerSpawn inicial) + 1 timeout curto. Zero ticks.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig, VERSION } from "./config.js";
+import { getConfig, VERSION } from "../core/config.js";
 
 const PROP = "neuro:hello";
 
 /** Uma linha por versão — o resumo pós-atualização mostra só a atual. */
 const NEWS = {
+  "1.2.1":
+    "novidades: menu abre direto do chat, creeper demolidor corrigido, " +
+    "sons/particulas taticas, aviso de cacada e cronica do mundo " +
+    "(§e/scriptevent neuro:cronica§r).",
   "1.2.0":
     "novidades: sons e partículas nos momentos táticos, aviso de caçada, " +
     "crônica do mundo (§e/scriptevent neuro:cronica§r) e menu por categorias."

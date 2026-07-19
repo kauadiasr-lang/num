@@ -11,10 +11,10 @@
  * jogador por LOS real — a busca termina.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { hearingFactor, isDeaf } from "./moods.js";
-import { bump } from "./stats.js";
-import * as V from "./utils.js";
+import { getConfig } from "../core/config.js";
+import { hearingFactor, isDeaf } from "../world/moods.js";
+import { bump } from "../player/stats.js";
+import * as V from "../core/utils.js";
 
 const PLAYER = "minecraft:player";
 const WAYPOINT = "neuro:waypoint";

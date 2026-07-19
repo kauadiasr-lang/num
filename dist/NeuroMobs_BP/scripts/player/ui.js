@@ -16,8 +16,8 @@
  */
 import { system } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { getConfig, setConfig, resetConfig, VERSION } from "./config.js";
-import { perf, allBrains } from "./core.js";
+import { getConfig, setConfig, resetConfig, VERSION } from "../core/config.js";
+import { perf, allBrains } from "../core/core.js";
 import { chronicleText } from "./stats.js";
 
 const LABELS = {
@@ -166,6 +166,21 @@ function stateOf(v) {
   return v ? "§2ATIVADO§r" : "§4desativado§r";
 }
 
+/**
+ * O comando vem do CHAT — quando o form tenta abrir, a tela de chat
+ * ainda está na frente e o show() volta na hora com "UserBusy" (o menu
+ * parecia simplesmente não funcionar). Espera educada: re-tenta a cada
+ * meio segundo até o jogador fechar o chat (teto de 10 s).
+ */
+async function showWhenReady(form, player) {
+  for (let i = 0; i < 20; i++) {
+    const res = await form.show(player);
+    if (String(res.cancelationReason) !== "UserBusy") return res;
+    await new Promise((resolve) => system.runTimeout(resolve, 10));
+  }
+  return undefined;
+}
+
 /** Quantos toggles da categoria estão ativos (resumo no botão). */
 function activeCount(cat, cfg) {
   let on = 0;
@@ -191,7 +206,7 @@ async function openMenu(player) {
 
   let res;
   try {
-    res = await form.show(player);
+    res = await showWhenReady(form, player);
   } catch {
     return;
   }
@@ -228,7 +243,7 @@ async function openCategory(player, idx) {
 
   let res;
   try {
-    res = await form.show(player);
+    res = await showWhenReady(form, player);
   } catch {
     return;
   }

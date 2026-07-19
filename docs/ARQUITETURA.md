@@ -138,10 +138,14 @@ ignição manual; aranha preserva escalada, salto e neutralidade diurna.
 NeuroMobs_BP/
 ├── manifest.json            (data + script, deps @minecraft/server[-ui] 2.x)
 ├── pack_icon.png
-├── entities/                zombie · skeleton · creeper · spider · waypoint
+├── entities/                zombie · skeleton · creeper · spider · waypoint …
 ├── loot_tables/entities/    neuro_skeleton_gear.json (arco garantido)
-├── scripts/                 main · core · senses · squad · adaptive
-│                            config · ui · utils
+├── scripts/                 main.js (entrada) + 4 camadas:
+│   ├── core/                config · core (cérebros/escalonador) · utils
+│   ├── ai/                  senses · squad · tactics · siege · traits · adaptive
+│   ├── world/               moods · defense · fauna · regionmem
+│   │                        villagemind · wildmind
+│   └── player/              ui · fx · stats · welcome · devtools
 └── texts/                   en_US · pt_BR
 NeuroMobs_RP/
 ├── manifest.json

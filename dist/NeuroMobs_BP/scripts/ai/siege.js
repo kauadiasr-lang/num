@@ -17,8 +17,8 @@
  *    componente minecraft:teleport).
  */
 import { isObserver } from "./squad.js";
-import { bump } from "./stats.js";
-import * as V from "./utils.js";
+import { bump } from "../player/stats.js";
+import * as V from "../core/utils.js";
 
 const PLAYER = "minecraft:player";
 
@@ -34,6 +34,7 @@ const MELEE_SIEGE = new Set([
 
 function clearSiege(brain) {
   brain.towerTicks = 0;
+  brain.breachFired = false; // creeper pode detonar de novo num próximo cerco
   if (brain.sieging) {
     brain.sieging = false;
     V.tryTrigger(brain.entity, "neuro:siege_stop");
@@ -73,8 +74,12 @@ export function siegeTick(brain, cfg) {
   if (brain.towerTicks < 3) return;
 
   if (brain.type === "minecraft:creeper") {
-    // Encostou na base do pilar? Detona o apoio.
-    if (cfg.creeperBreach && horiz2 < 2.9) {
+    // Encostou na base do pilar? Detona o apoio — UMA vez por cerco:
+    // re-disparar a cada passada re-adiciona o grupo forced_exploding e
+    // RESETA o pavio de 1,5 s (passadas vêm a cada ~0,4 s), deixando o
+    // creeper chiando para sempre sem explodir.
+    if (cfg.creeperBreach && horiz2 < 2.9 && !brain.breachFired) {
+      brain.breachFired = true;
       V.tryTrigger(mob, "minecraft:start_exploding_forced");
     }
     return;

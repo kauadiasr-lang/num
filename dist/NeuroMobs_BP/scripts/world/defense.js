@@ -21,14 +21,14 @@
  * global, então o impacto por tick é ~zero fora de combate.
  */
 import { world, system } from "@minecraft/server";
-import { getConfig } from "./config.js";
+import { getConfig } from "../core/config.js";
 import { recordVillageEvent, traumaLevel } from "./villagemind.js";
 import { pressureLevel } from "./wildmind.js";
-import { getBrain } from "./core.js";
-import { startSearch } from "./senses.js";
-import { fxAlarmHorn } from "./fx.js";
-import { bump } from "./stats.js";
-import * as V from "./utils.js";
+import { getBrain } from "../core/core.js";
+import { startSearch } from "../ai/senses.js";
+import { fxAlarmHorn } from "../player/fx.js";
+import { bump } from "../player/stats.js";
+import * as V from "../core/utils.js";
 
 let lastAlarmTick = 0;
 let lastPanicTick = 0;

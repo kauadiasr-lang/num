@@ -6,7 +6,7 @@ Script API estável: alerta em grupo, memória da última posição vista, busca
 ativa, cerco/flanqueamento, rotas que evitam perigos, audição, creeper
 furtivo, kiting de esqueleto e dificuldade adaptativa.
 
-**Status: v1.2.0 — "Sentir a IA"** — feedback audiovisual dos momentos
+**Status: v1.2.1 — "Sentir a IA"** — feedback audiovisual dos momentos
 táticos (grito de guerra, bote, retirada, veteranos), aviso de caçada no
 HUD, crônica do mundo com marcos, boas-vindas na 1ª entrada e menu por
 categorias — ver `CHANGELOG.md`. 14 mobs +
@@ -20,7 +20,7 @@ kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inc
   compatibilidade com mundos Survival, multiplayer e **Realms**.
 
 ## Instalação
-1. Abra o arquivo `NeuroMobs_v1.2.0.mcaddon` (duplo clique / compartilhar
+1. Abra o arquivo `NeuroMobs_v1.2.1.mcaddon` (duplo clique / compartilhar
    com o Minecraft). BP e RP são importados juntos.
 2. Nas configurações do mundo, ative o Behavior Pack **NeuroMobs AI [BP]**
    (o RP é dependência e entra automaticamente).

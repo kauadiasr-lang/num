@@ -12,8 +12,8 @@
  * matilha.
  */
 import { world, system, EquipmentSlot } from "@minecraft/server";
-import { getConfig } from "./config.js";
-import { tryEffect } from "./utils.js";
+import { getConfig } from "../core/config.js";
+import { tryEffect } from "../core/utils.js";
 
 const TAG = "neuro_prio";
 const ARMOR_SLOTS = [

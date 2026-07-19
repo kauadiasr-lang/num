@@ -16,10 +16,10 @@
  *
  * Custo: roda UMA vez por mob (no primeiro aggro); zero polling.
  */
-import { fullMoon } from "./moods.js";
-import { fxVeteran } from "./fx.js";
-import { bump } from "./stats.js";
-import { tryEffect, tryTrigger } from "./utils.js";
+import { fullMoon } from "../world/moods.js";
+import { fxVeteran } from "../player/fx.js";
+import { bump } from "../player/stats.js";
+import { tryEffect, tryTrigger } from "../core/utils.js";
 
 const VETERAN_CHANCE = 0.05;
 

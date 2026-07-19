@@ -35,6 +35,7 @@ export function getBrain(entity) {
       frozen: false,       // creeper em modo furtivo
       sieging: false,      // em modo cerco anti-torre
       towerTicks: 0,       // passadas consecutivas com alvo "torreado"
+      breachFired: false,  // creeper já detonou neste cerco (anti-reset de pavio)
       personality: "normal", // "shy" | "normal" | "bold" (traits.js)
       veteran: false,      // chefe natural (traits.js)
       traitsDone: false,   // traços já resolvidos para esta entidade

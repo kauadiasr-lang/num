@@ -10,21 +10,21 @@
  *  5. Higiene: remove cérebros de entidades mortas/descarregadas.
  */
 import { world, system } from "@minecraft/server";
-import { loadConfig, getConfig, VERSION } from "./config.js";
-import { startScheduler, onBrainTick, getBrain, dropBrain } from "./core.js";
-import { memoryTick, initHearing } from "./senses.js";
-import { initSquad, squadTick } from "./squad.js";
-import { initAdaptive } from "./adaptive.js";
-import { siegeTick } from "./siege.js";
-import { initDefense } from "./defense.js";
-import { initMoods } from "./moods.js";
-import { initFauna } from "./fauna.js";
-import { ambushTick, retreatTick, initTactics } from "./tactics.js";
-import { initDevtools } from "./devtools.js";
-import { initUI } from "./ui.js";
-import { initFx } from "./fx.js";
-import { initStats } from "./stats.js";
-import { initWelcome } from "./welcome.js";
+import { loadConfig, getConfig, VERSION } from "./core/config.js";
+import { startScheduler, onBrainTick, getBrain, dropBrain } from "./core/core.js";
+import { memoryTick, initHearing } from "./ai/senses.js";
+import { initSquad, squadTick } from "./ai/squad.js";
+import { initAdaptive } from "./ai/adaptive.js";
+import { siegeTick } from "./ai/siege.js";
+import { initDefense } from "./world/defense.js";
+import { initMoods } from "./world/moods.js";
+import { initFauna } from "./world/fauna.js";
+import { ambushTick, retreatTick, initTactics } from "./ai/tactics.js";
+import { initDevtools } from "./player/devtools.js";
+import { initUI } from "./player/ui.js";
+import { initFx } from "./player/fx.js";
+import { initStats } from "./player/stats.js";
+import { initWelcome } from "./player/welcome.js";
 
 system.run(() => {
   loadConfig();
