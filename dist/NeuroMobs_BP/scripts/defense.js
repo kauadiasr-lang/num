@@ -26,6 +26,8 @@ import { recordVillageEvent, traumaLevel } from "./villagemind.js";
 import { pressureLevel } from "./wildmind.js";
 import { getBrain } from "./core.js";
 import { startSearch } from "./senses.js";
+import { fxAlarmHorn } from "./fx.js";
+import { bump } from "./stats.js";
 import * as V from "./utils.js";
 
 let lastAlarmTick = 0;
@@ -97,6 +99,7 @@ function bellRung(player, block) {
   if (!cfg.enabled || !cfg.tacticalBell) return;
   if (system.currentTick - lastBellTick < 200) return; // 10 s entre toques
   lastBellTick = system.currentTick;
+  bump("bells");
 
   const loc = {
     x: block.location.x + 0.5,
@@ -162,6 +165,8 @@ export function villageAlarm(threat, victim, cfg) {
   if (!cfg.villageDefense) return;
   if (system.currentTick - lastAlarmTick < 60) return; // 3 s entre alarmes
   lastAlarmTick = system.currentTick;
+  fxAlarmHorn(victim.location, victim.dimension); // corneta baixa (10 s de intervalo próprio)
+  bump("alarms");
 
   // MEMÓRIA DA VILA: regiões atacadas recentemente respondem mais forte.
   let trauma = 0;

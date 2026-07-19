@@ -6,8 +6,10 @@ Script API estável: alerta em grupo, memória da última posição vista, busca
 ativa, cerco/flanqueamento, rotas que evitam perigos, audição, creeper
 furtivo, kiting de esqueleto e dificuldade adaptativa.
 
-**Status: v1.1.1** — auditoria de estabilização (correções de retirada
-tática, veterania e vazamentos lentos — ver `CHANGELOG.md`). 14 mobs +
+**Status: v1.2.0 — "Sentir a IA"** — feedback audiovisual dos momentos
+táticos (grito de guerra, bote, retirada, veteranos), aviso de caçada no
+HUD, crônica do mundo com marcos, boas-vindas na 1ª entrada e menu por
+categorias — ver `CHANGELOG.md`. 14 mobs +
 kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inclui o site oficial de documentação em `site/` (GitHub Pages). — núcleo + 13 mobs + anti-torre + vila viva + personalidades/veteranos/clima + alcateias, carcaças e proteção de filhotes. Roadmap em `docs/IDEIAS.md`. Veja
 `docs/ROADMAP.md`.
 
@@ -18,7 +20,7 @@ kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inc
   compatibilidade com mundos Survival, multiplayer e **Realms**.
 
 ## Instalação
-1. Abra o arquivo `NeuroMobs_v1.1.1.mcaddon` (duplo clique / compartilhar
+1. Abra o arquivo `NeuroMobs_v1.2.0.mcaddon` (duplo clique / compartilhar
    com o Minecraft). BP e RP são importados juntos.
 2. Nas configurações do mundo, ative o Behavior Pack **NeuroMobs AI [BP]**
    (o RP é dependência e entra automaticamente).
@@ -27,8 +29,11 @@ kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inc
 ## Configuração no jogo
 | Comando | Efeito |
 |---|---|
-| `/scriptevent neuro:menu` | Menu completo de opções (toque para alternar) |
+| `/scriptevent neuro:menu` | Menu de opções por categoria (toque para alternar) |
+| `/scriptevent neuro:cronica` | Crônica do mundo — a história da IA nesta seed |
+| `/scriptevent neuro:ajuda` | Lista de comandos no chat |
 | `/scriptevent neuro:stats` | Cérebros ativos + custo em ms por tick |
+| `/scriptevent neuro:ver` | Visão de desenvolvedor (waypoints + cérebros) |
 | `/scriptevent neuro:on` · `neuro:off` | Liga/desliga o núcleo |
 | `/scriptevent neuro:reset` | Restaura os padrões |
 

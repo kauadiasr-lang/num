@@ -5,6 +5,9 @@
  */
 import { world } from "@minecraft/server";
 
+/** Versão única do addon — main/ui/welcome leem daqui (zero deriva). */
+export const VERSION = "1.2.0";
+
 export const DEFAULTS = {
   enabled: true,          // liga/desliga todo o núcleo de script
   packAlert: true,        // mobs alertam aliados próximos ao ver um jogador
@@ -37,6 +40,10 @@ export const DEFAULTS = {
   huntingPressure: true,  // caça excessiva deixa a fauna da região arisca
   adaptive: true,         // reforços conforme dificuldade/equipamento do alvo
   priorityTargeting: true,// grupos priorizam o jogador mais vulnerável
+  feedbackFx: true,       // sons/partículas nos momentos táticos (grito, bote…)
+  huntedIndicator: true,  // aviso no HUD quando 3+ mobs caçam você
+  welcomeMessages: true,  // boas-vindas na 1ª entrada + resumo pós-atualização
+  milestones: true,       // marcos da crônica do mundo (anunciados no chat)
   budgetPerTick: 6,       // nº de "cérebros" processados por tick (desempenho)
   maxTracked: 48,         // teto de cérebros simultâneos em memória
   debug: false            // logs e mensagens de diagnóstico

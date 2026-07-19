@@ -6,8 +6,8 @@
     "uuid": "fd164ddb-655a-44fa-99c7-e73bdaa370b0",
     "version": [
       1,
-      1,
-      1
+      2,
+      0
     ],
     "min_engine_version": [
       1,
@@ -21,8 +21,8 @@
       "uuid": "672a39fa-e391-4c3a-a1a2-22ce1a63786a",
       "version": [
         1,
-        1,
-        1
+        2,
+        0
       ]
     },
     {
@@ -31,8 +31,8 @@
       "uuid": "4372f8ec-3745-4945-897d-1f55fefbadc2",
       "version": [
         1,
-        1,
-        1
+        2,
+        0
       ],
       "entry": "scripts/main.js"
     }
@@ -50,8 +50,8 @@
       "uuid": "d6329828-e046-4e7c-9fa7-b151c88361e8",
       "version": [
         1,
-        1,
-        1
+        2,
+        0
       ]
     }
   ],

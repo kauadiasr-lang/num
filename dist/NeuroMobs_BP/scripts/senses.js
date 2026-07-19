@@ -13,6 +13,7 @@
 import { world, system } from "@minecraft/server";
 import { getConfig } from "./config.js";
 import { hearingFactor, isDeaf } from "./moods.js";
+import { bump } from "./stats.js";
 import * as V from "./utils.js";
 
 const PLAYER = "minecraft:player";
@@ -114,6 +115,7 @@ export function startSearch(brain, loc, sharedWaypointId) {
     brain.waypointId = wpId;
     brain.searching = true;
     V.tryTrigger(mob, "neuro:start_search");
+    bump("hunts");
     return wpId;
   } catch {
     brain.searching = false;

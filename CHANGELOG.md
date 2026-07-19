@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.2.0 — "Sentir a IA" (feedback, crônica e onboarding)
+A IA sempre esteve lá — agora ela se APRESENTA. Nada de mecânica nova
+escondida: esta versão dá som, luz e história ao que já acontecia.
+
+### Feedback audiovisual (novo módulo `fx.js`, toggle `feedbackFx`)
+- **Grito de guerra:** o grito de alerta agora se OUVE — a voz do
+  próprio mob, mais aguda (zumbi grita como zumbi, bruxa como bruxa) +
+  nuvem de raiva. O jogador aprende o vocabulário: grito = bando acordado.
+- **Bote da emboscada:** voz aguda + faíscas de acerto crítico no
+  emboscador no instante do bote.
+- **Retirada tática:** baforada de fumaça ao desengajar — lê-se "foi
+  buscar reforço", não "desistiu".
+- **Promoção a veterano:** acorde de encantamento + partículas — um
+  chefe nasceu (o nome dourado agora tem trilha sonora).
+- **Moral quebrada:** faíscas de fogo de artifício sobre o veterano
+  morto — recompensa audível por abater o líder.
+- **Corneta da vila:** a corneta de raid, baixa, quando o alarme de
+  vila dispara (intervalo próprio de 10 s).
+- **Aviso de caçada (`huntedIndicator`):** 3+ cérebros no seu rastro
+  mostram "§cN caçadores na sua trilha…§r" no action bar — só quando o
+  número muda (ou a cada 30 s). Cede a vez ao HUD do modo dev.
+
+### Crônica do mundo (novo módulo `stats.js`, comando `neuro:cronica`)
+- Contadores persistentes: gritos, investigações, emboscadas,
+  retiradas, cercos, veteranos surgidos/abatidos, alarmes e sinos.
+- **Marcos (`milestones`):** totais notáveis anunciados no chat com som
+  de conquista (1º/10º/50º veterano abatido, 100º/1000º grito, 25ª
+  emboscada). Desligável.
+- Gravação preguiçosa: 1 dynamic property, no máximo 1×/30 s e só se
+  algo mudou.
+
+### Boas-vindas e novidades (novo módulo `welcome.js`, toggle `welcomeMessages`)
+- 1ª entrada no mundo: título "NeuroMobs AI" + guia rápido no chat
+  (menu, crônica, ajuda). Pós-atualização: UMA linha com as novidades.
+  Estado por jogador (dynamic property), correto em multiplayer.
+
+### Menu por categorias (ui.js reescrito)
+- O menu de ~30 botões virou 6 categorias temáticas (Combate, Percepção,
+  Mundo vivo, Vila, Feedback, Sistema) com descrição, contagem de opções
+  ativas por categoria, estado colorido e navegação com "Voltar".
+- Novos comandos: `neuro:cronica` e `neuro:ajuda` (alias `neuro:help`).
+- Descrição dos packs (langs) agora ensina o comando do menu já na
+  tela de instalação.
+
+### Desempenho
+- Tudo orientado a evento sobre gatilhos JÁ existentes; o indicador de
+  caçada é o único intervalo novo (1×/80 ticks, percorre só o mapa de
+  cérebros ≤ maxTracked). Sons/partículas ausentes degradam em silêncio.
+
 ## v1.1.1 — Auditoria de estabilização (produção)
 ### Corrigido
 - **Retirada tática herdando busca antiga (lógico, crítico):** ao entrar

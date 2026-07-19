@@ -28,6 +28,8 @@ import { getConfig } from "./config.js";
 import { allBrains, peekBrain } from "./core.js";
 import { canSee, startSearch } from "./senses.js";
 import { isObserver } from "./squad.js";
+import { fxPounce, fxRetreat, fxMoralBreak } from "./fx.js";
+import { bump } from "./stats.js";
 import * as V from "./utils.js";
 
 const PLAYER = "minecraft:player";
@@ -80,7 +82,10 @@ function healthFrac(mob) {
 function endAmbush(brain, pounce) {
   brain.ambushing = false;
   V.tryTrigger(brain.entity, "neuro:ambush_stop");
-  if (pounce) V.tryEffect(brain.entity, "speed", 60, 0); // o bote!
+  if (pounce) {
+    V.tryEffect(brain.entity, "speed", 60, 0); // o bote!
+    fxPounce(brain.entity); // voz aguda + faíscas: o "gotcha" agora se sente
+  }
 }
 
 /** Handler por cérebro: máquina de estados da emboscada. */
@@ -122,6 +127,7 @@ export function ambushTick(brain, cfg) {
   brain.ambushing = true;
   brain.ambushUntil = system.currentTick + 160; // 8 s no máximo
   V.tryTrigger(mob, "neuro:ambush_start");
+  bump("ambushes");
 }
 
 function beginRetreat(brain) {
@@ -135,6 +141,8 @@ function beginRetreat(brain) {
   brain.waypointId = null;
   V.tryTrigger(mob, "neuro:retreat_start");
   V.tryEffect(mob, "speed", 100, 0); // adrenalina da fuga
+  fxRetreat(mob); // fumaça: desengajou (foi buscar reforço, não desistiu)
+  bump("retreats");
 
   // Procura um aliado ocioso para recrutar (waypoint até ele).
   try {
@@ -247,6 +255,12 @@ export function initTactics() {
       }
     }
     if (!vet) return;
+    try {
+      fxMoralBreak(dead.location, dead.dimension); // recompensa audível
+    } catch {
+      /* dimensão indisponível */
+    }
+    bump("vetKilled");
     try {
       const pack = dead.dimension.getEntities({
         location: dead.location,

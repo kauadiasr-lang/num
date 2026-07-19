@@ -10,7 +10,7 @@
  *  5. Higiene: remove cérebros de entidades mortas/descarregadas.
  */
 import { world, system } from "@minecraft/server";
-import { loadConfig, getConfig } from "./config.js";
+import { loadConfig, getConfig, VERSION } from "./config.js";
 import { startScheduler, onBrainTick, getBrain, dropBrain } from "./core.js";
 import { memoryTick, initHearing } from "./senses.js";
 import { initSquad, squadTick } from "./squad.js";
@@ -22,6 +22,9 @@ import { initFauna } from "./fauna.js";
 import { ambushTick, retreatTick, initTactics } from "./tactics.js";
 import { initDevtools } from "./devtools.js";
 import { initUI } from "./ui.js";
+import { initFx } from "./fx.js";
+import { initStats } from "./stats.js";
+import { initWelcome } from "./welcome.js";
 
 system.run(() => {
   loadConfig();
@@ -41,6 +44,9 @@ system.run(() => {
   initHearing(getBrain);
   initAdaptive();
   initUI();
+  initFx();      // feedback audiovisual + indicador de caçada
+  initStats();   // crônica do mundo (gravação preguiçosa)
+  initWelcome(); // boas-vindas na 1ª entrada + novidades pós-update
   startScheduler();
 
   // Limpeza de cérebros.
@@ -60,6 +66,6 @@ system.run(() => {
   }
 
   if (getConfig().debug) {
-    console.warn("[NeuroMobs] núcleo de IA iniciado (v1.1.1)");
+    console.warn(`[NeuroMobs] núcleo de IA iniciado (v${VERSION})`);
   }
 });

@@ -22,6 +22,8 @@ import { adaptiveBuff } from "./adaptive.js";
 import { villageAlarm } from "./defense.js";
 import { ensureTraits } from "./traits.js";
 import { alertFactor, isDeaf, isDaytime } from "./moods.js";
+import { fxAlert } from "./fx.js";
+import { bump } from "./stats.js";
 import * as V from "./utils.js";
 
 const PLAYER = "minecraft:player";
@@ -102,6 +104,8 @@ function onAggro(mob, knownTarget) {
 
   if (cfg.packAlert && !SOLITARY.has(b.type) && system.currentTick >= b.alertCooldown) {
     b.alertCooldown = system.currentTick + 100; // 5s entre gritos por mob
+    fxAlert(mob); // o grito agora se OUVE (voz do próprio mob, aguda)
+    bump("alerts");
     // Lua cheia amplia o grito; veteranos gritam 1,5x mais longe.
     const shoutRadius = Math.round(
       cfg.alertRadius * alertFactor() * (b.veteran ? 1.5 : 1)

@@ -17,6 +17,8 @@
  * Custo: roda UMA vez por mob (no primeiro aggro); zero polling.
  */
 import { fullMoon } from "./moods.js";
+import { fxVeteran } from "./fx.js";
+import { bump } from "./stats.js";
 import { tryEffect, tryTrigger } from "./utils.js";
 
 const VETERAN_CHANCE = 0.05;
@@ -97,6 +99,8 @@ export function ensureTraits(brain, cfg) {
     }
     tryEffect(mob, "resistance", 20000000, 0); // ~permanente
     tryTrigger(mob, "neuro:make_veteran"); // knockback_resistance via JSON
+    fxVeteran(mob); // acorde + nuvem de raiva: nasceu um chefe
+    bump("vetBorn");
   }
 
   // Cada parcela só entra quando acabou de ser sorteada: um cérebro

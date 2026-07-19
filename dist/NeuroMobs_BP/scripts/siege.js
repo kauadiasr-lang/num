@@ -17,6 +17,7 @@
  *    componente minecraft:teleport).
  */
 import { isObserver } from "./squad.js";
+import { bump } from "./stats.js";
 import * as V from "./utils.js";
 
 const PLAYER = "minecraft:player";
@@ -80,6 +81,7 @@ export function siegeTick(brain, cfg) {
   }
 
   if (MELEE_SIEGE.has(brain.type)) {
+    if (!brain.sieging) bump("sieges"); // conta só a ENTRADA no cerco
     brain.sieging = true;
     // Re-dispara a cada passada: sustenta o timer de segurança (15 s).
     V.tryTrigger(mob, "neuro:siege_start");
