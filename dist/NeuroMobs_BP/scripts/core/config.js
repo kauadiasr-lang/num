@@ -6,7 +6,7 @@
 import { world } from "@minecraft/server";
 
 /** Versão única do addon — main/ui/welcome leem daqui (zero deriva). */
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
 
 export const DEFAULTS = {
   enabled: true,          // liga/desliga todo o núcleo de script
@@ -40,6 +40,18 @@ export const DEFAULTS = {
   huntingPressure: true,  // caça excessiva deixa a fauna da região arisca
   adaptive: true,         // reforços conforme dificuldade/equipamento do alvo
   priorityTargeting: true,// grupos priorizam o jogador mais vulnerável
+  // ------------------------------------------------ civilização (v1.3)
+  villageAI: true,        // liga a camada inteira de civilização das vilas
+  villagerNames: true,    // aldeões ganham nome + sobrenome de família visíveis
+  villageFamilies: true,  // famílias: parentesco, luto, herança de casas
+  villageEconomy: true,   // celeiro (baús reais), coleta, partilha, escassez
+  villageJobs: true,      // profissões trabalham de verdade (colheita, reparos…)
+  villageHonor: true,     // honra por jogador e por vila, com consequências
+  villageCrime: true,     // testemunhas, boatos, guardas chamados, lockdown
+  villageGuards: true,    // guardas dedicados: turnos, patrulha, recrutamento
+  villageEvents: true,    // eventos: festival, casamento, nascimento, funeral…
+  villageSocial: true,    // conversas com olhar, crianças brincando, presentes
+  banditRaids: false,     // ataques de bandidos raros (2-3 pillagers) — opt-in
   feedbackFx: true,       // sons/partículas nos momentos táticos (grito, bote…)
   huntedIndicator: true,  // aviso no HUD quando 3+ mobs caçam você
   welcomeMessages: true,  // boas-vindas na 1ª entrada + resumo pós-atualização

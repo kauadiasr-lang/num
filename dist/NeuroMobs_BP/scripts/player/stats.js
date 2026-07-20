@@ -28,7 +28,13 @@ const ZERO = {
   vetBorn: 0,   // veteranos surgidos
   vetKilled: 0, // veteranos abatidos
   alarms: 0,    // alarmes de vila
-  bells: 0      // toques de sino tático
+  bells: 0,     // toques de sino tático
+  guards: 0,    // guardas recrutados (v1.3)
+  festivals: 0, // festivais celebrados
+  weddings: 0,  // casamentos
+  births: 0,    // nascimentos
+  epidemics: 0, // surtos de febre
+  caravans: 0   // caravanas recebidas
 };
 
 let stats = null;
@@ -96,7 +102,10 @@ export function chronicleText() {
     `§eGritos de alerta:§r ${s.alerts}  §eInvestigações:§r ${s.hunts}\n` +
     `§eEmboscadas:§r ${s.ambushes}  §eRetiradas:§r ${s.retreats}  §eCercos:§r ${s.sieges}\n` +
     `§6Veteranos surgidos:§r ${s.vetBorn}  §6abatidos:§r ${s.vetKilled}\n` +
-    `§eAlarmes de vila:§r ${s.alarms}  §eSinos táticos:§r ${s.bells}`
+    `§eAlarmes de vila:§r ${s.alarms}  §eSinos táticos:§r ${s.bells}\n` +
+    `§d— Civilização —§r\n` +
+    `§eGuardas:§r ${s.guards}  §eFestivais:§r ${s.festivals}  §eCasamentos:§r ${s.weddings}\n` +
+    `§eNascimentos:§r ${s.births}  §eFebres:§r ${s.epidemics}  §eCaravanas:§r ${s.caravans}`
   );
 }
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.3.0 — "Civilização" (as vilas viram sociedades)
+Camada nova `scripts/village/` (11 módulos) com escalonador LOD próprio:
+1 tarefa de 1 vila por fatia de 10 ticks; vilas sem jogador dormem.
+Princípio: ZERO IA falsa — tudo é mecânica real da engine. Detalhes em
+`docs/CIVILIZACAO.md`.
+
+- **Personas**: nome+sobrenome visíveis, 5 traços e humor por aldeão.
+- **Famílias**: linhagens, luto com efeitos, desaparecidos com busca
+  real, herança de casas anunciada na crônica.
+- **Casas**: portas descobertas e registradas; FECHAM à noite e em
+  lockdown; reparo FÍSICO (blocos repostos) consumindo madeira.
+- **Economia**: celeiro = baú REAL; livro-razão espelha o conteúdo;
+  coleta de itens do chão; partilha de pão físico (→ disposição
+  vanilla → NASCIMENTOS reais); doações testemunhadas dão honra.
+- **Profissões trabalham**: colheita/replantio de blocos reais,
+  manutenção de defensores, suprimento de guardas, conhecimento que
+  PROMOVE guardas, cura de doentes, tochas e combate a incêndio.
+- **Honra por jogador/vila**: herói, suspeito e FORA-DA-LEI (guardas
+  atacam pela tag neuro_outlaw). Redenção possível.
+- **Crime**: testemunhas com linha de visão real, boatos que contagiam
+  nas conversas, lockdown, evidência que decai (assassinato: nunca).
+- **Guardas** (`neuro:guard`): recrutados com CUSTO do celeiro, turnos
+  dia/noite alternados, tiers 2/3 por conhecimento, escolta de crianças
+  e visita a gado perdido. Família neuro_defender: integram alarme,
+  sino e explosões automaticamente.
+- **Vida social**: pares se encaram (setRotation), fofoca visível,
+  crianças brincando, pôr do sol, aconchego na chuva, presentes.
+- **Eventos**: festival (fogos reais, custo em comida), casamento (o
+  cônjuge MUDA de sobrenome), epidemia com contágio e cura clerical,
+  criança perdida (busca + honra), criação de gado, caravana com
+  memória de emboscada, bandidos raros (opt-in `banditRaids`).
+- Crônica ampliada (guardas, festivais, casamentos, nascimentos,
+  febres, caravanas); devtools inspeciona persona/humor de aldeões;
+  menu Vila com 15 opções.
+
 ## v1.2.1 — Revisão de loops + arquitetura em camadas + build
 ### Corrigido (bugs de repetição/loop)
 - **Creeper demolidor nunca explodia (crítico):** `siegeTick` disparava

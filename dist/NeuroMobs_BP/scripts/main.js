@@ -25,6 +25,17 @@ import { initUI } from "./player/ui.js";
 import { initFx } from "./player/fx.js";
 import { initStats } from "./player/stats.js";
 import { initWelcome } from "./player/welcome.js";
+import { initRegistry, onVillageTask } from "./village/registry.js";
+import { personaTask } from "./village/persona.js";
+import { familyCensus, initMourning } from "./village/families.js";
+import { housingTask } from "./village/housing.js";
+import { economyTask } from "./village/economy.js";
+import { jobsTask } from "./village/jobs.js";
+import { honorTask, initHonor } from "./village/honor.js";
+import { crimeTask, initCrime } from "./village/crime.js";
+import { guardsTask } from "./village/guards.js";
+import { socialTask } from "./village/social.js";
+import { eventsTask, initEvents } from "./village/events.js";
 
 system.run(() => {
   loadConfig();
@@ -47,6 +58,24 @@ system.run(() => {
   initFx();      // feedback audiovisual + indicador de caçada
   initStats();   // crônica do mundo (gravação preguiçosa)
   initWelcome(); // boas-vindas na 1ª entrada + novidades pós-update
+
+  // Civilização das vilas (v1.3): registro + eventos + tarefas em rodízio.
+  initRegistry();
+  initMourning();
+  initHonor();
+  initCrime();
+  initEvents();
+  onVillageTask("persona", personaTask);
+  onVillageTask("familias", familyCensus);
+  onVillageTask("moradia", housingTask);
+  onVillageTask("economia", economyTask);
+  onVillageTask("trabalho", jobsTask);
+  onVillageTask("honra", honorTask);
+  onVillageTask("crime", crimeTask);
+  onVillageTask("guarda", guardsTask);
+  onVillageTask("social", socialTask);
+  onVillageTask("eventos", eventsTask);
+
   startScheduler();
 
   // Limpeza de cérebros.

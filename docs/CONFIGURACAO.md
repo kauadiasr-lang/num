@@ -41,6 +41,13 @@ discreto no action bar) · `welcomeMessages` (boas-vindas na 1ª entrada
 + resumo de novidades pós-atualização) · `milestones` (marcos da
 crônica anunciados no chat).
 
+## Civilização das vilas (v1.3)
+`villageAI` (mestre) · `villagerNames` · `villageFamilies` ·
+`villageEconomy` (celeiro: coloque um BAÚ perto do sino/centro) ·
+`villageJobs` · `villageHonor` · `villageCrime` · `villageGuards`
+(recrutamento debita ferro/esmeralda do celeiro) · `villageEvents` ·
+`villageSocial` · `banditRaids` (padrão OFF). Guia: `docs/CIVILIZACAO.md`.
+
 ## Sistema
 `enabled` (núcleo de script; os comportamentos JSON — kiting, rotas
 seguras, espreita diurna, descanso noturno — continuam) ·

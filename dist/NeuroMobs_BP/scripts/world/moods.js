@@ -49,6 +49,11 @@ export function hearingFactor(dimensionId) {
   return w && w !== "Clear" ? 0.5 : 1;
 }
 
+/** Clima atual conhecido da dimensão ("Clear" | "Rain" | "Thunder"). */
+export function weatherOf(dimensionId) {
+  return weatherByDim.get(dimensionId) || "Clear";
+}
+
 /** Multiplicador do raio dos gritos de alerta (lua cheia amplia). */
 export function alertFactor() {
   const cfg = getConfig();

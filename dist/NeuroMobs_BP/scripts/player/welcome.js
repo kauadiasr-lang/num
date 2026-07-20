@@ -19,6 +19,10 @@ const PROP = "neuro:hello";
 
 /** Uma linha por versão — o resumo pós-atualização mostra só a atual. */
 const NEWS = {
+  "1.3.0":
+    "as vilas viraram CIVILIZAÇÕES: famílias com sobrenome, celeiro e " +
+    "economia reais, profissões que trabalham, honra por jogador, crimes " +
+    "com testemunhas, guardas, festivais, casamentos e caravanas.",
   "1.2.1":
     "novidades: menu abre direto do chat, creeper demolidor corrigido, " +
     "sons/particulas taticas, aviso de cacada e cronica do mundo " +

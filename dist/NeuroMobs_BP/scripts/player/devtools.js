@@ -108,6 +108,28 @@ export function initDevtools() {
           } else {
             line = `${ent.typeId.replace("minecraft:", "")} · sem cérebro (ocioso)`;
           }
+          // Aldeão: mostra a alma (persona/humor) em vez do cérebro de combate.
+          try {
+            if (ent.matches({ families: ["villager"] })) {
+              const raw = ent.getDynamicProperty("neuro:persona");
+              if (typeof raw === "string") {
+                const pd = JSON.parse(raw);
+                let mood = "";
+                const mraw = ent.getDynamicProperty("neuro:mood");
+                if (typeof mraw === "string") {
+                  const m = JSON.parse(mraw);
+                  mood = ` · feliz:${m.h} estresse:${m.s}`;
+                }
+                line =
+                  `${pd.name} · cor:${pd.courage} soc:${pd.social} ` +
+                  `gen:${pd.giving} cur:${pd.curious} dil:${pd.diligent}${mood}`;
+              } else {
+                line = "aldeão · ainda sem persona (aguardando batismo)";
+              }
+            }
+          } catch {
+            /* ignorar */
+          }
           // Diagnóstico: o mob na mira carrega as famílias do NeuroMobs?
           // Monstro sem elas = override NÃO carregou (outro pack por
           // cima, ou versão do jogo abaixo do mínimo).

@@ -53,6 +53,17 @@ const LABELS = {
   huntedIndicator: "Aviso de caçada no HUD",
   welcomeMessages: "Boas-vindas e novidades",
   milestones: "Marcos da crônica",
+  villageAI: "Civilização das vilas",
+  villagerNames: "Nomes de aldeões",
+  villageFamilies: "Famílias e herança",
+  villageEconomy: "Economia (celeiro)",
+  villageJobs: "Profissões trabalham",
+  villageHonor: "Honra por jogador",
+  villageCrime: "Crimes e testemunhas",
+  villageGuards: "Guardas da vila",
+  villageEvents: "Eventos da vila",
+  villageSocial: "Vida social ampliada",
+  banditRaids: "Ataques de bandidos",
   debug: "Modo debug"
 };
 
@@ -91,8 +102,13 @@ const CATEGORIES = [
   },
   {
     title: "§6Vila",
-    desc: "Alarme com golems, sino tático, trauma regional e ambiência.",
-    keys: ["villageDefense", "tacticalBell", "villageMemory", "villageAmbience"],
+    desc: "Civilização: famílias, economia, honra, guardas e eventos.",
+    keys: [
+      "villageAI", "villagerNames", "villageFamilies", "villageEconomy",
+      "villageJobs", "villageHonor", "villageCrime", "villageGuards",
+      "villageEvents", "villageSocial", "banditRaids",
+      "villageDefense", "tacticalBell", "villageMemory", "villageAmbience"
+    ],
     steppers: []
   },
   {
