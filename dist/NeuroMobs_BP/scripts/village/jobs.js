@@ -30,7 +30,9 @@
 import { world, system, ItemStack } from "@minecraft/server";
 import { withdraw, isWood } from "./economy.js";
 import { repairNextDoor } from "./housing.js";
-import { markDirty } from "./registry.js";
+import { markDirty, rosterOf } from "./registry.js";
+import { readMood } from "./persona.js";
+import { say } from "./social.js";
 import * as V from "../core/utils.js";
 
 const PROF = {
@@ -320,17 +322,8 @@ export function jobsTask(v, cfg) {
     /* segue */
   }
   try {
-    const folks = dim.getEntities({
-      location: { x: v.x, y: 64, z: v.z },
-      maxDistance: 48,
-      families: ["villager"]
-    });
     const rot = v.flags.jobRot || 0;
-    const list = [];
-    for (const p of folks) {
-      list.push(p);
-      if (list.length >= 12) break;
-    }
+    const list = rosterOf(v, 12);
     // DECISÃO: necessidade crítica passa na frente do rodízio.
     //  fome        -> fazendeiro primeiro (colheita imediata);
     //  porta aberta/quebrada ou fogo -> construtor primeiro;
@@ -359,8 +352,12 @@ export function jobsTask(v, cfg) {
       const worker = list[(rot + i) % list.length];
       const prof = professionOf(worker);
       if (prof === "none") continue;
-      // Preguiça é um traço real: diligência baixa pula fatias.
-      if (Math.random() * 14 > diligenceOf(worker) + 5) continue;
+      // Preguiça é traço real — e o HUMOR pesa: feliz rende mais,
+      // estressado rende menos (o moral da vila vira produtividade).
+      const mood = readMood(worker);
+      const drive =
+        diligenceOf(worker) + (mood.happiness - 5) / 2 - mood.stress / 3;
+      if (Math.random() * 14 > drive + 5) continue;
       let did = false;
       if (prof === "farmer" && day) did = farmerWork(v, dim, worker);
       else if (prof === "smith") did = smithWork(dim, worker);
@@ -370,6 +367,7 @@ export function jobsTask(v, cfg) {
       else if (prof === "builder") did = builderWork(v, dim, worker);
       if (did) {
         v.flags.jobRot = (rot + i + 1) % list.length;
+        if (Math.random() < 0.2) say(worker, "work", cfg);
         // Criança por perto aprende olhando (felicidade + partícula).
         try {
           const kids = dim.getEntities({

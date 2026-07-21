@@ -24,6 +24,7 @@ import { creditHonor } from "./honor.js";
 import { canSee, startSearch } from "../ai/senses.js";
 import { getBrain } from "../core/core.js";
 import { nudgeMood } from "./persona.js";
+import { say } from "./social.js";
 import * as V from "../core/utils.js";
 
 const rumors = new Map(); // villagerId -> {playerId, until} (quem sabe do crime)
@@ -86,9 +87,11 @@ function commitCrime(dim, loc, offender, kind, penalty) {
   v.flags.lockdownUntil = system.currentTick + 3600; // 3 min de portas fechadas
   markDirty();
 
+  const cfgNow = getConfig();
   for (const w of witnesses) {
     plantRumor(w.id, offender.id);
     nudgeMood(w, -1, +2);
+    say(w, "fear", cfgNow);
     try {
       dim.spawnParticle("minecraft:villager_angry", {
         x: w.location.x, y: w.location.y + 2.2, z: w.location.z

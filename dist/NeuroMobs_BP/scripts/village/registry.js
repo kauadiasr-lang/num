@@ -125,6 +125,49 @@ export function threatOf(v) {
   return Math.max(0, decayed);
 }
 
+/** Prosperidade com decaimento: -1 a cada 2 dias sem novos negócios. */
+export function prosperityOf(v) {
+  const age = system.currentTick - (v.prosperityTick || 0);
+  return Math.max(0, (v.prosperity || 0) - Math.floor(age / 48000));
+}
+
+export function addProsperity(v, n) {
+  v.prosperity = Math.min(10, prosperityOf(v) + n);
+  v.prosperityTick = system.currentTick;
+  dirty = true;
+}
+
+// CENSO COMPARTILHADO: as tarefas da vila consultavam aldeões cada uma
+// por si (~6 consultas por ciclo). O roster é UMA consulta com validade
+// de 60 ticks — quem consome já tolera entidades recém-invalidadas
+// (try/catch por item, padrão da base).
+const rosterCache = new Map(); // villageId -> {tick, list}
+
+export function rosterOf(v, max = 16) {
+  const c = rosterCache.get(v.id);
+  if (c && system.currentTick - c.tick < 60) return c.list;
+  const list = [];
+  try {
+    const dim = world.getDimension(v.dim);
+    const folks = dim.getEntities({
+      location: centerOf(v),
+      maxDistance: 48,
+      families: ["villager"]
+    });
+    for (const f of folks) {
+      list.push(f);
+      if (list.length >= max) break;
+    }
+  } catch {
+    /* área indisponível: lista vazia até a próxima janela */
+  }
+  rosterCache.set(v.id, { tick: system.currentTick, list });
+  if (rosterCache.size > 16) {
+    rosterCache.delete(rosterCache.keys().next().value);
+  }
+  return list;
+}
+
 /** Memória de perdas: quem morreu e quem matou (persiste por gerações). */
 export function recordLoss(v, name, by) {
   v.losses.push({ name, by, t: system.currentTick });

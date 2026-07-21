@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.2 — "Vozes e Instintos" (inteligência + custo)
+- **Diálogos flutuantes**: aldeões FALAM (nameTag temporário ~3 s):
+  conversas, fofocas de crime, pôr do sol, chuva, medo, festival e
+  trabalho — a inteligência da vila fica audível e legível.
+- **Humor → produtividade**: felicidade/estresse entram na decisão de
+  trabalhar (vila feliz colhe mais; traumatizada desacelera).
+- **Prosperidade com decaimento**: sem comércio/festivais o status cai
+  (-1 a cada 2 dias) — manter a vila próspera é jogo contínuo.
+- **Ronda de pontos quentes**: crime/perda recente → guarda patrulha a
+  cena (casas quebradas primeiro; senão, perímetro).
+- **Censo compartilhado (rosterOf)**: ~6 consultas de aldeões por ciclo
+  viraram 1 (cache 60 ticks) — custo por vila ~5× menor.
+
 ## v1.3.1 — Auditoria da civilização (15 correções)
 ### Exploits e duplicação
 - **Transmutação de comida eliminada**: partilha, presentes e evento de

@@ -23,7 +23,7 @@
  * visita de um guarda (investigação real por waypoint).
  */
 import { world, system } from "@minecraft/server";
-import { centerOf, threatOf, markDirty } from "./registry.js";
+import { centerOf, threatOf, markDirty, rosterOf, prosperityOf } from "./registry.js";
 import { withdraw } from "./economy.js";
 import { getBrain } from "../core/core.js";
 import { startSearch } from "../ai/senses.js";
@@ -52,12 +52,7 @@ export function guardsTask(v, cfg) {
     })) {
       guards.push(g);
     }
-    for (const _ of dim.getEntities({
-      location: center, maxDistance: 64, families: ["villager"]
-    })) {
-      villagers++;
-      if (villagers >= 24) break;
-    }
+    villagers = rosterOf(v).length;
   } catch {
     return;
   }
@@ -81,7 +76,7 @@ export function guardsTask(v, cfg) {
   const cap = Math.min(4, 1 + Math.floor(villagers / 4) + Math.min(2, Math.floor(threat / 3)));
   const lossCooldown =
     system.currentTick - (v.flags.guardLossTick || 0) < 6000; // 5 min
-  const justified = threat >= 1 || v.prosperity >= 2 || villagers >= 8;
+  const justified = threat >= 1 || prosperityOf(v) >= 2 || villagers >= 8;
   if (guards.length < cap && justified && !lossCooldown && villagers >= 3) {
     const paid =
       withdraw(v, dim, (id) => id === "minecraft:iron_ingot", 2) ||
@@ -172,6 +167,46 @@ export function guardsTask(v, cfg) {
           break;
         }
       }
+      // PONTO QUENTE: o local da última perda/crime (últimas 24 h de
+      // jogo) recebe ronda — o jogador VÊ o guarda voltando à cena.
+      const lastPatrol = v.flags.patrolTick || 0;
+      if (system.currentTick - lastPatrol > 3600) {
+        let spot = null;
+        const lastCrime = v.crimes[v.crimes.length - 1];
+        const lastLoss = v.losses[v.losses.length - 1];
+        // Perdas guardam nome/autor, não posição — crimes idem; a ronda
+        // usa o rastro mais concreto disponível: casas quebradas.
+        for (const h of v.houses) {
+          if (h.broken) {
+            spot = { x: h.x, y: h.y, z: h.z };
+            break;
+          }
+        }
+        if (
+          !spot &&
+          ((lastCrime && system.currentTick - lastCrime.t < 24000) ||
+            (lastLoss && system.currentTick - lastLoss.t < 24000))
+        ) {
+          // Sem posição gravada: ronda no perímetro (posto aleatório).
+          const ang = Math.random() * Math.PI * 2;
+          spot = {
+            x: center.x + Math.cos(ang) * 14,
+            y: center.y,
+            z: center.z + Math.sin(ang) * 14
+          };
+        }
+        if (spot) {
+          const g = guards[0];
+          const b = getBrain(g);
+          if (!b.searching && !V.safeTarget(g)) {
+            v.flags.patrolTick = system.currentTick;
+            b.lastKnown = { ...spot };
+            b.lastSeenTick = system.currentTick;
+            startSearch(b, spot);
+          }
+        }
+      }
+
       // Gado longe demais: um guarda visita (pastoreio honesto).
       const lastShep = v.flags.shepherdTick || 0;
       if (system.currentTick - lastShep > 4800 && guards.length > 1) {

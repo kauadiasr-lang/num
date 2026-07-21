@@ -19,7 +19,7 @@
  * escancarada (consequência real de economia e de mão de obra).
  */
 import { world, BlockPermutation } from "@minecraft/server";
-import { markDirty } from "./registry.js";
+import { markDirty, rosterOf } from "./registry.js";
 
 const DOOR_TYPES = [
   "minecraft:wooden_door", "minecraft:oak_door", "minecraft:spruce_door",
@@ -50,13 +50,9 @@ export function housingTask(v, cfg) {
     return;
   }
 
-  // 1) Descoberta ao redor de até 2 aldeões.
+  // 1) Descoberta ao redor de até 2 aldeões (roster compartilhado).
   try {
-    const folks = dim.getEntities({
-      location: { x: v.x, y: 64, z: v.z },
-      maxDistance: 48,
-      families: ["villager"]
-    });
+    const folks = rosterOf(v);
     let scanned = 0;
     for (const p of folks) {
       if (scanned++ >= 2) break;

@@ -31,10 +31,11 @@
  *   surgem no perímetro; todos os sistemas de defesa reagem de verdade.
  */
 import { world, system, ItemStack } from "@minecraft/server";
-import { centerOf, threatOf, raiseThreat, markDirty, villageAt } from "./registry.js";
+import { centerOf, threatOf, raiseThreat, markDirty, villageAt, rosterOf, prosperityOf, addProsperity } from "./registry.js";
 import { withdraw, isFood } from "./economy.js";
 import { surnameName } from "./families.js";
 import { nudgeMood } from "./persona.js";
+import { say } from "./social.js";
 import { creditHonor, honorOf } from "./honor.js";
 import { getBrain } from "../core/core.js";
 import { startSearch } from "../ai/senses.js";
@@ -60,12 +61,10 @@ function chronicle(line) {
   }
 }
 
-function adultsOf(dim, center, max = 12) {
+function adultsOf(v, max = 12) {
   const out = [];
   try {
-    const folks = dim.getEntities({
-      location: center, maxDistance: 40, families: ["villager"]
-    });
+    const folks = rosterOf(v);
     for (const f of folks) {
       try {
         if (f.getComponent("minecraft:is_baby")) continue;
@@ -96,7 +95,7 @@ function festival(v, dim, cfg) {
   if (!due(v, "festival", 72000)) return false; // 3 dias
   if (!withdraw(v, dim, isFood, 4)) return false;
   arm(v, "festival");
-  v.prosperity = Math.min(10, (v.prosperity || 0) + 1);
+  addProsperity(v, 1);
   const center = centerOf(v);
   try {
     for (let i = 0; i < 3; i++) {
@@ -108,9 +107,10 @@ function festival(v, dim, cfg) {
   } catch {
     /* sem fogos: a festa segue */
   }
-  for (const a of adultsOf(dim, center)) {
+  for (const a of adultsOf(v)) {
     nudgeMood(a, 2, -2);
     V.tryEffect(a, "speed", 300, 0);
+    if (Math.random() < 0.4) say(a, "festival", cfg);
     try {
       dim.spawnParticle("minecraft:villager_happy", {
         x: a.location.x, y: a.location.y + 2, z: a.location.z
@@ -138,7 +138,7 @@ function wedding(v, dim, cfg) {
   if (!due(v, "wedding", 48000)) return false; // 2 dias
   if (threatOf(v) > 1 || v.flags.lockdown) return false;
   const center = centerOf(v);
-  const adults = adultsOf(dim, center);
+  const adults = adultsOf(v);
   let bride = null, groom = null, pb = null, pg = null;
   for (const a of adults) {
     let p;
@@ -199,7 +199,7 @@ function birthBoost(v, dim, cfg) {
   if (v.flags.foodShort || (v.ledger.food || 0) < 16) return false;
   if (!due(v, "birth", 36000)) return false; // 1,5 dia
   const center = centerOf(v);
-  const adults = adultsOf(dim, center, 8);
+  const adults = adultsOf(v, 8);
   if (adults.length < 2 || adults.length > 14) return false;
   if (!withdraw(v, dim, (id) => id === "minecraft:bread", 4)) return false;
   arm(v, "birth");
@@ -225,7 +225,7 @@ function epidemic(v, dim, cfg) {
   if (!v.flags.foodShort) return false;
   if (!due(v, "epidemic", 96000)) return false; // 4 dias
   const center = centerOf(v);
-  const adults = adultsOf(dim, center);
+  const adults = adultsOf(v);
   if (adults.length < 6) return false;
   arm(v, "epidemic");
   let sick = 0;
@@ -418,7 +418,7 @@ function livestock(v, dim, cfg) {
 }
 
 function caravan(v, dim, cfg) {
-  if ((v.prosperity || 0) < 2) return false;
+  if (prosperityOf(v) < 2) return false;
   if (!due(v, "caravan", 48000)) return false;
   const ambushed = v.flags.caravanAmbushed;
   let day = true;
@@ -457,8 +457,7 @@ function caravan(v, dim, cfg) {
   } catch {
     return false;
   }
-  v.prosperity = Math.min(10, (v.prosperity || 0) + 1);
-  markDirty();
+  addProsperity(v, 1);
   chronicle("Uma caravana mercante chegou à vila — bons negócios!");
   bump("caravans");
   return true;

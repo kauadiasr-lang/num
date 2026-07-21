@@ -27,7 +27,7 @@
  * portas e a defesa priorizam casas habitadas.
  */
 import { world, system } from "@minecraft/server";
-import { villageAt, recordLoss, markDirty, reinforceCenter } from "./registry.js";
+import { villageAt, recordLoss, markDirty, reinforceCenter, rosterOf } from "./registry.js";
 import { getBrain } from "../core/core.js";
 import { startSearch } from "../ai/senses.js";
 import * as V from "../core/utils.js";
@@ -123,11 +123,7 @@ export function familyCensus(v, cfg) {
   }
   let sampled = 0;
   try {
-    const folks = dim.getEntities({
-      location: { x: v.x, y: 64, z: v.z },
-      maxDistance: 64,
-      families: ["villager"]
-    });
+    const folks = rosterOf(v);
     for (const p of folks) {
       if (sampled++ >= 12) break; // orçamento da fatia
       reinforceCenter(v, p.location);

@@ -23,7 +23,7 @@
  * caps duros — custo constante.
  */
 import { world, system, ItemStack } from "@minecraft/server";
-import { centerOf } from "./registry.js";
+import { centerOf, rosterOf } from "./registry.js";
 import { knowsRumor, plantRumor } from "./crime.js";
 import { nudgeMood } from "./persona.js";
 import { withdraw } from "./economy.js";
@@ -36,6 +36,51 @@ function faceEachOther(a, b) {
     const yawA = (Math.atan2(-d.x, d.z) * 180) / Math.PI;
     a.setRotation({ x: 0, y: yawA });
     b.setRotation({ x: 0, y: yawA + 180 });
+  } catch {
+    /* ignorar */
+  }
+}
+
+// ------------------------------------------------------------ diálogos
+// Falas flutuantes: o nameTag vira "Nome\n«fala»" por ~3 s e volta ao
+// normal — visível sobre a cabeça, sem poluir chat nem action bar.
+// Guardas de segurança: nunca fala quem já está falando (\n no tag),
+// nunca sobrescreve batismo de jogador (só tags no formato da persona).
+const LINES = {
+  chat: [
+    "Colheita boa este ano…", "Ouviu uivos na madrugada?",
+    "O sino anda quieto demais.", "Dizem que a lua cheia agita os mortos.",
+    "Meu joelho dói: chuva vem aí."
+  ],
+  gossip: [
+    "Não confio naquele forasteiro…", "Eu VI o que ele fez.",
+    "Escondam as esmeraldas!", "Tranquem as portas hoje."
+  ],
+  sunset: ["Fim de mais um dia em paz.", "Que o sol volte amanhã."],
+  rain: ["Chuva boa para as lavouras.", "Hoje é dia de ficar por dentro."],
+  fear: ["GUARDAS!", "Corram para casa!", "Protejam as crianças!"],
+  festival: ["Viva a colheita!", "Música! Dança!", "Um brinde à vila!"],
+  work: ["Trabalho não falta.", "Mãos à obra.", "Isto não se faz sozinho."]
+};
+
+export function say(villager, ctx, cfg) {
+  if (!cfg.villagerNames || !cfg.villageSocial) return;
+  const pool = LINES[ctx];
+  if (!pool) return;
+  try {
+    const tag = villager.nameTag;
+    if (!tag || tag.includes("\n")) return; // sem nome ou já falando
+    const line = pool[Math.floor(Math.random() * pool.length)];
+    villager.nameTag = `${tag}\n§7«${line}»§r`;
+    system.runTimeout(() => {
+      try {
+        if (villager.isValid && villager.nameTag.includes("\n")) {
+          villager.nameTag = tag; // devolve o nome limpo
+        }
+      } catch {
+        /* descarregou falando: o tag persiste até o próximo say */
+      }
+    }, 70);
   } catch {
     /* ignorar */
   }
@@ -71,9 +116,7 @@ export function socialTask(v, cfg) {
   let adults = [];
   let kids = [];
   try {
-    const folks = dim.getEntities({
-      location: center, maxDistance: 40, families: ["villager"]
-    });
+    const folks = rosterOf(v);
     for (const f of folks) {
       let baby = false;
       try {
@@ -117,6 +160,7 @@ export function socialTask(v, cfg) {
     for (const a of adults) {
       const p = personaOf(a);
       if (!p || p.curious < 7) continue;
+      if (Math.random() < 0.5) say(a, "sunset", cfg);
       try {
         a.setRotation({ x: -10, y: 90 }); // oeste
         dim.spawnParticle("minecraft:villager_happy", {
@@ -139,6 +183,7 @@ export function socialTask(v, cfg) {
     if (adults.length > 0 && Math.random() < 0.5) {
       const a = adults[Math.floor(Math.random() * adults.length)];
       V.tryEffect(a, "regeneration", 60, 0);
+      if (Math.random() < 0.3) say(a, "rain", cfg);
       nudgeMood(a, 1, -1);
       return;
     }
@@ -156,6 +201,7 @@ export function socialTask(v, cfg) {
       if (ra && !rb) {
         plantRumor(b.id, ra.playerId);
         nudgeMood(b, -1, 1);
+        say(a, "gossip", cfg);
         try {
           dim.spawnParticle("minecraft:villager_angry", {
             x: b.location.x, y: b.location.y + 2.2, z: b.location.z
@@ -165,6 +211,7 @@ export function socialTask(v, cfg) {
           /* ignorar */
         }
       } else {
+        if (Math.random() < 0.4) say(a, "chat", cfg);
         try {
           dim.playSound(
             Math.random() < 0.5 ? "mob.villager.idle" : "mob.villager.haggle",

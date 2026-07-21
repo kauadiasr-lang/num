@@ -33,6 +33,27 @@ para um equivalente real (documentado abaixo), nunca simulado por texto.
 | **Social** | pares se ENCARAM (setRotation); crianças brincam (impulso+efeitos); pôr do sol para curiosos; aconchego na chuva; presentes físicos |
 | **Eventos** | festival (fogos reais, consome comida), casamento (cônjuge muda de sobrenome), nascimento (pão→disposição vanilla→bebê real), epidemia (tag+sintomas, clérigo cura), criança perdida (busca real + honra), gado (custo→filhote), caravana (trader vanilla+escolta+memória de emboscada), bandidos (opt-in) |
 
+## Inteligência e emergência (v1.3.2)
+
+- **Diálogos flutuantes**: falas contextuais em PT sobre a cabeça do
+  aldeão (nameTag temporário por ~3 s, restaurado em seguida) —
+  conversa, fofoca ("Eu VI o que ele fez"), pôr do sol, chuva, medo em
+  crimes, festival e comentários de trabalho. Sem poluir chat/HUD.
+- **Humor vira produtividade**: a chance de um profissional agir na
+  fatia combina diligência (traço) + felicidade − estresse. Vila feliz
+  produz; vila traumatizada desacelera — e isso se VÊ na colheita.
+- **Prosperidade decai** (−1 a cada 2 dias sem negócios): caravanas e
+  festivais são necessários para MANTER o status, não só conquistá-lo.
+- **Ronda de pontos quentes**: com crime ou perda nas últimas 24 h de
+  jogo, um guarda patrulha a cena (casas quebradas primeiro, senão o
+  perímetro) — o jogador vê a guarda "investigando".
+
+## Desempenho (v1.3.2)
+
+- **Censo compartilhado** (`rosterOf`): as ~6 consultas de aldeões por
+  ciclo de tarefas viraram UMA, com cache de 60 ticks e teto de 16
+  entidades — o custo por vila caiu para ~1/5 do anterior.
+
 ## Aprendizado adaptativo
 
 Ameaça (ataques/crimes) sobe o teto de guardas e mantém escolta de

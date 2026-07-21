@@ -18,7 +18,7 @@
  */
 import { world, system } from "@minecraft/server";
 import { surnameFor, surnameName } from "./families.js";
-import { centerOf } from "./registry.js";
+import { rosterOf } from "./registry.js";
 
 const NAMES = [
   "Iara", "Caio", "Bruna", "Davi", "Lia", "Otto", "Nina", "Ravi",
@@ -108,11 +108,7 @@ export function personaTask(v, cfg) {
     return;
   }
   try {
-    const folks = dim.getEntities({
-      location: centerOf(v),
-      maxDistance: 48,
-      families: ["villager"]
-    });
+    const folks = rosterOf(v);
     let named = 0;
     for (const f of folks) {
       if (named >= 4) break;
