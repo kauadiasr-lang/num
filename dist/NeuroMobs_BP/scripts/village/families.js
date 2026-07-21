@@ -108,6 +108,19 @@ export function familyCensus(v, cfg) {
     return;
   }
   const fams = famsOf(v);
+  // DESPERTAR: se o último censo foi há muito tempo (vila dormente ou
+  // mundo fechado), os lastSeen estão VELHOS por ausência de observador,
+  // não por desaparecimento — renova tudo antes de julgar extinções.
+  const sinceCensus = system.currentTick - (v.flags.censusTick || 0);
+  v.flags.censusTick = system.currentTick;
+  if (sinceCensus > 12000) {
+    for (const f of fams) {
+      f.seen = system.currentTick;
+      f.worry = false;
+    }
+    markDirty();
+    return; // este ciclo só re-observa; julgamentos ficam para o próximo
+  }
   let sampled = 0;
   try {
     const folks = dim.getEntities({

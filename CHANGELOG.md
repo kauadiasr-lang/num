@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.3.1 — Auditoria da civilização (15 correções)
+### Exploits e duplicação
+- **Transmutação de comida eliminada**: partilha, presentes e evento de
+  nascimento agora só retiram PÃO do celeiro e materializam exatamente o
+  que retiraram (antes: 2 trigos viravam 6 pães — gerador infinito).
+- **Duplicação na coleta**: stack que só coubesse PARCIALMENTE no baú
+  era mantido inteiro no chão; agora o excedente retorna ao chão e o
+  drop original some (contabilidade exata).
+- **Farm de honra por doação**: só comida/ferro/esmeralda contam, com
+  teto de 1 crédito/min — dropar lixo no celeiro não fabrica honra.
+- **Item "roubado" da mão do jogador**: a coleta ignora drops com um
+  jogador colado (<2,5 blocos).
+### Comportamentos irreais
+- **Falsa extinção de linhagens**: vila dormente/mundo fechado não
+  atualiza lastSeen — o censo agora detecta o "despertar" e renova os
+  registros antes de julgar desaparecimentos/heranças.
+- **Guarda convocando zumbis**: defensor caçando um fora-da-lei passava
+  pelo grito de alerta do bando; agora só MONSTROS gritam/recebem papéis.
+- **Guardas evaporando**: removido minecraft:despawn da entidade (pagar
+  ferro por guarda que sumia ao sair de perto era dreno de recursos);
+  censo pós-hiato ressincroniza sem crônica falsa de "tombou em serviço".
+- **Vandalismo injusto**: quebrar o PRÓPRIO baú/porta a 50 blocos do
+  centro não é mais crime — só propriedade REGISTRADA da vila (portas
+  das casas, o celeiro, camas a <24 do centro).
+- **Porta na cara**: o fechamento noturno pula portas com jogador a <3.
+- **Reparo predatório**: o construtor nunca sobrescreve blocos que o
+  jogador pôs no vão da porta (só repara em espaço vazio) e só cobra a
+  madeira DEPOIS do reparo bem-sucedido.
+- **Criança perdida para sempre**: se o bebê morre longe, a busca agora
+  termina com luto na crônica (a flag não fica órfã).
+- **Casamento drenava censo**: a linhagem antiga do cônjuge perde 1
+  membro ao unir-se à nova (contagem sem drift).
+### Desempenho e decisão
+- **Trabalho com prioridade dinâmica**: fome → fazendeiro na frente;
+  porta quebrada/fogo → construtor na frente (antes: rodízio cego).
+- **Epidemia sem varredura ociosa** (só consulta se houve surto <1 dia);
+  **tocha plantada na superfície real** (nunca em caverna/dentro de
+  bloco); turnos de guarda só disparam na TRANSIÇÃO (tags, sem churn);
+  podas de memória em greet/activeCache; limpeza de código morto.
+
 ## v1.3.0 — "Civilização" (as vilas viram sociedades)
 Camada nova `scripts/village/` (11 módulos) com escalonador LOD próprio:
 1 tarefa de 1 vila por fatia de 10 ticks; vilas sem jogador dormem.

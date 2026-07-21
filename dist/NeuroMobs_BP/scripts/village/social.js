@@ -26,7 +26,7 @@ import { world, system, ItemStack } from "@minecraft/server";
 import { centerOf } from "./registry.js";
 import { knowsRumor, plantRumor } from "./crime.js";
 import { nudgeMood } from "./persona.js";
-import { withdraw, isFood } from "./economy.js";
+import { withdraw } from "./economy.js";
 import { weatherOf } from "../world/moods.js";
 import * as V from "../core/utils.js";
 
@@ -185,7 +185,7 @@ export function socialTask(v, cfg) {
         !v.flags.foodShort &&
         system.currentTick - (v.flags.giftTick || 0) > 4800
       ) {
-        if (withdraw(v, dim, isFood, 1)) {
+        if (withdraw(v, dim, (id) => id === "minecraft:bread", 1)) {
           v.flags.giftTick = system.currentTick;
           try {
             dim.spawnItem(

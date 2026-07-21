@@ -183,14 +183,32 @@ export function initCrime() {
     const id = ev.brokenBlockPermutation
       ? ev.brokenBlockPermutation.type.id
       : "";
-    const isProperty =
-      id.includes("_door") || id.includes("bed") || id === "minecraft:chest";
-    if (!isProperty) return;
+    const isDoor = id.includes("_door");
+    const isBed = id.includes("bed") && !id.includes("bedrock");
+    const isChest = id === "minecraft:chest";
+    if (!isDoor && !isBed && !isChest) return;
     const v = villageAt(ev.dimension, ev.block.location, false);
     if (!v) return;
-    const d2 =
-      (ev.block.location.x - v.x) ** 2 + (ev.block.location.z - v.z) ** 2;
-    if (d2 > 56 * 56) return; // fora do perímetro da vila: não é da conta dela
-    commitCrime(ev.dimension, ev.block.location, ev.player, "Vandalismo", -6);
+    const loc = ev.block.location;
+    // Só PROPRIEDADE da vila é crime — a base do próprio jogador a 50
+    // blocos do centro não é da conta dos aldeões:
+    //  porta: precisa estar REGISTRADA como casa;
+    //  baú:   precisa ser o celeiro;
+    //  cama:  só bem perto do centro (a 24 — o dormitório da vila).
+    let isProperty = false;
+    if (isDoor) {
+      isProperty = v.houses.some(
+        (h) => h.x === loc.x && (h.y === loc.y || h.y === loc.y - 1) && h.z === loc.z
+      );
+    } else if (isChest) {
+      isProperty =
+        !!v.granary &&
+        v.granary.x === loc.x && v.granary.y === loc.y && v.granary.z === loc.z;
+    } else if (isBed) {
+      const d2 = (loc.x - v.x) ** 2 + (loc.z - v.z) ** 2;
+      isProperty = d2 <= 24 * 24;
+    }
+    if (!isProperty) return;
+    commitCrime(ev.dimension, loc, ev.player, "Vandalismo", -6);
   });
 }

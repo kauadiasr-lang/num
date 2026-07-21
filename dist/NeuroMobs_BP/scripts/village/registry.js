@@ -162,6 +162,10 @@ export function isActive(v) {
     active = false;
   }
   activeCache.set(v.id, { tick: system.currentTick, active });
+  if (activeCache.size > 32) {
+    const first = activeCache.keys().next().value;
+    activeCache.delete(first); // vilas evictadas não deixam rastro
+  }
   return active;
 }
 
@@ -194,7 +198,7 @@ export function initRegistry() {
           if (n >= 6) break;
         }
         if (n >= 3) {
-          const v = villageAt(
+          villageAt(
             p.dimension,
             { x: sx / n, y: p.location.y, z: sz / n },
             true

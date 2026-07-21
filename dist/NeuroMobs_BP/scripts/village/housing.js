@@ -137,6 +137,17 @@ export function housingTask(v, cfg) {
     if (shut) {
       try {
         if (block.permutation.getState("open_bit") === true) {
+          // Educação: não bater a porta na cara de quem está passando.
+          let playerNear = false;
+          const near = dim.getPlayers({
+            location: { x: h.x + 0.5, y: h.y, z: h.z + 0.5 },
+            maxDistance: 3
+          });
+          for (const _ of near) {
+            playerNear = true;
+            break;
+          }
+          if (playerNear) continue;
           block.setPermutation(
             block.permutation.withState("open_bit", false)
           );
@@ -159,6 +170,12 @@ export function repairNextDoor(v, dim) {
       const lower = dim.getBlock({ x: h.x, y: h.y, z: h.z });
       const upper = dim.getBlock({ x: h.x, y: h.y + 1, z: h.z });
       if (!lower || !upper) return false;
+      // Nunca sobrescrever construção alheia: só repara em espaço VAZIO.
+      if (lower.typeId !== "minecraft:air" || upper.typeId !== "minecraft:air") {
+        h.broken = false; // o vão foi ocupado: a "casa" mudou; sai da fila
+        markDirty();
+        continue;
+      }
       const type = DOOR_TYPES.includes(h.type) ? h.type : "minecraft:oak_door";
       lower.setPermutation(
         BlockPermutation.resolve(type, {

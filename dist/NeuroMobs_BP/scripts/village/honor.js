@@ -94,6 +94,11 @@ export function honorTask(v, cfg) {
       if (system.currentTick - lastGreet < 6000) continue; // 5 min
       if (!v.flags.greet) v.flags.greet = {};
       v.flags.greet[p.id] = system.currentTick;
+      const gk = Object.keys(v.flags.greet);
+      if (gk.length > 16) {
+        gk.sort((a, b) => v.flags.greet[a] - v.flags.greet[b]);
+        delete v.flags.greet[gk[0]]; // esquece a saudação mais antiga
+      }
       if (score >= HERO_AT) {
         try {
           dim.playSound("random.levelup", p.location, { volume: 0.4, pitch: 1.3 });

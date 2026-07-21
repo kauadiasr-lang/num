@@ -8,7 +8,9 @@
     },
     "component_groups": {
       "neuro:duty": {
-        "minecraft:movement": { "value": 0.32 },
+        "minecraft:movement": {
+          "value": 0.32
+        },
         "minecraft:behavior.random_stroll": {
           "priority": 6,
           "speed_multiplier": 0.8,
@@ -16,7 +18,9 @@
         }
       },
       "neuro:rest": {
-        "minecraft:movement": { "value": 0.18 },
+        "minecraft:movement": {
+          "value": 0.18
+        },
         "minecraft:behavior.random_stroll": {
           "priority": 6,
           "speed_multiplier": 0.5,
@@ -24,13 +28,25 @@
         }
       },
       "neuro:tier2": {
-        "minecraft:attack": { "damage": 6 },
-        "minecraft:health": { "value": 40, "max": 40 }
+        "minecraft:attack": {
+          "damage": 6
+        },
+        "minecraft:health": {
+          "value": 40,
+          "max": 40
+        }
       },
       "neuro:tier3": {
-        "minecraft:attack": { "damage": 8 },
-        "minecraft:health": { "value": 50, "max": 50 },
-        "minecraft:knockback_resistance": { "value": 0.8 }
+        "minecraft:attack": {
+          "damage": 8
+        },
+        "minecraft:health": {
+          "value": 50,
+          "max": 50
+        },
+        "minecraft:knockback_resistance": {
+          "value": 0.8
+        }
       },
       "neuro:searching": {
         "minecraft:behavior.nearest_attackable_target": {
@@ -52,27 +68,49 @@
         "minecraft:timer": {
           "time": 22,
           "looping": false,
-          "time_down_event": { "event": "neuro:stop_search" }
+          "time_down_event": {
+            "event": "neuro:stop_search"
+          }
         }
       },
       "neuro:alerted": {
-        "minecraft:follow_range": { "value": 48, "max": 48 },
+        "minecraft:follow_range": {
+          "value": 48,
+          "max": 48
+        },
         "minecraft:timer": {
           "time": 15,
           "looping": false,
-          "time_down_event": { "event": "neuro:calm" }
+          "time_down_event": {
+            "event": "neuro:calm"
+          }
         }
       }
     },
     "components": {
       "minecraft:type_family": {
-        "family": ["neuro_guard", "guard", "neuro_defender", "mob"]
+        "family": [
+          "neuro_guard",
+          "guard",
+          "neuro_defender",
+          "mob"
+        ]
       },
-      "minecraft:nameable": { "always_show": false, "allow_name_tag_renaming": false },
+      "minecraft:nameable": {
+        "always_show": false,
+        "allow_name_tag_renaming": false
+      },
       "minecraft:persistent": {},
-      "minecraft:health": { "value": 30, "max": 30 },
-      "minecraft:attack": { "damage": 4 },
-      "minecraft:movement": { "value": 0.3 },
+      "minecraft:health": {
+        "value": 30,
+        "max": 30
+      },
+      "minecraft:attack": {
+        "damage": 4
+      },
+      "minecraft:movement": {
+        "value": 0.3
+      },
       "minecraft:navigation.walk": {
         "can_path_over_water": true,
         "avoid_damage_blocks": true,
@@ -80,17 +118,24 @@
       },
       "minecraft:movement.basic": {},
       "minecraft:jump.static": {},
-      "minecraft:knockback_resistance": { "value": 0.6 },
-      "minecraft:collision_box": { "width": 0.6, "height": 1.95 },
+      "minecraft:knockback_resistance": {
+        "value": 0.6
+      },
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.95
+      },
       "minecraft:physics": {},
-      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
+      "minecraft:pushable": {
+        "is_pushable": true,
+        "is_pushable_by_piston": true
+      },
       "minecraft:equipment": {
         "table": "loot_tables/entities/neuro_guard_gear.json"
       },
-      "minecraft:despawn": {
-        "despawn_from_distance": { "max_distance": 128, "min_distance": 96 }
+      "minecraft:behavior.float": {
+        "priority": 0
       },
-      "minecraft:behavior.float": { "priority": 0 },
       "minecraft:behavior.melee_box_attack": {
         "priority": 2,
         "speed_multiplier": 1.25,
@@ -106,8 +151,16 @@
           {
             "filters": {
               "all_of": [
-                { "test": "is_family", "subject": "other", "value": "monster" },
-                { "test": "has_tag", "subject": "other", "value": "neuro_threat" }
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "monster"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "neuro_threat"
+                }
               ]
             },
             "max_dist": 32
@@ -115,7 +168,11 @@
           {
             "filters": {
               "all_of": [
-                { "test": "is_family", "subject": "other", "value": "monster" },
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "monster"
+                },
                 {
                   "test": "is_family",
                   "subject": "other",
@@ -127,27 +184,43 @@
             "max_dist": 24
           },
           {
-            "filters": { "test": "is_family", "subject": "other", "value": "fox" },
+            "filters": {
+              "test": "is_family",
+              "subject": "other",
+              "value": "fox"
+            },
             "max_dist": 16
           },
           {
             "filters": {
               "all_of": [
-                { "test": "is_family", "subject": "other", "value": "player" },
-                { "test": "has_tag", "subject": "other", "value": "neuro_outlaw" }
+                {
+                  "test": "is_family",
+                  "subject": "other",
+                  "value": "player"
+                },
+                {
+                  "test": "has_tag",
+                  "subject": "other",
+                  "value": "neuro_outlaw"
+                }
               ]
             },
             "max_dist": 20
           }
         ]
       },
-      "minecraft:behavior.hurt_by_target": { "priority": 1 },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 1
+      },
       "minecraft:behavior.look_at_player": {
         "priority": 7,
         "look_distance": 8.0,
         "probability": 0.6
       },
-      "minecraft:behavior.random_look_around": { "priority": 8 },
+      "minecraft:behavior.random_look_around": {
+        "priority": 8
+      },
       "minecraft:on_target_acquired": {
         "event": "neuro:on_target_acquired",
         "target": "self"
@@ -159,36 +232,84 @@
     },
     "events": {
       "minecraft:entity_spawned": {
-        "add": { "component_groups": ["neuro:duty"] }
+        "add": {
+          "component_groups": [
+            "neuro:duty"
+          ]
+        }
       },
       "neuro:duty": {
-        "remove": { "component_groups": ["neuro:rest"] },
-        "add": { "component_groups": ["neuro:duty"] }
+        "remove": {
+          "component_groups": [
+            "neuro:rest"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:duty"
+          ]
+        }
       },
       "neuro:rest": {
-        "remove": { "component_groups": ["neuro:duty"] },
-        "add": { "component_groups": ["neuro:rest"] }
+        "remove": {
+          "component_groups": [
+            "neuro:duty"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:rest"
+          ]
+        }
       },
       "neuro:tier2": {
-        "add": { "component_groups": ["neuro:tier2"] }
+        "add": {
+          "component_groups": [
+            "neuro:tier2"
+          ]
+        }
       },
       "neuro:tier3": {
-        "remove": { "component_groups": ["neuro:tier2"] },
-        "add": { "component_groups": ["neuro:tier3"] }
+        "remove": {
+          "component_groups": [
+            "neuro:tier2"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "neuro:tier3"
+          ]
+        }
       },
       "neuro:on_target_acquired": {},
       "neuro:on_target_escape": {},
       "neuro:alert": {
-        "add": { "component_groups": ["neuro:alerted"] }
+        "add": {
+          "component_groups": [
+            "neuro:alerted"
+          ]
+        }
       },
       "neuro:calm": {
-        "remove": { "component_groups": ["neuro:alerted"] }
+        "remove": {
+          "component_groups": [
+            "neuro:alerted"
+          ]
+        }
       },
       "neuro:start_search": {
-        "add": { "component_groups": ["neuro:searching"] }
+        "add": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        }
       },
       "neuro:stop_search": {
-        "remove": { "component_groups": ["neuro:searching"] }
+        "remove": {
+          "component_groups": [
+            "neuro:searching"
+          ]
+        }
       }
     }
   }

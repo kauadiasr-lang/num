@@ -61,8 +61,11 @@ export function guardsTask(v, cfg) {
   } catch {
     return;
   }
-  if (v.guards > guards.length) {
-    // Alguém caiu desde o último censo.
+  // Censo com "despertar": após um hiato (vila dormente/mundo fechado),
+  // a diferença vem de chunks descarregados, não de mortes — resync mudo.
+  const sinceGuardCensus = system.currentTick - (v.flags.guardCensusTick || 0);
+  v.flags.guardCensusTick = system.currentTick;
+  if (v.guards > guards.length && sinceGuardCensus <= 2400) {
     try {
       world.sendMessage("§6[Crônica]§r Um guarda da vila tombou em serviço.");
     } catch {
@@ -115,7 +118,20 @@ export function guardsTask(v, cfg) {
   for (let i = 0; i < guards.length; i++) {
     const g = guards[i];
     const resting = night && (i + day) % 2 === 0 && threat < 3;
-    V.tryTrigger(g, resting ? "neuro:rest" : "neuro:duty");
+    // Só dispara o evento na TRANSIÇÃO (tag marca o estado atual):
+    // re-adicionar grupos toda fatia resetava o passeio à toa.
+    try {
+      const wasResting = g.hasTag("neuro_resting");
+      if (resting && !wasResting) {
+        g.addTag("neuro_resting");
+        V.tryTrigger(g, "neuro:rest");
+      } else if (!resting && wasResting) {
+        g.removeTag("neuro_resting");
+        V.tryTrigger(g, "neuro:duty");
+      }
+    } catch {
+      continue;
+    }
     if (resting) {
       V.tryEffect(g, "regeneration", 200, 0);
       // Descanso é NO posto: longe do centro, waypoint de volta.

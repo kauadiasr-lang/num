@@ -96,6 +96,11 @@ function onAggro(mob, knownTarget) {
   b.lastKnown = { ...target.location };
   b.lastSeenTick = system.currentTick;
 
+  // Defensores (guarda/golem) caçando um jogador fora-da-lei NÃO são
+  // um bando de monstros: sem grito (convocaria zumbis contra o réu)
+  // e sem papéis de cerco. A memória acima basta para a perseguição.
+  if (!V.hasFamily(mob, "monster")) return;
+
   // Aranha espreitadora diurna: alvo de OBSERVAÇÃO — sem grito, sem
   // reforço, sem papéis. A agressão real só vem à noite ou se provocada.
   if (isObserver(b)) return;

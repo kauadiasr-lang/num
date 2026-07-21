@@ -153,7 +153,7 @@ export function economyTask(v, cfg) {
 
   // 1) Coleta: itens no chão perto do centro entram no baú (físico).
   let collected = 0;
-  let donorNear = false;
+  let donatedValue = 0; // só comida/ferro/esmeralda contam como doação
   try {
     const drops = dim.getEntities({
       location: { x: v.x, y: 64, z: v.z },
@@ -169,26 +169,55 @@ export function economyTask(v, cfg) {
         continue;
       }
       if (!stack) continue;
+      // Educação: item com um jogador COLADO (a <2,5) ainda "é dele".
+      let ownerNear = false;
       try {
+        const holders = dim.getPlayers({
+          location: drop.location, maxDistance: 2.5
+        });
+        for (const _ of holders) {
+          ownerNear = true;
+          break;
+        }
+      } catch {
+        /* segue */
+      }
+      if (ownerNear) continue;
+      try {
+        // Anti-duplicação: se o baú só coube PARTE, o resto volta ao chão.
         const leftover = container.addItem(stack);
-        if (!leftover) {
-          drop.remove();
-          collected++;
+        const spot = { ...drop.location };
+        drop.remove();
+        if (leftover) dim.spawnItem(leftover, spot);
+        collected++;
+        const id = stack.typeId;
+        if (
+          FOOD.has(id) || id === "minecraft:iron_ingot" ||
+          id === "minecraft:emerald"
+        ) {
+          donatedValue += stack.amount;
         }
       } catch {
         break; // baú cheio/indisponível
       }
     }
-    if (collected > 0) {
+    // Doação testemunhada: só valores reais e no máximo 1 crédito/min —
+    // dropar lixo perto do celeiro não fabrica honra.
+    if (
+      donatedValue > 0 &&
+      system.currentTick - (v.flags.donateTick || 0) > 1200
+    ) {
       const players = dim.getPlayers({
         location: { x: v.x, y: 64, z: v.z },
         maxDistance: 12
       });
       for (const p of players) {
-        donorNear = true;
-        creditHonor(v, p, 2, "doação"); // doação testemunhada
+        v.flags.donateTick = system.currentTick;
+        creditHonor(v, p, 2, "Doação");
         break;
       }
+    }
+    if (collected > 0) {
       dim.playSound("random.pop", { x: v.x, y: 65, z: v.z }, { volume: 0.5 });
     }
   } catch {
@@ -204,7 +233,7 @@ export function economyTask(v, cfg) {
     if (system.currentTick - last >= 2400) { // 2 min entre partilhas
       v.flags.shareTick = system.currentTick;
       markDirty();
-      if (withdraw(v, dim, (id) => FOOD.has(id), 2)) {
+      if (withdraw(v, dim, (id) => id === "minecraft:bread", 2)) {
         try {
           const folks = dim.getEntities({
             location: { x: v.x, y: 64, z: v.z },

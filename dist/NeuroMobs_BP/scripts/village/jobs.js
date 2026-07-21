@@ -214,11 +214,13 @@ function clericWork(dim, cleric) {
 }
 
 function builderWork(v, dim, builder) {
-  // 1) Porta quebrada? Repara consumindo madeira do celeiro.
-  if (!v.flags.woodShort) {
+  // 1) Porta quebrada? Repara e SÓ ENTÃO cobra a madeira (se a cobrança
+  // falhar, foi cortesia — melhor que sumir madeira sem porta reposta).
+  if (!v.flags.woodShort && (v.ledger.wood || 0) >= 2) {
     let pending = false;
     for (const h of v.houses) if (h.broken) pending = true;
-    if (pending && withdraw(v, dim, isWood, 2) && repairNextDoor(v, dim)) {
+    if (pending && repairNextDoor(v, dim)) {
+      withdraw(v, dim, isWood, 2);
       workFx(dim, builder.location, "use.wood");
       return true;
     }
@@ -260,27 +262,41 @@ function builderWork(v, dim, builder) {
       { x: v.x, z: v.z + 14 }, { x: v.x, z: v.z - 14 }
     ];
     for (const post of posts) {
-      for (let y = 70; y >= 60; y--) {
-        let b, below;
+      // Desce do alto: o primeiro NÃO-ar é o chão; a tocha vai no ar
+      // imediatamente acima dele (nunca em caverna, nunca dentro de bloco).
+      let airAbove = null;
+      for (let y = 76, steps = 0; steps < 20; y--, steps++) {
+        let b;
         try {
           b = dim.getBlock({ x: post.x, y, z: post.z });
-          below = dim.getBlock({ x: post.x, y: y - 1, z: post.z });
         } catch {
+          airAbove = null;
           break;
         }
-        if (!b || !below) break;
-        if (b.typeId !== "minecraft:air") {
-          if (b.typeId === "minecraft:torch") break; // já iluminado
+        if (!b) {
+          airAbove = null;
+          break;
+        }
+        if (b.typeId === "minecraft:air") {
+          airAbove = b;
           continue;
         }
-        if (below.typeId === "minecraft:air") continue;
-        try {
-          b.setType("minecraft:torch");
-          workFx(dim, { x: post.x, y, z: post.z }, "use.wood");
-          return true;
-        } catch {
+        if (b.typeId === "minecraft:torch") {
+          airAbove = null; // posto já iluminado
           break;
         }
+        // Achou o chão: planta na coluna de ar logo acima (se havia uma).
+        if (airAbove) {
+          try {
+            airAbove.setType("minecraft:torch");
+            workFx(dim, airAbove.location, "use.wood");
+            return true;
+          } catch {
+            /* bloco protegido */
+          }
+        }
+        airAbove = null;
+        break;
       }
     }
   }
@@ -314,6 +330,30 @@ export function jobsTask(v, cfg) {
     for (const p of folks) {
       list.push(p);
       if (list.length >= 12) break;
+    }
+    // DECISÃO: necessidade crítica passa na frente do rodízio.
+    //  fome        -> fazendeiro primeiro (colheita imediata);
+    //  porta aberta/quebrada ou fogo -> construtor primeiro;
+    //  epidemia    -> clérigo primeiro.
+    let priority = null;
+    if (v.flags.foodShort) priority = "farmer";
+    else {
+      for (const h of v.houses) {
+        if (h.broken) {
+          priority = "builder";
+          break;
+        }
+      }
+    }
+    if (priority) {
+      for (const worker of list) {
+        if (professionOf(worker) !== priority) continue;
+        let did = false;
+        if (priority === "farmer" && day) did = farmerWork(v, dim, worker);
+        else if (priority === "builder") did = builderWork(v, dim, worker);
+        if (did) return; // a urgência foi atendida nesta fatia
+        break; // profissional achado mas sem ação possível: rodízio segue
+      }
     }
     for (let i = 0; i < list.length; i++) {
       const worker = list[(rot + i) % list.length];

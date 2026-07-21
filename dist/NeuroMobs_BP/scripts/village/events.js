@@ -165,6 +165,9 @@ function wedding(v, dim, cfg) {
     groom.setDynamicProperty("neuro:married", true);
     // O cônjuge adota o sobrenome: linhagens se unem à vista de todos.
     const newSurname = surnameName(v, pb.fam);
+    if (v.fams && v.fams[pg.fam]) {
+      v.fams[pg.fam].n = Math.max(0, v.fams[pg.fam].n - 1); // deixa a antiga
+    }
     pg.fam = pb.fam;
     groom.setDynamicProperty("neuro:persona", JSON.stringify(pg));
     if (cfg.villagerNames) groom.nameTag = `§f${pg.name} ${newSurname}§r`;
@@ -198,13 +201,14 @@ function birthBoost(v, dim, cfg) {
   const center = centerOf(v);
   const adults = adultsOf(dim, center, 8);
   if (adults.length < 2 || adults.length > 14) return false;
-  if (!withdraw(v, dim, isFood, 2)) return false;
+  if (!withdraw(v, dim, (id) => id === "minecraft:bread", 4)) return false;
   arm(v, "birth");
-  // Pão físico para um casal: disposição vanilla → bebê real.
+  // Pão físico para um casal: disposição vanilla → bebê real. O que sai
+  // do baú (4) é exatamente o que aparece no chão (2+2) — zero criação.
   for (let i = 0; i < 2; i++) {
     const a = adults[i];
     try {
-      dim.spawnItem(new ItemStack("minecraft:bread", 3), {
+      dim.spawnItem(new ItemStack("minecraft:bread", 2), {
         x: a.location.x, y: a.location.y + 1, z: a.location.z
       });
       dim.spawnParticle("minecraft:heart_particle", {
@@ -308,6 +312,7 @@ function missingChild(v, dim, cfg) {
     const kids = dim.getEntities({
       location: center, maxDistance: 80, families: ["villager"]
     });
+    let anyBaby = false;
     for (const k of kids) {
       let baby = false;
       try {
@@ -316,6 +321,7 @@ function missingChild(v, dim, cfg) {
         continue;
       }
       if (!baby) continue;
+      anyBaby = true;
       const d2 = V.distSq(k.location, center);
       if (v.flags.lostChild) {
         // Reencontro?
@@ -361,6 +367,12 @@ function missingChild(v, dim, cfg) {
         }
         return true;
       }
+    }
+    // Não há mais bebê nenhum: a busca termina (a crônica lamenta).
+    if (v.flags.lostChild && !anyBaby) {
+      v.flags.lostChild = false;
+      markDirty();
+      chronicle("§cA criança perdida nunca voltou.§r A vila está de luto.");
     }
   } catch {
     /* ignorar */
@@ -421,8 +433,7 @@ function caravan(v, dim, cfg) {
   const center = centerOf(v);
   const at = { x: center.x + 12, y: center.y + 1, z: center.z };
   try {
-    const trader = dim.spawnEntity("minecraft:wandering_trader", at);
-    v.flags.caravanId = trader.id;
+    dim.spawnEntity("minecraft:wandering_trader", at);
     for (let i = 0; i < 2; i++) {
       dim.spawnEntity("minecraft:trader_llama", {
         x: at.x + 1 + i, y: at.y, z: at.z + 1
@@ -498,8 +509,16 @@ export function eventsTask(v, cfg) {
   } catch {
     return;
   }
-  // A epidemia ativa tem manutenção própria antes de novos eventos.
-  if (epidemicSpread(v, dim)) return;
+  // A epidemia ativa tem manutenção própria antes de novos eventos —
+  // mas só vale a consulta se houve surto no último dia de jogo.
+  const lastPlague = (v.flags.evCd && v.flags.evCd.epidemic) || 0;
+  if (
+    lastPlague > 0 &&
+    system.currentTick - lastPlague <= 26000 &&
+    epidemicSpread(v, dim)
+  ) {
+    return;
+  }
   const start = v.flags.evRot || 0;
   for (let i = 0; i < EVENTS.length; i++) {
     const idx = (start + i) % EVENTS.length;
