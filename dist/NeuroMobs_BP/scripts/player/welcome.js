@@ -19,6 +19,10 @@ const PROP = "neuro:hello";
 
 /** Uma linha por versão — o resumo pós-atualização mostra só a atual. */
 const NEWS = {
+  "1.3.2":
+    "as vilas ganharam VOZ: aldeões conversam sobre a cabeça deles, o " +
+    "humor muda a produtividade, guardas rondam cenas de crime e a " +
+    "prosperidade precisa ser mantida com comércio.",
   "1.3.0":
     "as vilas viraram CIVILIZAÇÕES: famílias com sobrenome, celeiro e " +
     "economia reais, profissões que trabalham, honra por jogador, crimes " +

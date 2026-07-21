@@ -16,7 +16,7 @@
  * escondem no lockdown, diligentes trabalham com bônus (jobs.js) e o
  * estresse alto deixa a vila irritadiça (eventos e fofoca de crime).
  */
-import { world, system } from "@minecraft/server";
+import { system } from "@minecraft/server";
 import { surnameFor, surnameName } from "./families.js";
 import { rosterOf } from "./registry.js";
 
@@ -101,12 +101,6 @@ export function nudgeMood(villager, dh, ds) {
 
 /** Tarefa de vila: batiza até 4 aldeões sem persona por fatia. */
 export function personaTask(v, cfg) {
-  let dim;
-  try {
-    dim = world.getDimension(v.dim);
-  } catch {
-    return;
-  }
   try {
     const folks = rosterOf(v);
     let named = 0;

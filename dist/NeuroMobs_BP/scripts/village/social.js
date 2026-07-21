@@ -23,7 +23,7 @@
  * caps duros — custo constante.
  */
 import { world, system, ItemStack } from "@minecraft/server";
-import { centerOf, rosterOf } from "./registry.js";
+import { rosterOf } from "./registry.js";
 import { knowsRumor, plantRumor } from "./crime.js";
 import { nudgeMood } from "./persona.js";
 import { withdraw } from "./economy.js";
@@ -105,7 +105,6 @@ export function socialTask(v, cfg) {
   } catch {
     return;
   }
-  const center = centerOf(v);
   let time = 6000, raining = false;
   try {
     time = world.getTimeOfDay();
