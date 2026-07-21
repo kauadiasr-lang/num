@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.4.0 — "Memória de Guerra" + correção crítica da 1.3.2
+### CORREÇÃO CRÍTICA
+- **A v1.3.2 estava QUEBRADA**: o `config.js` foi truncado (0 bytes) por
+  um erro de ferramenta no bump de versão — todo o núcleo de script
+  falhava ao carregar. Arquivo restaurado do histórico; se você instalou
+  a 1.3.2, atualize. O build agora REJEITA scripts menores que 100 bytes
+  (`tools/build.py`), fechando a lacuna que deixou isso passar
+  (`node --check` aceita arquivo vazio).
+### Memória de guerra regional (`world/warmind.js`, toggle `combatLearning`)
+- **PAVOR**: cada monstro morto por jogador soma 1 ponto na célula de
+  64×64 (decai em 1 dia de jogo). Onde você farma mobs, os
+  sobreviventes APRENDEM: recuam mais cedo (limiar +5% por nível),
+  emboscam com janela dobrada e até os "normais" preferem flanquear a
+  marchar de frente.
+- **VALOR**: cada jogador morto por monstro soma 2 pontos — vitórias
+  deixam os bandos da região audazes (recuam mais tarde).
+- Cautela efetiva = pavor − valor (−3..+3), cacheada por cérebro por
+  200 ticks (custo por passada ~zero); reutiliza a fábrica `regionmem`
+  (zero arquitetura nova). Visível no devtools ("cautela:N") e
+  desligável no menu (Combate → "Memória de guerra regional").
+
 ## v1.3.2 — "Vozes e Instintos" (inteligência + custo)
 - **Diálogos flutuantes**: aldeões FALAM (nameTag temporário ~3 s):
   conversas, fofocas de crime, pôr do sol, chuva, medo, festival e

@@ -28,6 +28,7 @@ import { getConfig } from "../core/config.js";
 import { allBrains, peekBrain } from "../core/core.js";
 import { canSee, startSearch } from "./senses.js";
 import { isObserver } from "./squad.js";
+import { cautionOf } from "../world/warmind.js";
 import { fxPounce, fxRetreat, fxMoralBreak } from "../player/fx.js";
 import { bump } from "../player/stats.js";
 import * as V from "../core/utils.js";
@@ -115,11 +116,14 @@ export function ambushTick(brain, cfg) {
     return;
   }
 
-  // Entrada: só na janela dos 3 s após adquirir o alvo, longe (>8),
-  // sozinho, sem ser visto — e nunca para audazes/veteranos.
+  // Entrada: só na janela pós-aggro, longe (>8), sozinho, sem ser
+  // visto — e nunca para audazes/veteranos. Em região de PAVOR
+  // (cautionOf ≥ 2, warmind), a janela dobra: os sobreviventes dos
+  // massacres aprenderam a não avançar de frente.
   if (brain.personality === "bold" || brain.veteran) return;
   if (isObserver(brain)) return; // espreita, não embosca
-  if (system.currentTick - (brain.freshAggro || 0) > 60) return;
+  const window = cautionOf(brain) >= 2 ? 120 : 60;
+  if (system.currentTick - (brain.freshAggro || 0) > window) return;
   if (V.distSq(mob.location, target.location) < 64) return;
   if (watchedBy(target, mob)) return;
   if (alliesOnTarget(brain, target.id, 16, target.location) > 0) return;
@@ -228,9 +232,12 @@ export function retreatTick(brain, cfg) {
   const target = V.safeTarget(mob);
   if (!target || target.typeId !== PLAYER) return;
 
-  const thr =
+  // Limiar base por perfil, deslocado pela memória de guerra da região:
+  // pavor (+) recua mais cedo; valor (−) segura a linha até mais tarde.
+  let thr =
     brain.personality === "shy" ? 0.4 :
     brain.personality === "bold" ? 0.2 : 0.3;
+  thr = Math.max(0.1, Math.min(0.6, thr + cautionOf(brain) * 0.05));
   if (healthFrac(mob) > thr) return;
   if (alliesOnTarget(brain, target.id, 20, mob.location) > 0) return; // com apoio, luta
 

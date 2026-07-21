@@ -104,7 +104,8 @@ export function initDevtools() {
               `${b.type.replace("minecraft:", "")} · ` +
               `${PERSONA[b.personality] || b.personality} · papel:${b.role}` +
               (b.targetId ? " · alvo:sim" : "") +
-              (flags ? ` · ${flags}` : "");
+              (flags ? ` · ${flags}` : "") +
+              (b.caution ? ` · cautela:${b.caution}` : "");
           } else {
             line = `${ent.typeId.replace("minecraft:", "")} · sem cérebro (ocioso)`;
           }

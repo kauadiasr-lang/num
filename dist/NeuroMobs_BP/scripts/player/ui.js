@@ -48,6 +48,7 @@ const LABELS = {
   villageAmbience: "Vida social dos aldeões",
   huntingPressure: "Pressão de caça (fauna arisca)",
   adaptive: "Dificuldade adaptativa",
+  combatLearning: "Memória de guerra regional",
   priorityTargeting: "Priorizar alvo vulnerável",
   feedbackFx: "Sons e partículas táticas",
   huntedIndicator: "Aviso de caçada no HUD",
@@ -80,7 +81,7 @@ const CATEGORIES = [
     keys: [
       "packAlert", "tactics", "ambush", "retreat", "leadership",
       "antiTower", "creeperBreach", "creeperStalk",
-      "adaptive", "priorityTargeting"
+      "adaptive", "priorityTargeting", "combatLearning"
     ],
     steppers: ["alertRadius"]
   },

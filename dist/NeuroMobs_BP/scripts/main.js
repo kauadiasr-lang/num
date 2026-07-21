@@ -18,6 +18,7 @@ import { initAdaptive } from "./ai/adaptive.js";
 import { siegeTick } from "./ai/siege.js";
 import { initDefense } from "./world/defense.js";
 import { initMoods } from "./world/moods.js";
+import { initWarmind } from "./world/warmind.js";
 import { initFauna } from "./world/fauna.js";
 import { ambushTick, retreatTick, initTactics } from "./ai/tactics.js";
 import { initDevtools } from "./player/devtools.js";
@@ -49,6 +50,7 @@ system.run(() => {
   initSquad();
   initDefense();
   initMoods();
+  initWarmind(); // memória de guerra regional (pavor × valor)
   initFauna();
   initTactics();
   initDevtools();

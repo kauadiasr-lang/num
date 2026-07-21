@@ -30,6 +30,16 @@ def check_json():
                     sys.exit(f"JSON inválido: {path}: {e}")
 
 
+def check_scripts_nonempty():
+    scripts = os.path.join(DIST, "NeuroMobs_BP", "scripts")
+    for dirpath, _, files in os.walk(scripts):
+        for f in files:
+            if f.endswith(".js"):
+                path = os.path.join(dirpath, f)
+                if os.path.getsize(path) < 100:
+                    sys.exit(f"Script suspeito de truncamento (<100 bytes): {path}")
+
+
 def check_imports():
     scripts = os.path.join(DIST, "NeuroMobs_BP", "scripts")
     for dirpath, _, files in os.walk(scripts):
@@ -53,6 +63,7 @@ def version():
 
 def main():
     check_json()
+    check_scripts_nonempty()
     check_imports()
     ver = version()
     out_dir = os.path.join(ROOT, "build")

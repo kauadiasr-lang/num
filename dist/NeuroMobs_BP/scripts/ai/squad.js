@@ -22,6 +22,7 @@ import { adaptiveBuff } from "./adaptive.js";
 import { villageAlarm } from "../world/defense.js";
 import { ensureTraits } from "./traits.js";
 import { alertFactor, isDeaf, isDaytime } from "../world/moods.js";
+import { cautionOf } from "../world/warmind.js";
 import { fxAlert } from "../player/fx.js";
 import { bump } from "../player/stats.js";
 import * as V from "../core/utils.js";
@@ -182,9 +183,11 @@ function assignRoles(player, cfg, force) {
   pack.forEach((b, i) => {
     // Viés de personalidade: audazes vão direto, cautelosos flanqueiam,
     // normais mantêm a rotação clássica (cercar -> atacar).
+    // Em região de PAVOR (warmind), até os normais preferem flanquear:
+    // o bando local aprendeu a não marchar de frente contra você.
     let role;
     if (b.personality === "bold") role = "direct";
-    else if (b.personality === "shy") role = "flank";
+    else if (b.personality === "shy" || cautionOf(b) >= 2) role = "flank";
     else role = (i + clock.rotation) % 2 === 1 ? "flank" : "direct";
     setRole(b, role);
   });

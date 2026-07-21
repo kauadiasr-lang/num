@@ -6,7 +6,7 @@ Script API estável: alerta em grupo, memória da última posição vista, busca
 ativa, cerco/flanqueamento, rotas que evitam perigos, audição, creeper
 furtivo, kiting de esqueleto e dificuldade adaptativa.
 
-**Status: v1.3.2 — "Civilização"** — as vilas viraram sociedades vivas:
+**Status: v1.4.0 — "Civilização"** — as vilas viraram sociedades vivas:
 famílias com sobrenome e herança, celeiro/economia com baús reais,
 profissões que trabalham (colheita, reparos, tochas), honra por jogador,
 crimes com testemunhas e boatos, guardas com turnos, festivais,
@@ -22,7 +22,7 @@ kit de teste (`/scriptevent neuro:ver`) + correções do teste em campo. — inc
   compatibilidade com mundos Survival, multiplayer e **Realms**.
 
 ## Instalação
-1. Abra o arquivo `NeuroMobs_v1.3.2.mcaddon` (duplo clique / compartilhar
+1. Abra o arquivo `NeuroMobs_v1.4.0.mcaddon` (duplo clique / compartilhar
    com o Minecraft). BP e RP são importados juntos.
 2. Nas configurações do mundo, ative o Behavior Pack **NeuroMobs AI [BP]**
    (o RP é dependência e entra automaticamente).

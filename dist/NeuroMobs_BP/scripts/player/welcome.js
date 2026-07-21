@@ -19,6 +19,10 @@ const PROP = "neuro:hello";
 
 /** Uma linha por versão — o resumo pós-atualização mostra só a atual. */
 const NEWS = {
+  "1.4.0":
+    "CORREÇÃO CRÍTICA da 1.3.2 (config vazio) + memória de guerra: " +
+    "regiões onde você massacra mobs criam PAVOR (recuam cedo, emboscam " +
+    "e flanqueiam mais); vitórias deles criam VALOR (ficam audazes).",
   "1.3.2":
     "as vilas ganharam VOZ: aldeões conversam sobre a cabeça deles, o " +
     "humor muda a produtividade, guardas rondam cenas de crime e a " +
