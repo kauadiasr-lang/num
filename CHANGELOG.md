@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1 — "Instinto Selvagem" (cadeia alimentar audível)
+- **Predadores geram pressão de caça**: abates por lobo/raposa/jaguatirica
+  agora somam à pressão regional (antes, só jogadores) — região com
+  predadores ativos deixa a fauna ARISCA de verdade (pânico mais amplo,
+  vacas/galinhas em alerta). A cadeia alimentar fecha o ciclo.
+- **Uivo de alcateia**: o surto de caça noturno dos lobos agora se OUVE
+  (mob.wolf.howl, raro) — o jogador sabe que a alcateia saiu para caçar.
+- QA da Memória de Guerra (v1.4.0): integração verificada ponto a ponto
+  (tactics/squad/config/menu/devtools) — sem regressões.
+
 ## v1.4.0 — "Memória de Guerra" + correção crítica da 1.3.2
 ### CORREÇÃO CRÍTICA
 - **A v1.3.2 estava QUEBRADA**: o `config.js` foi truncado (0 bytes) por

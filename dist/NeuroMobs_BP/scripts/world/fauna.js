@@ -31,7 +31,7 @@ let lastPackTick = 0;
 let lastCarrionTick = 0;
 let lastHuntTick = 0;
 
-/** Surto de caça: lobos próximos aceleram juntos. */
+/** Surto de caça: lobos próximos aceleram juntos — e à noite, UIVAM. */
 function packSurge(wolf) {
   try {
     const pack = wolf.dimension.getEntities({
@@ -44,6 +44,19 @@ function packSurge(wolf) {
       if (w.id === wolf.id) continue;
       if (n++ >= 5) break;
       V.tryEffect(w, "speed", 120, 0);
+    }
+    // O uivo é o "grito de guerra" da alcateia: audível, raro, noturno.
+    let night = false;
+    try {
+      night = world.getTimeOfDay() >= 13000;
+    } catch {
+      /* segue */
+    }
+    if (n > 0 && night && Math.random() < 0.5) {
+      wolf.dimension.playSound("mob.wolf.howl", wolf.location, {
+        volume: 0.8,
+        pitch: 0.95
+      });
     }
   } catch {
     /* área indisponível */
@@ -110,13 +123,20 @@ export function initFauna() {
       return;
     }
 
-    // PRESSÃO DE CAÇA: só abates POR JOGADOR contam (influência do
-    // jogador, não da cadeia alimentar). Throttle leve de 1 s.
+    // PRESSÃO DE CAÇA: abates por JOGADOR e por PREDADOR contam — a
+    // cadeia alimentar existe: região com lobos/raposas ativos deixa a
+    // fauna ARISCA (mesmo consumidor: pânico amplo + neuro:wary).
+    // Throttle leve de 1 s.
     const killer = ev.damageSource && ev.damageSource.damagingEntity;
+    const predator =
+      killer &&
+      (killer.typeId === "minecraft:wolf" ||
+        killer.typeId === "minecraft:fox" ||
+        killer.typeId === "minecraft:ocelot");
     if (
       cfg.huntingPressure &&
       killer &&
-      killer.typeId === "minecraft:player" &&
+      (killer.typeId === "minecraft:player" || predator) &&
       system.currentTick - lastHuntTick >= 20
     ) {
       lastHuntTick = system.currentTick;
