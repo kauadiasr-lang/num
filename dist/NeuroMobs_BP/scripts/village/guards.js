@@ -26,6 +26,7 @@ import { world, system } from "@minecraft/server";
 import { centerOf, threatOf, markDirty, rosterOf, prosperityOf } from "./registry.js";
 import { withdraw } from "./economy.js";
 import { getBrain } from "../core/core.js";
+import { groundSnap } from "../world/defense.js";
 import { startSearch } from "../ai/senses.js";
 import { bump } from "../player/stats.js";
 import * as V from "../core/utils.js";
@@ -139,6 +140,38 @@ export function guardsTask(v, cfg) {
         }
       }
     }
+  }
+
+  // 3b) FORMAÇÃO DE PATRULHA: guardas de serviço ociosos se espalham
+  // em postos distintos num anel de 12 blocos (ângulo por índice + dia:
+  // os postos giram). Sem isso, a guarda inteira se aglomera no centro.
+  const lastSpread = v.flags.spreadTick || 0;
+  if (guards.length >= 2 && system.currentTick - lastSpread > 2400) {
+    let assigned = 0;
+    for (let i = 0; i < guards.length; i++) {
+      const g = guards[i];
+      try {
+        if (g.hasTag("neuro_resting")) continue;
+      } catch {
+        continue;
+      }
+      const b = getBrain(g);
+      if (b.searching || V.safeTarget(g)) continue;
+      if (V.distSq(g.location, center) > 24 * 24) continue; // longe: outros sistemas cuidam
+      const ang = ((i + day) / guards.length) * Math.PI * 2;
+      const post = groundSnap(dim, {
+        x: center.x + Math.cos(ang) * 12,
+        y: center.y,
+        z: center.z + Math.sin(ang) * 12
+      });
+      if (V.distSq(g.location, post) < 6 * 6) continue; // já no posto
+      b.lastKnown = { ...post };
+      b.lastSeenTick = system.currentTick;
+      startSearch(b, post);
+      assigned++;
+      if (assigned >= 2) break; // orçamento: 2 designações por fatia
+    }
+    if (assigned > 0) v.flags.spreadTick = system.currentTick;
   }
 
   // 4) Escoltas: crianças (sob ameaça) e gado perdido.

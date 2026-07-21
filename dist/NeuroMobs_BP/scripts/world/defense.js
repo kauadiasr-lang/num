@@ -71,7 +71,7 @@ let lastInvestigateTick = 0;
  * (sinos ficam pendurados em postes — sem isso o posto flutua ou nasce
  * dentro de parede). Fallback: o próprio ponto.
  */
-function groundSnap(dim, p) {
+export function groundSnap(dim, p) {
   try {
     const hit = dim.getBlockFromRay(
       { x: p.x, y: p.y + 3, z: p.z },
@@ -192,10 +192,22 @@ export function villageAlarm(threat, victim, cfg) {
   }
 
   const threatLoc = { ...threat.location };
-  let sharedWp = null;
+
+  // PINÇA: os dois primeiros defensores convergem por LADOS OPOSTOS da
+  // ameaça (postos perpendiculares a ±5 blocos); o terceiro vai direto.
+  // O monstro se vê cercado em vez de enfileirar os defensores.
+  const tdx = threatLoc.x - victim.location.x;
+  const tdz = threatLoc.z - victim.location.z;
+  const tlen = Math.sqrt(tdx * tdx + tdz * tdz) || 1;
+  const ppx = -tdz / tlen, ppz = tdx / tlen; // perpendicular unitária
+  const posts = [
+    { x: threatLoc.x + ppx * 5, y: threatLoc.y, z: threatLoc.z + ppz * 5 },
+    { x: threatLoc.x - ppx * 5, y: threatLoc.y, z: threatLoc.z - ppz * 5 },
+    threatLoc
+  ];
 
   try {
-    // 1) Golems: alertar e direcionar até a ameaça.
+    // 1) Defensores: alertar e direcionar em pinça até a ameaça.
     const golems = victim.dimension.getEntities({
       location: victim.location,
       maxDistance: 32 + trauma * 4,
@@ -203,15 +215,16 @@ export function villageAlarm(threat, victim, cfg) {
     });
     let g = 0;
     for (const golem of golems) {
-      if (g++ >= 3) break;
+      if (g >= 3) break;
       V.tryTrigger(golem, "neuro:alert");
       const gb = getBrain(golem);
       gb.lastKnown = threatLoc;
       gb.lastSeenTick = system.currentTick;
       const far = V.distSq(golem.location, threatLoc) > 12 * 12;
       if (far && !gb.searching && !V.safeTarget(golem)) {
-        sharedWp = startSearch(gb, threatLoc, sharedWp);
+        startSearch(gb, groundSnap(victim.dimension, posts[g]));
       }
+      g++;
     }
 
     // 2) Aldeões próximos: dispersão (o pânico nativo faz o resto).

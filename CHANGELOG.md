@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.4.2 — "Formações" (coordenação da guarda)
+- **Pinça no alarme de vila**: os dois primeiros defensores (golems/
+  guardas) convergem por LADOS OPOSTOS da ameaça (postos perpendiculares
+  a ±5 blocos, aterrados por raycast); o terceiro vai direto. O monstro
+  se vê cercado em vez de enfileirar os defensores.
+- **Patrulha em anel**: guardas de serviço ociosos se espalham em postos
+  distintos num anel de 12 blocos ao redor do centro (os postos giram
+  com o dia) — a guarda cobre o perímetro em vez de se aglomerar.
+- `groundSnap` exportado de defense.js (reuso: leque do sino, pinça e
+  anel usam a MESMA aterragem — zero duplicação).
+
 ## v1.4.1 — "Instinto Selvagem" (cadeia alimentar audível)
 - **Predadores geram pressão de caça**: abates por lobo/raposa/jaguatirica
   agora somam à pressão regional (antes, só jogadores) — região com
