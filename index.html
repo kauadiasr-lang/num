@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arena of Blades</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Camada de Renderização Gráfica -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Camada de Interface de Usuário (Menus, HUD, etc.) -->
+        <div id="ui-layer">
+
+            <!-- TELA: CARREGAMENTO INICIAL -->
+            <div id="screen-loading" class="screen active">
+                <div class="loader-content">
+                    <h1 class="game-title">Arena of Blades</h1>
+                    <div class="progress-bar-container">
+                        <div id="loading-progress" class="progress-fill"></div>
+                    </div>
+                    <p id="loading-text">Inicializando Motor Gráfico...</p>
+                    <button id="btn-start" class="btn primary hidden">Iniciar Jornada</button>
+                </div>
+            </div>
+
+            <!-- TELA: CRIADOR DE PERSONAGEM -->
+            <div id="screen-creation" class="screen">
+                <div class="panel creation-panel">
+                    <h2 class="panel-title">Forje seu Gladiador</h2>
+
+                    <div class="creation-grid">
+                        <!-- Customização Visual -->
+                        <div class="creation-visuals">
+                            <input type="text" id="char-name" placeholder="Nome do Herói" maxlength="15" autocomplete="off">
+
+                            <div class="visual-selector">
+                                <label>Gênero:</label>
+                                <button id="btn-gender" class="btn-small">Masculino</button>
+                            </div>
+                            <div class="visual-selector">
+                                <label>Tom de Pele:</label>
+                                <button id="btn-skin" class="btn-small">Clara</button>
+                            </div>
+                            <div class="visual-selector">
+                                <label>Cabelo:</label>
+                                <button id="btn-hair" class="btn-small">Estilo 1</button>
+                            </div>
+                        </div>
+
+                        <!-- Distribuição de Atributos -->
+                        <div class="creation-stats">
+                            <div class="stats-header">
+                                <h3>Atributos</h3>
+                                <p>Pontos Restantes: <span id="points-left" class="highlight-gold">10</span></p>
+                            </div>
+
+                            <div id="stats-container" class="stats-list">
+                                <!-- Preenchido dinamicamente via ui.js -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btn-finish-creation" class="btn primary disabled">Entrar na Arena</button>
+                </div>
+            </div>
+
+            <!-- TELA: HUB DA CIDADE -->
+            <div id="screen-hub" class="screen">
+                <div class="hud-top">
+                    <div class="player-info">
+                        <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
+                        <p>Nível <span id="hub-player-level">1</span></p>
+                    </div>
+                    <div class="player-resources">
+                        <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
+                        <p>Exp: <span id="hub-player-exp">0</span> / <span id="hub-player-max-exp">100</span></p>
+                    </div>
+                </div>
+
+                <div class="hub-menu">
+                    <button id="btn-arena" class="btn primary btn-large">Entrar na Arena</button>
+                    <button id="btn-shop" class="btn">Mercado</button>
+                    <button id="btn-inventory" class="btn">Inventário &amp; Status</button>
+                    <button id="btn-skills" class="btn">Árvore de Talentos</button>
+                </div>
+            </div>
+
+            <!-- TELA: BATALHA -->
+            <div id="screen-battle" class="screen">
+                <div class="battle-hud">
+                    <!-- Status do Inimigo -->
+                    <div class="entity-status enemy-status">
+                        <h3 id="enemy-name">Inimigo</h3>
+                        <div class="bar-container">
+                            <div id="enemy-hp-bar" class="bar-fill hp-fill"></div>
+                        </div>
+                        <p class="bar-text" id="enemy-hp-text">100/100</p>
+                    </div>
+
+                    <!-- Status do Jogador -->
+                    <div class="entity-status player-status">
+                        <h3 id="battle-player-name">Jogador</h3>
+                        <div class="bar-container">
+                            <div id="player-hp-bar" class="bar-fill hp-fill"></div>
+                        </div>
+                        <p class="bar-text" id="player-hp-text">100/100</p>
+                        <div class="bar-container">
+                            <div id="player-mp-bar" class="bar-fill mp-fill"></div>
+                        </div>
+                        <p class="bar-text" id="player-mp-text">50/50</p>
+                    </div>
+                </div>
+
+                <!-- Log de Combate -->
+                <div id="battle-log" class="battle-log">
+                    <p>A batalha começou!</p>
+                </div>
+
+                <!-- Menu Flutuante de Habilidades -->
+                <div id="battle-skills-menu" class="battle-skills-menu hidden">
+                    <h4 style="color:var(--color-gold); margin-bottom: 10px; border-bottom:1px solid #444; padding-bottom:5px;">Selecione a Habilidade</h4>
+                    <div id="battle-skills-list" class="battle-skills-list">
+                        <!-- Habilidades desbloqueadas aparecem aqui -->
+                    </div>
+                    <button id="btn-close-skill-menu" class="btn btn-small" style="margin-top: 10px; width:100%;">Cancelar</button>
+                </div>
+
+                <!-- Controles de Ação -->
+                <div id="battle-actions" class="battle-actions">
+                    <button id="btn-atk" class="btn-action">Atacar</button>
+                    <button id="btn-def" class="btn-action">Defender</button>
+                    <button id="btn-skill" class="btn-action">Habilidade</button>
+                    <button id="btn-item" class="btn-action">Item</button>
+                </div>
+            </div>
+
+            <!-- TELA: RESULTADOS DA BATALHA -->
+            <div id="screen-results" class="screen">
+                <div class="panel results-panel">
+                    <h2 id="result-title" class="panel-title">Fim de Jogo</h2>
+
+                    <div class="result-stats">
+                        <p>Ouro Recebido: <span id="result-gold" class="highlight-gold">+0</span></p>
+                        <p>Experiência: <span id="result-exp" style="color: #4da6ff;">+0</span></p>
+                        <p id="result-levelup" class="hidden highlight-gold" style="color: #1eff00; text-transform: uppercase; margin-top: 10px; font-weight: bold; font-size: 1.5rem; text-shadow: 0 0 10px #1eff00;">Você subiu de Nível!</p>
+                    </div>
+
+                    <div id="result-loot" class="result-loot"></div>
+
+                    <button id="btn-return-hub" class="btn primary">Retornar à Cidade</button>
+                </div>
+            </div>
+
+            <!-- TELA: INVENTÁRIO E STATUS -->
+            <div id="screen-inventory" class="screen">
+                <div class="panel inventory-panel">
+                    <button class="btn-close" id="btn-close-inv">X</button>
+                    <div class="inv-layout">
+
+                        <!-- Coluna 1: Status e Pontos -->
+                        <div class="inv-stats">
+                            <h3 class="panel-title">Atributos</h3>
+                            <p class="highlight-gold" style="text-align:center; margin-bottom:10px;">
+                                Pontos Disponíveis: <span id="inv-stat-points">0</span>
+                            </p>
+                            <div id="inv-stats-list" class="stats-list">
+                                <!-- Preenchido pelo ui.js -->
+                            </div>
+
+                            <div class="derived-stats-box">
+                                <h4>Estatísticas de Combate</h4>
+                                <p>HP Máximo: <span id="stat-hp">0</span></p>
+                                <p>Dano Físico: <span id="stat-dmg">0</span></p>
+                                <p>Defesa: <span id="stat-def">0</span></p>
+                                <p>Esquiva: <span id="stat-dodge">0</span>%</p>
+                                <p>Chance Crítica: <span id="stat-crit">0</span>%</p>
+                            </div>
+                        </div>
+
+                        <!-- Coluna 2: Equipamento Atual -->
+                        <div class="inv-equipped">
+                            <h3 class="panel-title">Equipamento</h3>
+                            <div class="equip-grid">
+                                <div class="equip-slot" data-slot="head" id="slot-head">Capacete</div>
+                                <div class="equip-slot" data-slot="amulet" id="slot-amulet">Amuleto</div>
+                                <div class="equip-slot" data-slot="chest" id="slot-chest">Peitoral</div>
+                                <div class="equip-slot" data-slot="mainHand" id="slot-mainHand">Arma</div>
+                                <div class="equip-slot" data-slot="offHand" id="slot-offHand">Escudo</div>
+                                <div class="equip-slot" data-slot="hands" id="slot-hands">Luvas</div>
+                                <div class="equip-slot" data-slot="ring" id="slot-ring">Anel</div>
+                                <div class="equip-slot" data-slot="legs" id="slot-legs">Calças</div>
+                                <div class="equip-slot" data-slot="feet" id="slot-feet">Botas</div>
+                            </div>
+                        </div>
+
+                        <!-- Coluna 3: Mochila -->
+                        <div class="inv-bag">
+                            <h3 class="panel-title">Mochila</h3>
+                            <div id="inventory-grid" class="bag-grid">
+                                <!-- Slots preenchidos via JS -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: MERCADO (FERREIRO) -->
+            <div id="screen-shop" class="screen">
+                <div class="panel shop-panel">
+                    <button class="btn-close" id="btn-close-shop">X</button>
+                    <h2 class="panel-title">Ferreiro</h2>
+                    <div class="shop-header">
+                        <p>Seu Ouro: <span id="shop-player-gold" class="highlight-gold">0</span></p>
+                    </div>
+                    <div id="shop-items-container" class="shop-grid">
+                        <!-- Itens à venda -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: ÁRVORE DE TALENTOS -->
+            <div id="screen-skills" class="screen">
+                <div class="panel skills-panel">
+                    <button class="btn-close" id="btn-close-skills">X</button>
+                    <h2 class="panel-title">Árvore de Talentos</h2>
+                    <div class="skills-header">
+                        <p class="highlight-gold">Pontos de Habilidade (SP): <span id="skill-points">0</span></p>
+                    </div>
+                    <div id="skills-container" class="skills-grid">
+                        <!-- Preenchido via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOOLTIP GLOBAL (Flutuante para ver detalhes dos itens) -->
+            <div id="item-tooltip" class="item-tooltip hidden">
+                <h4 id="tt-name">Nome do Item</h4>
+                <p id="tt-type">Tipo</p>
+                <div id="tt-stats" class="tt-stats"></div>
+                <p id="tt-price" class="tt-price">Valor: 0g</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scripts carregados em ordem de dependência -->
+    <script src="js/utils.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/items.js"></script>
+    <script src="js/skills.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/battle.js"></script>
+    <script src="js/graphics.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
