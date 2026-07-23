@@ -14,11 +14,6 @@ class UIManager {
         };
 
         this.genderOptions = ['Masculino', 'Feminino'];
-        this.skinOptions = [
-            { name: 'Clara', hex: '#ffcc99' },
-            { name: 'Média', hex: '#e0ac69' },
-            { name: 'Escura', hex: '#8d5524' }
-        ];
         this.hairOptions = ['Estilo 1', 'Estilo 2', 'Estilo 3'];
 
         this.currentShopItems = [];
@@ -92,11 +87,9 @@ class UIManager {
             this.creationData.visuals.gender = this.genderOptions[idx];
             e.target.innerText = this.creationData.visuals.gender;
         });
-        document.getElementById('btn-skin').addEventListener('click', (e) => {
-            const current = this.skinOptions.findIndex(s => s.hex === this.creationData.visuals.skinTone);
-            const idx = (current + 1) % this.skinOptions.length;
-            this.creationData.visuals.skinTone = this.skinOptions[idx].hex;
-            e.target.innerText = this.skinOptions[idx].name;
+        // Cor de pele livre: qualquer cor é aceita, incluindo tons não convencionais (verde, azul, etc)
+        document.getElementById('char-skin-color').addEventListener('input', (e) => {
+            this.creationData.visuals.skinTone = e.target.value;
         });
         document.getElementById('btn-hair').addEventListener('click', (e) => {
             const idx = this.creationData.visuals.hairStyle % this.hairOptions.length;
@@ -120,9 +113,13 @@ class UIManager {
         // Reseta os dados de criação para uma nova jornada
         this.creationData.pointsLeft = 10;
         this.creationData.stats = { str: 5, agi: 5, int: 5, def: 5, acc: 5, luk: 5, cha: 5 };
+        this.creationData.visuals = { gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1 };
 
         document.getElementById('char-name').value = '';
         document.getElementById('points-left').innerText = this.creationData.pointsLeft;
+        document.getElementById('char-skin-color').value = this.creationData.visuals.skinTone;
+        document.getElementById('btn-gender').innerText = this.creationData.visuals.gender;
+        document.getElementById('btn-hair').innerText = this.hairOptions[0];
 
         const container = document.getElementById('stats-container');
         container.innerHTML = ''; // Limpa

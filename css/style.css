@@ -203,6 +203,21 @@ html, body {
 
 .btn-small:hover { background: #333; color: #fff; }
 
+/* Seletor de cor livre (tom de pele) — aceita qualquer cor, inclusive tons não convencionais */
+.color-picker {
+    width: 60px;
+    height: 34px;
+    padding: 2px;
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    pointer-events: auto;
+}
+.color-picker::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-picker::-webkit-color-swatch { border: 1px solid #555; border-radius: 2px; }
+.color-picker::-moz-color-swatch { border: 1px solid #555; border-radius: 2px; }
+
 .stats-list {
     display: flex;
     flex-direction: column;
@@ -241,6 +256,13 @@ html, body {
 /* ==========================================================================
    Etapa 3 - Hub e Batalha
    ========================================================================== */
+
+/* A tela de batalha não pode ter fundo opaco: o canvas com os gladiadores
+   e os efeitos (VFX) fica logo atrás dela e precisa aparecer nos espaços
+   entre a HUD, o log e os botões de ação. */
+#screen-battle {
+    background: transparent;
+}
 
 /* Hub da Cidade */
 .hud-top {
