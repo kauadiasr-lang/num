@@ -25,6 +25,16 @@ class UIManager {
         this.screens.forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
 
+        // Uma tela anterior mais alta que a viewport pode ter forçado o navegador
+        // a rolar a página (ex: ao focar um campo/botão perto do fim do conteúdo).
+        // Essa rolagem residual "gruda" e desloca visualmente a próxima tela, mesmo
+        // sendo ela 100% do viewport — então zeramos toda rolagem a cada troca de tela.
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        document.getElementById('game-container').scrollTop = 0;
+        document.getElementById(screenId).scrollTop = 0;
+
         // Sincroniza estado para o Motor Gráfico saber o que renderizar
         if (screenId === 'screen-battle') {
             window.Engine.state.screen = 'BATTLE';

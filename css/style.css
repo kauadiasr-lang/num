@@ -29,9 +29,7 @@ html, body {
     position: relative;
     width: 100vw;
     height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden; /* nenhum conteúdo de tela inativa pode empurrar a página e causar rolagem */
 }
 
 #game-canvas {
@@ -56,6 +54,8 @@ html, body {
 
 .screen {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     display: flex;
@@ -275,10 +275,22 @@ html, body {
 }
 .btn-large { padding: 25px; font-size: 1.5rem; }
 
-/* Batalha HUD */
+/* A tela de batalha organiza HUD / log / ações em um fluxo vertical flexível
+   (nada de position:absolute com valores fixos) para nunca sobrepor ou
+   transbordar, seja qual for a proporção da tela (celular em pé, deitado,
+   tablet, ultrawide, etc). */
+#screen-battle {
+    justify-content: space-between;
+    align-items: stretch;
+    padding: 12px 0;
+    gap: 8px;
+    overflow-y: auto;
+}
+
 .battle-hud {
-    position: absolute; top: 20px; width: 90%; max-width: 1000px;
-    display: flex; justify-content: space-between;
+    flex-shrink: 0;
+    width: 90%; max-width: 1000px; margin: 0 auto;
+    display: flex; justify-content: space-between; gap: 10px;
 }
 .entity-status {
     width: 40%; background: var(--color-panel); padding: 15px;
@@ -300,7 +312,8 @@ html, body {
 
 /* Log e Ações */
 .battle-log {
-    position: absolute; top: 30%; width: 60%; height: 150px;
+    flex: 1 1 auto; min-height: 60px; max-height: 150px;
+    width: 60%; margin: 0 auto;
     background: rgba(0,0,0,0.5); border: 1px solid #333;
     overflow-y: hidden; padding: 10px; text-align: center;
     display: flex; flex-direction: column; justify-content: flex-end;
@@ -309,8 +322,9 @@ html, body {
 .battle-log p:last-child { color: white; font-weight: bold; font-size: 1.1rem; }
 
 .battle-actions {
-    position: absolute; bottom: 20px; display: grid;
-    grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 600px;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 600px; margin: 0 auto;
 }
 .btn-action {
     background: #222; color: #fff; border: 2px solid #555;
@@ -325,11 +339,22 @@ html, body {
 /* Responsivo */
 @media (max-width: 768px) {
     .hud-top { padding: 10px; flex-direction: column; text-align: center; }
-    .battle-hud { flex-direction: column; gap: 10px; top: 10px; }
+    .battle-hud { flex-direction: column; gap: 10px; }
     .entity-status { width: 100%; text-align: left; }
-    .battle-log { width: 95%; top: 40%; height: 120px; }
-    .battle-actions { bottom: 10px; }
+    .battle-log { width: 95%; }
     .btn-action { padding: 15px; font-size: 1rem; }
+}
+
+/* Telas muito baixas (celular deitado): encolhe o essencial para tudo caber */
+@media (max-height: 480px) {
+    .battle-hud { flex-direction: row; }
+    .entity-status { padding: 8px; }
+    .entity-status h3 { font-size: 0.95rem; }
+    .bar-container { height: 12px; margin-top: 5px; }
+    .bar-text { font-size: 0.75rem; margin-top: 1px; }
+    .battle-log { min-height: 36px; max-height: 70px; padding: 4px 10px; }
+    .battle-log p { margin: 2px 0; font-size: 0.85rem; }
+    .btn-action { padding: 8px; font-size: 0.85rem; }
 }
 
 /* ==========================================================================
@@ -451,10 +476,12 @@ html, body {
 
 /* Menu de Habilidades na Batalha */
 .battle-skills-menu {
-    position: absolute; bottom: 90px; width: 90%; max-width: 600px;
+    position: absolute; bottom: 170px; left: 50%; transform: translateX(-50%);
+    width: 90%; max-width: 600px;
     background: rgba(15, 15, 15, 0.95); border: 2px solid var(--color-gold);
     border-radius: 8px; padding: 15px; z-index: 100; box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
     pointer-events: auto;
+    max-height: 60vh; overflow-y: auto;
 }
 .battle-skills-list {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 150px; overflow-y: auto;
