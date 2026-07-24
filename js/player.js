@@ -208,8 +208,11 @@ class Player extends Entity {
 
     gainExp(amount) {
         this.exp += amount;
-        const expToNext = this.getExpRequired();
-        if (this.exp >= expToNext) {
+        // Repete enquanto o excedente ainda cobrir o próximo nível, preservando o
+        // resto (em vez de descartá-lo) e permitindo múltiplos níveis de uma vez
+        // quando a recompensa de uma única batalha for grande o suficiente.
+        while (this.exp >= this.getExpRequired()) {
+            this.exp -= this.getExpRequired();
             this.levelUp();
         }
     }
@@ -220,7 +223,6 @@ class Player extends Entity {
 
     levelUp() {
         this.level++;
-        this.exp = 0; // Vamos manter 0 para RPG clássico
         this.statPoints += 3;  // Ganha 3 pontos para distribuir por nível
         this.skillPoints += 1; // 1 Ponto de Talento por nível
         this.calculateDerivedStats();

@@ -161,14 +161,20 @@ class UIManager {
         });
 
         // --- Sonorização Global de UI ---
-        document.querySelectorAll('button').forEach(btn => {
-            btn.addEventListener('mouseenter', () => {
-                if (!btn.disabled && window.AudioManager.initialized) window.AudioManager.playUIHover();
-            });
-            btn.addEventListener('click', () => {
-                if (!btn.disabled && window.AudioManager.initialized) window.AudioManager.playUIClick();
-            });
-        });
+        // Delegado no document (fase de captura, já que mouseenter/mouseleave não
+        // borbulham) em vez de anexado a cada <button> individualmente: botões
+        // criados dinamicamente depois da inicialização (Comprar na loja, Aprender
+        // no talento, +/- de atributos no inventário, etc) também tocam o som,
+        // o que não acontecia quando os listeners eram presos só aos botões
+        // existentes no DOM no momento da construção do UIManager.
+        document.addEventListener('mouseenter', (e) => {
+            const btn = e.target.closest && e.target.closest('button');
+            if (btn && !btn.disabled && window.AudioManager.initialized) window.AudioManager.playUIHover();
+        }, true);
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest && e.target.closest('button');
+            if (btn && !btn.disabled && window.AudioManager.initialized) window.AudioManager.playUIClick();
+        }, true);
     }
 
     // --- CRIAÇÃO DE PERSONAGEM ---
@@ -729,6 +735,9 @@ class UIManager {
                         window.SaveManager.save(window.Engine.state);
                         this.hideTooltip();
                         this.openInventory(); // Refresh
+                    } else {
+                        window.AudioManager.playError();
+                        alert("Mochila Cheia! Libere espaço antes de desequipar.");
                     }
                 };
             } else {

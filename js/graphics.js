@@ -878,6 +878,40 @@ class GraphicsEngine {
                 ctx.strokeStyle = '#c7ccd1'; ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
                 break;
+            case 'w_07': // Espada Longa: lâmina mais comprida e larga que a curta
+                ctx.fillRect(12, -3.5, 54, 7);
+                ctx.fillStyle = '#3a2f22';
+                ctx.fillRect(10, -9, 4, 18);
+                break;
+            case 'w_08': // Chicote: tira fina e ondulada saindo do cabo
+                ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(12, 0);
+                ctx.quadraticCurveTo(30, -14, 46, 2);
+                ctx.quadraticCurveTo(58, 12, 50, 22);
+                ctx.stroke();
+                break;
+            case 'w_09': // Arco Curto: arco recurvo com corda, empunhado verticalmente
+                ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(6, 0, 22, -Math.PI * 0.42, Math.PI * 0.42);
+                ctx.stroke();
+                ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(20, -18.5); ctx.lineTo(20, 18.5);
+                ctx.stroke();
+                break;
+            case 'w_10': // Besta de Aço: estrutura (trilho) + arco curto horizontal
+                ctx.fillRect(8, -2.5, 34, 5);
+                ctx.strokeStyle = '#8891a0'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(16, 0, 16, Math.PI * 0.15, Math.PI * 1.85);
+                ctx.stroke();
+                ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(24, -14); ctx.lineTo(24, 14);
+                ctx.stroke();
+                break;
             default: // w_01 e qualquer arma futura não mapeada: espada genérica
                 ctx.fillRect(12, -3, 40, 6);
                 ctx.fillStyle = '#3a2f22';
