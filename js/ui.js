@@ -51,14 +51,20 @@ class UIManager {
     initEventListeners() {
         // --- Navegação do Hub ---
         document.getElementById('btn-arena').addEventListener('click', () => this.startBattle());
+        document.getElementById('btn-ladder').addEventListener('click', () => this.openLadder());
         document.getElementById('btn-shop').addEventListener('click', () => this.openShop());
         document.getElementById('btn-inventory').addEventListener('click', () => this.openInventory());
         document.getElementById('btn-skills').addEventListener('click', () => this.openSkillTree());
+        document.getElementById('btn-healer').addEventListener('click', () => this.openHealer());
+        document.getElementById('btn-achievements').addEventListener('click', () => this.openAchievements());
 
         // --- Fechar painéis ---
         document.getElementById('btn-close-inv').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-shop').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-skills').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-achievements').addEventListener('click', () => this.showScreen('screen-hub'));
 
         // --- Ações de Batalha ---
         document.getElementById('btn-atk').addEventListener('click', () => {
@@ -68,11 +74,12 @@ class UIManager {
             if (window.BattleEngine) window.BattleEngine.executePlayerTurn('DEF');
         });
         document.getElementById('btn-skill').addEventListener('click', () => this.openBattleSkillMenu());
-        document.getElementById('btn-item').addEventListener('click', () => {
-            this.appendBattleLog('Nenhum item consumível disponível no momento.');
-        });
+        document.getElementById('btn-item').addEventListener('click', () => this.openBattleItemMenu());
         document.getElementById('btn-close-skill-menu').addEventListener('click', () => {
             document.getElementById('battle-skills-menu').classList.add('hidden');
+        });
+        document.getElementById('btn-close-item-menu').addEventListener('click', () => {
+            document.getElementById('battle-items-menu').classList.add('hidden');
         });
 
         // --- Retorno da Tela de Resultados ---
@@ -219,6 +226,7 @@ class UIManager {
         document.getElementById('hub-player-gold').innerText = p.gold;
         document.getElementById('hub-player-exp').innerText = p.exp;
         document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
+        document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;
     }
 
     // --- BATALHA ---
@@ -226,25 +234,83 @@ class UIManager {
         const p = window.Engine.state.player;
         // Gera inimigo baseado no nível do jogador
         const enemy = new Enemy(p.level);
+        this.beginBattleWith(enemy);
+    }
+
+    // Prepara a tela de batalha para qualquer tipo de oponente (Enemy ou Rival)
+    beginBattleWith(opponent) {
+        const p = window.Engine.state.player;
 
         // Instancia a Engine de Batalha Global
-        window.BattleEngine = new BattleSystem(p, enemy);
+        window.BattleEngine = new BattleSystem(p, opponent);
 
         // Atualiza UI
         document.getElementById('battle-player-name').innerText = p.name;
-        document.getElementById('enemy-name').innerText = `${enemy.name} (Nv. ${enemy.level})`;
+        document.getElementById('enemy-name').innerText = `${opponent.name} (Nv. ${opponent.level})`;
 
         this.updateBattleBars();
 
         // Limpa log anterior
         const log = document.getElementById('battle-log');
-        log.innerHTML = `<p>Você encontrou um ${enemy.name} (${enemy.personality})!</p>`;
+        log.innerHTML = `<p>Você encontrou ${opponent.name} (${opponent.personality})!</p>`;
 
         // Reseta botões
         document.querySelectorAll('.btn-action').forEach(btn => btn.disabled = false);
         document.getElementById('battle-skills-menu').classList.add('hidden');
+        document.getElementById('battle-items-menu').classList.add('hidden');
 
         this.showScreen('screen-battle');
+    }
+
+    // --- LADDER DE ADVERSÁRIOS ---
+    openLadder() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('ladder-container');
+        container.innerHTML = '';
+
+        // Um rival só está disponível se todos os anteriores da ladder já
+        // tiverem sido derrotados (progressão sequencial entre e dentro das ligas)
+        const allRivals = [];
+        window.RivalDatabase.leagues.forEach(league => league.rivals.forEach(r => allRivals.push(r)));
+
+        window.RivalDatabase.leagues.forEach(league => {
+            const leagueDiv = document.createElement('div');
+            leagueDiv.className = 'ladder-league';
+            leagueDiv.innerHTML = `<h3>${league.name}</h3>`;
+
+            const grid = document.createElement('div');
+            grid.className = 'ladder-grid';
+
+            league.rivals.forEach(rivalDef => {
+                const globalIdx = allRivals.indexOf(rivalDef);
+                const isDefeated = p.rivalsDefeated.includes(rivalDef.id);
+                const isUnlocked = globalIdx === 0 || p.rivalsDefeated.includes(allRivals[globalIdx - 1].id);
+
+                const card = document.createElement('div');
+                card.className = `rival-card ${rivalDef.isChampion ? 'champion' : ''} ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
+                card.innerHTML = `
+                    <h4>${rivalDef.name}</h4>
+                    <p>Nível ${rivalDef.level} · ${rivalDef.personality}</p>
+                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
+                        ${isDefeated ? 'Derrotado' : (isUnlocked ? (rivalDef.isChampion ? 'Campeão' : 'Disponível') : 'Bloqueado')}
+                    </p>
+                `;
+
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        const rival = new Rival(rivalDef);
+                        this.beginBattleWith(rival);
+                    };
+                }
+
+                grid.appendChild(card);
+            });
+
+            leagueDiv.appendChild(grid);
+            container.appendChild(leagueDiv);
+        });
+
+        this.showScreen('screen-ladder');
     }
 
     updateBattleBars() {
@@ -322,13 +388,49 @@ class UIManager {
         menu.classList.remove('hidden');
     }
 
-    showBattleResults(isVictory, exp, gold, leveledUp, loot = null) {
+    // --- MENU DE ITENS NA BATALHA ---
+    openBattleItemMenu() {
+        const p = window.Engine.state.player;
+        const menu = document.getElementById('battle-items-menu');
+        const list = document.getElementById('battle-items-list');
+
+        const consumableIndexes = [];
+        p.inventory.forEach((item, idx) => { if (item.category === 'consumable') consumableIndexes.push(idx); });
+
+        if (consumableIndexes.length === 0) {
+            this.appendBattleLog("Você não possui itens consumíveis!");
+            return;
+        }
+
+        list.innerHTML = '';
+
+        consumableIndexes.forEach(idx => {
+            const item = p.inventory[idx];
+            const btn = document.createElement('button');
+            btn.className = 'btn-battle-skill';
+            btn.innerHTML = `
+                <strong>${item.name}</strong><br>
+                <span style="font-size: 0.8rem; color:#33cc99">${item.description}</span>
+            `;
+            btn.onclick = () => {
+                menu.classList.add('hidden');
+                if (window.BattleEngine) window.BattleEngine.executePlayerTurn('ITEM', idx);
+            };
+            list.appendChild(btn);
+        });
+
+        menu.classList.remove('hidden');
+    }
+
+    showBattleResults(isVictory, exp, gold, leveledUp, loot = null, newAchievements = []) {
         this.showScreen('screen-results');
 
         const title = document.getElementById('result-title');
         const lvlUpText = document.getElementById('result-levelup');
         const lootContainer = document.getElementById('result-loot');
+        const achievementsContainer = document.getElementById('result-achievements');
         lootContainer.innerHTML = ''; // Limpa loot anterior
+        achievementsContainer.innerHTML = '';
 
         if (isVictory) {
             title.innerText = "Vitória Gloriosa!";
@@ -341,6 +443,16 @@ class UIManager {
                 window.AudioManager.playLevelUp();
             } else {
                 lvlUpText.classList.add('hidden');
+            }
+
+            if (newAchievements && newAchievements.length > 0) {
+                if (!leveledUp) window.AudioManager.playLevelUp(); // fanfarra também para conquistas
+                newAchievements.forEach(ach => {
+                    const toast = document.createElement('div');
+                    toast.className = 'achievement-toast';
+                    toast.innerText = `Conquista Desbloqueada: ${ach.name}`;
+                    achievementsContainer.appendChild(toast);
+                });
             }
 
             // Exibe o Loot
@@ -433,6 +545,8 @@ class UIManager {
         document.getElementById('stat-def').innerText = p.derivedStats.defenseRating;
         document.getElementById('stat-dodge').innerText = Math.floor(p.derivedStats.dodgeChance);
         document.getElementById('stat-crit').innerText = Math.floor(p.derivedStats.critChance);
+        document.getElementById('stat-block').innerText = Math.floor(p.derivedStats.blockChance || 0);
+        document.getElementById('stat-fatigue').innerText = p.fatigue || 0;
     }
 
     renderEquipment() {
@@ -483,25 +597,38 @@ class UIManager {
 
             if (i < p.inventory.length) {
                 const item = p.inventory[i];
-                itemSlot.innerText = "I"; // Placeholder de Ícone (Substituído por Sprites no Canvas futuramente)
-                itemSlot.style.borderColor = item.rarity.color;
-                itemSlot.style.color = item.rarity.color;
+                const isConsumable = item.category === 'consumable';
+
+                itemSlot.innerText = isConsumable ? "P" : "I"; // P = Poção/consumível, I = item equipável
+                itemSlot.style.borderColor = isConsumable ? '#33cc99' : item.rarity.color;
+                itemSlot.style.color = isConsumable ? '#33cc99' : item.rarity.color;
 
                 this.attachTooltip(itemSlot, item);
 
-                // Clique equipa o item (substituindo o atual se existir)
-                itemSlot.onclick = () => {
-                    const currentEquipped = p.equipment[item.slot];
-                    p.equipment[item.slot] = item;
-                    p.inventory.splice(i, 1); // Remove da bolsa
-                    if (currentEquipped) {
-                        p.inventory.push(currentEquipped); // Devolve o antigo pra bolsa
-                    }
-                    p.calculateDerivedStats();
-                    window.SaveManager.save(window.Engine.state);
-                    this.hideTooltip();
-                    this.openInventory(); // Refresh
-                };
+                if (isConsumable) {
+                    // Clique usa o consumível imediatamente (fora de batalha)
+                    itemSlot.onclick = () => {
+                        const result = p.useConsumable(i);
+                        p.calculateDerivedStats();
+                        window.SaveManager.save(window.Engine.state);
+                        this.hideTooltip();
+                        this.openInventory(); // Refresh
+                    };
+                } else {
+                    // Clique equipa o item (substituindo o atual se existir)
+                    itemSlot.onclick = () => {
+                        const currentEquipped = p.equipment[item.slot];
+                        p.equipment[item.slot] = item;
+                        p.inventory.splice(i, 1); // Remove da bolsa
+                        if (currentEquipped) {
+                            p.inventory.push(currentEquipped); // Devolve o antigo pra bolsa
+                        }
+                        p.calculateDerivedStats();
+                        window.SaveManager.save(window.Engine.state);
+                        this.hideTooltip();
+                        this.openInventory(); // Refresh
+                    };
+                }
             }
             grid.appendChild(itemSlot);
         }
@@ -511,6 +638,8 @@ class UIManager {
     openShop() {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
+
+        this.renderConsumableShop();
 
         // Gera estoque caso a loja não tenha (Reseta a cada visita por enquanto)
         this.currentShopItems = ItemFactory.generateShopInventory(p.level);
@@ -555,6 +684,46 @@ class UIManager {
         });
 
         this.showScreen('screen-shop');
+    }
+
+    // Estoque fixo do Boticário (sempre disponível, não é consumido da lista)
+    renderConsumableShop() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('shop-consumables-container');
+        container.innerHTML = '';
+
+        ItemFactory.getConsumableStock().forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'shop-item-card';
+
+            card.innerHTML = `
+                <div>
+                    <h4 style="color: #33cc99">${item.name}</h4>
+                    <p style="font-size: 0.8rem; color: #aaa;">${item.description}</p>
+                </div>
+                <button class="btn btn-small">Comprar (${item.value}g)</button>
+            `;
+
+            this.attachTooltip(card, item);
+
+            card.querySelector('button').onclick = () => {
+                if (p.gold >= item.value && p.inventory.length < p.inventoryCapacity) {
+                    p.gold -= item.value;
+                    p.inventory.push(item);
+                    window.SaveManager.save(window.Engine.state);
+                    this.hideTooltip();
+                    document.getElementById('shop-player-gold').innerText = p.gold;
+                } else if (p.gold < item.value) {
+                    window.AudioManager.playError();
+                    alert("Ouro insuficiente!");
+                } else {
+                    window.AudioManager.playError();
+                    alert("Inventário Cheio!");
+                }
+            };
+
+            container.appendChild(card);
+        });
     }
 
     // --- ÁRVORE DE TALENTOS ---
@@ -603,19 +772,94 @@ class UIManager {
         this.showScreen('screen-skills');
     }
 
+    // --- CURANDEIRO ---
+    openHealer() {
+        this.updateHealerScreen();
+        this.showScreen('screen-healer');
+    }
+
+    updateHealerScreen() {
+        const p = window.Engine.state.player;
+        const fatigue = p.fatigue || 0;
+        const cost = fatigue * 30;
+
+        document.getElementById('healer-fatigue-level').innerText = fatigue;
+        document.getElementById('healer-cost').innerText = cost;
+        document.getElementById('healer-message').innerText = '';
+
+        const btn = document.getElementById('btn-heal-fatigue');
+        btn.disabled = fatigue === 0 || p.gold < cost;
+        btn.onclick = () => this.healFatigue();
+    }
+
+    healFatigue() {
+        const p = window.Engine.state.player;
+        const fatigue = p.fatigue || 0;
+        const cost = fatigue * 30;
+
+        if (fatigue === 0) return;
+        if (p.gold < cost) {
+            window.AudioManager.playError();
+            document.getElementById('healer-message').innerText = 'Ouro insuficiente!';
+            return;
+        }
+
+        p.gold -= cost;
+        p.cureFatigue(fatigue);
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playHeal();
+
+        document.getElementById('healer-message').innerText = 'Fadiga totalmente curada! Você está pronto para lutar.';
+        this.updateHealerScreen();
+        this.updateHubStats();
+    }
+
+    // --- CONQUISTAS ---
+    openAchievements() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('achievements-container');
+        container.innerHTML = '';
+
+        for (let id in window.AchievementDB) {
+            const ach = window.AchievementDB[id];
+            const isUnlocked = p.achievements.includes(id);
+
+            const card = document.createElement('div');
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+            card.innerHTML = `
+                <h4 style="color:${isUnlocked ? 'var(--color-gold)' : '#888'}">${ach.name}</h4>
+                <p>${ach.description}</p>
+            `;
+            container.appendChild(card);
+        }
+
+        this.showScreen('screen-achievements');
+    }
+
     // --- TOOLTIP LOGIC ---
     attachTooltip(element, item) {
         element.onmouseenter = () => {
             const tt = document.getElementById('item-tooltip');
             document.getElementById('tt-name').innerText = item.name;
-            document.getElementById('tt-name').style.color = item.rarity.color;
-            document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+            document.getElementById('tt-name').style.color = item.category === 'consumable' ? '#33cc99' : item.rarity.color;
 
             let statsHtml = '';
-            if (item.damage) statsHtml += `<p>Dano Base: ${item.damage}</p>`;
-            if (item.defense) statsHtml += `<p>Defesa Base: ${item.defense}</p>`;
-            for (let stat in item.statBonuses) {
-                statsHtml += `<p style="color:#1eff00">+${item.statBonuses[stat]} ${stat.toUpperCase()}</p>`;
+            if (item.category === 'consumable') {
+                document.getElementById('tt-type').innerText = 'Consumível';
+                statsHtml += `<p style="color:#33cc99">${item.description}</p>`;
+            } else {
+                document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+                if (item.damage) statsHtml += `<p>Dano Base: ${item.damage}</p>`;
+                if (item.defense) statsHtml += `<p>Defesa Base: ${item.defense}</p>`;
+                for (let stat in item.statBonuses) {
+                    statsHtml += `<p style="color:#1eff00">+${item.statBonuses[stat]} ${stat.toUpperCase()}</p>`;
+                }
+                if (item.critBonus) statsHtml += `<p style="color:#ffcc00">+${item.critBonus}% Crítico</p>`;
+                if (item.accBonus) statsHtml += `<p style="color:#ffcc00">+${item.accBonus} Precisão</p>`;
+                if (item.armorPierce) statsHtml += `<p style="color:#ff8000">Perfura ${Math.floor(item.armorPierce * 100)}% da armadura</p>`;
+                if (item.blockChance) statsHtml += `<p style="color:#88ccff">+${item.blockChance}% Bloqueio</p>`;
+                if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;
+                if (item.mpBonus) statsHtml += `<p style="color:#3388ff">+${item.mpBonus} MP Máximo</p>`;
             }
             document.getElementById('tt-stats').innerHTML = statsHtml;
             document.getElementById('tt-price').innerText = `Valor: ${item.value}g`;

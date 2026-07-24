@@ -1,5 +1,5 @@
 /**
- * Arquitetura de Itens, Equipamentos e Sistema de Raridade
+ * Arquitetura de Itens, Equipamentos, Consumíveis e Sistema de Raridade
  */
 
 const RARITY = {
@@ -17,6 +17,7 @@ const SLOTS = {
 
 class Equipment {
     constructor(baseTemplate, rarityObj) {
+        this.category = 'equipment';
         this.uuid = Utils.generateUUID();
         this.id = baseTemplate.id;
         this.name = `${baseTemplate.name}`;
@@ -39,6 +40,15 @@ class Equipment {
             }
         }
 
+        // Bônus diretos de combate (não escalam com raridade de forma linear
+        // demais para não quebrar o balanceamento em itens lendários)
+        this.critBonus = baseTemplate.critBonus ? +(baseTemplate.critBonus * rarityObj.mult).toFixed(1) : 0;
+        this.accBonus = baseTemplate.accBonus ? +(baseTemplate.accBonus * rarityObj.mult).toFixed(1) : 0;
+        this.blockChance = baseTemplate.blockChance ? +(baseTemplate.blockChance * rarityObj.mult).toFixed(1) : 0;
+        this.armorPierce = baseTemplate.armorPierce || 0; // fixo por arquétipo de arma, não escala com raridade
+        this.hpBonus = baseTemplate.hpBonus ? Math.floor(baseTemplate.hpBonus * rarityObj.mult) : 0;
+        this.mpBonus = baseTemplate.mpBonus ? Math.floor(baseTemplate.mpBonus * rarityObj.mult) : 0;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
@@ -46,14 +56,60 @@ class Equipment {
     }
 }
 
+// Itens consumíveis: sem slot de equipamento, efeito imediato ao usar
+class Consumable {
+    constructor(baseTemplate) {
+        this.category = 'consumable';
+        this.uuid = Utils.generateUUID();
+        this.id = baseTemplate.id;
+        this.name = baseTemplate.name;
+        this.type = baseTemplate.type; // HEAL_HP | HEAL_MP | CURE_FATIGUE
+        this.power = baseTemplate.power;
+        this.value = baseTemplate.value;
+        this.description = baseTemplate.description;
+        this.rarity = RARITY.COMMON; // usado apenas para exibir uma cor neutra na UI/tooltip
+    }
+}
+
 // Banco de Dados de Templates (Escalável)
 const ItemDatabase = {
     weapons: {
         shortsword: { id: 'w_01', name: "Espada Curta", slot: SLOTS.MAIN_HAND, damage: 8, weight: 2.5, value: 50, durability: 100, stats: { str: 1, agi: 1 } },
-        rustyaxe: { id: 'w_02', name: "Machado Enferrujado", slot: SLOTS.MAIN_HAND, damage: 10, weight: 4.0, value: 30, durability: 60, stats: { str: 3 } }
+        rustyaxe: { id: 'w_02', name: "Machado Enferrujado", slot: SLOTS.MAIN_HAND, damage: 10, weight: 4.0, value: 30, durability: 60, stats: { str: 3 } },
+        dagger: { id: 'w_03', name: "Adaga Sombria", slot: SLOTS.MAIN_HAND, damage: 5, weight: 1.0, value: 40, durability: 80, stats: { agi: 2 }, critBonus: 10 },
+        warhammer: { id: 'w_04', name: "Martelo de Guerra", slot: SLOTS.MAIN_HAND, damage: 14, weight: 6.0, value: 90, durability: 90, stats: { str: 4 }, armorPierce: 0.30 },
+        spear: { id: 'w_05', name: "Lança Longa", slot: SLOTS.MAIN_HAND, damage: 9, weight: 3.0, value: 65, durability: 100, stats: { acc: 2 }, accBonus: 8 },
+        rapier: { id: 'w_06', name: "Rapieira Élfica", slot: SLOTS.MAIN_HAND, damage: 7, weight: 1.5, value: 75, durability: 90, stats: { agi: 2, acc: 1 }, critBonus: 15 }
     },
     armors: {
-        leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } }
+        leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
+        chainmail: { id: 'a_02', name: "Cota de Malha", slot: SLOTS.CHEST, defense: 9, weight: 5.0, value: 100, durability: 150, stats: { str: 1 } },
+        platearmor: { id: 'a_03', name: "Armadura de Placas", slot: SLOTS.CHEST, defense: 14, weight: 8.0, value: 160, durability: 200, stats: { str: 2 } },
+        leathercap: { id: 'a_04', name: "Gorro de Couro", slot: SLOTS.HEAD, defense: 2, weight: 1.0, value: 25, durability: 60, stats: { agi: 1 } },
+        ironhelm: { id: 'a_05', name: "Elmo de Ferro", slot: SLOTS.HEAD, defense: 5, weight: 2.5, value: 70, durability: 120, stats: { acc: 1 } },
+        leathergloves: { id: 'a_06', name: "Luvas de Couro", slot: SLOTS.HANDS, defense: 1, weight: 0.5, value: 20, durability: 50, stats: { agi: 1 } },
+        ironvambraces: { id: 'a_07', name: "Braçadeiras de Ferro", slot: SLOTS.HANDS, defense: 3, weight: 1.5, value: 55, durability: 100, stats: { str: 1 } },
+        leatherleggings: { id: 'a_08', name: "Calças de Couro", slot: SLOTS.LEGS, defense: 2, weight: 1.5, value: 30, durability: 70, stats: { agi: 1 } },
+        irongreaves: { id: 'a_09', name: "Grevas de Ferro", slot: SLOTS.LEGS, defense: 5, weight: 3.0, value: 80, durability: 130, stats: { str: 1 } },
+        leatherboots: { id: 'a_10', name: "Botas de Couro", slot: SLOTS.FEET, defense: 1, weight: 1.0, value: 20, durability: 60, stats: { agi: 2 } },
+        ironboots: { id: 'a_11', name: "Botas de Ferro", slot: SLOTS.FEET, defense: 3, weight: 2.0, value: 60, durability: 110, stats: { str: 1 } }
+    },
+    shields: {
+        woodenshield: { id: 's_01', name: "Escudo de Madeira", slot: SLOTS.OFF_HAND, defense: 3, weight: 3.0, value: 45, durability: 90, blockChance: 10 },
+        ironshield: { id: 's_02', name: "Escudo de Ferro", slot: SLOTS.OFF_HAND, defense: 6, weight: 5.0, value: 90, durability: 140, stats: { str: 1 }, blockChance: 18 },
+        towershield: { id: 's_03', name: "Escudo Torre", slot: SLOTS.OFF_HAND, defense: 10, weight: 8.0, value: 150, durability: 200, stats: { str: 2 }, blockChance: 28 }
+    },
+    trinkets: {
+        amuletvigor: { id: 't_01', name: "Amuleto do Vigor", slot: SLOTS.AMULET, weight: 0.2, value: 80, durability: 999, hpBonus: 20 },
+        amuletwisdom: { id: 't_02', name: "Amuleto da Sabedoria", slot: SLOTS.AMULET, weight: 0.2, value: 80, durability: 999, stats: { int: 1 }, mpBonus: 15 },
+        ringprecision: { id: 't_03', name: "Anel da Precisão", slot: SLOTS.RING, weight: 0.1, value: 70, durability: 999, stats: { acc: 2 } },
+        ringfortune: { id: 't_04', name: "Anel da Fortuna", slot: SLOTS.RING, weight: 0.1, value: 70, durability: 999, stats: { luk: 2 } }
+    },
+    consumables: {
+        health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },
+        greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP." },
+        mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP." },
+        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga." }
     }
 };
 
@@ -67,17 +123,24 @@ window.ItemFactory = {
         return new Equipment(template, rarityObj);
     },
 
+    createConsumable(templateId) {
+        const template = ItemDatabase.consumables[templateId];
+        if (!template) {
+            console.error(`[ItemFactory] Consumível ${templateId} não encontrado.`);
+            return null;
+        }
+        return new Consumable(template);
+    },
+
     // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do jogador
     generateShopInventory(playerLevel) {
         const shopInventory = [];
-        const weaponsKeys = Object.keys(ItemDatabase.weapons);
-        const armorKeys = Object.keys(ItemDatabase.armors);
+        const categories = ['weapons', 'armors', 'shields', 'trinkets'];
 
-        // Gera 6 itens aleatórios
-        for (let i = 0; i < 6; i++) {
-            const isWeapon = Utils.chance(50);
-            const pool = isWeapon ? weaponsKeys : armorKeys;
-            const category = isWeapon ? 'weapons' : 'armors';
+        // Gera 8 itens de equipamento aleatórios entre as categorias disponíveis
+        for (let i = 0; i < 8; i++) {
+            const category = categories[Utils.randomInt(0, categories.length - 1)];
+            const pool = Object.keys(ItemDatabase[category]);
             const randomId = pool[Utils.randomInt(0, pool.length - 1)];
 
             // Probabilidade de raridade baseada no nível do jogador
@@ -89,5 +152,10 @@ window.ItemFactory = {
             shopInventory.push(item);
         }
         return shopInventory;
+    },
+
+    // Estoque fixo de consumíveis sempre disponível no Mercado (Boticário)
+    getConsumableStock() {
+        return Object.keys(ItemDatabase.consumables).map(id => this.createConsumable(id));
     }
 };

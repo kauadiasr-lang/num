@@ -58,3 +58,116 @@ class Enemy extends Entity {
         return null;
     }
 }
+
+/**
+ * Ladder de Rivais: adversários nomeados e fixos, organizados em ligas
+ * progressivas. Diferente do Duelo Rápido (Enemy, acima, totalmente
+ * aleatório), cada Rival tem uma distribuição de atributos e equipamento
+ * curados de propósito, então enfrentá-lo sempre parece "aquele adversário
+ * específico" em vez de um número genérico.
+ */
+class Rival extends Entity {
+    constructor(def) {
+        super(def.name);
+        this.rivalId = def.id;
+        this.level = def.level;
+        this.personality = def.personality;
+        this.isChampion = !!def.isChampion;
+        this.league = def.league;
+        this.title = def.title;
+
+        this.distributeStats(def.focus);
+        this.equipGear(def.gearRarity);
+
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+
+        this.expValue = Math.floor(30 * Math.pow(1.25, this.level) * (this.isChampion ? 2 : 1));
+        this.goldValue = Math.floor(Utils.randomInt(15, 35) * (this.level * 0.6 + 1) * (this.isChampion ? 1.8 : 1));
+    }
+
+    // Distribui pontos de atributo conforme os pesos de foco do rival
+    // (ex: um "brutamontes" pesa mais em força/defesa que em agilidade)
+    distributeStats(focus) {
+        const totalPoints = 30 + this.level * 6;
+        let assigned = 0;
+        const keys = Object.keys(focus);
+        keys.forEach((stat, idx) => {
+            if (idx === keys.length - 1) {
+                this.baseStats[stat] += (totalPoints - assigned);
+            } else {
+                const amount = Math.round(totalPoints * focus[stat]);
+                this.baseStats[stat] += amount;
+                assigned += amount;
+            }
+        });
+    }
+
+    // Equipa arma e armadura correspondentes à raridade da liga do rival
+    equipGear(rarity) {
+        const weaponKeys = Object.keys(ItemDatabase.weapons);
+        const armorKeys = Object.keys(ItemDatabase.armors);
+        const weaponId = weaponKeys[Utils.randomInt(0, weaponKeys.length - 1)];
+        const armorId = armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
+        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+
+        if (this.isChampion) {
+            const shieldKeys = Object.keys(ItemDatabase.shields);
+            const shieldId = shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
+            this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
+        }
+    }
+
+    // Campeões sempre deixam loot de alta raridade; rivais comuns têm chance normal
+    generateLoot(playerLuk) {
+        const dropChance = this.isChampion ? 100 : 40 + playerLuk;
+        if (!Utils.chance(dropChance)) return null;
+
+        const minRarityId = this.isChampion ? RARITY.EPIC.id : RARITY.UNCOMMON.id;
+        const pool = window.ItemFactory.generateShopInventory(this.level + 2);
+        const goodItems = pool.filter(i => i.rarity.id >= minRarityId);
+        return goodItems.length > 0 ? goodItems[0] : pool[0];
+    }
+}
+
+// Banco de Rivais: 3 ligas progressivas, cada uma com 3 desafiantes + 1 campeão
+const RivalDatabase = {
+    leagues: [
+        {
+            id: 'bronze', name: 'Liga de Bronze',
+            rivals: [
+                { id: 'gorlak', name: 'Gorlak, o Novato', title: 'Novato', level: 2, focus: { str: 0.5, def: 0.3, agi: 0.2 }, personality: 'Agressivo', gearRarity: RARITY.COMMON },
+                { id: 'vesna', name: 'Vesna, a Ágil', title: 'Ágil', level: 3, focus: { agi: 0.5, acc: 0.3, luk: 0.2 }, personality: 'Equilibrado', gearRarity: RARITY.COMMON },
+                { id: 'thom', name: 'Thom Punho-de-Ferro', title: 'Punho-de-Ferro', level: 4, focus: { str: 0.6, def: 0.4 }, personality: 'Agressivo', gearRarity: RARITY.UNCOMMON },
+                { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 }, personality: 'Defensivo', gearRarity: RARITY.UNCOMMON, isChampion: true }
+            ]
+        },
+        {
+            id: 'silver', name: 'Liga de Prata',
+            rivals: [
+                { id: 'ysolda', name: 'Ysolda, Lâmina Veloz', title: 'Lâmina Veloz', level: 6, focus: { agi: 0.4, luk: 0.3, acc: 0.3 }, personality: 'Equilibrado', gearRarity: RARITY.UNCOMMON },
+                { id: 'bruntok', name: 'Bruntok, o Touro', title: 'o Touro', level: 7, focus: { str: 0.5, def: 0.35, cha: 0.15 }, personality: 'Agressivo', gearRarity: RARITY.UNCOMMON },
+                { id: 'nyx', name: 'Nyx, a Sombria', title: 'a Sombria', level: 8, focus: { int: 0.35, acc: 0.35, luk: 0.3 }, personality: 'Covarde', gearRarity: RARITY.RARE },
+                { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 }, personality: 'Defensivo', gearRarity: RARITY.RARE, isChampion: true }
+            ]
+        },
+        {
+            id: 'gold', name: 'Liga de Ouro',
+            rivals: [
+                { id: 'freya', name: 'Freya Tempestade', title: 'Tempestade', level: 11, focus: { agi: 0.45, acc: 0.35, luk: 0.2 }, personality: 'Equilibrado', gearRarity: RARITY.RARE },
+                { id: 'moloch', name: 'Moloch, o Destruidor', title: 'o Destruidor', level: 12, focus: { str: 0.65, def: 0.35 }, personality: 'Agressivo', gearRarity: RARITY.EPIC },
+                { id: 'sable', name: 'Sable, a Serpente', title: 'a Serpente', level: 13, focus: { luk: 0.4, agi: 0.35, acc: 0.25 }, personality: 'Covarde', gearRarity: RARITY.EPIC },
+                { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 }, personality: 'Defensivo', gearRarity: RARITY.LEGENDARY, isChampion: true }
+            ]
+        }
+    ]
+};
+
+// Marca cada rival com o id da própria liga (facilita checagens de progressão)
+RivalDatabase.leagues.forEach(league => {
+    league.rivals.forEach(rival => { rival.league = league.id; });
+});
+
+window.RivalDatabase = RivalDatabase;

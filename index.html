@@ -77,14 +77,50 @@
                     <div class="player-resources">
                         <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
                         <p>Exp: <span id="hub-player-exp">0</span> / <span id="hub-player-max-exp">100</span></p>
+                        <p>Fadiga: <span id="hub-player-fatigue">0</span>/3</p>
                     </div>
                 </div>
 
                 <div class="hub-menu">
-                    <button id="btn-arena" class="btn primary btn-large">Entrar na Arena</button>
-                    <button id="btn-shop" class="btn">Mercado</button>
-                    <button id="btn-inventory" class="btn">Inventário &amp; Status</button>
-                    <button id="btn-skills" class="btn">Árvore de Talentos</button>
+                    <button id="btn-arena" class="btn primary btn-large hub-btn-wide">Duelo Rápido</button>
+                    <button id="btn-ladder" class="btn primary hub-btn-wide">Adversários</button>
+                    <div class="hub-menu-grid">
+                        <button id="btn-shop" class="btn btn-compact">Mercado</button>
+                        <button id="btn-inventory" class="btn btn-compact">Inventário &amp; Status</button>
+                        <button id="btn-skills" class="btn btn-compact">Talentos</button>
+                        <button id="btn-healer" class="btn btn-compact">Curandeiro</button>
+                        <button id="btn-achievements" class="btn btn-compact">Conquistas</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: LADDER DE ADVERSÁRIOS -->
+            <div id="screen-ladder" class="screen">
+                <div class="panel ladder-panel">
+                    <button class="btn-close" id="btn-close-ladder">X</button>
+                    <h2 class="panel-title">Adversários</h2>
+                    <div id="ladder-container" class="ladder-container"></div>
+                </div>
+            </div>
+
+            <!-- TELA: CURANDEIRO -->
+            <div id="screen-healer" class="screen">
+                <div class="panel healer-panel">
+                    <button class="btn-close" id="btn-close-healer">X</button>
+                    <h2 class="panel-title">Curandeiro</h2>
+                    <p class="healer-info">Fadiga atual: <span id="healer-fatigue-level" class="highlight-gold">0</span>/3</p>
+                    <p class="healer-desc">Cada nível de fadiga reduz seu dano e esquiva em 8%. Cure-se para voltar a lutar em plena forma.</p>
+                    <button id="btn-heal-fatigue" class="btn primary">Curar Fadiga (<span id="healer-cost">0</span>g)</button>
+                    <div id="healer-message" class="healer-message"></div>
+                </div>
+            </div>
+
+            <!-- TELA: CONQUISTAS -->
+            <div id="screen-achievements" class="screen">
+                <div class="panel achievements-panel">
+                    <button class="btn-close" id="btn-close-achievements">X</button>
+                    <h2 class="panel-title">Conquistas</h2>
+                    <div id="achievements-container" class="achievements-grid"></div>
                 </div>
             </div>
 
@@ -128,6 +164,15 @@
                     <button id="btn-close-skill-menu" class="btn btn-small" style="margin-top: 10px; width:100%;">Cancelar</button>
                 </div>
 
+                <!-- Menu Flutuante de Itens -->
+                <div id="battle-items-menu" class="battle-skills-menu hidden">
+                    <h4 style="color:var(--color-gold); margin-bottom: 10px; border-bottom:1px solid #444; padding-bottom:5px;">Selecione o Item</h4>
+                    <div id="battle-items-list" class="battle-skills-list">
+                        <!-- Consumíveis do inventário aparecem aqui -->
+                    </div>
+                    <button id="btn-close-item-menu" class="btn btn-small" style="margin-top: 10px; width:100%;">Cancelar</button>
+                </div>
+
                 <!-- Controles de Ação -->
                 <div id="battle-actions" class="battle-actions">
                     <button id="btn-atk" class="btn-action">Atacar</button>
@@ -147,6 +192,8 @@
                         <p>Experiência: <span id="result-exp" style="color: #4da6ff;">+0</span></p>
                         <p id="result-levelup" class="hidden highlight-gold" style="color: #1eff00; text-transform: uppercase; margin-top: 10px; font-weight: bold; font-size: 1.5rem; text-shadow: 0 0 10px #1eff00;">Você subiu de Nível!</p>
                     </div>
+
+                    <div id="result-achievements" class="result-achievements"></div>
 
                     <div id="result-loot" class="result-loot"></div>
 
@@ -177,6 +224,8 @@
                                 <p>Defesa: <span id="stat-def">0</span></p>
                                 <p>Esquiva: <span id="stat-dodge">0</span>%</p>
                                 <p>Chance Crítica: <span id="stat-crit">0</span>%</p>
+                                <p>Chance de Bloqueio: <span id="stat-block">0</span>%</p>
+                                <p>Fadiga: <span id="stat-fatigue">0</span>/3</p>
                             </div>
                         </div>
 
@@ -208,14 +257,19 @@
                 </div>
             </div>
 
-            <!-- TELA: MERCADO (FERREIRO) -->
+            <!-- TELA: MERCADO (FERREIRO + BOTICÁRIO) -->
             <div id="screen-shop" class="screen">
                 <div class="panel shop-panel">
                     <button class="btn-close" id="btn-close-shop">X</button>
-                    <h2 class="panel-title">Ferreiro</h2>
+                    <h2 class="panel-title">Mercado</h2>
                     <div class="shop-header">
                         <p>Seu Ouro: <span id="shop-player-gold" class="highlight-gold">0</span></p>
                     </div>
+                    <h3 class="shop-section-title">Boticário</h3>
+                    <div id="shop-consumables-container" class="shop-grid">
+                        <!-- Poções e consumíveis, estoque fixo -->
+                    </div>
+                    <h3 class="shop-section-title">Ferreiro</h3>
                     <div id="shop-items-container" class="shop-grid">
                         <!-- Itens à venda -->
                     </div>

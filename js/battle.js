@@ -10,9 +10,9 @@ class BattleSystem {
         this.isPlayerTurn = true;
         this.isBattleActive = true;
 
-        // Modificadores de estado temporários (ex: Defesa ativada)
-        this.playerState = { isDefending: false };
-        this.enemyState = { isDefending: false };
+        // Modificadores de estado temporários (defesa, sangramento, atordoamento)
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false };
     }
 
     // Calcula dano, acerto e crítico de um ataque físico básico, e dispara VFX/SFX
@@ -21,8 +21,9 @@ class BattleSystem {
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
         const defY = window.innerHeight / 2;
 
-        // 1. Cálculo de Acerto (Precisão vs Esquiva)
-        let hitChance = 90 + (attacker.getTotalStat('acc') * 2) - defender.derivedStats.dodgeChance;
+        // 1. Cálculo de Acerto (Precisão vs Esquiva), com bônus de precisão da arma
+        const weaponAcc = attacker.getWeaponAccBonus ? attacker.getWeaponAccBonus() : 0;
+        let hitChance = 90 + (attacker.getTotalStat('acc') * 2) + weaponAcc - defender.derivedStats.dodgeChance;
         hitChance = Utils.clamp(hitChance, 20, 100); // Mínimo de 20% de chance de acerto
 
         if (!Utils.chance(hitChance)) {
@@ -37,8 +38,9 @@ class BattleSystem {
         let damage = attacker.derivedStats.physicalDamage;
         if (isCrit) damage = Math.floor(damage * 1.5); // Crítico padrão x1.5
 
-        // 4. Mitigação por Defesa
-        let defenseRating = defender.derivedStats.defenseRating;
+        // 4. Mitigação por Defesa, reduzida pela perfuração de armadura da arma do atacante
+        const armorPierce = attacker.getWeaponArmorPierce ? attacker.getWeaponArmorPierce() : 0;
+        let defenseRating = defender.derivedStats.defenseRating * (1 - armorPierce);
         if (defenderState.isDefending) {
             defenseRating *= 2; // Dobra a defesa se usou a ação "Defender" no turno
         }
@@ -51,22 +53,50 @@ class BattleSystem {
         mitigatedDamage = Math.floor(mitigatedDamage * Utils.randomFloat(0.9, 1.1));
         if (mitigatedDamage < 1) mitigatedDamage = 1; // Mínimo 1 de dano
 
+        // 5. Chance de Bloqueio (escudo): reduz o dano final pela metade, independente da esquiva/defesa
+        let blocked = false;
+        if (defender.derivedStats.blockChance > 0 && Utils.chance(defender.derivedStats.blockChance)) {
+            blocked = true;
+            mitigatedDamage = Math.max(1, Math.floor(mitigatedDamage * 0.5));
+        }
+
         defender.currentHp -= mitigatedDamage;
         if (defender.currentHp < 0) defender.currentHp = 0;
 
         // --- Camada Visual/Sonora ---
         if (window.GFX) {
-            const textColor = isCrit ? '#ffcc00' : '#ffffff';
+            const textColor = isCrit ? '#ffcc00' : (blocked ? '#88ccff' : '#ffffff');
             window.GFX.spawnText(defX, defY - 50, `-${mitigatedDamage}`, textColor, isCrit);
-            const particleColor = defenderState.isDefending ? '#cccccc' : '#cc0000';
+            const particleColor = blocked ? '#88ccff' : (defenderState.isDefending ? '#cccccc' : '#cc0000');
             window.GFX.spawnParticles(defX, defY, particleColor, isCrit ? 30 : 15, isCrit ? 8 : 4);
         }
         if (window.Engine) window.Engine.triggerShake(isCrit ? 15 : 3, isCrit ? 0.3 : 0.1);
         if (window.AudioManager) isCrit ? window.AudioManager.playCrit() : window.AudioManager.playSwordClash();
 
-        let msg = isCrit ? `ACERTO CRÍTICO! ${attacker.name} causou ${mitigatedDamage} de dano.` : `${attacker.name} atacou e causou ${mitigatedDamage} de dano.`;
+        let msg;
+        if (isCrit) msg = `ACERTO CRÍTICO! ${attacker.name} causou ${mitigatedDamage} de dano.`;
+        else if (blocked) msg = `${defender.name} bloqueou parcialmente o ataque com o escudo! (${mitigatedDamage} de dano)`;
+        else msg = `${attacker.name} atacou e causou ${mitigatedDamage} de dano.`;
 
-        return { hit: true, crit: isCrit, damage: mitigatedDamage, message: msg };
+        return { hit: true, crit: isCrit, blocked, damage: mitigatedDamage, message: msg };
+    }
+
+    // Aplica o tique de sangramento (Corte Sangrento) no início do turno da vítima.
+    // Retorna a mensagem de log, ou null se não houver sangramento ativo.
+    applyBleedTick(target, state, isPlayerTarget) {
+        if (!state.bleedTurns || state.bleedTurns <= 0) return null;
+
+        target.currentHp = Utils.clamp(target.currentHp - state.bleedDamage, 0, target.derivedStats.maxHp);
+        state.bleedTurns--;
+
+        const x = window.GFX.getEntityX(isPlayerTarget, window.innerWidth);
+        const y = window.innerHeight / 2;
+        if (window.GFX) {
+            window.GFX.spawnText(x, y - 80, `-${state.bleedDamage}`, '#ff3333', false);
+            window.GFX.spawnParticles(x, y, '#8b0000', 10, 3, 3);
+        }
+
+        return `<span style="color:#ff5555">${target.name} sofre ${state.bleedDamage} de dano por sangramento!</span>`;
     }
 
     // Processa o fim do combate
@@ -81,8 +111,8 @@ class BattleSystem {
         return 'ONGOING';
     }
 
-    // Processa a ação do Jogador (Atacar, Defender ou usar Habilidade)
-    executePlayerTurn(actionCode, skillId = null) {
+    // Processa a ação do Jogador (Atacar, Defender, Habilidade ou Item)
+    executePlayerTurn(actionCode, param = null) {
         if (!this.isBattleActive || !this.isPlayerTurn) return;
 
         this.isPlayerTurn = false;
@@ -104,7 +134,23 @@ class BattleSystem {
             this.playerState.isDefending = true;
             resultMsg = `${this.player.name} assumiu uma postura defensiva!`;
         }
-        else if (actionCode === 'SKILL' && skillId) {
+        else if (actionCode === 'ITEM') {
+            const result = this.player.useConsumable(param);
+            if (result) {
+                resultMsg = `${this.player.name} usou ${result.name}. ${result.message}.`;
+                window.GFX.spawnText(playerX, playerY - 50, result.message.includes('MP') ? '+MP' : '+HP', '#1eff00', false);
+                window.GFX.spawnParticles(playerX, playerY, '#1eff00', 20, 4, 4);
+                window.AudioManager.playHeal();
+            } else {
+                resultMsg = "Item indisponível.";
+                this.isPlayerTurn = true;
+                window.UI.toggleBattleButtons(true);
+                window.UI.appendBattleLog(resultMsg);
+                return;
+            }
+        }
+        else if (actionCode === 'SKILL' && param) {
+            const skillId = param;
             const skill = window.SkillDB[skillId];
 
             if (this.player.currentMp >= skill.mpCost) {
@@ -152,6 +198,58 @@ class BattleSystem {
                         resultMsg = `${this.player.name} usou ${skill.name} mas errou o alvo!`;
                     }
                 }
+                else if (skill.type === 'BLEED') {
+                    let damage = Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti);
+                    let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
+                    let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+
+                    this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
+                    this.enemyState.bleedTurns = skill.duration;
+                    this.enemyState.bleedDamage = Math.max(1, Math.floor(this.player.getTotalStat('str') * 0.8));
+
+                    resultMsg = `<span style="color:#ff5555">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
+                    window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff3333", false);
+                    window.GFX.spawnParticles(enemyX, enemyY, "#8b0000", 25, 5, 4);
+                    window.AudioManager.playSwordClash();
+                }
+                else if (skill.type === 'STUN') {
+                    let damage = Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti);
+                    let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
+                    let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+
+                    this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
+                    const stunned = Utils.chance(skill.stunChance);
+                    if (stunned) this.enemyState.stunned = true;
+
+                    resultMsg = stunned
+                        ? `<span style="color:#3388ff">${this.player.name} usou ${skill.name}: ${mitigatedDamage} de dano e ${this.enemy.name} ficou atordoado!</span>`
+                        : `<span style="color:#3388ff">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano.</span>`;
+                    window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#3388ff", false);
+                    window.GFX.spawnParticles(enemyX, enemyY, "#3388ff", 25, 5, 4);
+                    window.Engine.triggerShake(6, 0.15);
+                    window.AudioManager.playSwordClash();
+                }
+                else if (skill.type === 'LIFESTEAL') {
+                    let hitChance = 100 + (this.player.getTotalStat('acc') * 2) - this.enemy.derivedStats.dodgeChance;
+                    if (Utils.chance(hitChance)) {
+                        let damage = Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti);
+                        let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
+                        let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+
+                        this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
+                        const healed = Math.floor(mitigatedDamage * (skill.lifestealPercent / 100));
+                        this.player.currentHp = Utils.clamp(this.player.currentHp + healed, 0, this.player.derivedStats.maxHp);
+
+                        resultMsg = `<span style="color:#aa0044">${this.player.name} usou ${skill.name}: ${mitigatedDamage} de dano, recuperando ${healed} HP!</span>`;
+                        window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff0066", true);
+                        window.GFX.spawnText(playerX, playerY - 50, `+${healed}`, "#1eff00", false);
+                        window.GFX.spawnParticles(enemyX, enemyY, "#aa0044", 30, 6, 5);
+                        window.Engine.triggerShake(10, 0.2);
+                        window.AudioManager.playCrit();
+                    } else {
+                        resultMsg = `${this.player.name} usou ${skill.name} mas errou o alvo!`;
+                    }
+                }
             } else {
                 // Failsafe: devolve o turno se por algum motivo a UI permitiu conjurar sem mana
                 resultMsg = "Mana insuficiente!";
@@ -181,6 +279,31 @@ class BattleSystem {
         if (!this.isBattleActive) return;
 
         this.enemyState.isDefending = false;
+
+        // Sangramento tica sempre, mesmo que o inimigo esteja atordoado
+        const bleedMsg = this.applyBleedTick(this.enemy, this.enemyState, false);
+        if (bleedMsg) {
+            window.UI.appendBattleLog(bleedMsg);
+            window.UI.updateBattleBars();
+            const bleedStatus = this.checkWinCondition();
+            if (bleedStatus !== 'ONGOING') {
+                this.endBattle(bleedStatus);
+                return;
+            }
+        }
+
+        // Atordoamento: o inimigo perde a ação deste turno
+        if (this.enemyState.stunned) {
+            this.enemyState.stunned = false;
+            window.UI.appendBattleLog(`<span style="color:#3388ff">${this.enemy.name} está atordoado e perde o turno!</span>`);
+            this.turnCount++;
+            this.isPlayerTurn = true;
+            setTimeout(() => {
+                if (this.isBattleActive) window.UI.toggleBattleButtons(true);
+            }, 500);
+            return;
+        }
+
         let resultMsg = "";
 
         // --- IA Baseada em Personalidade ---
@@ -222,7 +345,7 @@ class BattleSystem {
         }, 500);
     }
 
-    // Gerencia o fim do combate e a distribuição de recompensas
+    // Gerencia o fim do combate, distribuição de recompensas e conquistas
     endBattle(result) {
         this.isBattleActive = false;
 
@@ -232,25 +355,44 @@ class BattleSystem {
             const expGained = this.enemy.expValue;
             const goldGained = this.enemy.goldValue;
             const levelBefore = this.player.level;
+            const hpPercent = this.player.currentHp / this.player.derivedStats.maxHp;
 
             this.player.gold += goldGained;
+            this.player.wins = (this.player.wins || 0) + 1;
             this.player.gainExp(expGained);
 
             const leveledUp = this.player.level > levelBefore;
             const loot = this.enemy.generateLoot(this.player.getTotalStat('luk'));
+            const isLegendary = loot && loot.rarity && loot.rarity.id === RARITY.LEGENDARY.id;
+
+            // Se derrotou um Rival da ladder, marca como derrotado e libera o próximo
+            let defeatedRivalId = null;
+            if (this.enemy.rivalId) {
+                defeatedRivalId = this.enemy.rivalId;
+                if (!this.player.rivalsDefeated.includes(defeatedRivalId)) {
+                    this.player.rivalsDefeated.push(defeatedRivalId);
+                }
+            }
+
+            const newAchievements = this.player.checkAchievements({
+                victory: true, hpPercent, gotLegendary: isLegendary, defeatedRivalId
+            });
 
             // Cura passiva após a batalha (20% do HP max)
             this.player.currentHp = Utils.clamp(this.player.currentHp + Math.floor(this.player.derivedStats.maxHp * 0.2), 0, this.player.derivedStats.maxHp);
 
-            setTimeout(() => window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot), 2000);
+            setTimeout(() => window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot, newAchievements), 2000);
 
         } else if (result === 'DEFEAT') {
             window.UI.appendBattleLog(`<span style="color:#8b0000; font-size:1.2rem;">Você foi derrotado...</span>`);
 
+            this.player.losses = (this.player.losses || 0) + 1;
+            this.player.addFatigue(1); // Cada derrota deixa o gladiador mais cansado
+
             // Penalidade por morte: Revive no hub com 10% de HP
             this.player.currentHp = Math.floor(this.player.derivedStats.maxHp * 0.1);
 
-            setTimeout(() => window.UI.showBattleResults(false, 0, 0, false, null), 2000);
+            setTimeout(() => window.UI.showBattleResults(false, 0, 0, false, null, []), 2000);
         }
 
         window.SaveManager.save(window.Engine.state);

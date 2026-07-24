@@ -48,31 +48,64 @@ class Entity {
         const def = this.getTotalStat('def');
         const luk = this.getTotalStat('luk');
 
-        this.derivedStats.maxHp = 50 + (str * 10) + (this.level * 5);
-        this.derivedStats.maxMp = 20 + (int * 8) + (this.level * 3);
+        let maxHp = 50 + (str * 10) + (this.level * 5);
+        let maxMp = 20 + (int * 8) + (this.level * 3);
 
-        // Se HP atual for 0 (novo char) ou maior que o max, ajusta.
+        // Fórmulas de combate
+        let physicalDamage = Math.floor(str * 1.5);
+        let dodgeChance = Utils.clamp((agi * 0.5) + (luk * 0.1), 0, 45); // Max 45% esquiva natural
+        let critChance = Utils.clamp((agi * 0.2) + (luk * 0.5), 1, 50);
+        let defenseRating = def * 2;
+        let blockChance = 0;
+
+        // Soma bônus diretos de equipamentos: dano/defesa das peças, HP/MP de
+        // amuletos, crítico/precisão de armas e chance de bloqueio de escudos
+        for (let key in this.equipment) {
+            let item = this.equipment[key];
+            if (item) {
+                if (item.damage) physicalDamage += item.damage;
+                if (item.defense) defenseRating += item.defense;
+                if (item.hpBonus) maxHp += item.hpBonus;
+                if (item.mpBonus) maxMp += item.mpBonus;
+                if (item.critBonus) critChance += item.critBonus;
+                if (item.blockChance) blockChance += item.blockChance;
+            }
+        }
+
+        // Fadiga (acúmulo de ferimentos por derrotas): penaliza levemente
+        // dano e reflexos até ser curada no Curandeiro ou com bandagem
+        const fatigueStacks = this.fatigue || 0;
+        const fatigueMult = 1 - (fatigueStacks * 0.08);
+        physicalDamage = Math.floor(physicalDamage * fatigueMult);
+        dodgeChance = dodgeChance * fatigueMult;
+
+        this.derivedStats.maxHp = maxHp;
+        this.derivedStats.maxMp = maxMp;
+        this.derivedStats.physicalDamage = physicalDamage;
+        this.derivedStats.dodgeChance = Utils.clamp(dodgeChance, 0, 45);
+        this.derivedStats.critChance = Utils.clamp(critChance, 1, 65);
+        this.derivedStats.defenseRating = defenseRating;
+        this.derivedStats.blockChance = Utils.clamp(blockChance, 0, 60);
+
+        // Se HP/MP atual for 0 (nova entidade) ou maior que o novo máximo, ajusta.
         if (this.currentHp === 0 || this.currentHp > this.derivedStats.maxHp) {
             this.currentHp = this.derivedStats.maxHp;
         }
         if (this.currentMp === 0 || this.currentMp > this.derivedStats.maxMp) {
             this.currentMp = this.derivedStats.maxMp;
         }
+    }
 
-        // Fórmulas de combate
-        this.derivedStats.physicalDamage = Math.floor(str * 1.5);
-        this.derivedStats.dodgeChance = Utils.clamp((agi * 0.5) + (luk * 0.1), 0, 45); // Max 45% esquiva natural
-        this.derivedStats.critChance = Utils.clamp((agi * 0.2) + (luk * 0.5), 1, 50);
-        this.derivedStats.defenseRating = def * 2;
+    // Bônus de precisão vinda da arma equipada (usado no cálculo de acerto em batalha)
+    getWeaponAccBonus() {
+        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        return weapon && weapon.accBonus ? weapon.accBonus : 0;
+    }
 
-        // Soma dano das armas e defesa das armaduras
-        for (let key in this.equipment) {
-            let item = this.equipment[key];
-            if (item) {
-                if (item.damage) this.derivedStats.physicalDamage += item.damage;
-                if (item.defense) this.derivedStats.defenseRating += item.defense;
-            }
-        }
+    // Fração de armadura ignorada pela arma equipada (perfuração)
+    getWeaponArmorPierce() {
+        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        return weapon && weapon.armorPierce ? weapon.armorPierce : 0;
     }
 }
 
@@ -88,11 +121,58 @@ class Player extends Entity {
         this.skillPoints = 0;  // Pontos de talento por nível
         this.learnedSkills = []; // IDs das habilidades aprendidas
 
+        this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
+        this.wins = 0;
+        this.losses = 0;
+        this.rivalsDefeated = []; // IDs dos rivais da ladder já derrotados
+        this.achievements = []; // IDs das conquistas desbloqueadas
+
         this.visuals = {
             gender: 'Masculino',
             skinTone: '#ffcc99',
             hairStyle: 1
         };
+    }
+
+    addFatigue(amount) {
+        this.fatigue = Utils.clamp((this.fatigue || 0) + amount, 0, 3);
+        this.calculateDerivedStats();
+    }
+
+    cureFatigue(amount) {
+        this.fatigue = Utils.clamp((this.fatigue || 0) - amount, 0, 3);
+        this.calculateDerivedStats();
+    }
+
+    unlockAchievement(id) {
+        if (!this.achievements.includes(id)) {
+            this.achievements.push(id);
+            return true;
+        }
+        return false;
+    }
+
+    // Aplica o efeito de um consumível e o remove do inventário
+    useConsumable(index) {
+        const item = this.inventory[index];
+        if (!item || item.category !== 'consumable') return null;
+
+        let message = '';
+        if (item.type === 'HEAL_HP') {
+            const before = this.currentHp;
+            this.currentHp = Utils.clamp(this.currentHp + item.power, 0, this.derivedStats.maxHp);
+            message = `Recuperou ${this.currentHp - before} HP`;
+        } else if (item.type === 'HEAL_MP') {
+            const before = this.currentMp;
+            this.currentMp = Utils.clamp(this.currentMp + item.power, 0, this.derivedStats.maxMp);
+            message = `Recuperou ${this.currentMp - before} MP`;
+        } else if (item.type === 'CURE_FATIGUE') {
+            this.cureFatigue(item.power);
+            message = `Curou ${item.power} nível(is) de fadiga`;
+        }
+
+        this.inventory.splice(index, 1);
+        return { name: item.name, message };
     }
 
     gainExp(amount) {
@@ -123,4 +203,38 @@ class Player extends Entity {
         }
         return false;
     }
+
+    // Avalia as conquistas com base no estado atual + contexto do evento que acabou
+    // de acontecer (fim de batalha, loot recebido, etc), retornando as recém-desbloqueadas.
+    checkAchievements(context = {}) {
+        const unlocked = [];
+        const tryUnlock = (id) => { if (this.unlockAchievement(id)) unlocked.push(AchievementDB[id]); };
+
+        if (context.victory && this.wins >= 1) tryUnlock('first_blood');
+        if (this.wins >= 10) tryUnlock('unbreakable');
+        if (this.level >= 5) tryUnlock('veteran');
+        if (this.level >= 10) tryUnlock('legend');
+        if (context.victory && context.hpPercent !== undefined && context.hpPercent > 0 && context.hpPercent <= 0.1) tryUnlock('survivor');
+        if (context.gotLegendary) tryUnlock('legendary_finder');
+        if (context.defeatedRivalId === 'bronze_champion') tryUnlock('champion_bronze');
+        if (context.defeatedRivalId === 'silver_champion') tryUnlock('champion_silver');
+        if (context.defeatedRivalId === 'gold_champion') tryUnlock('champion_gold');
+
+        return unlocked;
+    }
 }
+
+// Banco de Conquistas (título + descrição exibidos na tela de Conquistas)
+const AchievementDB = {
+    first_blood: { id: 'first_blood', name: 'Primeiro Sangue', description: 'Vença sua primeira batalha.' },
+    veteran: { id: 'veteran', name: 'Veterano', description: 'Alcance o nível 5.' },
+    legend: { id: 'legend', name: 'Lenda Viva', description: 'Alcance o nível 10.' },
+    unbreakable: { id: 'unbreakable', name: 'Inquebrável', description: 'Vença 10 batalhas.' },
+    survivor: { id: 'survivor', name: 'Sobrevivente', description: 'Vença uma batalha com 10% de HP ou menos.' },
+    legendary_finder: { id: 'legendary_finder', name: 'Caçador de Lendas', description: 'Obtenha um item Lendário.' },
+    champion_bronze: { id: 'champion_bronze', name: 'Campeão de Bronze', description: 'Derrote o Campeão da Liga de Bronze.' },
+    champion_silver: { id: 'champion_silver', name: 'Campeão de Prata', description: 'Derrote o Campeão da Liga de Prata.' },
+    champion_gold: { id: 'champion_gold', name: 'Campeão de Ouro', description: 'Derrote o Campeão da Liga de Ouro.' }
+};
+
+window.AchievementDB = AchievementDB;

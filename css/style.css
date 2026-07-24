@@ -157,6 +157,8 @@ html, body {
 .creation-panel {
     width: 90%;
     max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .creation-grid {
@@ -271,9 +273,19 @@ html, body {
     display: flex; justify-content: space-between; padding: 15px 30px;
 }
 .hub-menu {
-    display: flex; flex-direction: column; gap: 15px; width: 300px;
+    display: flex; flex-direction: column; gap: 12px; width: 360px; max-width: 90vw;
+    max-height: 80vh; overflow-y: auto; padding: 4px;
 }
 .btn-large { padding: 25px; font-size: 1.5rem; }
+.hub-btn-wide { width: 100%; }
+.hub-menu-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.btn-compact { padding: 14px 10px; font-size: 0.95rem; }
+
+@media (max-width: 500px) {
+    .hub-menu-grid { grid-template-columns: 1fr; }
+}
 
 /* A tela de batalha organiza HUD / log / ações em um fluxo vertical flexível
    (nada de position:absolute com valores fixos) para nunca sobrepor ou
@@ -364,6 +376,8 @@ html, body {
 .results-panel {
     text-align: center;
     max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 .result-stats {
     margin: 20px 0;
@@ -443,7 +457,7 @@ html, body {
 .tt-price { margin-top: 10px; color: var(--color-gold); font-weight: bold; border-top: 1px solid #444; padding-top: 5px; }
 
 /* Shop Grid */
-.shop-panel { position: relative; width: 90%; max-width: 700px; }
+.shop-panel { position: relative; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; }
 .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; max-height: 50vh; overflow-y: auto; }
 .shop-item-card {
     background: #111; border: 1px solid #333; padding: 10px; display: flex;
@@ -460,7 +474,7 @@ html, body {
    Etapa 6 - Árvore de Talentos e Habilidades em Batalha
    ========================================================================== */
 
-.skills-panel { width: 90%; max-width: 800px; position: relative; }
+.skills-panel { width: 90%; max-width: 800px; position: relative; max-height: 90vh; overflow-y: auto; }
 .skills-header { text-align: center; margin-bottom: 20px; font-size: 1.2rem; }
 .skills-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;
@@ -492,3 +506,60 @@ html, body {
 }
 .btn-battle-skill:hover:not(:disabled) { background: #333; border-color: var(--color-gold); }
 .btn-battle-skill:disabled { color: #555; cursor: not-allowed; }
+
+/* ==========================================================================
+   Etapa 9 - Ladder de Rivais, Curandeiro, Conquistas e Boticário
+   ========================================================================== */
+
+.shop-section-title {
+    color: var(--color-gold); text-transform: uppercase; font-size: 1rem;
+    margin: 15px 0 10px; border-bottom: 1px solid #333; padding-bottom: 5px;
+}
+
+/* Ladder de Adversários */
+.ladder-panel { width: 95%; max-width: 950px; max-height: 90vh; overflow-y: auto; position: relative; }
+.ladder-container { display: flex; flex-direction: column; gap: 20px; }
+.ladder-league h3 {
+    color: var(--color-gold); text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 6px;
+}
+.ladder-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+}
+.rival-card {
+    background: #1a1a1a; border: 2px solid #444; border-radius: 8px; padding: 12px;
+    text-align: center; cursor: pointer; transition: 0.2s;
+}
+.rival-card:hover:not(.locked) { border-color: var(--color-gold); background: #222; }
+.rival-card.champion { border-color: #ff8000; }
+.rival-card.defeated { border-color: #1eff00; }
+.rival-card.locked { opacity: 0.45; filter: grayscale(80%); cursor: not-allowed; }
+.rival-card h4 { font-size: 1rem; margin-bottom: 4px; }
+.rival-card p { font-size: 0.8rem; color: #aaa; }
+.rival-card .rival-status { margin-top: 8px; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; }
+
+/* Curandeiro */
+.healer-panel { width: 90%; max-width: 500px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
+.healer-info { font-size: 1.3rem; margin-bottom: 10px; }
+.healer-desc { color: #aaa; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5; }
+.healer-message { margin-top: 15px; min-height: 24px; color: #1eff00; font-weight: bold; }
+
+/* Conquistas */
+.achievements-panel { width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; position: relative; }
+.achievements-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; padding: 10px;
+}
+.achievement-card {
+    background: #1a1a1a; border: 2px solid #333; border-radius: 8px; padding: 15px; text-align: center;
+}
+.achievement-card.unlocked { border-color: var(--color-gold); }
+.achievement-card.locked { opacity: 0.5; filter: grayscale(100%); }
+.achievement-card h4 { margin-bottom: 6px; }
+.achievement-card p { font-size: 0.85rem; color: #aaa; }
+
+/* Conquistas desbloqueadas na tela de resultados */
+.result-achievements { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
+.result-achievements .achievement-toast {
+    background: rgba(255, 128, 0, 0.15); border: 1px solid #ff8000; border-radius: 4px;
+    padding: 8px; color: #ff8000; font-weight: bold; font-size: 0.95rem;
+}
