@@ -428,6 +428,42 @@ html, body {
 }
 .enemy-status { border-color: var(--color-primary); text-align: right; }
 
+/* Indicador de Distância e Alcance (entre os dois status na batalha) */
+.distance-indicator {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 8px;
+    min-width: 90px;
+}
+.distance-label {
+    font-size: 0.8rem; color: var(--color-marble-dark); margin-bottom: 6px; text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.distance-track {
+    position: relative; width: 100%; height: 10px;
+    background: var(--color-stone); border: 1px solid var(--color-bronze); border-radius: 5px;
+}
+.distance-range-zone {
+    position: absolute; top: -2px; bottom: -2px;
+    background: rgba(212,175,55,0.3);
+    border-left: 1px solid var(--color-gold); border-right: 1px solid var(--color-gold);
+    border-radius: 3px;
+    transition: left 0.3s ease, width 0.3s ease;
+}
+.distance-marker {
+    position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--color-gold-bright); border: 2px solid var(--color-bronze-dark);
+    transform: translate(-50%, -50%);
+    left: 50%;
+    transition: left 0.3s ease;
+    box-shadow: 0 0 6px rgba(242,217,138,0.8);
+}
+.range-warning {
+    margin-top: 6px; font-size: 0.7rem; font-weight: bold; color: #ff5555;
+    text-transform: uppercase; text-align: center; letter-spacing: 0.5px;
+    animation: fadeUp 0.3s;
+}
+
 /* Barras de Vida e Mana */
 .bar-container {
     width: 100%; height: 20px;
@@ -490,6 +526,7 @@ html, body {
     .hud-top { padding: 10px; flex-direction: column; text-align: center; }
     .battle-hud { flex-direction: column; gap: 10px; }
     .entity-status { width: 100%; text-align: left; }
+    .distance-indicator { width: 100%; order: 3; }
     .battle-log { width: 95%; }
     .btn-action { padding: 15px; font-size: 1rem; }
 }
@@ -501,6 +538,9 @@ html, body {
     .entity-status h3 { font-size: 0.95rem; }
     .bar-container { height: 12px; margin-top: 5px; }
     .bar-text { font-size: 0.75rem; margin-top: 1px; }
+    .distance-indicator { min-width: 60px; }
+    .distance-label { font-size: 0.65rem; margin-bottom: 2px; }
+    .range-warning { font-size: 0.6rem; margin-top: 2px; }
     .battle-log { min-height: 36px; max-height: 70px; padding: 4px 10px; }
     .battle-log p { margin: 2px 0; font-size: 0.85rem; }
     .btn-action { padding: 8px; font-size: 0.85rem; }
@@ -666,7 +706,14 @@ html, body {
     box-shadow: 0 -5px 24px rgba(0,0,0,0.8);
     pointer-events: auto;
     max-height: 60vh; overflow-y: auto;
-    animation: panelEnter 0.25s ease-out;
+    animation: battleMenuEnter 0.25s ease-out;
+}
+/* Variante de panelEnter que preserva o translateX(-50%) de centralização
+   (o panelEnter genérico zera o transform para "none" no "to", o que
+   desalinharia menus centralizados por transform durante a animação) */
+@keyframes battleMenuEnter {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translateX(-50%); }
 }
 .battle-skills-list {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 150px; overflow-y: auto;

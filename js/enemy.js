@@ -42,9 +42,22 @@ class Enemy extends Entity {
             this.baseStats[randomStat]++;
         }
 
+        // Sorteia uma arma (com seu perfil de alcance/velocidade) para que a IA
+        // de posicionamento tenha variedade real também no Duelo Rápido, e não
+        // só na Ladder de Rivais.
+        this.equipRandomWeapon();
+
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
+    }
+
+    equipRandomWeapon() {
+        const weaponKeys = Object.keys(ItemDatabase.weapons);
+        const weaponId = weaponKeys[Utils.randomInt(0, weaponKeys.length - 1)];
+        let rarity = RARITY.COMMON;
+        if (Utils.chance(15 + this.level)) rarity = RARITY.UNCOMMON;
+        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
     }
 
     // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do jogador

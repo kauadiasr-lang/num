@@ -88,6 +88,21 @@ class UIManager {
             document.getElementById('battle-items-menu').classList.add('hidden');
         });
 
+        // --- Movimentação Tática (Aproximar, Recuar, Correr, Investida, Manter Distância) ---
+        document.getElementById('btn-move').addEventListener('click', () => {
+            document.getElementById('battle-move-menu').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-move-menu').addEventListener('click', () => {
+            document.getElementById('battle-move-menu').classList.add('hidden');
+        });
+        const moveActions = { 'btn-move-approach': 'APPROACH', 'btn-move-retreat': 'RETREAT', 'btn-move-run': 'RUN', 'btn-move-charge': 'CHARGE', 'btn-move-hold': 'HOLD' };
+        for (let btnId in moveActions) {
+            document.getElementById(btnId).addEventListener('click', () => {
+                document.getElementById('battle-move-menu').classList.add('hidden');
+                if (window.BattleEngine) window.BattleEngine.executePlayerTurn(moveActions[btnId]);
+            });
+        }
+
         // --- Retorno da Tela de Resultados ---
         document.getElementById('btn-return-hub').addEventListener('click', () => {
             window.SaveManager.save(window.Engine.state);
@@ -340,7 +355,9 @@ class UIManager {
         document.querySelectorAll('.btn-action').forEach(btn => btn.disabled = false);
         document.getElementById('battle-skills-menu').classList.add('hidden');
         document.getElementById('battle-items-menu').classList.add('hidden');
+        document.getElementById('battle-move-menu').classList.add('hidden');
 
+        this.updateDistanceDisplay();
         this.showScreen('screen-battle');
     }
 
@@ -411,11 +428,48 @@ class UIManager {
         const eHP = (b.enemy.currentHp / b.enemy.derivedStats.maxHp) * 100;
         document.getElementById('enemy-hp-bar').style.width = `${eHP}%`;
         document.getElementById('enemy-hp-text').innerText = `${b.enemy.currentHp}/${b.enemy.derivedStats.maxHp}`;
+
+        this.updateDistanceDisplay();
+    }
+
+    // Atualiza a barra de distância, a zona de alcance da arma do jogador e o
+    // aviso de "fora de alcance"; também reforça o gate de alcance no botão Atacar.
+    updateDistanceDisplay() {
+        const b = window.BattleEngine;
+        if (!b) return;
+
+        const range = b.player.getWeaponRange();
+        const inRange = b.isInRange(range);
+
+        document.getElementById('distance-value').innerText = b.distance.toFixed(1);
+        document.getElementById('distance-marker').style.left = `${(b.distance / 10) * 100}%`;
+
+        const zone = document.getElementById('distance-range-zone');
+        const zoneMax = Math.min(range.max, 10);
+        zone.style.left = `${(range.min / 10) * 100}%`;
+        zone.style.width = `${Math.max(0, (zoneMax - range.min) / 10) * 100}%`;
+
+        document.getElementById('range-warning').classList.toggle('hidden', inRange);
+
+        this.applyRangeGate();
+    }
+
+    // Mantém o botão Atacar desabilitado quando o inimigo está fora do alcance
+    // da arma equipada, mesmo que seja o turno do jogador.
+    applyRangeGate() {
+        const b = window.BattleEngine;
+        if (!b) return;
+        const range = b.player.getWeaponRange();
+        if (!b.isInRange(range)) {
+            const atkBtn = document.getElementById('btn-atk');
+            if (atkBtn) atkBtn.disabled = true;
+        }
     }
 
     toggleBattleButtons(isActive) {
         const buttons = document.querySelectorAll('.btn-action');
         buttons.forEach(btn => btn.disabled = !isActive);
+        if (isActive) this.applyRangeGate(); // Atacar continua bloqueado se ainda fora de alcance
     }
 
     appendBattleLog(messageHTML) {
@@ -446,18 +500,39 @@ class UIManager {
 
         list.innerHTML = ''; // Limpa anterior
 
+        const b = window.BattleEngine;
+
         p.learnedSkills.forEach(skillId => {
             const skill = window.SkillDB[skillId];
             const btn = document.createElement('button');
             btn.className = 'btn-battle-skill';
 
-            // Bloqueia botão se não tiver mana suficiente
-            const canCast = p.currentMp >= skill.mpCost;
+            // Bloqueia botão se não tiver mana suficiente, estiver em recarga ou fora de alcance
+            const onCooldown = p.skillCooldowns && p.skillCooldowns[skillId] > 0;
+            const hasMana = p.currentMp >= skill.mpCost;
+
+            let skillRange = null;
+            if (b) {
+                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL') {
+                    skillRange = p.getWeaponRange();
+                } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
+                    skillRange = { min: 0, max: skill.range };
+                }
+            }
+            const inRange = !skillRange || b.isInRange(skillRange);
+
+            const canCast = hasMana && !onCooldown && inRange;
             if (!canCast) btn.disabled = true;
+
+            let statusLabel = `${skill.mpCost} MP`;
+            let statusColor = '#3388ff';
+            if (onCooldown) { statusLabel = `Recarregando (${p.skillCooldowns[skillId]})`; statusColor = '#888'; }
+            else if (!hasMana) { statusColor = '#888'; }
+            else if (!inRange) { statusLabel = 'Fora de alcance'; statusColor = '#ff5555'; }
 
             btn.innerHTML = `
                 <strong>${skill.name}</strong><br>
-                <span style="font-size: 0.8rem; color:${canCast ? '#3388ff' : '#888'}">${skill.mpCost} MP</span>
+                <span style="font-size: 0.8rem; color:${statusColor}">${statusLabel}</span>
             `;
 
             btn.onclick = () => {

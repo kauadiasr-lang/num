@@ -1,5 +1,6 @@
 /**
  * Motor de Combate (Turn-based Math + Ciclo de Turnos + IA + VFX/Áudio)
+ * + Sistema de Distância, Alcance e Movimentação Tática
  */
 
 class BattleSystem {
@@ -10,20 +11,44 @@ class BattleSystem {
         this.isPlayerTurn = true;
         this.isBattleActive = true;
 
-        // Modificadores de estado temporários (defesa, sangramento, atordoamento)
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false };
+        // Distância entre os combatentes, em "metros" (escala 0-10). Começa num
+        // valor médio: armas de alcance curto precisam se aproximar, lanças já
+        // atacam de cara, arcos/bestas precisam recuar antes de atirar.
+        this.distance = 5;
+
+        // Modificadores de estado temporários (defesa, sangramento, atordoamento,
+        // corrida recente e postura de manter distância)
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false };
     }
 
-    // Calcula dano, acerto e crítico de um ataque físico básico, e dispara VFX/SFX
-    executeAttack(attacker, defender, attackerState, defenderState) {
+    // Altera a distância, sempre mantida entre 0 e 10
+    applyDistanceChange(delta) {
+        this.distance = Utils.clamp(this.distance + delta, 0, 10);
+    }
+
+    // Confere se a distância atual está dentro de um alcance {min, max}
+    isInRange(range) {
+        return this.distance >= range.min && this.distance <= range.max;
+    }
+
+    // Calcula dano, acerto e crítico de um ataque físico básico, e dispara VFX/SFX.
+    // damageMulti (padrão 1) permite bônus de dano de ações especiais (ex: Investida)
+    // sem alterar o cálculo de nenhuma chamada existente.
+    executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1) {
         const isPlayer = attacker === this.player;
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
         const defY = window.innerHeight / 2;
 
-        // 1. Cálculo de Acerto (Precisão vs Esquiva), com bônus de precisão da arma
+        // 1. Cálculo de Acerto (Precisão vs Esquiva), com bônus de precisão da arma.
+        // Quem correu no turno anterior (Correr) fica com a esquiva reduzida.
         const weaponAcc = attacker.getWeaponAccBonus ? attacker.getWeaponAccBonus() : 0;
-        let hitChance = 90 + (attacker.getTotalStat('acc') * 2) + weaponAcc - defender.derivedStats.dodgeChance;
+        let effectiveDodge = defender.derivedStats.dodgeChance;
+        if (defenderState.justRan) {
+            effectiveDodge *= 0.5;
+            defenderState.justRan = false; // efeito consumido nesta tentativa de ataque
+        }
+        let hitChance = 90 + (attacker.getTotalStat('acc') * 2) + weaponAcc - effectiveDodge;
         hitChance = Utils.clamp(hitChance, 20, 100); // Mínimo de 20% de chance de acerto
 
         if (window.GFX) {
@@ -41,8 +66,8 @@ class BattleSystem {
         // 2. Cálculo de Crítico
         let isCrit = Utils.chance(attacker.derivedStats.critChance);
 
-        // 3. Cálculo de Dano Base
-        let damage = attacker.derivedStats.physicalDamage;
+        // 3. Cálculo de Dano Base (com multiplicador de ação especial, se houver)
+        let damage = Math.floor(attacker.derivedStats.physicalDamage * damageMulti);
         if (isCrit) damage = Math.floor(damage * 1.5); // Crítico padrão x1.5
 
         // 4. Mitigação por Defesa, reduzida pela perfuração de armadura da arma do atacante
@@ -120,13 +145,15 @@ class BattleSystem {
         return 'ONGOING';
     }
 
-    // Processa a ação do Jogador (Atacar, Defender, Habilidade ou Item)
+    // Processa a ação do Jogador (Atacar, Defender, Habilidade, Item ou Movimentação Tática)
     executePlayerTurn(actionCode, param = null) {
         if (!this.isBattleActive || !this.isPlayerTurn) return;
 
         this.isPlayerTurn = false;
         this.playerState.isDefending = false; // Reseta a defesa do turno anterior
+        this.playerState.holdingDistance = false; // Reseta a postura de manter distância
         window.UI.toggleBattleButtons(false); // Bloqueia a UI
+        if (this.player.tickCooldowns) this.player.tickCooldowns(); // Recargas de habilidade avançam a cada turno do jogador
 
         const playerX = window.GFX.getEntityX(true, window.innerWidth);
         const playerY = window.innerHeight / 2;
@@ -136,12 +163,57 @@ class BattleSystem {
         let resultMsg = "";
 
         if (actionCode === 'ATK') {
+            const range = this.player.getWeaponRange();
+            if (!this.isInRange(range)) {
+                resultMsg = `${this.enemy.name} está fora do alcance da sua arma! Aproxime-se primeiro.`;
+                this.isPlayerTurn = true;
+                window.UI.toggleBattleButtons(true);
+                window.UI.appendBattleLog(resultMsg);
+                window.AudioManager.playError();
+                return;
+            }
             const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState);
             resultMsg = atkResult.message;
         }
         else if (actionCode === 'DEF') {
             this.playerState.isDefending = true;
             resultMsg = `${this.player.name} assumiu uma postura defensiva!`;
+        }
+        else if (actionCode === 'HOLD') {
+            this.playerState.holdingDistance = true;
+            resultMsg = `${this.player.name} se posiciona com cautela, pronto para manter a distância!`;
+        }
+        else if (actionCode === 'APPROACH') {
+            const speed = this.player.getWeaponSpeed();
+            this.applyDistanceChange(-speed.approachSpeed);
+            resultMsg = `${this.player.name} avança em direção ao oponente. (Distância: ${this.distance.toFixed(1)}m)`;
+            if (window.GFX) window.GFX.playAnim(true, 'approach', 700);
+        }
+        else if (actionCode === 'RETREAT') {
+            const speed = this.player.getWeaponSpeed();
+            this.applyDistanceChange(speed.retreatSpeed);
+            resultMsg = `${this.player.name} recua, abrindo distância. (Distância: ${this.distance.toFixed(1)}m)`;
+            if (window.GFX) window.GFX.playAnim(true, 'retreat', 700);
+        }
+        else if (actionCode === 'RUN') {
+            const speed = this.player.getWeaponSpeed();
+            this.applyDistanceChange(-speed.approachSpeed * 2);
+            this.playerState.justRan = true; // fica vulnerável (menos esquiva) no próximo ataque sofrido
+            resultMsg = `${this.player.name} corre para encurtar a distância rapidamente! (Distância: ${this.distance.toFixed(1)}m)`;
+            if (window.GFX) window.GFX.playAnim(true, 'run', 700);
+        }
+        else if (actionCode === 'CHARGE') {
+            const speed = this.player.getWeaponSpeed();
+            this.applyDistanceChange(-speed.approachSpeed * 2);
+            if (window.GFX) window.GFX.playAnim(true, 'charge', 700);
+
+            const range = this.player.getWeaponRange();
+            if (this.isInRange(range)) {
+                const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState, 1.2);
+                resultMsg = `${this.player.name} investiu contra o oponente! ${atkResult.message}`;
+            } else {
+                resultMsg = `${this.player.name} investiu, mas ainda não alcançou o oponente. (Distância: ${this.distance.toFixed(1)}m)`;
+            }
         }
         else if (actionCode === 'ITEM') {
             const result = this.player.useConsumable(param);
@@ -162,8 +234,38 @@ class BattleSystem {
             const skillId = param;
             const skill = window.SkillDB[skillId];
 
+            // Recarga: impede o uso se a habilidade ainda não recuperou os turnos de cooldown
+            if (this.player.skillCooldowns && this.player.skillCooldowns[skillId] > 0) {
+                resultMsg = `${skill.name} ainda está recarregando! (${this.player.skillCooldowns[skillId]} turno(s) restante(s))`;
+                this.isPlayerTurn = true;
+                window.UI.toggleBattleButtons(true);
+                window.UI.appendBattleLog(resultMsg);
+                window.AudioManager.playError();
+                return;
+            }
+
             if (this.player.currentMp >= skill.mpCost) {
+                // Alcance da habilidade: físicas usam o alcance da arma; mágicas usam
+                // o alcance próprio (skill.range); cura não tem restrição de alcance.
+                let skillRange = null;
+                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL') {
+                    skillRange = this.player.getWeaponRange();
+                } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
+                    skillRange = { min: 0, max: skill.range };
+                }
+
+                if (skillRange && !this.isInRange(skillRange)) {
+                    resultMsg = `${this.enemy.name} está fora do alcance de ${skill.name}!`;
+                    this.isPlayerTurn = true;
+                    window.UI.toggleBattleButtons(true);
+                    window.UI.appendBattleLog(resultMsg);
+                    window.AudioManager.playError();
+                    return;
+                }
+
                 this.player.currentMp -= skill.mpCost;
+                if (skill.cooldown && this.player.setSkillCooldown) this.player.setSkillCooldown(skillId, skill.cooldown);
+                if (window.GFX) window.GFX.playAnim(true, skill.animation || 'attack', 700);
 
                 if (skill.type === 'HEAL') {
                     // Cura base = Inteligência * 2.5 * powerMulti
@@ -283,7 +385,7 @@ class BattleSystem {
         setTimeout(() => this.executeEnemyTurn(), 1200);
     }
 
-    // Processa a Inteligência Artificial do Inimigo
+    // Processa a Inteligência Artificial do Inimigo, agora consciente do próprio alcance
     executeEnemyTurn() {
         if (!this.isBattleActive) return;
 
@@ -314,21 +416,71 @@ class BattleSystem {
         }
 
         let resultMsg = "";
-
-        // --- IA Baseada em Personalidade ---
-        let action = 'ATK';
         const hpPercent = this.enemy.currentHp / this.enemy.derivedStats.maxHp;
 
-        if (this.enemy.personality === 'Defensivo' && hpPercent < 0.5 && Utils.chance(60)) {
-            action = 'DEF';
-        } else if (this.enemy.personality === 'Covarde' && hpPercent < 0.3 && Utils.chance(80)) {
-            action = 'DEF'; // No futuro, pode tentar fugir
-        } else if (this.enemy.personality === 'Agressivo') {
-            action = 'ATK'; // 100% chance de ataque
+        // --- Decisão consciente de alcance: o alcance da própria arma manda antes da personalidade ---
+        const range = this.enemy.getWeaponRange();
+        let action;
+
+        let forcedRetreat = false;
+        if (this.distance < range.min) {
+            action = 'RETREAT'; // Muito perto: a arma (lança/arco/besta) precisa de espaço
+            forcedRetreat = true;
+        } else if (this.distance > range.max) {
+            action = 'APPROACH'; // Longe demais: precisa se aproximar para poder golpear
+        } else {
+            // Dentro do alcance: personalidade decide entre atacar ou se defender
+            if (this.enemy.personality === 'Defensivo' && hpPercent < 0.5 && Utils.chance(60)) {
+                action = 'DEF';
+            } else if (this.enemy.personality === 'Covarde' && hpPercent < 0.3 && Utils.chance(80)) {
+                action = 'DEF'; // No futuro, pode tentar fugir
+            } else {
+                action = 'ATK'; // Agressivo sempre ataca; Equilibrado também, por padrão
+            }
+
+            // Arqueiros/besteiros (alcance máximo bem longo) preferem reabrir distância
+            // mesmo já podendo atacar, mantendo vantagem de posição.
+            if (action === 'ATK' && range.max >= 8 && this.distance < range.max * 0.6 && Utils.chance(40)) {
+                action = 'RETREAT';
+            }
+            // Lanceiros (alcance mínimo alto) evitam ficar espremidos perto do próprio mínimo.
+            if (action === 'ATK' && range.min >= 2 && this.distance <= range.min + 1 && Utils.chance(30)) {
+                action = 'RETREAT';
+            }
         }
 
-        // Execução da Ação da IA
-        if (action === 'ATK') {
+        const speed = this.enemy.getWeaponSpeed();
+
+        if (action === 'APPROACH') {
+            // "Manter Distância" do jogador dificulta a aproximação inimiga
+            const resisted = this.playerState.holdingDistance;
+            let amount = speed.approachSpeed;
+            if (resisted) amount *= 0.5;
+            this.applyDistanceChange(-amount);
+            resultMsg = resisted
+                ? `${this.enemy.name} tenta avançar, mas ${this.player.name} mantém a distância!`
+                : `${this.enemy.name} avança para ficar ao alcance.`;
+            if (window.GFX) {
+                window.GFX.playAnim(false, 'approach', 700);
+                if (resisted) window.GFX.playAnim(true, 'push', 500);
+            }
+        } else if (action === 'RETREAT') {
+            // Quando o recuo é forçado (o jogador chegou perto demais para a arma do
+            // inimigo), recua só o necessário para reabrir o alcance mínimo, nunca mais
+            // que isso. Sem esse limite, o recuo sempre anula exatamente o avanço do
+            // jogador (mesma distância, sentido oposto), criando um cabo-de-guerra sem
+            // fim em que nenhum dos dois lados jamais consegue atacar. Recuos táticos
+            // (arqueiro reabrindo vantagem, lanceiro evitando ficar espremido) continuam
+            // usando a velocidade cheia normalmente.
+            let amount = speed.retreatSpeed;
+            if (forcedRetreat) {
+                const needed = range.min - this.distance;
+                amount = Math.min(speed.retreatSpeed, Math.max(needed, 0.5));
+            }
+            this.applyDistanceChange(amount);
+            resultMsg = `${this.enemy.name} recua para reposicionar.`;
+            if (window.GFX) window.GFX.playAnim(false, 'retreat', 700);
+        } else if (action === 'ATK') {
             const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState);
             resultMsg = atkResult.message;
         } else {

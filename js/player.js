@@ -3,6 +3,10 @@
  * Cálculos matemáticos reais, sem hardcoding.
  */
 
+// Perfil de alcance/velocidade de combatentes desarmados (punhos)
+const UNARMED_RANGE = { min: 0, max: 1 };
+const UNARMED_SPEED = { atkSpeed: 1, approachSpeed: 2, retreatSpeed: 2 };
+
 class Entity {
     constructor(name) {
         this.name = name;
@@ -107,6 +111,26 @@ class Entity {
         const weapon = this.equipment[SLOTS.MAIN_HAND];
         return weapon && weapon.armorPierce ? weapon.armorPierce : 0;
     }
+
+    // Alcance mínimo/máximo da arma equipada (punhos nus se não houver arma).
+    // Funciona automaticamente para qualquer arma futura, desde que ela
+    // carregue minRange/maxRange (ver items.js).
+    getWeaponRange() {
+        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        if (weapon && weapon.minRange !== undefined) {
+            return { min: weapon.minRange, max: weapon.maxRange };
+        }
+        return UNARMED_RANGE;
+    }
+
+    // Velocidades de ataque/aproximação/recuo da arma equipada
+    getWeaponSpeed() {
+        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        if (weapon && weapon.atkSpeed !== undefined) {
+            return { atkSpeed: weapon.atkSpeed, approachSpeed: weapon.approachSpeed, retreatSpeed: weapon.retreatSpeed };
+        }
+        return UNARMED_SPEED;
+    }
 }
 
 class Player extends Entity {
@@ -120,6 +144,7 @@ class Player extends Entity {
         this.statPoints = 0;   // Pontos de atributo por nível (distribuição manual)
         this.skillPoints = 0;  // Pontos de talento por nível
         this.learnedSkills = []; // IDs das habilidades aprendidas
+        this.skillCooldowns = {}; // ID da habilidade -> turnos restantes de recarga
 
         this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
         this.wins = 0;
@@ -208,6 +233,25 @@ class Player extends Entity {
             return true;
         }
         return false;
+    }
+
+    // Coloca uma habilidade em recarga por N turnos (do próprio jogador)
+    setSkillCooldown(skillId, turns) {
+        if (!this.skillCooldowns) this.skillCooldowns = {};
+        this.skillCooldowns[skillId] = turns;
+    }
+
+    isSkillReady(skillId) {
+        return !this.skillCooldowns || !this.skillCooldowns[skillId] || this.skillCooldowns[skillId] <= 0;
+    }
+
+    // Avança as recargas de todas as habilidades em 1 turno (chamado a cada
+    // turno do jogador em battle.js)
+    tickCooldowns() {
+        if (!this.skillCooldowns) return;
+        for (let id in this.skillCooldowns) {
+            if (this.skillCooldowns[id] > 0) this.skillCooldowns[id]--;
+        }
     }
 
     // Avalia as conquistas com base no estado atual + contexto do evento que acabou

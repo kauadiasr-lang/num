@@ -133,6 +133,8 @@ class GraphicsEngine {
         this.enemyAnim = { type: 'idle', start: performance.now(), duration: 0 };
         this.birds = [];
         this._birdTimer = Utils.randomFloat(3, 7);
+        // Distância exibida (suavizada) começa já alinhada com a distância real da batalha
+        this._displayDistance = (window.BattleEngine && typeof window.BattleEngine.distance === 'number') ? window.BattleEngine.distance : 5;
     }
 
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
@@ -166,9 +168,16 @@ class GraphicsEngine {
         this.bursts.push(new ImpactBurst(x, y, color));
     }
 
-    // Posição X de um gladiador na arena, escalada para caber em telas estreitas (mobile)
+    // Posição X de um gladiador na arena. Reflete a distância tática real da
+    // batalha (suavizada quadro a quadro): quanto maior window.BattleEngine.distance,
+    // mais afastados os gladiadores aparecem — e vice-versa quando se aproximam.
+    // Sempre escalada para caber em telas estreitas (mobile).
     getEntityX(isPlayer, canvasWidth) {
-        const offset = Math.min(200, canvasWidth * 0.28);
+        const minOffset = Math.min(45, canvasWidth * 0.09);
+        const maxOffset = Math.min(230, canvasWidth * 0.34);
+        const dist = this._displayDistance !== undefined ? this._displayDistance : 5;
+        const t = Utils.clamp(dist / 10, 0, 1);
+        const offset = Utils.lerp(minOffset, maxOffset, t);
         return canvasWidth / 2 + (isPlayer ? -offset : offset);
     }
 
@@ -185,6 +194,13 @@ class GraphicsEngine {
         this._torchClock = (this._torchClock || 0) + dt;
 
         if (window.Engine && window.Engine.state.screen === 'BATTLE') {
+            // Suaviza a posição visual dos gladiadores em direção à distância real
+            // da batalha (evita "teleporte" abrupto quando alguém se move)
+            if (window.BattleEngine && typeof window.BattleEngine.distance === 'number') {
+                if (this._displayDistance === undefined) this._displayDistance = window.BattleEngine.distance;
+                this._displayDistance = Utils.lerp(this._displayDistance, window.BattleEngine.distance, Math.min(1, dt * 4));
+            }
+
             // Poeira ambiente, taxa baixa e limitada (mantém performance previsível)
             this._dustTimer -= dt;
             if (this._dustTimer <= 0 && this.particles.length < 70) {
@@ -462,16 +478,56 @@ class GraphicsEngine {
                 pose.victoryPose = true;
                 break;
             }
-            case 'walk':
-            case 'run': {
-                // reservado para futura locomoção livre; hoje só um leve balanço
-                pose.legSway = Math.sin(idleT * (anim.type === 'run' ? 6 : 4)) * 6;
+            case 'approach': { // Aproximar: passo em direção ao oponente
+                const k = Math.sin(Math.min(t, 1) * Math.PI);
+                pose.legSway = Math.sin(idleT * 5) * 5;
+                pose.offsetX = 6 * k;
+                pose.torsoLean += 3 * k;
+                break;
+            }
+            case 'retreat': { // Recuar: passo para trás, abrindo distância
+                const k = Math.sin(Math.min(t, 1) * Math.PI);
+                pose.legSway = Math.sin(idleT * 5) * 5;
+                pose.offsetX = -8 * k;
+                pose.torsoLean -= 3 * k;
+                break;
+            }
+            case 'run': { // Correr: sprint vigoroso em direção ao oponente
+                const k = Math.sin(Math.min(t, 1) * Math.PI);
+                pose.legSway = Math.sin(idleT * 9) * 8;
+                pose.offsetX = 10 * k;
+                pose.torsoLean += 8 * k;
+                break;
+            }
+            case 'charge': { // Investida: arrancada agressiva, corpo projetado à frente
+                const k = Utils.clamp(t / 0.6, 0, 1);
+                pose.legSway = Math.sin(idleT * 10) * 7;
+                pose.offsetX = 14 * Math.sin(k * Math.PI);
+                pose.torsoLean += 12;
+                break;
+            }
+            case 'push': { // Empurrão: recuo curto ao resistir a uma aproximação inimiga
+                const k = Math.sin(Math.min(t, 1) * Math.PI);
+                pose.offsetX = -10 * k;
+                pose.torsoLean -= 8 * k;
+                break;
+            }
+            case 'cast': { // Conjuração: gesto de invocar magia/cura
+                const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                pose.weaponAngle = -30 - k * 25;
+                pose.offsetY = -k * 4;
+                break;
+            }
+            case 'walk': {
+                // reservado para futura locomoção livre pelo mapa
+                pose.legSway = Math.sin(idleT * 4) * 6;
                 break;
             }
             default: break;
         }
 
-        pose.guard = !!isDefending && anim.type !== 'attack' && anim.type !== 'hurt' && anim.type !== 'death';
+        const exclusiveAnims = ['attack', 'hurt', 'death', 'approach', 'retreat', 'run', 'charge', 'push', 'cast'];
+        pose.guard = !!isDefending && !exclusiveAnims.includes(anim.type);
         return pose;
     }
 

@@ -160,6 +160,16 @@
                         <p class="bar-text" id="enemy-hp-text">100/100</p>
                     </div>
 
+                    <!-- Indicador de Distância e Alcance -->
+                    <div class="distance-indicator" id="distance-indicator">
+                        <p class="distance-label">Distância: <span id="distance-value">5.0</span>m</p>
+                        <div class="distance-track" id="distance-track">
+                            <div class="distance-range-zone" id="distance-range-zone"></div>
+                            <div class="distance-marker" id="distance-marker"></div>
+                        </div>
+                        <p id="range-warning" class="range-warning hidden">Fora de Alcance!</p>
+                    </div>
+
                     <!-- Status do Jogador -->
                     <div class="entity-status player-status">
                         <h3 id="battle-player-name">Jogador</h3>
@@ -197,12 +207,36 @@
                     <button id="btn-close-item-menu" class="btn btn-small" style="margin-top: 10px; width:100%;">Cancelar</button>
                 </div>
 
+                <!-- Menu Flutuante de Movimentação Tática -->
+                <div id="battle-move-menu" class="battle-skills-menu hidden">
+                    <h4 style="color:var(--color-gold); margin-bottom: 10px; border-bottom:1px solid #444; padding-bottom:5px;">Posicionamento Tático</h4>
+                    <div id="battle-move-list" class="battle-skills-list">
+                        <button id="btn-move-approach" class="btn-battle-skill">
+                            <strong>Aproximar</strong><br><span style="font-size:0.8rem; color:#88ccff">Reduz a distância</span>
+                        </button>
+                        <button id="btn-move-retreat" class="btn-battle-skill">
+                            <strong>Recuar</strong><br><span style="font-size:0.8rem; color:#88ccff">Aumenta a distância</span>
+                        </button>
+                        <button id="btn-move-run" class="btn-battle-skill">
+                            <strong>Correr</strong><br><span style="font-size:0.8rem; color:#ffaa33">Aproxima rápido, mas reduz sua esquiva</span>
+                        </button>
+                        <button id="btn-move-charge" class="btn-battle-skill">
+                            <strong>Investida</strong><br><span style="font-size:0.8rem; color:#ffaa33">Avança e ataca com +20% de dano</span>
+                        </button>
+                        <button id="btn-move-hold" class="btn-battle-skill" style="grid-column: 1 / -1;">
+                            <strong>Manter Distância</strong><br><span style="font-size:0.8rem; color:#88ccff">Dificulta a aproximação inimiga no próximo turno</span>
+                        </button>
+                    </div>
+                    <button id="btn-close-move-menu" class="btn btn-small" style="margin-top: 10px; width:100%;">Cancelar</button>
+                </div>
+
                 <!-- Controles de Ação -->
                 <div id="battle-actions" class="battle-actions">
                     <button id="btn-atk" class="btn-action">Atacar</button>
                     <button id="btn-def" class="btn-action">Defender</button>
                     <button id="btn-skill" class="btn-action">Habilidade</button>
                     <button id="btn-item" class="btn-action">Item</button>
+                    <button id="btn-move" class="btn-action" style="grid-column: 1 / -1;">Mover</button>
                 </div>
             </div>
 

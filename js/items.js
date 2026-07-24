@@ -49,6 +49,15 @@ class Equipment {
         this.hpBonus = baseTemplate.hpBonus ? Math.floor(baseTemplate.hpBonus * rarityObj.mult) : 0;
         this.mpBonus = baseTemplate.mpBonus ? Math.floor(baseTemplate.mpBonus * rarityObj.mult) : 0;
 
+        // Alcance e velocidade (relevante para armas equipadas em mainHand; fixo
+        // por arquétipo, não escala com raridade — um punhal lendário não fica
+        // mais longo, só mais afiado)
+        this.minRange = baseTemplate.minRange !== undefined ? baseTemplate.minRange : 0;
+        this.maxRange = baseTemplate.maxRange !== undefined ? baseTemplate.maxRange : 1;
+        this.atkSpeed = baseTemplate.atkSpeed || 1;
+        this.approachSpeed = baseTemplate.approachSpeed || 2;
+        this.retreatSpeed = baseTemplate.retreatSpeed || 2;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
@@ -74,12 +83,26 @@ class Consumable {
 // Banco de Dados de Templates (Escalável)
 const ItemDatabase = {
     weapons: {
-        shortsword: { id: 'w_01', name: "Espada Curta", slot: SLOTS.MAIN_HAND, damage: 8, weight: 2.5, value: 50, durability: 100, stats: { str: 1, agi: 1 } },
-        rustyaxe: { id: 'w_02', name: "Machado Enferrujado", slot: SLOTS.MAIN_HAND, damage: 10, weight: 4.0, value: 30, durability: 60, stats: { str: 3 } },
-        dagger: { id: 'w_03', name: "Adaga Sombria", slot: SLOTS.MAIN_HAND, damage: 5, weight: 1.0, value: 40, durability: 80, stats: { agi: 2 }, critBonus: 10 },
-        warhammer: { id: 'w_04', name: "Martelo de Guerra", slot: SLOTS.MAIN_HAND, damage: 14, weight: 6.0, value: 90, durability: 90, stats: { str: 4 }, armorPierce: 0.30 },
-        spear: { id: 'w_05', name: "Lança Longa", slot: SLOTS.MAIN_HAND, damage: 9, weight: 3.0, value: 65, durability: 100, stats: { acc: 2 }, accBonus: 8 },
-        rapier: { id: 'w_06', name: "Rapieira Élfica", slot: SLOTS.MAIN_HAND, damage: 7, weight: 1.5, value: 75, durability: 90, stats: { agi: 2, acc: 1 }, critBonus: 15 }
+        shortsword: { id: 'w_01', name: "Espada Curta", slot: SLOTS.MAIN_HAND, damage: 8, weight: 2.5, value: 50, durability: 100, stats: { str: 1, agi: 1 },
+            minRange: 0, maxRange: 2, atkSpeed: 1.0, approachSpeed: 2.0, retreatSpeed: 2.0 },
+        rustyaxe: { id: 'w_02', name: "Machado Enferrujado", slot: SLOTS.MAIN_HAND, damage: 10, weight: 4.0, value: 30, durability: 60, stats: { str: 3 },
+            minRange: 0, maxRange: 2, atkSpeed: 0.8, approachSpeed: 1.5, retreatSpeed: 1.5 },
+        dagger: { id: 'w_03', name: "Adaga Sombria", slot: SLOTS.MAIN_HAND, damage: 5, weight: 1.0, value: 40, durability: 80, stats: { agi: 2 }, critBonus: 10,
+            minRange: 0, maxRange: 1, atkSpeed: 1.4, approachSpeed: 2.5, retreatSpeed: 2.5 },
+        warhammer: { id: 'w_04', name: "Martelo de Guerra", slot: SLOTS.MAIN_HAND, damage: 14, weight: 6.0, value: 90, durability: 90, stats: { str: 4 }, armorPierce: 0.30,
+            minRange: 0, maxRange: 2, atkSpeed: 0.6, approachSpeed: 1.2, retreatSpeed: 1.2 },
+        spear: { id: 'w_05', name: "Lança Longa", slot: SLOTS.MAIN_HAND, damage: 9, weight: 3.0, value: 65, durability: 100, stats: { acc: 2 }, accBonus: 8,
+            minRange: 2, maxRange: 5, atkSpeed: 0.9, approachSpeed: 1.8, retreatSpeed: 2.2 },
+        rapier: { id: 'w_06', name: "Rapieira Élfica", slot: SLOTS.MAIN_HAND, damage: 7, weight: 1.5, value: 75, durability: 90, stats: { agi: 2, acc: 1 }, critBonus: 15,
+            minRange: 0, maxRange: 3, atkSpeed: 1.3, approachSpeed: 2.2, retreatSpeed: 2.2 },
+        longsword: { id: 'w_07', name: "Espada Longa", slot: SLOTS.MAIN_HAND, damage: 11, weight: 3.5, value: 85, durability: 110, stats: { str: 2 },
+            minRange: 0, maxRange: 3, atkSpeed: 0.9, approachSpeed: 1.8, retreatSpeed: 1.8 },
+        whip: { id: 'w_08', name: "Chicote", slot: SLOTS.MAIN_HAND, damage: 6, weight: 1.5, value: 70, durability: 70, stats: { agi: 1, acc: 1 },
+            minRange: 2, maxRange: 6, atkSpeed: 1.1, approachSpeed: 1.5, retreatSpeed: 2.0 },
+        bow: { id: 'w_09', name: "Arco Curto", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 95, durability: 80, stats: { acc: 3 },
+            minRange: 8, maxRange: 15, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.5 },
+        crossbow: { id: 'w_10', name: "Besta de Aço", slot: SLOTS.MAIN_HAND, damage: 12, weight: 3.2, value: 110, durability: 90, stats: { acc: 2 }, armorPierce: 0.15,
+            minRange: 6, maxRange: 12, atkSpeed: 0.7, approachSpeed: 1.0, retreatSpeed: 2.0 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
