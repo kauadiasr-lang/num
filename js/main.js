@@ -141,10 +141,6 @@ class GameEngine {
     }
 
     draw(ctx) {
-        // Preenche fundo
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, this.width, this.height);
-
         // Aplica transformações de câmera (Screen Shake)
         ctx.save();
         if (this.shakeTimer > 0) {
@@ -153,13 +149,10 @@ class GameEngine {
             ctx.translate(dx, dy);
         }
 
-        // Fundo da Arena (Um chão simples estilizado) + Renderização de Batalha
-        if (this.state.screen === 'BATTLE') {
-            ctx.fillStyle = '#1a1005';
-            ctx.fillRect(0, this.height / 2 + 50, this.width, this.height);
-
-            if (window.GFX) window.GFX.draw(ctx, this.width, this.height);
-        }
+        // O GraphicsEngine desenha a cena inteira: fundo preto simples fora de
+        // batalha, ou a arena cinematográfica completa (céu, coliseu, plateia,
+        // gladiadores) quando state.screen === 'BATTLE'.
+        if (window.GFX) window.GFX.draw(ctx, this.width, this.height);
 
         // Restaura câmera
         ctx.restore();

@@ -10,11 +10,17 @@ class UIManager {
             pointsLeft: 10,
             stats: { str: 5, agi: 5, int: 5, def: 5, acc: 5, luk: 5, cha: 5 },
             names: { str: "Força", agi: "Agilidade", int: "Inteligência", def: "Defesa", acc: "Precisão", luk: "Sorte", cha: "Carisma" },
-            visuals: { gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1 }
+            visuals: {
+                gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1, hairColor: '#2a1c10',
+                beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1
+            }
         };
 
         this.genderOptions = ['Masculino', 'Feminino'];
         this.hairOptions = ['Estilo 1', 'Estilo 2', 'Estilo 3'];
+        this.beardOptions = ['Nenhuma', 'Bigode', 'Cavanhaque', 'Barba Cheia'];
+        this.faceOptions = ['Redondo', 'Oval', 'Anguloso'];
+        this._previewRAFId = null;
 
         this.currentShopItems = [];
 
@@ -98,7 +104,7 @@ class UIManager {
             }
         });
 
-        // --- Seletores Visuais do Criador de Personagem ---
+        // --- Seletores Visuais do Criador de Personagem (todos atualizam o preview ao vivo) ---
         document.getElementById('btn-gender').addEventListener('click', (e) => {
             const idx = (this.genderOptions.indexOf(this.creationData.visuals.gender) + 1) % this.genderOptions.length;
             this.creationData.visuals.gender = this.genderOptions[idx];
@@ -112,6 +118,31 @@ class UIManager {
             const idx = this.creationData.visuals.hairStyle % this.hairOptions.length;
             this.creationData.visuals.hairStyle = idx + 1;
             e.target.innerText = this.hairOptions[idx];
+        });
+        document.getElementById('char-hair-color').addEventListener('input', (e) => {
+            this.creationData.visuals.hairColor = e.target.value;
+        });
+        document.getElementById('btn-beard').addEventListener('click', (e) => {
+            const idx = (this.creationData.visuals.beardStyle + 1) % this.beardOptions.length;
+            this.creationData.visuals.beardStyle = idx;
+            e.target.innerText = this.beardOptions[idx];
+        });
+        document.getElementById('char-beard-color').addEventListener('input', (e) => {
+            this.creationData.visuals.beardColor = e.target.value;
+        });
+        document.getElementById('char-eye-color').addEventListener('input', (e) => {
+            this.creationData.visuals.eyeColor = e.target.value;
+        });
+        document.getElementById('btn-face').addEventListener('click', (e) => {
+            const idx = this.creationData.visuals.faceShape % this.faceOptions.length;
+            this.creationData.visuals.faceShape = idx + 1;
+            e.target.innerText = this.faceOptions[idx];
+        });
+
+        // --- Configuração: sangue nos combates (opcional, desligado por padrão) ---
+        document.getElementById('btn-toggle-blood').addEventListener('click', (e) => {
+            window.GFX.bloodEnabled = !window.GFX.bloodEnabled;
+            e.target.innerText = window.GFX.bloodEnabled ? 'Ligado' : 'Desligado';
         });
 
         // --- Sonorização Global de UI ---
@@ -130,13 +161,23 @@ class UIManager {
         // Reseta os dados de criação para uma nova jornada
         this.creationData.pointsLeft = 10;
         this.creationData.stats = { str: 5, agi: 5, int: 5, def: 5, acc: 5, luk: 5, cha: 5 };
-        this.creationData.visuals = { gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1 };
+        this.creationData.visuals = {
+            gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1, hairColor: '#2a1c10',
+            beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1
+        };
 
         document.getElementById('char-name').value = '';
         document.getElementById('points-left').innerText = this.creationData.pointsLeft;
         document.getElementById('char-skin-color').value = this.creationData.visuals.skinTone;
         document.getElementById('btn-gender').innerText = this.creationData.visuals.gender;
         document.getElementById('btn-hair').innerText = this.hairOptions[0];
+        document.getElementById('char-hair-color').value = this.creationData.visuals.hairColor;
+        document.getElementById('btn-beard').innerText = this.beardOptions[0];
+        document.getElementById('char-beard-color').value = this.creationData.visuals.beardColor;
+        document.getElementById('char-eye-color').value = this.creationData.visuals.eyeColor;
+        document.getElementById('btn-face').innerText = this.faceOptions[0];
+
+        this.startCreatorPreviewLoop();
 
         const container = document.getElementById('stats-container');
         container.innerHTML = ''; // Limpa
@@ -196,7 +237,45 @@ class UIManager {
         }
     }
 
+    // Preview em tempo real do gladiador no criador: reaproveita o MESMO
+    // renderizador modular usado na batalha (graphics.js), então qualquer
+    // mudança de visual/equipamento aparece igual nos dois lugares.
+    startCreatorPreviewLoop() {
+        this.stopCreatorPreviewLoop();
+        const canvas = document.getElementById('creator-preview-canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!this._previewSword) {
+            this._previewSword = ItemFactory.createEquipment('shortsword', 'weapons', RARITY.COMMON);
+        }
+        const idleAnim = { type: 'idle', start: 0, duration: 0 };
+
+        const loop = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width / 2, 0);
+            ctx.scale(0.85, 0.85);
+            const previewEntity = {
+                visuals: this.creationData.visuals,
+                equipment: { [SLOTS.MAIN_HAND]: this._previewSword }
+            };
+            window.GFX.drawGladiator(ctx, 0, canvas.height - 30, previewEntity, true, idleAnim, null);
+            ctx.restore();
+            this._previewRAFId = requestAnimationFrame(loop);
+        };
+        loop();
+    }
+
+    stopCreatorPreviewLoop() {
+        if (this._previewRAFId) {
+            cancelAnimationFrame(this._previewRAFId);
+            this._previewRAFId = null;
+        }
+    }
+
     finalizeCharacterCreation() {
+        this.stopCreatorPreviewLoop();
+
         const name = document.getElementById('char-name').value.trim();
         window.Engine.state.player = new Player(name);
 
@@ -243,6 +322,9 @@ class UIManager {
 
         // Instancia a Engine de Batalha Global
         window.BattleEngine = new BattleSystem(p, opponent);
+
+        // Sorteia a atmosfera da arena (céu/horário) e zera animações dos combatentes
+        if (window.GFX) window.GFX.resetForNewBattle();
 
         // Atualiza UI
         document.getElementById('battle-player-name').innerText = p.name;

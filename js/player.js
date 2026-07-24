@@ -130,7 +130,13 @@ class Player extends Entity {
         this.visuals = {
             gender: 'Masculino',
             skinTone: '#ffcc99',
-            hairStyle: 1
+            hairStyle: 1,
+            hairColor: '#2a1c10',
+            beardStyle: 0,     // 0 = nenhuma, 1 = bigode, 2 = cavanhaque, 3 = barba cheia
+            beardColor: '#2a1c10',
+            eyebrowColor: '#2a1c10',
+            eyeColor: '#1a1a1a',
+            faceShape: 1       // 1 = redondo, 2 = oval, 3 = anguloso
         };
     }
 

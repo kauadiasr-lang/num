@@ -36,6 +36,10 @@
                         <div class="creation-visuals">
                             <input type="text" id="char-name" placeholder="Nome do Herói" maxlength="15" autocomplete="off">
 
+                            <div class="creator-preview-wrap">
+                                <canvas id="creator-preview-canvas" width="220" height="220"></canvas>
+                            </div>
+
                             <div class="visual-selector">
                                 <label>Gênero:</label>
                                 <button id="btn-gender" class="btn-small">Masculino</button>
@@ -45,8 +49,28 @@
                                 <input type="color" id="char-skin-color" class="color-picker" value="#ffcc99">
                             </div>
                             <div class="visual-selector">
+                                <label>Rosto:</label>
+                                <button id="btn-face" class="btn-small">Redondo</button>
+                            </div>
+                            <div class="visual-selector">
+                                <label for="char-eye-color">Olhos:</label>
+                                <input type="color" id="char-eye-color" class="color-picker" value="#1a1a1a">
+                            </div>
+                            <div class="visual-selector">
                                 <label>Cabelo:</label>
                                 <button id="btn-hair" class="btn-small">Estilo 1</button>
+                            </div>
+                            <div class="visual-selector">
+                                <label for="char-hair-color">Cor do Cabelo:</label>
+                                <input type="color" id="char-hair-color" class="color-picker" value="#2a1c10">
+                            </div>
+                            <div class="visual-selector">
+                                <label>Barba/Bigode:</label>
+                                <button id="btn-beard" class="btn-small">Nenhuma</button>
+                            </div>
+                            <div class="visual-selector">
+                                <label for="char-beard-color">Cor da Barba:</label>
+                                <input type="color" id="char-beard-color" class="color-picker" value="#2a1c10">
                             </div>
                         </div>
 
@@ -226,6 +250,11 @@
                                 <p>Chance Crítica: <span id="stat-crit">0</span>%</p>
                                 <p>Chance de Bloqueio: <span id="stat-block">0</span>%</p>
                                 <p>Fadiga: <span id="stat-fatigue">0</span>/3</p>
+                            </div>
+
+                            <div class="setting-toggle">
+                                <span>Sangue nos combates:</span>
+                                <button id="btn-toggle-blood" class="btn-small">Desligado</button>
                             </div>
                         </div>
 

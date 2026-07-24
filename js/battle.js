@@ -26,8 +26,15 @@ class BattleSystem {
         let hitChance = 90 + (attacker.getTotalStat('acc') * 2) + weaponAcc - defender.derivedStats.dodgeChance;
         hitChance = Utils.clamp(hitChance, 20, 100); // Mínimo de 20% de chance de acerto
 
+        if (window.GFX) {
+            window.GFX.playAnim(isPlayer, 'attack');
+        }
+
         if (!Utils.chance(hitChance)) {
-            if (window.GFX) window.GFX.spawnText(defX, defY - 50, "ESQUIVOU!", "#aaaaaa");
+            if (window.GFX) {
+                window.GFX.spawnText(defX, defY - 50, "ESQUIVOU!", "#aaaaaa");
+                window.GFX.playAnim(!isPlayer, 'dodge');
+            }
             return { hit: false, crit: false, damage: 0, message: `${attacker.name} errou o ataque!` };
         }
 
@@ -69,6 +76,8 @@ class BattleSystem {
             window.GFX.spawnText(defX, defY - 50, `-${mitigatedDamage}`, textColor, isCrit);
             const particleColor = blocked ? '#88ccff' : (defenderState.isDefending ? '#cccccc' : '#cc0000');
             window.GFX.spawnParticles(defX, defY, particleColor, isCrit ? 30 : 15, isCrit ? 8 : 4);
+            window.GFX.playAnim(!isPlayer, 'hurt');
+            if (isCrit) window.GFX.spawnCritBurst(defX, defY);
         }
         if (window.Engine) window.Engine.triggerShake(isCrit ? 15 : 3, isCrit ? 0.3 : 0.1);
         if (window.AudioManager) isCrit ? window.AudioManager.playCrit() : window.AudioManager.playSwordClash();
@@ -348,6 +357,11 @@ class BattleSystem {
     // Gerencia o fim do combate, distribuição de recompensas e conquistas
     endBattle(result) {
         this.isBattleActive = false;
+
+        if (window.GFX) {
+            window.GFX.playAnim(result === 'VICTORY', 'victory', 1600);
+            window.GFX.playAnim(result !== 'VICTORY', 'death', 1600);
+        }
 
         if (result === 'VICTORY') {
             window.UI.appendBattleLog(`<span style="color:var(--color-gold); font-size:1.2rem;">Vitória! O inimigo caiu!</span>`);
