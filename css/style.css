@@ -38,7 +38,9 @@ html, body {
 #game-container {
     position: relative;
     width: 100vw;
-    height: 100vh;
+    height: 100vh; /* fallback antes do primeiro resize() em JS */
+    height: 100dvh; /* acompanha a barra de endereço do navegador em navegadores compatíveis */
+    height: var(--app-height, 100dvh); /* sincronizado em JS com window.innerHeight — a fonte de verdade real, igual ao canvas */
     overflow: hidden; /* nenhum conteúdo de tela inativa pode empurrar a página e causar rolagem */
 }
 

@@ -31,6 +31,12 @@ class GameEngine {
     init() {
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        // No Chrome mobile o evento "resize" da window nem sempre dispara só
+        // por causa da barra de endereço aparecer/sumir; visualViewport é o
+        // sinal confiável para isso, quando disponível.
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => this.resize());
+        }
 
         // Simulação de carregamento de assets (Imagens, Sons, etc)
         this.simulateAssetLoading().then(() => {
@@ -47,6 +53,14 @@ class GameEngine {
         this.canvas.width = this.width * dpr;
         this.canvas.height = this.height * dpr;
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // No Chrome mobile, "100vh" no CSS não acompanha a barra de
+        // endereço/gestos aparecendo e sumindo — ela é calculada como se a
+        // barra estivesse sempre escondida, o que empurra botões no fim da
+        // tela (ex: "Mover" na batalha) para fora da área realmente visível.
+        // #game-container usa esta variável (com fallback para 100vh) para
+        // ficar sempre do tamanho exato da janela visível de verdade.
+        document.documentElement.style.setProperty('--app-height', `${this.height}px`);
     }
 
     async simulateAssetLoading() {
