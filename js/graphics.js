@@ -270,7 +270,13 @@ class GraphicsEngine {
         if (screen === 'BATTLE' && window.BattleEngine) {
             this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
 
-            const groundY = canvasHeight / 2 + 100;
+            // Os gladiadores precisam ficar sempre dentro da areia (abaixo do
+            // horizonte do céu). Em janelas altas (tablets em pé, monitores
+            // ultrawide verticais), canvasHeight/2 + 100 pode cair acima do
+            // horizonte (h * 0.62) e fazer os lutadores "flutuarem" no céu —
+            // por isso o resultado nunca fica mais alto que horizonte + margem.
+            const horizon = canvasHeight * 0.62;
+            const groundY = Math.max(canvasHeight / 2 + 100, horizon + 40);
             this.drawGladiator(ctx, this.getEntityX(true, canvasWidth), groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
             this.drawGladiator(ctx, this.getEntityX(false, canvasWidth), groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
         } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
