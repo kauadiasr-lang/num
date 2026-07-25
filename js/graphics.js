@@ -612,7 +612,13 @@ class GraphicsEngine {
 
     _legLen() { return 58; }
     _torsoH() { return 62; }
-    _torsoW() { return 34; }
+    // Silhueta ligeiramente diferente por identidade visual entre os gêneros
+    // (puramente estética — não afeta hitbox, alcance ou qualquer cálculo de
+    // combate, que continuam vindo só dos atributos/equipamento).
+    _torsoW(entity) {
+        const base = 34;
+        return (entity && entity.visuals && entity.visuals.gender === 'Feminino') ? base * 0.85 : base;
+    }
     _headR() { return 20; }
     _armLen() { return 46; }
 
@@ -660,7 +666,7 @@ class GraphicsEngine {
     _drawTorso(ctx, entity, pose) {
         const legLen = this._legLen();
         const torsoH = this._torsoH();
-        const torsoW = this._torsoW();
+        const torsoW = this._torsoW(entity);
         const chest = entity.equipment && entity.equipment[SLOTS.CHEST];
         const teamColor = entity.__teamColor || '#5a4632';
 
@@ -766,56 +772,256 @@ class GraphicsEngine {
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
     }
 
-    _drawHair(ctx, v, headY, headR, backLayer) {
-        const style = v.hairStyle || 1;
-        const color = v.hairColor || '#2a1c10';
-        ctx.fillStyle = color;
+    // Dome básico de cabelo curto — base compartilhada por vários estilos que
+    // também acrescentam elementos próprios (topete, coque, franja, etc).
+    _drawBaseCap(ctx, headY, headR) {
+        ctx.beginPath();
+        ctx.arc(0, headY - 4, headR - 1, Math.PI, Math.PI * 2);
+        ctx.fill();
+    }
 
-        if (style === 1) {
-            if (backLayer) return;
+    // Mecha longa "escorrendo" pela lateral/nuca (rabo de cavalo, cabelo longo
+    // liso, sayajin longo) — side = -1 (esquerda) ou 1 (direita).
+    _drawFlowTail(ctx, headY, headR, side, length) {
+        const x0 = side * (headR - 3);
+        ctx.beginPath();
+        ctx.moveTo(x0, headY - 6);
+        ctx.quadraticCurveTo(x0 + side * 8, headY + length * 0.5, x0, headY + length);
+        ctx.lineTo(x0 - side * 6, headY + length - 4);
+        ctx.quadraticCurveTo(x0 - side * 2, headY + length * 0.5, x0 - side * 2, headY - 2);
+        ctx.fill();
+    }
+
+    // Espetos radiais a partir do topo da cabeça (estilos sayajin).
+    _drawSpikes(ctx, headY, headR, count, baseLen) {
+        const half = (count - 1) / 2;
+        for (let i = 0; i < count; i++) {
+            const t = i - half;
+            const ang = t * 16 * Math.PI / 180;
+            const len = baseLen - Math.abs(t) * 2;
+            const baseX = Math.sin(ang) * headR * 0.55;
+            const baseY = headY - Math.cos(ang) * headR * 0.55;
+            const tipX = Math.sin(ang) * (headR + len);
+            const tipY = headY - headR - Math.cos(ang) * len;
+            const ang2 = ang + 0.14;
+            const base2X = Math.sin(ang2) * headR * 0.65;
+            const base2Y = headY - Math.cos(ang2) * headR * 0.65;
             ctx.beginPath();
-            ctx.arc(0, headY - 4, headR - 1, Math.PI, Math.PI * 2);
+            ctx.moveTo(baseX, baseY);
+            ctx.lineTo(tipX, tipY);
+            ctx.lineTo(base2X, base2Y);
+            ctx.closePath();
             ctx.fill();
-        } else if (style === 2) {
-            if (!backLayer) return;
-            ctx.fillRect(-headR + 1, headY - 8, 7, 30);
-            ctx.fillRect(headR - 8, headY - 8, 7, 30);
-            ctx.beginPath();
-            ctx.arc(0, headY - 4, headR, Math.PI, Math.PI * 2);
-            ctx.fill();
-        } else {
-            if (backLayer) return;
-            ctx.globalAlpha = 0.22;
-            ctx.beginPath();
-            ctx.arc(0, headY - 6, headR - 3, Math.PI, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
         }
     }
 
+    // 15 estilos de cabelo (todos recolorívels via v.hairColor). "backLayer"
+    // desenha a parte que deve ficar atrás/abaixo da cabeça (rabo, tranças,
+    // mechas longas); o topo/franja sempre vai na camada da frente, depois do
+    // rosto já pintado, senão ficaria escondido atrás do círculo da cabeça.
+    _drawHair(ctx, v, headY, headR, backLayer) {
+        const style = v.hairStyle || 1;
+        ctx.fillStyle = v.hairColor || '#2a1c10';
+
+        switch (style) {
+            case 1: // Sayajin Espetado
+                if (backLayer) return;
+                this._drawSpikes(ctx, headY, headR, 7, 16);
+                break;
+            case 2: // Sayajin Longo
+                if (backLayer) { this._drawFlowTail(ctx, headY, headR, -1, 46); this._drawFlowTail(ctx, headY, headR, 1, 46); return; }
+                this._drawSpikes(ctx, headY, headR, 5, 20);
+                break;
+            case 3: // Moicano
+                if (backLayer) return;
+                ctx.beginPath();
+                ctx.moveTo(-4, headY - headR + 3);
+                ctx.lineTo(0, headY - headR - 15);
+                ctx.lineTo(4, headY - headR + 3);
+                ctx.closePath();
+                ctx.fill();
+                break;
+            case 4: // Samurai (topete preso + laterais raspadas)
+                if (backLayer) return;
+                ctx.globalAlpha = 0.18;
+                this._drawBaseCap(ctx, headY, headR);
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(-3, headY - headR - 3, 6, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            case 5: // Rabo de Cavalo
+                if (backLayer) { this._drawFlowTail(ctx, headY, headR, -1, 44); return; }
+                this._drawBaseCap(ctx, headY, headR);
+                break;
+            case 6: // Cabelo Preso (coque)
+                if (backLayer) {
+                    ctx.beginPath();
+                    ctx.arc(-headR + 5, headY - 12, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    return;
+                }
+                this._drawBaseCap(ctx, headY, headR);
+                break;
+            case 7: // Cacheado
+                if (backLayer) return;
+                for (let i = -2; i <= 2; i++) {
+                    ctx.beginPath();
+                    ctx.arc(i * 8, headY - headR + 5 - Math.abs(i) * 2, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                break;
+            case 8: // Afro
+                if (backLayer) return;
+                ctx.beginPath();
+                ctx.arc(0, headY - 2, headR + 9, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            case 9: // Longo Liso
+                if (backLayer) { this._drawFlowTail(ctx, headY, headR, -1, 40); this._drawFlowTail(ctx, headY, headR, 1, 40); return; }
+                this._drawBaseCap(ctx, headY, headR);
+                break;
+            case 10: // Tranças
+                if (backLayer) {
+                    for (let i = -1; i <= 1; i += 2) {
+                        const bx = i * 9;
+                        ctx.fillRect(bx - 2, headY - 2, 4, 38);
+                        for (let k = 0; k < 4; k++) {
+                            ctx.beginPath();
+                            ctx.arc(bx, headY + 4 + k * 9, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                    return;
+                }
+                this._drawBaseCap(ctx, headY, headR);
+                break;
+            case 11: // Cabelo Raspado
+                if (backLayer) return;
+                ctx.globalAlpha = 0.3;
+                this._drawBaseCap(ctx, headY, headR);
+                ctx.globalAlpha = 1;
+                break;
+            case 12: // Careca
+                return;
+            case 13: // Franja
+                if (backLayer) return;
+                this._drawBaseCap(ctx, headY, headR);
+                ctx.fillRect(-headR + 4, headY - 7, headR * 2 - 8, 6);
+                break;
+            case 14: // Cabelo Bagunçado
+                if (backLayer) return;
+                for (let i = -3; i <= 3; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * 6, headY - headR + 7);
+                    ctx.lineTo(i * 6 + (i % 2 === 0 ? -3 : 3), headY - headR - 7);
+                    ctx.lineTo(i * 6 + 5, headY - headR + 8);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                break;
+            case 15: // Gladiador Romano
+            default:
+                if (backLayer) return;
+                this._drawBaseCap(ctx, headY, headR);
+                for (let i = -2; i <= 2; i++) {
+                    ctx.beginPath();
+                    ctx.arc(i * 7, headY - headR + 7, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                break;
+        }
+    }
+
+    // 12 estilos de barba/bigode (0 = nenhuma), recolorívels independente do
+    // cabelo via v.beardColor. Algumas variantes mais cheias (Viking, Longa,
+    // Trançada) ficam indisponíveis para o gênero Feminino no criador —
+    // identidade visual apenas, sem qualquer efeito de atributo.
     _drawFacialHair(ctx, v, headY) {
         const beardStyle = v.beardStyle || 0;
         if (!beardStyle) return;
         const color = v.beardColor || v.hairColor || '#2a1c10';
+        const headR = this._headR();
         ctx.fillStyle = color;
 
-        if (beardStyle === 1) { // bigode
+        const drawMustache = () => {
             ctx.beginPath();
             ctx.ellipse(0, headY + 8, 8, 2.6, 0, 0, Math.PI * 2);
             ctx.fill();
-        } else if (beardStyle === 2) { // cavanhaque
+        };
+        const drawFullBeard = (extra = 0) => {
             ctx.beginPath();
-            ctx.ellipse(0, headY + 8, 8, 2.6, 0, 0, Math.PI * 2);
+            ctx.arc(0, headY + 4, headR - 2 + extra, 0, Math.PI);
             ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(-6, headY + 7);
-            ctx.quadraticCurveTo(0, headY + 19, 6, headY + 7);
-            ctx.quadraticCurveTo(0, headY + 13, -6, headY + 7);
-            ctx.fill();
-        } else if (beardStyle === 3) { // barba cheia
-            ctx.beginPath();
-            ctx.arc(0, headY + 4, this._headR() - 2, 0, Math.PI);
-            ctx.fill();
+        };
+
+        switch (beardStyle) {
+            case 1: // Cavanhaque
+                drawMustache();
+                ctx.beginPath();
+                ctx.moveTo(-6, headY + 7);
+                ctx.quadraticCurveTo(0, headY + 19, 6, headY + 7);
+                ctx.quadraticCurveTo(0, headY + 13, -6, headY + 7);
+                ctx.fill();
+                break;
+            case 2: // Barba Curta
+                ctx.globalAlpha = 0.85;
+                drawFullBeard(-4);
+                ctx.globalAlpha = 1;
+                break;
+            case 3: // Barba Média
+                drawFullBeard(0);
+                break;
+            case 4: // Barba Longa
+                drawFullBeard(2);
+                ctx.beginPath();
+                ctx.moveTo(-6, headY + headR - 4);
+                ctx.lineTo(0, headY + headR + 14);
+                ctx.lineTo(6, headY + headR - 4);
+                ctx.fill();
+                break;
+            case 5: // Bigode
+                drawMustache();
+                break;
+            case 6: // Bigode Imperial
+                drawMustache();
+                ctx.beginPath();
+                ctx.arc(-9, headY + 9, 2.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(9, headY + 9, 2.4, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+            case 7: // Barba Cheia
+                drawFullBeard(0);
+                break;
+            case 8: // Costeletas
+                ctx.fillRect(-headR + 1, headY - 4, 5, 16);
+                ctx.fillRect(headR - 6, headY - 4, 5, 16);
+                break;
+            case 9: // Barba Viking
+                drawFullBeard(2);
+                ctx.beginPath();
+                ctx.moveTo(-3, headY + headR);
+                ctx.lineTo(0, headY + headR + 20);
+                ctx.lineTo(3, headY + headR);
+                ctx.fill();
+                break;
+            case 10: // Barba Trançada
+                drawFullBeard(0);
+                for (let k = 0; k < 3; k++) {
+                    ctx.beginPath();
+                    ctx.arc(0, headY + headR + 2 + k * 6, 2.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                break;
+            case 11: // Barba por Fazer
+                ctx.globalAlpha = 0.25;
+                drawFullBeard(-3);
+                ctx.globalAlpha = 1;
+                break;
+            default:
+                break;
         }
     }
 
@@ -847,7 +1053,7 @@ class GraphicsEngine {
         const angle = pose.guard ? -110 : -75;
 
         ctx.save();
-        ctx.translate(-this._torsoW() / 2 + 3, shoulderY);
+        ctx.translate(-this._torsoW(entity) / 2 + 3, shoulderY);
         ctx.rotate(angle * Math.PI / 180);
         ctx.fillStyle = armColor;
         ctx.fillRect(-4, 0, 8, this._armLen() * 0.7);
@@ -855,7 +1061,7 @@ class GraphicsEngine {
 
         if (shield) {
             const shieldColor = shield.rarity ? shield.rarity.color : '#8a5a2b';
-            const sx = pose.guard ? -this._torsoW() / 2 - 14 : -this._torsoW() / 2 - 4;
+            const sx = pose.guard ? -this._torsoW(entity) / 2 - 14 : -this._torsoW(entity) / 2 - 4;
             const sy = pose.guard ? shoulderY + 2 : shoulderY + 22;
             ctx.save();
             ctx.fillStyle = '#5a4632';
@@ -881,7 +1087,7 @@ class GraphicsEngine {
         const armColor = gloves ? '#3a2f22' : skin;
 
         ctx.save();
-        ctx.translate(this._torsoW() / 2 - 3, shoulderY);
+        ctx.translate(this._torsoW(entity) / 2 - 3, shoulderY);
         ctx.rotate(pose.weaponAngle * Math.PI / 180);
         ctx.fillStyle = armColor;
         ctx.fillRect(-4, 0, 8, this._armLen());

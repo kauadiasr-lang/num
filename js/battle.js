@@ -39,7 +39,7 @@ class BattleSystem {
     // Calcula dano, acerto e crítico de um ataque físico básico, e dispara VFX/SFX.
     // damageMulti (padrão 1) permite bônus de dano de ações especiais (ex: Investida)
     // sem alterar o cálculo de nenhuma chamada existente.
-    executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1) {
+    executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1, isCounter = false) {
         const isPlayer = attacker === this.player;
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
         const defY = window.innerHeight / 2;
@@ -56,7 +56,12 @@ class BattleSystem {
         hitChance = Utils.clamp(hitChance, 20, 100); // Mínimo de 20% de chance de acerto
 
         if (window.GFX) {
-            window.GFX.playAnim(isPlayer, 'attack');
+            // Armas rápidas (adaga, rapieira) golpeiam com um gesto curto e
+            // seco; armas pesadas (martelo, machado) têm um giro mais lento
+            // e visivelmente mais "pesado" — reforça a identidade de cada
+            // arma além dos números de dano/alcance já existentes.
+            const atkSpeed = (attacker.getWeaponSpeed ? attacker.getWeaponSpeed().atkSpeed : 1) || 1;
+            window.GFX.playAnim(isPlayer, 'attack', Utils.clamp(650 / atkSpeed, 420, 1150));
         }
 
         if (!Utils.chance(hitChance)) {
@@ -109,14 +114,30 @@ class BattleSystem {
             if (isCrit) window.GFX.spawnCritBurst(defX, defY);
         }
         if (window.Engine) window.Engine.triggerShake(isCrit ? 15 : 3, isCrit ? 0.3 : 0.1);
-        if (window.AudioManager) isCrit ? window.AudioManager.playCrit() : window.AudioManager.playSwordClash();
+        if (window.AudioManager) {
+            isCrit ? window.AudioManager.playCrit() : window.AudioManager.playSwordClash();
+            if (defender.visuals && defender.visuals.gender) window.AudioManager.playHitGrunt(defender.visuals.gender);
+        }
 
         let msg;
         if (isCrit) msg = `ACERTO CRÍTICO! ${attacker.name} causou ${mitigatedDamage} de dano.`;
         else if (blocked) msg = `${defender.name} bloqueou parcialmente o ataque com o escudo! (${mitigatedDamage} de dano)`;
         else msg = `${attacker.name} atacou e causou ${mitigatedDamage} de dano.`;
 
-        return { hit: true, crit: isCrit, blocked, damage: mitigatedDamage, message: msg };
+        // Contra-ataque de escudo: um bloqueio bem-sucedido dá chance de o
+        // defensor revidar na hora com um golpe rápido e mais fraco — o
+        // escudo passa a servir tanto pra defesa quanto pra represália,
+        // sem criar nenhum sistema novo (reaproveita o próprio executeAttack).
+        let counter = null;
+        if (blocked && !isCounter && defender.currentHp > 0 && attacker.currentHp > 0) {
+            const riposteChance = Math.min(45, defender.derivedStats.blockChance * 1.5);
+            if (Utils.chance(riposteChance)) {
+                counter = this.executeAttack(defender, attacker, defenderState, attackerState, 0.45, true);
+                msg += ` <span style="color:#88ccff">${defender.name} contra-ataca com o escudo! ${counter.message}</span>`;
+            }
+        }
+
+        return { hit: true, crit: isCrit, blocked, damage: mitigatedDamage, message: msg, counter };
     }
 
     // Aplica o tique de sangramento (Corte Sangrento) no início do turno da vítima.

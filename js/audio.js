@@ -77,6 +77,15 @@ class AudioEngine {
         this.playTone(2000, 'sawtooth', 0.1, 0.3); // Impacto agudo
     }
 
+    // Grunhido curto ao sofrer um golpe — o tom base varia por gênero do
+    // personagem (identidade visual/sonora, igual à diferença de silhueta;
+    // não afeta dano nem qualquer cálculo de combate). Some junto ao som de
+    // impacto da arma, não o substitui.
+    playHitGrunt(gender) {
+        const base = gender === 'Feminino' ? Utils.randomInt(260, 320) : Utils.randomInt(130, 170);
+        this.playTone(base, 'sawtooth', 0.14, 0.25, base * 0.6);
+    }
+
     playLevelUp() {
         // Fanfarra clássica de RPG arpejada
         const notes = [440, 554, 659, 880]; // A, C#, E, A

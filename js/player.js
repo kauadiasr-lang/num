@@ -181,7 +181,7 @@ class Player extends Entity {
             skinTone: '#ffcc99',
             hairStyle: 1,
             hairColor: '#2a1c10',
-            beardStyle: 0,     // 0 = nenhuma, 1 = bigode, 2 = cavanhaque, 3 = barba cheia
+            beardStyle: 0,     // 0 = nenhuma; ver UIManager.beardOptions (12 estilos) em ui.js
             beardColor: '#2a1c10',
             eyebrowColor: '#2a1c10',
             eyeColor: '#1a1a1a',

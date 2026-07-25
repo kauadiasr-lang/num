@@ -297,6 +297,16 @@ html, body {
     margin-bottom: 10px;
 }
 
+.btn-randomize {
+    width: 100%;
+    margin-bottom: 14px;
+    background: linear-gradient(180deg, var(--color-gold), var(--color-bronze-dark));
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+.btn-randomize:hover { filter: brightness(1.15); }
+.btn-randomize:active { transform: scale(0.97); }
+
 .btn-small {
     background: linear-gradient(180deg, var(--color-bronze-light), var(--color-bronze-dark));
     color: var(--color-marble);

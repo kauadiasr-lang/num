@@ -17,8 +17,41 @@ class UIManager {
         };
 
         this.genderOptions = ['Masculino', 'Feminino'];
-        this.hairOptions = ['Estilo 1', 'Estilo 2', 'Estilo 3'];
-        this.beardOptions = ['Nenhuma', 'Bigode', 'Cavanhaque', 'Barba Cheia'];
+        // Índice = hairStyle (1-based). "genders" restringe a opção a um
+        // gênero só por identidade visual (Sims/WoW-style) — puramente
+        // estético, nunca afeta atributos, dano ou qualquer vantagem.
+        this.hairOptions = [
+            { name: 'Sayajin Espetado', genders: ['Masculino', 'Feminino'] },
+            { name: 'Sayajin Longo', genders: ['Masculino', 'Feminino'] },
+            { name: 'Moicano', genders: ['Masculino'] },
+            { name: 'Samurai', genders: ['Masculino'] },
+            { name: 'Rabo de Cavalo', genders: ['Masculino', 'Feminino'] },
+            { name: 'Cabelo Preso', genders: ['Feminino'] },
+            { name: 'Cacheado', genders: ['Masculino', 'Feminino'] },
+            { name: 'Afro', genders: ['Masculino', 'Feminino'] },
+            { name: 'Longo Liso', genders: ['Masculino', 'Feminino'] },
+            { name: 'Tranças', genders: ['Feminino'] },
+            { name: 'Cabelo Raspado', genders: ['Masculino', 'Feminino'] },
+            { name: 'Careca', genders: ['Masculino', 'Feminino'] },
+            { name: 'Franja', genders: ['Masculino', 'Feminino'] },
+            { name: 'Cabelo Bagunçado', genders: ['Masculino', 'Feminino'] },
+            { name: 'Gladiador Romano', genders: ['Masculino', 'Feminino'] }
+        ];
+        // Índice = beardStyle (0 = nenhuma, sempre disponível pros dois).
+        this.beardOptions = [
+            { name: 'Nenhuma', genders: ['Masculino', 'Feminino'] },
+            { name: 'Cavanhaque', genders: ['Masculino', 'Feminino'] },
+            { name: 'Barba Curta', genders: ['Masculino', 'Feminino'] },
+            { name: 'Barba Média', genders: ['Masculino', 'Feminino'] },
+            { name: 'Barba Longa', genders: ['Masculino'] },
+            { name: 'Bigode', genders: ['Masculino', 'Feminino'] },
+            { name: 'Bigode Imperial', genders: ['Masculino', 'Feminino'] },
+            { name: 'Barba Cheia', genders: ['Masculino', 'Feminino'] },
+            { name: 'Costeletas', genders: ['Masculino', 'Feminino'] },
+            { name: 'Barba Viking', genders: ['Masculino'] },
+            { name: 'Barba Trançada', genders: ['Masculino'] },
+            { name: 'Barba por Fazer', genders: ['Masculino', 'Feminino'] }
+        ];
         this.faceOptions = ['Redondo', 'Oval', 'Anguloso'];
         this._previewRAFId = null;
 
@@ -144,30 +177,27 @@ class UIManager {
             const idx = (this.genderOptions.indexOf(this.creationData.visuals.gender) + 1) % this.genderOptions.length;
             this.creationData.visuals.gender = this.genderOptions[idx];
             e.target.innerText = this.creationData.visuals.gender;
+            // Cabelo/barba atuais podem não existir para o novo gênero (identidade
+            // visual apenas — nunca afeta atributos/combate); ajusta se preciso.
+            this._ensureValidHairBeardForGender();
         });
         // Cor de pele livre: qualquer cor é aceita, incluindo tons não convencionais (verde, azul, etc)
         document.getElementById('char-skin-color').addEventListener('input', (e) => {
             this.creationData.visuals.skinTone = e.target.value;
         });
-        document.getElementById('btn-hair').addEventListener('click', (e) => {
-            const idx = this.creationData.visuals.hairStyle % this.hairOptions.length;
-            this.creationData.visuals.hairStyle = idx + 1;
-            e.target.innerText = this.hairOptions[idx];
-        });
+        document.getElementById('btn-hair').addEventListener('click', () => this._cycleHair(1));
         document.getElementById('char-hair-color').addEventListener('input', (e) => {
             this.creationData.visuals.hairColor = e.target.value;
         });
-        document.getElementById('btn-beard').addEventListener('click', (e) => {
-            const idx = (this.creationData.visuals.beardStyle + 1) % this.beardOptions.length;
-            this.creationData.visuals.beardStyle = idx;
-            e.target.innerText = this.beardOptions[idx];
-        });
+        document.getElementById('btn-beard').addEventListener('click', () => this._cycleBeard(1));
         document.getElementById('char-beard-color').addEventListener('input', (e) => {
             this.creationData.visuals.beardColor = e.target.value;
         });
         document.getElementById('char-eye-color').addEventListener('input', (e) => {
             this.creationData.visuals.eyeColor = e.target.value;
         });
+        const btnRandomize = document.getElementById('btn-randomize-look');
+        if (btnRandomize) btnRandomize.addEventListener('click', () => this.randomizeAppearance());
         document.getElementById('btn-face').addEventListener('click', (e) => {
             const idx = this.creationData.visuals.faceShape % this.faceOptions.length;
             this.creationData.visuals.faceShape = idx + 1;
@@ -197,6 +227,79 @@ class UIManager {
         }, true);
     }
 
+    // --- Identidade Visual (Cabelo/Barba) ---
+    // Avança para o próximo estilo de cabelo disponível para o gênero atual
+    // (pula opções exclusivas do outro gênero em vez de travar nelas).
+    _cycleHair(direction = 1) {
+        const gender = this.creationData.visuals.gender;
+        const n = this.hairOptions.length;
+        let idx = this.creationData.visuals.hairStyle - 1;
+        for (let i = 0; i < n; i++) {
+            idx = (idx + direction + n) % n;
+            if (this.hairOptions[idx].genders.includes(gender)) break;
+        }
+        this.creationData.visuals.hairStyle = idx + 1;
+        document.getElementById('btn-hair').innerText = this.hairOptions[idx].name;
+    }
+
+    _cycleBeard(direction = 1) {
+        const gender = this.creationData.visuals.gender;
+        const n = this.beardOptions.length;
+        let idx = this.creationData.visuals.beardStyle;
+        for (let i = 0; i < n; i++) {
+            idx = (idx + direction + n) % n;
+            if (this.beardOptions[idx].genders.includes(gender)) break;
+        }
+        this.creationData.visuals.beardStyle = idx;
+        document.getElementById('btn-beard').innerText = this.beardOptions[idx].name;
+    }
+
+    // Chamado ao trocar de gênero: se o cabelo/barba selecionado for
+    // exclusivo do outro gênero, avança para a próxima opção válida.
+    _ensureValidHairBeardForGender() {
+        const gender = this.creationData.visuals.gender;
+        const hair = this.hairOptions[this.creationData.visuals.hairStyle - 1];
+        if (!hair || !hair.genders.includes(gender)) this._cycleHair(1);
+        const beard = this.beardOptions[this.creationData.visuals.beardStyle];
+        if (!beard || !beard.genders.includes(gender)) this._cycleBeard(1);
+    }
+
+    // Botão "Aleatório": sorteia uma aparência completa de uma vez (gênero,
+    // rosto, cabelo/barba já respeitando o gênero sorteado, e todas as
+    // cores), pra facilitar explorar a variedade sem clicar em cada opção.
+    randomizeAppearance() {
+        const v = this.creationData.visuals;
+        const randColor = () => '#' + Utils.randomInt(0, 0xffffff).toString(16).padStart(6, '0');
+
+        v.gender = this.genderOptions[Utils.randomInt(0, this.genderOptions.length - 1)];
+        document.getElementById('btn-gender').innerText = v.gender;
+
+        const validHair = this.hairOptions.map((h, i) => i).filter(i => this.hairOptions[i].genders.includes(v.gender));
+        const hairIdx = validHair[Utils.randomInt(0, validHair.length - 1)];
+        v.hairStyle = hairIdx + 1;
+        document.getElementById('btn-hair').innerText = this.hairOptions[hairIdx].name;
+
+        const validBeard = this.beardOptions.map((b, i) => i).filter(i => this.beardOptions[i].genders.includes(v.gender));
+        const beardIdx = validBeard[Utils.randomInt(0, validBeard.length - 1)];
+        v.beardStyle = beardIdx;
+        document.getElementById('btn-beard').innerText = this.beardOptions[beardIdx].name;
+
+        const faceIdx = Utils.randomInt(0, this.faceOptions.length - 1);
+        v.faceShape = faceIdx + 1;
+        document.getElementById('btn-face').innerText = this.faceOptions[faceIdx];
+
+        v.skinTone = randColor();
+        v.hairColor = randColor();
+        v.beardColor = randColor();
+        v.eyeColor = randColor();
+        document.getElementById('char-skin-color').value = v.skinTone;
+        document.getElementById('char-hair-color').value = v.hairColor;
+        document.getElementById('char-beard-color').value = v.beardColor;
+        document.getElementById('char-eye-color').value = v.eyeColor;
+
+        if (window.AudioManager && window.AudioManager.initialized) window.AudioManager.playConfirm();
+    }
+
     // --- CRIAÇÃO DE PERSONAGEM ---
     buildCreationScreen() {
         // Reseta os dados de criação para uma nova jornada
@@ -211,9 +314,9 @@ class UIManager {
         document.getElementById('points-left').innerText = this.creationData.pointsLeft;
         document.getElementById('char-skin-color').value = this.creationData.visuals.skinTone;
         document.getElementById('btn-gender').innerText = this.creationData.visuals.gender;
-        document.getElementById('btn-hair').innerText = this.hairOptions[0];
+        document.getElementById('btn-hair').innerText = this.hairOptions[0].name;
         document.getElementById('char-hair-color').value = this.creationData.visuals.hairColor;
-        document.getElementById('btn-beard').innerText = this.beardOptions[0];
+        document.getElementById('btn-beard').innerText = this.beardOptions[0].name;
         document.getElementById('char-beard-color').value = this.creationData.visuals.beardColor;
         document.getElementById('char-eye-color').value = this.creationData.visuals.eyeColor;
         document.getElementById('btn-face').innerText = this.faceOptions[0];
