@@ -22,7 +22,70 @@
                         <div id="loading-progress" class="progress-fill"></div>
                     </div>
                     <p id="loading-text">Inicializando Motor Gráfico...</p>
-                    <button id="btn-start" class="btn primary hidden">Iniciar Jornada</button>
+                    <button id="btn-start" class="btn primary hidden">Entrar na Arena</button>
+                </div>
+            </div>
+
+            <!-- TELA: MENU PRINCIPAL -->
+            <div id="screen-mainmenu" class="screen">
+                <div class="mainmenu-content">
+                    <h1 class="game-logo">
+                        <span class="game-logo-main">ARENA</span>
+                        <span class="game-logo-sub">OF BLADES</span>
+                    </h1>
+                    <nav class="mainmenu-buttons">
+                        <button id="btn-mm-continue" class="btn-mainmenu" disabled>
+                            <span class="mm-icon">▶</span> Continuar
+                        </button>
+                        <button id="btn-mm-newgame" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Novo Jogo
+                        </button>
+                        <button id="btn-mm-loadgame" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Carregar Jogo
+                        </button>
+                        <button id="btn-mm-settings" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Configurações
+                        </button>
+                        <button id="btn-mm-achievements" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Conquistas
+                        </button>
+                        <button id="btn-mm-credits" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Créditos
+                        </button>
+                        <button id="btn-mm-quit" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Sair
+                        </button>
+                    </nav>
+                    <p class="mainmenu-version">v2.0 — Arena of Blades</p>
+                </div>
+            </div>
+
+            <!-- TELA: SLOTS DE SAVE -->
+            <div id="screen-saveslots" class="screen">
+                <div class="panel saveslots-panel">
+                    <button class="btn-close" id="btn-close-saveslots">X</button>
+                    <h2 class="panel-title">Registros de Gladiadores</h2>
+                    <div id="saveslots-container" class="saveslots-grid"></div>
+                </div>
+            </div>
+
+            <!-- TELA: CONFIGURAÇÕES -->
+            <div id="screen-settings" class="screen">
+                <div class="panel settings-panel">
+                    <button class="btn-close" id="btn-close-settings">X</button>
+                    <h2 class="panel-title">Configurações</h2>
+                    <div id="settings-container" class="settings-list"></div>
+                    <button id="btn-settings-reset" class="btn btn-small">Restaurar Padrões</button>
+                </div>
+            </div>
+
+            <!-- TELA: CRÉDITOS -->
+            <div id="screen-credits" class="screen">
+                <div class="panel credits-panel">
+                    <button class="btn-close" id="btn-close-credits">X</button>
+                    <div class="credits-scroll-wrap">
+                        <div id="credits-scroll-content" class="credits-scroll-content"></div>
+                    </div>
                 </div>
             </div>
 
@@ -93,6 +156,7 @@
 
             <!-- TELA: HUB DA CIDADE -->
             <div id="screen-hub" class="screen">
+                <button id="btn-hub-mainmenu" class="btn-hub-menu" title="Menu Principal">☰</button>
                 <div class="hud-top">
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
@@ -144,6 +208,7 @@
                 <div class="panel achievements-panel">
                     <button class="btn-close" id="btn-close-achievements">X</button>
                     <h2 class="panel-title">Conquistas</h2>
+                    <p id="achievements-summary" class="achievements-summary">0 / 0 desbloqueadas</p>
                     <div id="achievements-container" class="achievements-grid"></div>
                 </div>
             </div>
@@ -361,6 +426,28 @@
                 <p id="tt-price" class="tt-price">Valor: 0g</p>
             </div>
 
+            <!-- CONTADOR DE FPS (opcional, ligado nas Configurações) -->
+            <div id="fps-counter" class="fps-counter hidden">60 FPS</div>
+
+            <!-- INDICADOR "SALVANDO..." -->
+            <div id="saving-indicator" class="saving-indicator hidden">Salvando...</div>
+
+            <!-- CONTAINER DE TOASTS (feedback de ações: save, load, erro, etc) -->
+            <div id="toast-container" class="toast-container"></div>
+
+            <!-- MODAL GENÉRICO DE CONFIRMAÇÃO -->
+            <div id="confirm-modal" class="modal-overlay hidden">
+                <div class="modal-box">
+                    <h3 id="confirm-modal-title">Confirmar ação</h3>
+                    <p id="confirm-modal-message">Tem certeza?</p>
+                    <div id="confirm-modal-extra"></div>
+                    <div class="modal-actions">
+                        <button id="confirm-modal-cancel" class="btn btn-small">Cancelar</button>
+                        <button id="confirm-modal-ok" class="btn btn-small primary">Confirmar</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -368,6 +455,7 @@
     <script src="js/utils.js"></script>
     <script src="js/save.js"></script>
     <script src="js/audio.js"></script>
+    <script src="js/settings.js"></script>
     <script src="js/items.js"></script>
     <script src="js/skills.js"></script>
     <script src="js/player.js"></script>
@@ -377,6 +465,7 @@
     <script src="js/battle.js"></script>
     <script src="js/graphics.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/mainmenu.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

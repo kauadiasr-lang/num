@@ -69,40 +69,31 @@ class GameEngine {
         btnStart.classList.remove('hidden');
 
         btnStart.addEventListener('click', () => {
-            // Inicializa áudio após interação (Políticas Web)
+            // Inicializa áudio após interação (Políticas Web) e aplica as
+            // configurações salvas (volume, qualidade gráfica, escala de UI...)
             window.AudioManager.init();
-
-            // Tenta carregar o Save
-            const savedData = window.SaveManager.load();
-
-            if (savedData && savedData.player) {
-                console.log("Save encontrado! Restaurando gladiador...");
-
-                // Reconstrói a instância (JSON perde os métodos de classe, mas
-                // Object.assign preserva o protótipo de Player já criado)
-                this.state.player = new Player(savedData.player.name);
-                Object.assign(this.state.player, savedData.player);
-
-                // Recalcula derivados para garantir matemática perfeita
-                this.state.player.calculateDerivedStats();
-
-                window.UI.updateHubStats();
-                window.UI.showScreen('screen-hub');
-            } else {
-                console.log("Nenhum save. Iniciando nova jornada.");
-                window.UI.buildCreationScreen();
-                window.UI.showScreen('screen-creation');
-            }
-
-            document.getElementById('screen-loading').classList.remove('active');
+            window.Settings.applyAll();
 
             this.start(); // Inicia Game Loop
+            window.MainMenu.showMainMenu(); // Tela inicial cinematográfica, não mais direto pro jogo
         });
+    }
+
+    // Restaura um Player a partir dos dados brutos de um save (usado tanto
+    // pelo Continuar quanto pela tela de Slots). Mantido aqui por ser lógica
+    // central do motor, reaproveitada por MainMenu.
+    restorePlayerFromSave(savedData) {
+        // Reconstrói a instância (JSON perde os métodos de classe, mas
+        // Object.assign preserva o protótipo de Player já criado)
+        this.state.player = new Player(savedData.player.name);
+        Object.assign(this.state.player, savedData.player);
+        this.state.player.calculateDerivedStats();
     }
 
     // Ativa o tremor de câmera (Screen Shake)
     triggerShake(magnitude = 10, duration = 0.2) {
-        this.shakeMagnitude = magnitude;
+        const reduce = window.GFX && window.GFX.reduceEffects;
+        this.shakeMagnitude = reduce ? magnitude * 0.4 : magnitude;
         this.shakeTimer = duration;
     }
 
@@ -137,6 +128,27 @@ class GameEngine {
         // Atualiza timer do Screen Shake
         if (this.shakeTimer > 0) {
             this.shakeTimer -= dt;
+        }
+
+        // Acumula tempo jogado (usado nos metadados da tela de saves) — só
+        // conta com um personagem carregado, e ignora saltos grandes de dt
+        // (aba minimizada) já que o loop principal já limita isso a 0.1s.
+        if (this.state.player) {
+            this.state.player.playTimeSeconds = (this.state.player.playTimeSeconds || 0) + dt;
+        }
+
+        this._updateFpsCounter(dt);
+    }
+
+    _updateFpsCounter(dt) {
+        this._fpsAccum = (this._fpsAccum || 0) + dt;
+        this._fpsFrames = (this._fpsFrames || 0) + 1;
+        if (this._fpsAccum >= 0.5) {
+            const fps = Math.round(this._fpsFrames / this._fpsAccum);
+            const el = document.getElementById('fps-counter');
+            if (el && !el.classList.contains('hidden')) el.innerText = `${fps} FPS`;
+            this._fpsAccum = 0;
+            this._fpsFrames = 0;
         }
     }
 

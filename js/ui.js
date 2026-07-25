@@ -27,9 +27,16 @@ class UIManager {
         this.initEventListeners();
     }
 
-    showScreen(screenId) {
-        this.screens.forEach(s => s.classList.remove('active'));
-        document.getElementById(screenId).classList.add('active');
+    // `transition` escolhe a animação de entrada: 'fade' (padrão), 'zoom',
+    // 'slide' ou 'darken'. Nunca instantâneo — toda troca de tela anima.
+    showScreen(screenId, transition = 'fade') {
+        const target = document.getElementById(screenId);
+        this.screens.forEach(s => {
+            s.classList.remove('active');
+            s.classList.remove('transition-zoom', 'transition-slide', 'transition-darken');
+        });
+        if (transition !== 'fade') target.classList.add(`transition-${transition}`);
+        target.classList.add('active');
 
         // Uma tela anterior mais alta que a viewport pode ter forçado o navegador
         // a rolar a página (ex: ao focar um campo/botão perto do fim do conteúdo).
@@ -62,7 +69,7 @@ class UIManager {
         document.getElementById('btn-inventory').addEventListener('click', () => this.openInventory());
         document.getElementById('btn-skills').addEventListener('click', () => this.openSkillTree());
         document.getElementById('btn-healer').addEventListener('click', () => this.openHealer());
-        document.getElementById('btn-achievements').addEventListener('click', () => this.openAchievements());
+        document.getElementById('btn-achievements').addEventListener('click', () => this.openAchievements('hub'));
 
         // --- Fechar painéis ---
         document.getElementById('btn-close-inv').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -70,7 +77,20 @@ class UIManager {
         document.getElementById('btn-close-skills').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
-        document.getElementById('btn-close-achievements').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-achievements').addEventListener('click', () => {
+            // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
+            // só espiando o save mais recente), volta pro menu e descarta o
+            // personagem temporário em vez de "entrar" na Cidade sem querer.
+            if (this._achievementsSource === 'mainmenu') {
+                if (window.MainMenu && window.MainMenu._peekingPlayer) {
+                    window.Engine.state.player = null;
+                    window.MainMenu._peekingPlayer = false;
+                }
+                window.MainMenu.showMainMenu();
+            } else {
+                this.showScreen('screen-hub');
+            }
+        });
 
         // --- Ações de Batalha ---
         document.getElementById('btn-atk').addEventListener('click', () => {
@@ -463,16 +483,18 @@ class UIManager {
         this.applyRangeGate();
     }
 
-    // Mantém o botão Atacar desabilitado quando o inimigo está fora do alcance
-    // da arma equipada, mesmo que seja o turno do jogador.
+    // Sincroniza o botão Atacar com o alcance atual: desabilita quando fora
+    // de alcance e reabilita assim que o jogador se aproxima o suficiente
+    // (chamado a cada atualização de distância, não só no início do turno).
+    // Nunca mexe no botão fora do turno do jogador, para não reabilitá-lo
+    // por engano enquanto o inimigo ainda está agindo.
     applyRangeGate() {
         const b = window.BattleEngine;
-        if (!b) return;
+        if (!b || !b.isPlayerTurn) return;
+        const atkBtn = document.getElementById('btn-atk');
+        if (!atkBtn) return;
         const range = b.player.getWeaponRange();
-        if (!b.isInRange(range)) {
-            const atkBtn = document.getElementById('btn-atk');
-            if (atkBtn) atkBtn.disabled = true;
-        }
+        atkBtn.disabled = !b.isInRange(range);
     }
 
     toggleBattleButtons(isActive) {
@@ -984,21 +1006,52 @@ class UIManager {
     }
 
     // --- CONQUISTAS ---
-    openAchievements() {
+    openAchievements(source = 'hub') {
+        this._achievementsSource = source;
         const p = window.Engine.state.player;
         const container = document.getElementById('achievements-container');
         container.innerHTML = '';
+
+        const total = Object.keys(window.AchievementDB).length;
+        const unlockedCount = p.achievements.length;
+        document.getElementById('achievements-summary').innerText = `${unlockedCount} / ${total} desbloqueadas`;
 
         for (let id in window.AchievementDB) {
             const ach = window.AchievementDB[id];
             const isUnlocked = p.achievements.includes(id);
 
             const card = document.createElement('div');
-            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
-            card.innerHTML = `
-                <h4 style="color:${isUnlocked ? 'var(--color-gold)' : '#888'}">${ach.name}</h4>
-                <p>${ach.description}</p>
-            `;
+            const rarityClass = ach.rarity ? ach.rarity.normalize('NFD').replace(/[̀-ͯ]/g, '') : 'comum';
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'} rarity-${rarityClass}`;
+
+            if (!isUnlocked) {
+                // Conquistas bloqueadas aparecem ocultas — só o contorno e "???"
+                card.innerHTML = `
+                    <div class="achievement-icon">❔</div>
+                    <h4>???</h4>
+                    <p class="achievement-desc">Conquista ainda não descoberta.</p>
+                `;
+            } else {
+                const date = p.achievementDates && p.achievementDates[id] ? new Date(p.achievementDates[id]) : null;
+                const dateStr = date ? date.toLocaleDateString('pt-BR') : '';
+                let progressHtml = '';
+                if (ach.goal) {
+                    const current = Math.min(ach.goal, ach.progress ? ach.progress(p) : ach.goal);
+                    const pct = Math.round((current / ach.goal) * 100);
+                    progressHtml = `
+                        <div class="achievement-progress-bar"><div class="achievement-progress-fill" style="width:${pct}%"></div></div>
+                        <p class="achievement-progress-text">${current}/${ach.goal} (${pct}%)</p>
+                    `;
+                }
+                card.innerHTML = `
+                    <div class="achievement-icon">${ach.icon || '🏆'}</div>
+                    <h4>${ach.name}</h4>
+                    <p class="achievement-desc">${ach.description}</p>
+                    ${progressHtml}
+                    <p class="achievement-rarity">${ach.rarity || 'comum'}</p>
+                    ${dateStr ? `<p class="achievement-date">Desbloqueada em ${dateStr}</p>` : ''}
+                `;
+            }
             container.appendChild(card);
         }
 

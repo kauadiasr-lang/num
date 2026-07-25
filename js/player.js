@@ -173,6 +173,8 @@ class Player extends Entity {
         this.losses = 0;
         this.rivalsDefeated = []; // IDs dos rivais da ladder já derrotados
         this.achievements = []; // IDs das conquistas desbloqueadas
+        this.achievementDates = {}; // ID da conquista -> timestamp de desbloqueio
+        this.playTimeSeconds = 0; // tempo jogado acumulado, usado na tela de saves
 
         this.visuals = {
             gender: 'Masculino',
@@ -200,6 +202,8 @@ class Player extends Entity {
     unlockAchievement(id) {
         if (!this.achievements.includes(id)) {
             this.achievements.push(id);
+            if (!this.achievementDates) this.achievementDates = {};
+            this.achievementDates[id] = Date.now();
             return true;
         }
         return false;
@@ -281,17 +285,19 @@ class Player extends Entity {
     }
 }
 
-// Banco de Conquistas (título + descrição exibidos na tela de Conquistas)
+// Banco de Conquistas (título + descrição + raridade exibidos na tela de
+// Conquistas). `goal` habilita uma barra de progresso (current/goal) pras
+// conquistas cumulativas; conquistas sem `goal` são binárias (feito ou não).
 const AchievementDB = {
-    first_blood: { id: 'first_blood', name: 'Primeiro Sangue', description: 'Vença sua primeira batalha.' },
-    veteran: { id: 'veteran', name: 'Veterano', description: 'Alcance o nível 5.' },
-    legend: { id: 'legend', name: 'Lenda Viva', description: 'Alcance o nível 10.' },
-    unbreakable: { id: 'unbreakable', name: 'Inquebrável', description: 'Vença 10 batalhas.' },
-    survivor: { id: 'survivor', name: 'Sobrevivente', description: 'Vença uma batalha com 10% de HP ou menos.' },
-    legendary_finder: { id: 'legendary_finder', name: 'Caçador de Lendas', description: 'Obtenha um item Lendário.' },
-    champion_bronze: { id: 'champion_bronze', name: 'Campeão de Bronze', description: 'Derrote o Campeão da Liga de Bronze.' },
-    champion_silver: { id: 'champion_silver', name: 'Campeão de Prata', description: 'Derrote o Campeão da Liga de Prata.' },
-    champion_gold: { id: 'champion_gold', name: 'Campeão de Ouro', description: 'Derrote o Campeão da Liga de Ouro.' }
+    first_blood: { id: 'first_blood', name: 'Primeiro Sangue', description: 'Vença sua primeira batalha.', rarity: 'comum', icon: '⚔️' },
+    veteran: { id: 'veteran', name: 'Veterano', description: 'Alcance o nível 5.', rarity: 'comum', icon: '🛡️', goal: 5, progress: p => p.level },
+    legend: { id: 'legend', name: 'Lenda Viva', description: 'Alcance o nível 10.', rarity: 'raro', icon: '👑', goal: 10, progress: p => p.level },
+    unbreakable: { id: 'unbreakable', name: 'Inquebrável', description: 'Vença 10 batalhas.', rarity: 'raro', icon: '💪', goal: 10, progress: p => p.wins || 0 },
+    survivor: { id: 'survivor', name: 'Sobrevivente', description: 'Vença uma batalha com 10% de HP ou menos.', rarity: 'épico', icon: '❤️' },
+    legendary_finder: { id: 'legendary_finder', name: 'Caçador de Lendas', description: 'Obtenha um item Lendário.', rarity: 'épico', icon: '💎' },
+    champion_bronze: { id: 'champion_bronze', name: 'Campeão de Bronze', description: 'Derrote o Campeão da Liga de Bronze.', rarity: 'raro', icon: '🥉' },
+    champion_silver: { id: 'champion_silver', name: 'Campeão de Prata', description: 'Derrote o Campeão da Liga de Prata.', rarity: 'épico', icon: '🥈' },
+    champion_gold: { id: 'champion_gold', name: 'Campeão de Ouro', description: 'Derrote o Campeão da Liga de Ouro.', rarity: 'lendário', icon: '🥇' }
 };
 
 window.AchievementDB = AchievementDB;

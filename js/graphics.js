@@ -94,6 +94,13 @@ class GraphicsEngine {
         // usam faíscas neutras em vez de partículas vermelhas de sangue).
         this.bloodEnabled = false;
 
+        // Configurações aplicadas por settings.js (valores padrão até o
+        // SettingsManager rodar applyAll() na inicialização)
+        this.qualityLevel = 'alta';       // baixa | media | alta
+        this.showFloatingDamage = true;
+        this.animationSpeedMultiplier = 1;
+        this.reduceEffects = false;
+
         // Estado de animação por combatente. Não é salvo no jogo (fica só em
         // memória), então nunca afeta o save/compatibilidade.
         this.playerAnim = { type: 'idle', start: 0, duration: 0 };
@@ -124,6 +131,15 @@ class GraphicsEngine {
         this.birds = [];
     }
 
+    // Chamado ao entrar no Menu Principal/Créditos: fixa o céu no entardecer
+    // (a identidade visual pedida — "coliseu ao pôr do sol"), diferente da
+    // batalha, que sorteia um horário dinâmico a cada luta.
+    initMenuAmbience() {
+        this.arenaTime = 'sunset';
+        this.birds = [];
+        this._birdTimer = Utils.randomFloat(2, 5);
+    }
+
     // Chamado a cada nova batalha: sorteia o horário do céu (atmosfera "dinâmica")
     // e reseta as animações dos combatentes para o estado neutro.
     resetForNewBattle() {
@@ -139,11 +155,12 @@ class GraphicsEngine {
 
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
     // em pontos específicos, sem alterar em nada a lógica/matemática do combate).
+    // A duração respeita a configuração de "Velocidade das animações" (padrão 1x).
     playAnim(isPlayer, type, duration = 650) {
         const anim = isPlayer ? this.playerAnim : this.enemyAnim;
         anim.type = type;
         anim.start = performance.now();
-        anim.duration = duration;
+        anim.duration = duration / (this.animationSpeedMultiplier || 1);
     }
 
     spawnParticles(x, y, color, amount, speed = 5, size = 4) {
@@ -152,12 +169,16 @@ class GraphicsEngine {
         if (!this.bloodEnabled && (color === '#cc0000' || color === '#8b0000')) {
             useColor = '#ffcf6b';
         }
-        for (let i = 0; i < amount; i++) {
+        // "Reduzir efeitos visuais" corta a quantidade de partículas pela metade
+        // (mantém o feedback visível, sem sobrecarregar aparelhos mais fracos)
+        const finalAmount = this.reduceEffects ? Math.ceil(amount * 0.5) : amount;
+        for (let i = 0; i < finalAmount; i++) {
             this.particles.push(new Particle(x, y, useColor, speed, size));
         }
     }
 
     spawnText(x, y, text, color, isCrit = false) {
+        if (!this.showFloatingDamage) return;
         // Varia levemente a posição X para os números não sobreporem perfeitamente
         const offsetX = Utils.randomFloat(-20, 20);
         this.floatingTexts.push(new FloatingText(x + offsetX, y, text, color, isCrit));
@@ -193,29 +214,40 @@ class GraphicsEngine {
 
         this._torchClock = (this._torchClock || 0) + dt;
 
-        if (window.Engine && window.Engine.state.screen === 'BATTLE') {
+        // A arena cinematográfica (céu, plateia, poeira, pássaros) é usada tanto
+        // na batalha quanto de pano de fundo do Menu Principal e dos Créditos —
+        // qualquer uma dessas telas mantém a ambientação viva.
+        const isArenaBackdrop = window.Engine && ['BATTLE', 'MAINMENU', 'CREDITS'].includes(window.Engine.state.screen);
+
+        if (isArenaBackdrop) {
+            const isBattle = window.Engine.state.screen === 'BATTLE';
+
             // Suaviza a posição visual dos gladiadores em direção à distância real
             // da batalha (evita "teleporte" abrupto quando alguém se move)
-            if (window.BattleEngine && typeof window.BattleEngine.distance === 'number') {
+            if (isBattle && window.BattleEngine && typeof window.BattleEngine.distance === 'number') {
                 if (this._displayDistance === undefined) this._displayDistance = window.BattleEngine.distance;
                 this._displayDistance = Utils.lerp(this._displayDistance, window.BattleEngine.distance, Math.min(1, dt * 4));
             }
 
-            // Poeira ambiente, taxa baixa e limitada (mantém performance previsível)
+            // Poeira ambiente, taxa baixa e limitada (mantém performance previsível).
+            // Qualidade "baixa" corta esse detalhe decorativo por completo.
+            const dustCap = this.qualityLevel === 'baixa' ? 0 : (this.qualityLevel === 'media' ? 35 : 70);
             this._dustTimer -= dt;
-            if (this._dustTimer <= 0 && this.particles.length < 70) {
+            if (dustCap > 0 && this._dustTimer <= 0 && this.particles.length < dustCap) {
                 this._dustTimer = 0.18;
                 this._spawnAmbientDust();
             }
 
-            // Pássaros cruzando o céu ocasionalmente
-            this._birdTimer -= dt;
-            if (this._birdTimer <= 0) {
-                this._birdTimer = Utils.randomFloat(7, 15);
-                this.birds.push({ x: -40, y: Utils.randomFloat(30, 130), speed: Utils.randomFloat(55, 95), wingPhase: 0 });
+            // Pássaros cruzando o céu ocasionalmente (também poupados em qualidade baixa)
+            if (this.qualityLevel !== 'baixa') {
+                this._birdTimer -= dt;
+                if (this._birdTimer <= 0) {
+                    this._birdTimer = Utils.randomFloat(7, 15);
+                    this.birds.push({ x: -40, y: Utils.randomFloat(30, 130), speed: Utils.randomFloat(55, 95), wingPhase: 0 });
+                }
+                this.birds.forEach(b => { b.x += b.speed * dt; b.wingPhase += dt * 10; });
+                if (window.Engine) this.birds = this.birds.filter(b => b.x < window.Engine.width + 50);
             }
-            this.birds.forEach(b => { b.x += b.speed * dt; b.wingPhase += dt * 10; });
-            if (window.Engine) this.birds = this.birds.filter(b => b.x < window.Engine.width + 50);
         }
     }
 
@@ -233,12 +265,20 @@ class GraphicsEngine {
     }
 
     draw(ctx, canvasWidth, canvasHeight) {
-        if (window.Engine && window.Engine.state.screen === 'BATTLE' && window.BattleEngine) {
+        const screen = window.Engine && window.Engine.state.screen;
+
+        if (screen === 'BATTLE' && window.BattleEngine) {
             this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
 
             const groundY = canvasHeight / 2 + 100;
             this.drawGladiator(ctx, this.getEntityX(true, canvasWidth), groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
             this.drawGladiator(ctx, this.getEntityX(false, canvasWidth), groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+        } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
+            // Mesma arena cinematográfica, sem gladiadores — pano de fundo do
+            // Menu Principal e dos Créditos (entardecer, coliseu, plateia, poeira)
+            this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
+            ctx.fillStyle = 'rgba(10,6,3,0.35)'; // véu escuro sutil pra dar contraste à UI por cima
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         } else {
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -283,11 +323,16 @@ class GraphicsEngine {
             ctx.globalAlpha = 1;
         }
 
-        // Sol / lua
+        // Sol / lua (em telas estreitas, encolhe e recua para o canto para não
+        // ficar atrás do menu/logo centralizado, que ocupa quase toda a largura)
+        const narrow = w < 560;
+        const sunScale = narrow ? 0.5 : 1;
+        const sunX = narrow ? w * 0.91 : w * 0.82;
+        const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
         ctx.globalAlpha = pal.sunAlpha;
         ctx.fillStyle = pal.sun;
         ctx.beginPath();
-        ctx.arc(w * 0.82, horizon * 0.3, this.arenaTime === 'night' ? 24 : 38, 0, Math.PI * 2);
+        ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
 
@@ -307,8 +352,8 @@ class GraphicsEngine {
         this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
         this._drawColosseumRing(ctx, w, horizon, 0.38, '#332a1e');
 
-        // Plateia animada
-        this._drawCrowd(ctx, w, horizon, pal.crowd);
+        // Plateia animada (detalhe decorativo, poupado em qualidade baixa)
+        if (this.qualityLevel !== 'baixa') this._drawCrowd(ctx, w, horizon, pal.crowd);
 
         // Bandeiras balançando ao vento
         this._drawBanners(ctx, w, horizon, t);

@@ -7,7 +7,10 @@ class AudioEngine {
     constructor() {
         this.context = null;
         this.masterVolume = 0.5;
+        this.musicVolume = 0.4;
+        this.sfxVolume = 0.6;
         this.initialized = false;
+        this._musicNodes = null; // referências ativas da trilha ambiente, pra poder parar sem vazar
     }
 
     // Requer um clique do usuário para inicializar (Política dos Navegadores)
@@ -19,7 +22,8 @@ class AudioEngine {
         console.log("[AudioEngine] Sintetizador Procedural Inicializado.");
     }
 
-    playTone(frequency, type, duration, vol = 1, slideTo = null) {
+    // channel: 'sfx' (padrão, efeitos de combate/interface) ou 'music' (trilha ambiente)
+    playTone(frequency, type, duration, vol = 1, slideTo = null, channel = 'sfx') {
         if (!this.initialized) return;
 
         const osc = this.context.createOscillator();
@@ -32,8 +36,10 @@ class AudioEngine {
             osc.frequency.exponentialRampToValueAtTime(slideTo, this.context.currentTime + duration);
         }
 
+        const channelVol = channel === 'music' ? this.musicVolume : this.sfxVolume;
+
         // Fade out perfeito (anti-click)
-        gain.gain.setValueAtTime(Math.max(0.0001, vol * this.masterVolume), this.context.currentTime);
+        gain.gain.setValueAtTime(Math.max(0.0001, vol * this.masterVolume * channelVol), this.context.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, this.context.currentTime + duration);
 
         osc.connect(gain);
@@ -77,6 +83,72 @@ class AudioEngine {
         notes.forEach((freq, i) => {
             setTimeout(() => this.playTone(freq, 'square', 0.3, 0.3), i * 150);
         });
+    }
+
+    // Som de confirmação suave (save realizado, conquista, etc)
+    playConfirm() {
+        this.playTone(700, 'sine', 0.12, 0.35, 1000);
+        setTimeout(() => this.playTone(1000, 'sine', 0.15, 0.3, 1300), 80);
+    }
+
+    // --- Trilha Ambiente (drone procedural em loop, usado no Menu/Créditos) ---
+    // 3 osciladores levemente destonados + um LFO lento na amplitude, criando
+    // um "pad" atmosférico contínuo sem precisar de nenhum arquivo de áudio.
+    startAmbientMusic() {
+        if (!this.initialized || this._musicNodes) return;
+
+        const ctx = this.context;
+        const master = ctx.createGain();
+        master.gain.value = this.masterVolume * this.musicVolume;
+        master.connect(ctx.destination);
+
+        const baseFreqs = [82.41, 110.0, 123.47]; // E2, A2, B2 — acorde suspenso, clima solene
+        const oscillators = baseFreqs.map((freq, i) => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = freq * (1 + (i - 1) * 0.003); // leve destonação orgânica
+            const g = ctx.createGain();
+            g.gain.value = 0.22;
+            osc.connect(g);
+            g.connect(master);
+            osc.start();
+            return osc;
+        });
+
+        // LFO lento modulando o volume geral, pra "respirar" em vez de ficar estático
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 0.06;
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.value = 0.08;
+        lfo.connect(lfoGain);
+        lfoGain.connect(master.gain);
+        lfo.start();
+
+        this._musicNodes = { master, oscillators, lfo };
+    }
+
+    stopAmbientMusic() {
+        if (!this._musicNodes) return;
+        const { master, oscillators, lfo } = this._musicNodes;
+        const now = this.context.currentTime;
+        // Fade out suave antes de desligar, evita corte abrupto/clique
+        master.gain.cancelScheduledValues(now);
+        master.gain.setValueAtTime(master.gain.value, now);
+        master.gain.linearRampToValueAtTime(0.0001, now + 0.6);
+        setTimeout(() => {
+            oscillators.forEach(o => { try { o.stop(); o.disconnect(); } catch (e) {} });
+            try { lfo.stop(); lfo.disconnect(); } catch (e) {}
+            try { master.disconnect(); } catch (e) {}
+        }, 650);
+        this._musicNodes = null;
+    }
+
+    // Atualiza o volume da trilha em execução em tempo real (chamado quando o
+    // jogador mexe no slider de Música/Volume Geral nas Configurações)
+    updateMusicVolume() {
+        if (this._musicNodes) {
+            this._musicNodes.master.gain.setTargetAtTime(this.masterVolume * this.musicVolume, this.context.currentTime, 0.1);
+        }
     }
 }
 
