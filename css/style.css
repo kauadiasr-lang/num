@@ -531,8 +531,10 @@ html, body {
     .btn-action { padding: 15px; font-size: 1rem; }
 }
 
-/* Telas muito baixas (celular deitado): encolhe o essencial para tudo caber */
-@media (max-height: 480px) {
+/* Telas baixas (celular em pé compacto ou deitado): encolhe o essencial para
+   tudo caber sem precisar rolar — 700px cobre tanto celulares deitados quanto
+   celulares em pé mais compactos (ex: 320x568), não só o caso mais extremo. */
+@media (max-height: 700px) {
     .battle-hud { flex-direction: row; }
     .entity-status { padding: 8px; }
     .entity-status h3 { font-size: 0.95rem; }
@@ -697,23 +699,25 @@ html, body {
 .skill-card.unlocked { border-color: var(--color-gold); box-shadow: 0 0 10px rgba(212,175,55,0.3); }
 .skill-cost { color: #6bb2ff; font-weight: bold; font-size: 0.9rem; margin-top: 5px; }
 
-/* Menu de Habilidades na Batalha */
+/* Menu de Habilidades na Batalha — centralizado na tela (em vez de ancorado a
+   uma distância fixa do rodapé) para nunca ficar cortado no topo em telas
+   baixas (ex: celular deitado), qualquer que seja a altura do viewport. */
 .battle-skills-menu {
-    position: absolute; bottom: 170px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: 90%; max-width: 600px;
     background: linear-gradient(160deg, rgba(30,24,18,0.97), rgba(15,12,8,0.97));
     border: 2px solid var(--color-gold); border-radius: 8px; padding: 15px; z-index: 100;
-    box-shadow: 0 -5px 24px rgba(0,0,0,0.8);
+    box-shadow: 0 5px 30px rgba(0,0,0,0.85);
     pointer-events: auto;
-    max-height: 60vh; overflow-y: auto;
+    max-height: 85vh; overflow-y: auto;
     animation: battleMenuEnter 0.25s ease-out;
 }
-/* Variante de panelEnter que preserva o translateX(-50%) de centralização
+/* Variante de panelEnter que preserva o translate(-50%,-50%) de centralização
    (o panelEnter genérico zera o transform para "none" no "to", o que
    desalinharia menus centralizados por transform durante a animação) */
 @keyframes battleMenuEnter {
-    from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.98); }
-    to { opacity: 1; transform: translateX(-50%); }
+    from { opacity: 0; transform: translate(-50%, -50%) translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
 }
 .battle-skills-list {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 150px; overflow-y: auto;
