@@ -30,6 +30,28 @@ class Entity {
         this.derivedStats = {};
         this.currentHp = 0;
         this.currentMp = 0;
+
+        // Recargas de habilidade: em Entity (não só em Player) para que
+        // inimigos também possam usar habilidades com cooldown via IA de combate.
+        this.skillCooldowns = {};
+    }
+
+    // Coloca uma habilidade em recarga por N turnos
+    setSkillCooldown(skillId, turns) {
+        if (!this.skillCooldowns) this.skillCooldowns = {};
+        this.skillCooldowns[skillId] = turns;
+    }
+
+    isSkillReady(skillId) {
+        return !this.skillCooldowns || !this.skillCooldowns[skillId] || this.skillCooldowns[skillId] <= 0;
+    }
+
+    // Avança as recargas de todas as habilidades em 1 turno
+    tickCooldowns() {
+        if (!this.skillCooldowns) return;
+        for (let id in this.skillCooldowns) {
+            if (this.skillCooldowns[id] > 0) this.skillCooldowns[id]--;
+        }
     }
 
     // Calcula os atributos reais (Base + Equipamentos)
@@ -144,7 +166,7 @@ class Player extends Entity {
         this.statPoints = 0;   // Pontos de atributo por nível (distribuição manual)
         this.skillPoints = 0;  // Pontos de talento por nível
         this.learnedSkills = []; // IDs das habilidades aprendidas
-        this.skillCooldowns = {}; // ID da habilidade -> turnos restantes de recarga
+        // skillCooldowns já vem inicializado do construtor de Entity
 
         this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
         this.wins = 0;
@@ -237,24 +259,7 @@ class Player extends Entity {
         return false;
     }
 
-    // Coloca uma habilidade em recarga por N turnos (do próprio jogador)
-    setSkillCooldown(skillId, turns) {
-        if (!this.skillCooldowns) this.skillCooldowns = {};
-        this.skillCooldowns[skillId] = turns;
-    }
-
-    isSkillReady(skillId) {
-        return !this.skillCooldowns || !this.skillCooldowns[skillId] || this.skillCooldowns[skillId] <= 0;
-    }
-
-    // Avança as recargas de todas as habilidades em 1 turno (chamado a cada
-    // turno do jogador em battle.js)
-    tickCooldowns() {
-        if (!this.skillCooldowns) return;
-        for (let id in this.skillCooldowns) {
-            if (this.skillCooldowns[id] > 0) this.skillCooldowns[id]--;
-        }
-    }
+    // setSkillCooldown/isSkillReady/tickCooldowns agora vêm de Entity
 
     // Avalia as conquistas com base no estado atual + contexto do evento que acabou
     // de acontecer (fim de batalha, loot recebido, etc), retornando as recém-desbloqueadas.

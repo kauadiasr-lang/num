@@ -20,6 +20,10 @@ class BattleSystem {
         // corrida recente e postura de manter distância)
         this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false };
         this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false };
+
+        // Memória/emoção/moral/combo do inimigo para esta luta (nunca salvo —
+        // só existe durante a batalha, ver ai.js)
+        if (window.AICombat) window.AICombat.initBattleState(this);
     }
 
     // Altera a distância, sempre mantida entre 0 e 10
@@ -154,6 +158,11 @@ class BattleSystem {
         this.playerState.holdingDistance = false; // Reseta a postura de manter distância
         window.UI.toggleBattleButtons(false); // Bloqueia a UI
         if (this.player.tickCooldowns) this.player.tickCooldowns(); // Recargas de habilidade avançam a cada turno do jogador
+
+        // Instantâneos usados só para a IA do inimigo "perceber" o que aconteceu
+        // neste turno (memória de batalha, ver ai.js) — não influenciam a lógica
+        const enemyHpBefore = this.enemy.currentHp;
+        const playerHpAtDecision = this.player.currentHp;
 
         const playerX = window.GFX.getEntityX(true, window.innerWidth);
         const playerY = window.innerHeight / 2;
@@ -375,6 +384,8 @@ class BattleSystem {
         window.UI.appendBattleLog(resultMsg);
         window.UI.updateBattleBars();
 
+        if (window.AICombat) window.AICombat.recordPlayerAction(this, actionCode, param, { enemyHpBefore, playerHpAtDecision });
+
         const status = this.checkWinCondition();
         if (status !== 'ONGOING') {
             this.endBattle(status);
@@ -385,11 +396,133 @@ class BattleSystem {
         setTimeout(() => this.executeEnemyTurn(), 1200);
     }
 
-    // Processa a Inteligência Artificial do Inimigo, agora consciente do próprio alcance
+    // Executa uma habilidade do inimigo (espelha exatamente as fórmulas do
+    // branch SKILL de executePlayerTurn, com atacante/defensor invertidos).
+    executeEnemySkill(skillId) {
+        const skill = window.SkillDB[skillId];
+        const playerX = window.GFX.getEntityX(true, window.innerWidth);
+        const playerY = window.innerHeight / 2;
+        const enemyX = window.GFX.getEntityX(false, window.innerWidth);
+        const enemyY = window.innerHeight / 2;
+
+        this.enemy.currentMp -= skill.mpCost;
+        if (skill.cooldown && this.enemy.setSkillCooldown) this.enemy.setSkillCooldown(skillId, skill.cooldown);
+        if (window.GFX) window.GFX.playAnim(false, skill.animation || 'attack', 700);
+
+        let message = '', selfEvent = null;
+
+        if (skill.type === 'HEAL') {
+            const healAmount = Math.floor(this.enemy.getTotalStat('int') * 2.5 * skill.powerMulti);
+            this.enemy.currentHp = Utils.clamp(this.enemy.currentHp + healAmount, 0, this.enemy.derivedStats.maxHp);
+            message = `<span style="color:#1eff00">${this.enemy.name} usou ${skill.name} e recuperou ${healAmount} HP!</span>`;
+            window.GFX.spawnText(enemyX, enemyY - 50, `+${healAmount}`, "#1eff00", false);
+            window.GFX.spawnParticles(enemyX, enemyY, "#1eff00", 25, 4, 4);
+            window.AudioManager.playHeal();
+        } else if (skill.type === 'MAGIC') {
+            const magicDmg = Math.floor(this.enemy.getTotalStat('int') * 3 * skill.powerMulti);
+            const resist = this.player.getTotalStat('int') * 0.5;
+            let finalDmg = Math.max(1, Math.floor(magicDmg - resist));
+            this.player.currentHp = Utils.clamp(this.player.currentHp - finalDmg, 0, this.player.derivedStats.maxHp);
+            message = `<span style="color:#a335ee">${this.enemy.name} conjurou ${skill.name} causando ${finalDmg} de Dano Mágico!</span>`;
+            window.GFX.spawnText(playerX, playerY - 50, `-${finalDmg}`, "#a335ee", true);
+            window.GFX.spawnParticles(playerX, playerY, "#a335ee", 40, 6, 5);
+            window.Engine.triggerShake(8, 0.2);
+            window.AudioManager.playMagicCast();
+            selfEvent = { type: 'landedHit', crit: false };
+        } else if (skill.type === 'PHYSICAL') {
+            let hitChance = 110 + (this.enemy.getTotalStat('acc') * 2) - this.player.derivedStats.dodgeChance;
+            if (Utils.chance(hitChance)) {
+                let damage = Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti);
+                let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
+                let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+                this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
+                message = `<span style="color:var(--color-gold)">${this.enemy.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
+                window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ffcc00", true);
+                window.GFX.spawnParticles(playerX, playerY, "#cc0000", 25, 6, 5);
+                window.Engine.triggerShake(10, 0.25);
+                window.AudioManager.playSwordClash();
+                selfEvent = { type: 'landedHit', crit: false };
+            } else {
+                message = `${this.enemy.name} usou ${skill.name} mas errou o alvo!`;
+                selfEvent = { type: 'missed' };
+            }
+        } else if (skill.type === 'BLEED') {
+            let damage = Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti);
+            let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
+            let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+            this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
+            this.playerState.bleedTurns = skill.duration;
+            this.playerState.bleedDamage = Math.max(1, Math.floor(this.enemy.getTotalStat('str') * 0.8));
+            message = `<span style="color:#ff5555">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
+            window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ff3333", false);
+            window.GFX.spawnParticles(playerX, playerY, "#8b0000", 25, 5, 4);
+            window.AudioManager.playSwordClash();
+            selfEvent = { type: 'landedHit', crit: false };
+        } else if (skill.type === 'STUN') {
+            let damage = Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti);
+            let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
+            let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+            this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
+            const stunned = Utils.chance(skill.stunChance);
+            if (stunned) this.playerState.stunned = true;
+            message = stunned
+                ? `<span style="color:#3388ff">${this.enemy.name} usou ${skill.name}: ${mitigatedDamage} de dano e ${this.player.name} ficou atordoado!</span>`
+                : `<span style="color:#3388ff">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano.</span>`;
+            window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#3388ff", false);
+            window.GFX.spawnParticles(playerX, playerY, "#3388ff", 25, 5, 4);
+            window.Engine.triggerShake(6, 0.15);
+            window.AudioManager.playSwordClash();
+            selfEvent = { type: 'landedHit', crit: false };
+        } else if (skill.type === 'LIFESTEAL') {
+            let hitChance = 100 + (this.enemy.getTotalStat('acc') * 2) - this.player.derivedStats.dodgeChance;
+            if (Utils.chance(hitChance)) {
+                let damage = Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti);
+                let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
+                let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+                this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
+                const healed = Math.floor(mitigatedDamage * (skill.lifestealPercent / 100));
+                this.enemy.currentHp = Utils.clamp(this.enemy.currentHp + healed, 0, this.enemy.derivedStats.maxHp);
+                message = `<span style="color:#aa0044">${this.enemy.name} usou ${skill.name}: ${mitigatedDamage} de dano, recuperando ${healed} HP!</span>`;
+                window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ff0066", true);
+                window.GFX.spawnText(enemyX, enemyY - 50, `+${healed}`, "#1eff00", false);
+                window.GFX.spawnParticles(playerX, playerY, "#aa0044", 30, 6, 5);
+                window.Engine.triggerShake(10, 0.2);
+                window.AudioManager.playCrit();
+                selfEvent = { type: 'landedHit', crit: false };
+            } else {
+                message = `${this.enemy.name} usou ${skill.name} mas errou o alvo!`;
+                selfEvent = { type: 'missed' };
+            }
+        }
+
+        if (selfEvent && window.AICombat) window.AICombat.onSelfEvent(this, selfEvent.type, selfEvent);
+        return message;
+    }
+
+    // Cura o inimigo usando uma carga de item "virtual" (ver ai.js — inimigos
+    // não têm mochila de verdade, só um número de curas equivalente ao quanto
+    // a personalidade gosta de usar itens).
+    executeEnemyItem() {
+        this.enemy.aiState.itemCharges = Math.max(0, (this.enemy.aiState.itemCharges || 0) - 1);
+        const healAmount = Math.floor(this.enemy.derivedStats.maxHp * 0.25);
+        this.enemy.currentHp = Utils.clamp(this.enemy.currentHp + healAmount, 0, this.enemy.derivedStats.maxHp);
+        const enemyX = window.GFX.getEntityX(false, window.innerWidth);
+        const enemyY = window.innerHeight / 2;
+        window.GFX.spawnText(enemyX, enemyY - 50, `+${healAmount}`, '#1eff00', false);
+        window.GFX.spawnParticles(enemyX, enemyY, '#1eff00', 20, 4, 4);
+        window.AudioManager.playHeal();
+        return `${this.enemy.name} usa um item e recupera ${healAmount} HP!`;
+    }
+
+    // Processa a Inteligência Artificial do Inimigo: motor de Utility AI
+    // (personalidade + estilo de luta + memória + emoção + risco + blefe +
+    // combos — ver ai.js), com o gate físico de alcance sempre em primeiro
+    // lugar (ver AICombat.decideAction).
     executeEnemyTurn() {
         if (!this.isBattleActive) return;
 
         this.enemyState.isDefending = false;
+        if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
 
         // Sangramento tica sempre, mesmo que o inimigo esteja atordoado
         const bleedMsg = this.applyBleedTick(this.enemy, this.enemyState, false);
@@ -415,77 +548,61 @@ class BattleSystem {
             return;
         }
 
-        let resultMsg = "";
-        const hpPercent = this.enemy.currentHp / this.enemy.derivedStats.maxHp;
-
-        // --- Decisão consciente de alcance: o alcance da própria arma manda antes da personalidade ---
-        const range = this.enemy.getWeaponRange();
-        let action;
-
-        let forcedRetreat = false;
-        if (this.distance < range.min) {
-            action = 'RETREAT'; // Muito perto: a arma (lança/arco/besta) precisa de espaço
-            forcedRetreat = true;
-        } else if (this.distance > range.max) {
-            action = 'APPROACH'; // Longe demais: precisa se aproximar para poder golpear
-        } else {
-            // Dentro do alcance: personalidade decide entre atacar ou se defender
-            if (this.enemy.personality === 'Defensivo' && hpPercent < 0.5 && Utils.chance(60)) {
-                action = 'DEF';
-            } else if (this.enemy.personality === 'Covarde' && hpPercent < 0.3 && Utils.chance(80)) {
-                action = 'DEF'; // No futuro, pode tentar fugir
-            } else {
-                action = 'ATK'; // Agressivo sempre ataca; Equilibrado também, por padrão
-            }
-
-            // Arqueiros/besteiros (alcance máximo bem longo) preferem reabrir distância
-            // mesmo já podendo atacar, mantendo vantagem de posição.
-            if (action === 'ATK' && range.max >= 8 && this.distance < range.max * 0.6 && Utils.chance(40)) {
-                action = 'RETREAT';
-            }
-            // Lanceiros (alcance mínimo alto) evitam ficar espremidos perto do próprio mínimo.
-            if (action === 'ATK' && range.min >= 2 && this.distance <= range.min + 1 && Utils.chance(30)) {
-                action = 'RETREAT';
+        // Transição de fase de chefe (só afeta campeões com `phases` definido)
+        if (window.AICombat) {
+            const phaseMsg = window.AICombat.checkBossPhase(this);
+            if (phaseMsg) {
+                window.UI.appendBattleLog(`<span style="color:var(--color-gold); font-size:1.1rem; font-weight:bold;">${phaseMsg}</span>`);
+                window.UI.updateBattleBars();
             }
         }
 
+        const decision = window.AICombat ? window.AICombat.decideAction(this) : { action: 'ATK', message: `${this.enemy.name} ataca!` };
+        let resultMsg = decision.message || '';
         const speed = this.enemy.getWeaponSpeed();
 
-        if (action === 'APPROACH') {
-            // "Manter Distância" do jogador dificulta a aproximação inimiga
+        if (decision.action === 'APPROACH') {
             const resisted = this.playerState.holdingDistance;
             let amount = speed.approachSpeed;
             if (resisted) amount *= 0.5;
             this.applyDistanceChange(-amount);
-            resultMsg = resisted
-                ? `${this.enemy.name} tenta avançar, mas ${this.player.name} mantém a distância!`
-                : `${this.enemy.name} avança para ficar ao alcance.`;
+            if (resisted) resultMsg = `${this.enemy.name} tenta avançar, mas ${this.player.name} mantém a distância!`;
             if (window.GFX) {
                 window.GFX.playAnim(false, 'approach', 700);
                 if (resisted) window.GFX.playAnim(true, 'push', 500);
             }
-        } else if (action === 'RETREAT') {
-            // Quando o recuo é forçado (o jogador chegou perto demais para a arma do
-            // inimigo), recua só o necessário para reabrir o alcance mínimo, nunca mais
-            // que isso. Sem esse limite, o recuo sempre anula exatamente o avanço do
-            // jogador (mesma distância, sentido oposto), criando um cabo-de-guerra sem
-            // fim em que nenhum dos dois lados jamais consegue atacar. Recuos táticos
-            // (arqueiro reabrindo vantagem, lanceiro evitando ficar espremido) continuam
-            // usando a velocidade cheia normalmente.
-            let amount = speed.retreatSpeed;
-            if (forcedRetreat) {
-                const needed = range.min - this.distance;
-                amount = Math.min(speed.retreatSpeed, Math.max(needed, 0.5));
-            }
+        } else if (decision.action === 'RUN') {
+            this.applyDistanceChange(-speed.approachSpeed * 2);
+            if (window.GFX) window.GFX.playAnim(false, 'run', 700);
+        } else if (decision.action === 'RETREAT') {
+            const amount = decision.amount !== undefined ? decision.amount : speed.retreatSpeed;
             this.applyDistanceChange(amount);
-            resultMsg = `${this.enemy.name} recua para reposicionar.`;
             if (window.GFX) window.GFX.playAnim(false, 'retreat', 700);
-        } else if (action === 'ATK') {
+        } else if (decision.action === 'CHARGE') {
+            this.applyDistanceChange(-speed.approachSpeed * 2);
+            if (window.GFX) window.GFX.playAnim(false, 'charge', 700);
+            const range = this.enemy.getWeaponRange();
+            if (this.isInRange(range)) {
+                const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, 1.2);
+                resultMsg = `${this.enemy.name} investiu contra você! ${atkResult.message}`;
+                if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+            } else {
+                resultMsg = `${this.enemy.name} investiu, mas não alcançou você.`;
+            }
+        } else if (decision.action === 'ATK') {
             const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState);
             resultMsg = atkResult.message;
-        } else {
+            if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+        } else if (decision.action === 'SKILL') {
+            resultMsg = this.executeEnemySkill(decision.param);
+        } else if (decision.action === 'ITEM') {
+            resultMsg = this.executeEnemyItem();
+        } else if (decision.action === 'SWAP_INTERNAL') {
+            resultMsg = window.AICombat.trySwapWeapon(this);
+        } else if (decision.action === 'HOLD') {
+            // sem efeito mecânico extra além de flavor — controla espaço/aguarda
+        } else if (decision.action === 'DEF') {
             this.enemyState.isDefending = true;
-            resultMsg = `${this.enemy.name} está recuando e se defendendo!`;
         }
 
         window.UI.appendBattleLog(`<span style="color:#ff4444">${resultMsg}</span>`);
@@ -497,13 +614,20 @@ class BattleSystem {
             return;
         }
 
-        // Retorna o turno ao jogador
+        // Retorna o turno ao jogador — a menos que ele tenha acabado de ser
+        // atordoado por uma habilidade do próprio inimigo, caso em que o
+        // turno dele é perdido automaticamente (espelha o atordoamento do inimigo).
         this.turnCount++;
-        this.isPlayerTurn = true;
-
-        setTimeout(() => {
-            if (this.isBattleActive) window.UI.toggleBattleButtons(true);
-        }, 500);
+        if (this.playerState.stunned) {
+            this.playerState.stunned = false;
+            window.UI.appendBattleLog(`<span style="color:#3388ff">${this.player.name} está atordoado e perde o turno!</span>`);
+            setTimeout(() => this.executeEnemyTurn(), 1000);
+        } else {
+            this.isPlayerTurn = true;
+            setTimeout(() => {
+                if (this.isBattleActive) window.UI.toggleBattleButtons(true);
+            }, 500);
+        }
     }
 
     // Gerencia o fim do combate, distribuição de recompensas e conquistas

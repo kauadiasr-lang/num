@@ -391,11 +391,14 @@ class UIManager {
                 const isDefeated = p.rivalsDefeated.includes(rivalDef.id);
                 const isUnlocked = globalIdx === 0 || p.rivalsDefeated.includes(allRivals[globalIdx - 1].id);
 
+                const personalityName = (window.AI_PERSONALITIES[rivalDef.personalityId] || {}).name || rivalDef.personalityId;
+                const styleName = (window.AI_FIGHTING_STYLES[rivalDef.styleId] || {}).name || rivalDef.styleId;
+
                 const card = document.createElement('div');
                 card.className = `rival-card ${rivalDef.isChampion ? 'champion' : ''} ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
                 card.innerHTML = `
                     <h4>${rivalDef.name}</h4>
-                    <p>Nível ${rivalDef.level} · ${rivalDef.personality}</p>
+                    <p>Nível ${rivalDef.level} · ${personalityName} · ${styleName}</p>
                     <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
                         ${isDefeated ? 'Derrotado' : (isUnlocked ? (rivalDef.isChampion ? 'Campeão' : 'Disponível') : 'Bloqueado')}
                     </p>

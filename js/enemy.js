@@ -1,13 +1,11 @@
 /**
  * Sistema de IA e Inimigos Procedurais
+ *
+ * A personalidade/estilo de luta/memória/emoção de cada inimigo é resolvida
+ * pelo motor de IA (ai.js + ai_data.js) — este arquivo só cuida de gerar
+ * estatísticas, equipamento e recompensas, e delega a "mente" de cada
+ * combatente para AICombat.assignProfile().
  */
-
-const ENEMY_PERSONALITIES = {
-    AGGRESSIVE: 'Agressivo', // Prioriza ataque pesado
-    DEFENSIVE: 'Defensivo',  // Prioriza defesa/cura
-    BALANCED: 'Equilibrado', // Usa probabilidade padrão
-    COWARD: 'Covarde'        // Alta chance de fuga se HP < 30%
-};
 
 const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassino", "Bárbaro"];
 const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário"];
@@ -23,9 +21,19 @@ class Enemy extends Entity {
         // Distribui pontos de atributo com base no nível gerado
         this.generateStats();
 
-        // Define personalidade aleatória
-        const pKeys = Object.keys(ENEMY_PERSONALITIES);
-        this.personality = ENEMY_PERSONALITIES[pKeys[Utils.randomInt(0, pKeys.length - 1)]];
+        // Personalidade + estilo de luta (+ raramente um arquétipo raro) via
+        // motor de IA — nunca mais um simples multiplicador de dano.
+        window.AICombat.assignProfile(this, { level: this.level });
+
+        // Arma coerente com o estilo sorteado (a menos que o arquétipo raro
+        // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
+        if (!this.aiRareArchetype || this.aiRareArchetype.id !== 'lutador_desarmado') {
+            this.equipStyleWeapon();
+        } else {
+            this.calculateDerivedStats();
+            this.currentHp = this.derivedStats.maxHp;
+            this.currentMp = this.derivedStats.maxMp;
+        }
 
         // Recompensa ao ser derrotado
         this.expValue = Math.floor(20 * Math.pow(1.2, this.level));
@@ -42,22 +50,22 @@ class Enemy extends Entity {
             this.baseStats[randomStat]++;
         }
 
-        // Sorteia uma arma (com seu perfil de alcance/velocidade) para que a IA
-        // de posicionamento tenha variedade real também no Duelo Rápido, e não
-        // só na Ladder de Rivais.
-        this.equipRandomWeapon();
-
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
     }
 
-    equipRandomWeapon() {
-        const weaponKeys = Object.keys(ItemDatabase.weapons);
-        const weaponId = weaponKeys[Utils.randomInt(0, weaponKeys.length - 1)];
+    // Equipa uma arma coerente com o estilo de luta já atribuído (chamado
+    // depois de assignProfile, já que a escolha depende do estilo sorteado).
+    equipStyleWeapon() {
+        const styleId = this.aiStyle ? this.aiStyle.id : 'espadachim';
+        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
         let rarity = RARITY.COMMON;
         if (Utils.chance(15 + this.level)) rarity = RARITY.UNCOMMON;
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
     }
 
     // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do jogador
@@ -84,12 +92,24 @@ class Rival extends Entity {
         super(def.name);
         this.rivalId = def.id;
         this.level = def.level;
-        this.personality = def.personality;
         this.isChampion = !!def.isChampion;
         this.league = def.league;
         this.title = def.title;
+        // Campeões com `phases` definido ganham IA exclusiva de chefe (mudança
+        // de personalidade/habilidades/emoção ao cruzar limiares de HP) — opt-in,
+        // rivais comuns simplesmente não têm esse campo e não são afetados.
+        this.phases = def.phases || null;
 
         this.distributeStats(def.focus);
+
+        // Personalidade e estilo de luta curados por rival (não aleatórios,
+        // preservando a identidade narrativa de cada adversário da ladder);
+        // arquétipos raros ficam reservados ao Duelo Rápido.
+        window.AICombat.assignProfile(this, {
+            personalityId: def.personalityId, styleId: def.styleId,
+            level: this.level, allowRareArchetype: false
+        });
+
         this.equipGear(def.gearRarity);
 
         this.calculateDerivedStats();
@@ -117,11 +137,11 @@ class Rival extends Entity {
         });
     }
 
-    // Equipa arma e armadura correspondentes à raridade da liga do rival
+    // Equipa arma (coerente com o estilo de luta atribuído) e armadura,
+    // correspondentes à raridade da liga do rival
     equipGear(rarity) {
-        const weaponKeys = Object.keys(ItemDatabase.weapons);
         const armorKeys = Object.keys(ItemDatabase.armors);
-        const weaponId = weaponKeys[Utils.randomInt(0, weaponKeys.length - 1)];
+        const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
         const armorId = armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
@@ -145,34 +165,71 @@ class Rival extends Entity {
     }
 }
 
-// Banco de Rivais: 3 ligas progressivas, cada uma com 3 desafiantes + 1 campeão
+// Banco de Rivais: 3 ligas progressivas, cada uma com 3 desafiantes + 1 campeão.
+// personalityId/styleId vêm do banco de dados da IA (ai_data.js) — cada rival
+// tem uma identidade comportamental própria, não um "nível de dificuldade".
+// Campeões (isChampion) recebem `phases`: limiares de HP em que a IA do chefe
+// muda de personalidade, ganha novas habilidades e reage emocionalmente —
+// uma luta contra um campeão deve parecer 2 ou 3 lutas diferentes em sequência.
 const RivalDatabase = {
     leagues: [
         {
             id: 'bronze', name: 'Liga de Bronze',
             rivals: [
-                { id: 'gorlak', name: 'Gorlak, o Novato', title: 'Novato', level: 2, focus: { str: 0.5, def: 0.3, agi: 0.2 }, personality: 'Agressivo', gearRarity: RARITY.COMMON },
-                { id: 'vesna', name: 'Vesna, a Ágil', title: 'Ágil', level: 3, focus: { agi: 0.5, acc: 0.3, luk: 0.2 }, personality: 'Equilibrado', gearRarity: RARITY.COMMON },
-                { id: 'thom', name: 'Thom Punho-de-Ferro', title: 'Punho-de-Ferro', level: 4, focus: { str: 0.6, def: 0.4 }, personality: 'Agressivo', gearRarity: RARITY.UNCOMMON },
-                { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 }, personality: 'Defensivo', gearRarity: RARITY.UNCOMMON, isChampion: true }
+                { id: 'gorlak', name: 'Gorlak, o Novato', title: 'Novato', level: 2, focus: { str: 0.5, def: 0.3, agi: 0.2 },
+                    personalityId: 'impulsivo', styleId: 'espadachim', gearRarity: RARITY.COMMON },
+                { id: 'vesna', name: 'Vesna, a Ágil', title: 'Ágil', level: 3, focus: { agi: 0.5, acc: 0.3, luk: 0.2 },
+                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.COMMON },
+                { id: 'thom', name: 'Thom Punho-de-Ferro', title: 'Punho-de-Ferro', level: 4, focus: { str: 0.6, def: 0.4 },
+                    personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON },
+                { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
+                    personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
+                    phases: [
+                        { hpPercent: 0.6, personalityId: 'executor', unlockSkill: 'shield_bash', emotion: 'determinado',
+                            message: 'Karg abandona a cautela e avança com fúria calculada!' },
+                        { hpPercent: 0.25, personalityId: 'berserker', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.1,
+                            message: 'Ferido e encurralado, Karg entra em fúria desesperada!' }
+                    ] }
             ]
         },
         {
             id: 'silver', name: 'Liga de Prata',
             rivals: [
-                { id: 'ysolda', name: 'Ysolda, Lâmina Veloz', title: 'Lâmina Veloz', level: 6, focus: { agi: 0.4, luk: 0.3, acc: 0.3 }, personality: 'Equilibrado', gearRarity: RARITY.UNCOMMON },
-                { id: 'bruntok', name: 'Bruntok, o Touro', title: 'o Touro', level: 7, focus: { str: 0.5, def: 0.35, cha: 0.15 }, personality: 'Agressivo', gearRarity: RARITY.UNCOMMON },
-                { id: 'nyx', name: 'Nyx, a Sombria', title: 'a Sombria', level: 8, focus: { int: 0.35, acc: 0.35, luk: 0.3 }, personality: 'Covarde', gearRarity: RARITY.RARE },
-                { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 }, personality: 'Defensivo', gearRarity: RARITY.RARE, isChampion: true }
+                { id: 'ysolda', name: 'Ysolda, Lâmina Veloz', title: 'Lâmina Veloz', level: 6, focus: { agi: 0.4, luk: 0.3, acc: 0.3 },
+                    personalityId: 'cacador', styleId: 'assassino', gearRarity: RARITY.UNCOMMON },
+                { id: 'bruntok', name: 'Bruntok, o Touro', title: 'o Touro', level: 7, focus: { str: 0.5, def: 0.35, cha: 0.15 },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON },
+                { id: 'nyx', name: 'Nyx, a Sombria', title: 'a Sombria', level: 8, focus: { int: 0.35, acc: 0.35, luk: 0.3 },
+                    personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.RARE },
+                { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
+                    personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
+                    phases: [
+                        { hpPercent: 0.65, personalityId: 'calculista', unlockSkill: 'heavy_strike', emotion: 'determinado',
+                            message: 'Draven reavalia sua estratégia e adapta seu estilo de luta!' },
+                        { hpPercent: 0.3, personalityId: 'executor', unlockSkill: 'vampiric_strike', emotion: 'enfurecido', healPercent: 0.12,
+                            message: 'Com a vitória escapando, Draven luta com brutalidade fria!' }
+                    ] }
             ]
         },
         {
             id: 'gold', name: 'Liga de Ouro',
             rivals: [
-                { id: 'freya', name: 'Freya Tempestade', title: 'Tempestade', level: 11, focus: { agi: 0.45, acc: 0.35, luk: 0.2 }, personality: 'Equilibrado', gearRarity: RARITY.RARE },
-                { id: 'moloch', name: 'Moloch, o Destruidor', title: 'o Destruidor', level: 12, focus: { str: 0.65, def: 0.35 }, personality: 'Agressivo', gearRarity: RARITY.EPIC },
-                { id: 'sable', name: 'Sable, a Serpente', title: 'a Serpente', level: 13, focus: { luk: 0.4, agi: 0.35, acc: 0.25 }, personality: 'Covarde', gearRarity: RARITY.EPIC },
-                { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 }, personality: 'Defensivo', gearRarity: RARITY.LEGENDARY, isChampion: true }
+                { id: 'freya', name: 'Freya Tempestade', title: 'Tempestade', level: 11, focus: { agi: 0.45, acc: 0.35, luk: 0.2 },
+                    personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.RARE },
+                { id: 'moloch', name: 'Moloch, o Destruidor', title: 'o Destruidor', level: 12, focus: { str: 0.65, def: 0.35 },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.EPIC },
+                { id: 'sable', name: 'Sable, a Serpente', title: 'a Serpente', level: 13, focus: { luk: 0.4, agi: 0.35, acc: 0.25 },
+                    personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.EPIC },
+                { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
+                    personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
+                    phases: [
+                        { hpPercent: 0.7, personalityId: 'gladiador_experiente', unlockSkill: 'shield_bash', emotion: 'confiante',
+                            message: 'Aurelion, o Imortal, desperta de verdade!' },
+                        { hpPercent: 0.4, personalityId: 'executor', unlockSkill: 'heavy_strike', emotion: 'determinado',
+                            message: 'Séculos de combate falam através de cada golpe de Aurelion!' },
+                        { hpPercent: 0.15, personalityId: 'berserker', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
+                            message: 'Aurelion recusa a mortalidade — a fúria imortal desperta!' }
+                    ] }
             ]
         }
     ]
