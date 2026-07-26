@@ -133,12 +133,25 @@ class AudioEngine {
         lfoGain.connect(master.gain);
         lfo.start();
 
-        this._musicNodes = { master, oscillators, lfo };
+        this._musicNodes = { master, oscillators, lfo, melodyTimer: null };
+
+        // Melodia suave e lenta por cima do pad — sem isso a trilha era só um
+        // drone estático; notas espaçadas de uma escala pentatônica maior
+        // (E), com timing levemente aleatório pra não soar como um metrônomo.
+        const scale = [329.63, 369.99, 415.30, 493.88, 554.37]; // E4 pentatônica maior
+        const scheduleNote = () => {
+            if (!this._musicNodes) return;
+            const freq = scale[Utils.randomInt(0, scale.length - 1)];
+            this.playTone(freq, 'triangle', Utils.randomFloat(1.8, 2.6), 0.09, null, 'music');
+            this._musicNodes.melodyTimer = setTimeout(scheduleNote, Utils.randomFloat(2200, 4200));
+        };
+        this._musicNodes.melodyTimer = setTimeout(scheduleNote, 3000);
     }
 
     stopAmbientMusic() {
         if (!this._musicNodes) return;
-        const { master, oscillators, lfo } = this._musicNodes;
+        const { master, oscillators, lfo, melodyTimer } = this._musicNodes;
+        clearTimeout(melodyTimer);
         const now = this.context.currentTime;
         // Fade out suave antes de desligar, evita corte abrupto/clique
         master.gain.cancelScheduledValues(now);
@@ -152,11 +165,69 @@ class AudioEngine {
         this._musicNodes = null;
     }
 
+    // --- Trilha de Batalha (procedural, tensa e rítmica) ---
+    // Um pad sustentado num intervalo dissonante (trítono, em vez do acorde
+    // suspenso calmo da cidade) por baixo de um pulso grave rítmico tipo
+    // tambor de guerra — sensação de urgência sem precisar de nenhum arquivo
+    // de áudio.
+    startBattleMusic() {
+        if (!this.initialized || this._battleMusicNodes) return;
+
+        const ctx = this.context;
+        const master = ctx.createGain();
+        master.gain.value = this.masterVolume * this.musicVolume * 0.85;
+        master.connect(ctx.destination);
+
+        const baseFreqs = [82.41, 116.54]; // E2 + A#2 — trítono, tensão constante
+        const oscillators = baseFreqs.map((freq, i) => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq * (1 + (i - 0.5) * 0.004);
+            const g = ctx.createGain();
+            g.gain.value = 0.09;
+            osc.connect(g);
+            g.connect(master);
+            osc.start();
+            return osc;
+        });
+
+        // Pulso grave rítmico (~132 bpm), com acento a cada 4 batidas
+        const beatMs = 454;
+        let beat = 0;
+        const pulseTimer = setInterval(() => {
+            if (!this.initialized) return;
+            const accent = beat % 4 === 0;
+            this.playTone(accent ? 65.41 : 82.41, 'triangle', 0.18, accent ? 0.32 : 0.2, null, 'music');
+            beat++;
+        }, beatMs);
+
+        this._battleMusicNodes = { master, oscillators, pulseTimer };
+    }
+
+    stopBattleMusic() {
+        if (!this._battleMusicNodes) return;
+        const { master, oscillators, pulseTimer } = this._battleMusicNodes;
+        clearInterval(pulseTimer);
+        const now = this.context.currentTime;
+        master.gain.cancelScheduledValues(now);
+        master.gain.setValueAtTime(master.gain.value, now);
+        master.gain.linearRampToValueAtTime(0.0001, now + 0.4);
+        setTimeout(() => {
+            oscillators.forEach(o => { try { o.stop(); o.disconnect(); } catch (e) {} });
+            try { master.disconnect(); } catch (e) {}
+        }, 450);
+        this._battleMusicNodes = null;
+    }
+
     // Atualiza o volume da trilha em execução em tempo real (chamado quando o
-    // jogador mexe no slider de Música/Volume Geral nas Configurações)
+    // jogador mexe no slider de Música/Volume Geral nas Configurações) —
+    // afeta a trilha da cidade/menu e a de batalha, qual estiver tocando.
     updateMusicVolume() {
         if (this._musicNodes) {
             this._musicNodes.master.gain.setTargetAtTime(this.masterVolume * this.musicVolume, this.context.currentTime, 0.1);
+        }
+        if (this._battleMusicNodes) {
+            this._battleMusicNodes.master.gain.setTargetAtTime(this.masterVolume * this.musicVolume * 0.85, this.context.currentTime, 0.1);
         }
     }
 

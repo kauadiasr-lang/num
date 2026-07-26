@@ -730,8 +730,15 @@ class GraphicsEngine {
                 break;
             }
             case 'walk': {
-                // reservado para futura locomoção livre pelo mapa
-                pose.legSway = Math.sin(idleT * 4) * 6;
+                // Passada de verdade (usado ao caminhar livremente pela Cidade,
+                // jogador e NPCs): pernas alternando bem mais largo que o balanço
+                // sutil do idle, um pequeno solavanco vertical a cada passo
+                // (dobro da frequência da passada — um "salto" por pé que toca
+                // o chão) e leve balanço do tronco acompanhando o peso.
+                const strideT = idleT * 7;
+                pose.legSway = Math.sin(strideT) * 16;
+                pose.offsetY = -Math.abs(Math.sin(strideT)) * 3;
+                pose.torsoLean += Math.sin(strideT) * 2;
                 break;
             }
             default: break;

@@ -91,6 +91,10 @@ class UIManager {
                 window.GFX.particles = [];
                 window.GFX.floatingTexts = [];
             }
+            // A trilha de batalha só toca durante o combate — ao sair pra
+            // qualquer outra tela (resultado, cidade, etc), ela para (sem
+            // custo se já estiver parada).
+            if (window.AudioManager) window.AudioManager.stopBattleMusic();
         }
 
         // Toda vez que se volta pra Cidade (de uma loja, da batalha, etc), o
@@ -486,8 +490,12 @@ class UIManager {
     beginBattleWith(opponent) {
         const p = window.Engine.state.player;
 
-        // Para a ambiência pacata da cidade antes do combate
-        if (window.AudioManager) window.AudioManager.stopCityAmbience();
+        // Para a ambiência pacata da cidade antes do combate e liga a trilha
+        // de batalha (tensa e rítmica, em vez de silêncio)
+        if (window.AudioManager) {
+            window.AudioManager.stopCityAmbience();
+            window.AudioManager.startBattleMusic();
+        }
 
         // Instancia a Engine de Batalha Global
         window.BattleEngine = new BattleSystem(p, opponent);

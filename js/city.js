@@ -246,21 +246,17 @@ class CityEngine {
         const x = clientX - rect.left, y = clientY - rect.top;
         this._dismissHint();
 
-        // Clicou num prédio? Anda até a porta (contornando obstáculos no
-        // caminho, se preciso) e entra sozinho ao chegar.
+        // Clicar direto num prédio entra nele na hora, sem precisar andar até
+        // lá primeiro — só cliques no chão (fora de qualquer estrutura) fazem
+        // o jogador caminhar. Continua dando pra "passear de verdade" com
+        // WASD/setas ou clicando no chão; o clique direto na estrutura é só
+        // um atalho.
         const building = this._buildingAtPoint(x, y);
         if (building) {
-            const door = this._doorPoint(building);
-            if (this._distanceTo(door) < this._interactRadius) {
-                this.interact(building.id);
-            } else {
-                this._setPlayerDestination(door.x, door.y + 24); // parar um pouco à frente da porta, não em cima dela
-                this._pendingInteract = building.id;
-            }
+            this.interact(building.id);
             return;
         }
 
-        this._pendingInteract = null;
         const clampedY = Utils.clamp(y, this._horizon(window.Engine.height) + 10, this._plazaBottom(window.Engine.height) + 20);
         this._setPlayerDestination(x, clampedY);
     }
@@ -396,11 +392,6 @@ class CityEngine {
                 } else {
                     this.player.targetX = null;
                     this.player.targetY = null;
-                    if (this._pendingInteract) {
-                        const id = this._pendingInteract;
-                        this._pendingInteract = null;
-                        this.interact(id);
-                    }
                 }
             } else {
                 vx = (dx / dist) * this.walkSpeed;
@@ -926,9 +917,19 @@ class CityEngine {
     // em tamanho fixo em pixels — por isso escalamos com um save/translate/
     // scale aqui (só na cidade) pra eles encolherem junto com os prédios em
     // telas menores, sem tocar em nenhuma chamada de drawGladiator da arena.
+    //
+    // Os NPCs (cidadãos) recebem um encolhimento extra além de _cityScale:
+    // um gladiador desenhado em tamanho nativo (pés ao topo da cabeça) mede
+    // ~160px (_legLen 58 + _torsoH 62 + _headR*2 40), quase 4x a altura da
+    // porta de um prédio (~44px num prédio da fileira do meio) — bem maior
+    // que um prédio de verdade. NPC_EXTRA_SHRINK aproxima a altura deles da
+    // porta. O jogador continua só com _cityScale (fica visivelmente maior
+    // que os cidadãos — um "herói" de destaque no meio da multidão).
+    static get NPC_EXTRA_SHRINK() { return 0.32; }
+
     _drawNpc(ctx, npc) {
         if (window.GFX && window.GFX.drawGladiator) {
-            const scale = this._cityScale(window.Engine.height);
+            const scale = this._cityScale(window.Engine.height) * CityEngine.NPC_EXTRA_SHRINK;
             ctx.save();
             ctx.translate(npc.x, npc.y);
             ctx.scale(scale, scale);
