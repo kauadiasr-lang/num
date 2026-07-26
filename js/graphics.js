@@ -1259,7 +1259,11 @@ class GraphicsEngine {
         ctx.fillStyle = armColor;
         ctx.fillRect(-4, 0, 8, this._armLen());
         ctx.translate(0, this._armLen());
-        this._drawWeapon(ctx, entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
+        // Usa a arma ATIVA (mainHand ou ranged, conforme activeWeaponSlot),
+        // não sempre a mainHand — senão trocar de arma em combate mudava o
+        // dano/alcance mas o sprite continuava mostrando a arma antiga.
+        const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
+        this._drawWeapon(ctx, activeWeapon);
         ctx.restore();
     }
 

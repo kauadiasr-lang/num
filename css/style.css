@@ -618,6 +618,7 @@ html, body {
 .hp-fill { background: linear-gradient(90deg, #6e0f0f, #d43737); box-shadow: 0 0 8px rgba(212,55,55,0.5); }
 .mp-fill { background: linear-gradient(90deg, #0d3a70, #3f92e0); box-shadow: 0 0 8px rgba(63,146,224,0.5); }
 .bar-text { font-size: 0.9rem; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.ammo-text { color: var(--color-gold-bright, #ffd700); font-weight: bold; }
 
 /* Log e Ações */
 .battle-log {

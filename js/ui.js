@@ -608,7 +608,7 @@ class UIManager {
         const ammoText = document.getElementById('player-ammo-text');
         const activeWeapon = b.player.getActiveWeapon ? b.player.getActiveWeapon() : null;
         if (activeWeapon && activeWeapon.maxAmmo) {
-            ammoText.innerText = `Munição: ${activeWeapon.ammo}/${activeWeapon.maxAmmo}`;
+            ammoText.innerText = `🏹 Munição: ${activeWeapon.ammo}/${activeWeapon.maxAmmo}`;
             ammoText.classList.remove('hidden');
         } else {
             ammoText.classList.add('hidden');
@@ -907,7 +907,9 @@ class UIManager {
             const item = p.equipment[slotKey];
 
             if (item) {
-                slotEl.innerText = item.name.substring(0, 3) + ".."; // Abreviado
+                // Abreviado; armas de longo alcance também mostram a munição
+                // atual direto no slot, sem precisar abrir o tooltip.
+                slotEl.innerText = item.name.substring(0, 3) + ".." + (item.maxAmmo ? ` ${item.ammo}/${item.maxAmmo}` : "");
                 slotEl.style.borderColor = item.rarity.color;
                 slotEl.style.color = item.rarity.color;
                 slotEl.classList.add('filled');
@@ -1407,7 +1409,7 @@ class UIManager {
                 if (item.blockChance) statsHtml += `<p style="color:#88ccff">+${item.blockChance}% Bloqueio</p>`;
                 if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;
                 if (item.mpBonus) statsHtml += `<p style="color:#3388ff">+${item.mpBonus} MP Máximo</p>`;
-                if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.maxAmmo} disparos por batalha</p>`;
+                if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.ammo}/${item.maxAmmo} disparos (recarrega no início de cada batalha)</p>`;
             }
             document.getElementById('tt-stats').innerHTML = statsHtml;
             document.getElementById('tt-price').innerText = `Valor: ${item.value}g`;
