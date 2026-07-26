@@ -500,23 +500,28 @@ class GraphicsEngine {
         });
     }
 
-    _drawTorch(ctx, x, horizon, t) {
+    // sizeMul encolhe a chama mantendo o cabo apoiado no mesmo ponto (base em
+    // y+4) — usado pelas tochas menores dos prédios da Cidade, que antes
+    // usavam a chama no mesmo tamanho da arena e ficavam poluindo a cena.
+    _drawTorch(ctx, x, horizon, t, sizeMul = 1) {
         const y = horizon - 6;
+        const poleW = 8 * sizeMul, poleH = 50 * sizeMul;
+        const poleTop = y + 4 - poleH;
         ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(x - 4, y - 46, 8, 50);
+        ctx.fillRect(x - poleW / 2, poleTop, poleW, poleH);
 
         const flicker = Math.sin(t * 13) * 3 + Math.sin(t * 5.3) * 2;
         ctx.fillStyle = '#ff8a1e';
         ctx.beginPath();
-        ctx.ellipse(x, y - 54 + flicker * 0.2, 9, 16 + flicker * 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, poleTop - 8 * sizeMul + flicker * 0.2 * sizeMul, 9 * sizeMul, (16 + flicker * 0.5) * sizeMul, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffe08a';
         ctx.beginPath();
-        ctx.ellipse(x, y - 52 + flicker * 0.2, 5, 9, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, poleTop - 6 * sizeMul + flicker * 0.2 * sizeMul, 5 * sizeMul, 9 * sizeMul, 0, 0, Math.PI * 2);
         ctx.fill();
 
         if (Utils.chance(3) && this.particles.length < 70) {
-            const ember = new Particle(x, y - 58, '#ffcf6b', 1.2, 2);
+            const ember = new Particle(x, poleTop - 12 * sizeMul, '#ffcf6b', 1.2 * sizeMul, 2);
             ember.decay = 0.03;
             ember.vy = -Utils.randomFloat(0.5, 1.5);
             this.particles.push(ember);

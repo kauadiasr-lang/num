@@ -39,15 +39,20 @@ class CityEngine {
         this._ambientSoundTimer = 0;
         this._nearBuilding = null;
 
+        // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
+        // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
+        // posição Y muda — nada de escala por profundidade). Antes o Banco e
+        // a Casa ficavam encaixados bem no meio de dois prédios da fileira do
+        // meio e acabavam colidindo com as bordas dos dois ao mesmo tempo.
         this.buildings = [
             { id: 'arena', name: 'Arena', icon: '⚔️', xFrac: 0.5, rowOffset: 40, w: 240, h: 175, wall: '#8a7a5a', roof: '#8a2a2a', row: 'back' },
-            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.13, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
-            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.29, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
-            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.71, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
-            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.87, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
-            { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.22, rowOffset: 165, w: 115, h: 90, wall: '#8891a0', roof: '#c9a227', row: 'front' },
-            { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 172, w: 130, h: 95, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
-            { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.78, rowOffset: 165, w: 115, h: 90, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
+            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.11, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
+            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.30, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
+            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.70, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
+            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.89, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
+            { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
+            { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
+            { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
         ];
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
@@ -538,19 +543,22 @@ class CityEngine {
         ctx.fillRect(door.x - doorW / 2, door.y - doorH, doorW, doorH);
 
         // Tochas nas laterais (reaproveita o desenho já usado na arena, mas
-        // escalada — do contrário a chama fica em tamanho fixo e passa a
-        // sobrepor o letreiro em prédios bem encolhidos por telas estreitas).
+        // bem menores e escaladas — a chama no tamanho da arena, com 16
+        // tochas espalhadas pela praça (2 por prédio × 8), poluía a cena;
+        // e sem escalar pela tela ela também acabava cobrindo o letreiro em
+        // prédios bem encolhidos por telas estreitas).
         if (window.GFX && window.GFX._drawTorch) {
             const tClock = window.GFX._torchClock || 0;
+            const torchSizeMul = 0.55;
             ctx.save();
             ctx.translate(left + 6, door.y);
             ctx.scale(scale, scale);
-            window.GFX._drawTorch(ctx, 0, 0, tClock);
+            window.GFX._drawTorch(ctx, 0, 0, tClock, torchSizeMul);
             ctx.restore();
             ctx.save();
             ctx.translate(left + bw - 6, door.y);
             ctx.scale(scale, scale);
-            window.GFX._drawTorch(ctx, 0, 0, tClock);
+            window.GFX._drawTorch(ctx, 0, 0, tClock, torchSizeMul);
             ctx.restore();
         }
 
