@@ -24,8 +24,15 @@ class Entity {
         this.equipment = {
             [SLOTS.HEAD]: null, [SLOTS.CHEST]: null, [SLOTS.HANDS]: null,
             [SLOTS.LEGS]: null, [SLOTS.FEET]: null, [SLOTS.MAIN_HAND]: null,
-            [SLOTS.OFF_HAND]: null, [SLOTS.AMULET]: null, [SLOTS.RING]: null
+            [SLOTS.OFF_HAND]: null, [SLOTS.AMULET]: null, [SLOTS.RING]: null,
+            [SLOTS.RANGED]: null
         };
+
+        // Qual arma está "na mão" pra atacar agora: mainHand (corpo a corpo)
+        // ou ranged (arco/besta, se equipado) — trocar custa o turno inteiro
+        // (ver BattleSystem, ação SWITCH_WEAPON). Sem arma corpo a corpo nem
+        // ranged equipados, ataca desarmado (UNARMED_RANGE/SPEED).
+        this.activeWeaponSlot = SLOTS.MAIN_HAND;
 
         this.derivedStats = {};
         this.currentHp = 0;
@@ -85,11 +92,16 @@ class Entity {
         let blockChance = 0;
 
         // Soma bônus diretos de equipamentos: dano/defesa das peças, HP/MP de
-        // amuletos, crítico/precisão de armas e chance de bloqueio de escudos
+        // amuletos, crítico/precisão de armas e chance de bloqueio de escudos.
+        // Dano de arma só conta da arma ATIVA (mainHand ou ranged, conforme
+        // activeWeaponSlot) — equipar as duas ao mesmo tempo não deveria
+        // somar o dano das duas, só dar a opção de trocar entre elas em
+        // combate (ver getActiveWeapon/BattleSystem SWITCH_WEAPON).
         for (let key in this.equipment) {
             let item = this.equipment[key];
             if (item) {
-                if (item.damage) physicalDamage += item.damage;
+                const isWeaponSlot = (key === SLOTS.MAIN_HAND || key === SLOTS.RANGED);
+                if (item.damage && (!isWeaponSlot || key === this.activeWeaponSlot)) physicalDamage += item.damage;
                 if (item.defense) defenseRating += item.defense;
                 if (item.hpBonus) maxHp += item.hpBonus;
                 if (item.mpBonus) maxMp += item.mpBonus;
@@ -122,15 +134,30 @@ class Entity {
         }
     }
 
+    // Arma "na mão" agora (mainHand corpo a corpo ou ranged, conforme
+    // activeWeaponSlot) — todas as consultas de arma (dano/alcance/
+    // velocidade/precisão/perfuração) passam por aqui, então trocar de arma
+    // em combate (SWITCH_WEAPON) já afeta tudo automaticamente.
+    getActiveWeapon() {
+        return this.equipment[this.activeWeaponSlot] || null;
+    }
+
+    // Só true se houver uma arma corpo a corpo (mainHand) E uma de longo
+    // alcance (ranged) equipadas ao mesmo tempo — só nesse caso faz sentido
+    // mostrar a ação de trocar de arma em combate.
+    hasDualWeapons() {
+        return !!(this.equipment[SLOTS.MAIN_HAND] && this.equipment[SLOTS.RANGED]);
+    }
+
     // Bônus de precisão vinda da arma equipada (usado no cálculo de acerto em batalha)
     getWeaponAccBonus() {
-        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        const weapon = this.getActiveWeapon();
         return weapon && weapon.accBonus ? weapon.accBonus : 0;
     }
 
     // Fração de armadura ignorada pela arma equipada (perfuração)
     getWeaponArmorPierce() {
-        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        const weapon = this.getActiveWeapon();
         return weapon && weapon.armorPierce ? weapon.armorPierce : 0;
     }
 
@@ -138,7 +165,7 @@ class Entity {
     // Funciona automaticamente para qualquer arma futura, desde que ela
     // carregue minRange/maxRange (ver items.js).
     getWeaponRange() {
-        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        const weapon = this.getActiveWeapon();
         if (weapon && weapon.minRange !== undefined) {
             return { min: weapon.minRange, max: weapon.maxRange };
         }
@@ -147,7 +174,7 @@ class Entity {
 
     // Velocidades de ataque/aproximação/recuo da arma equipada
     getWeaponSpeed() {
-        const weapon = this.equipment[SLOTS.MAIN_HAND];
+        const weapon = this.getActiveWeapon();
         if (weapon && weapon.atkSpeed !== undefined) {
             return { atkSpeed: weapon.atkSpeed, approachSpeed: weapon.approachSpeed, retreatSpeed: weapon.retreatSpeed };
         }

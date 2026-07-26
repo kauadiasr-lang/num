@@ -202,8 +202,42 @@ class BattleSystem {
                 window.AudioManager.playError();
                 return;
             }
+
+            // Armas de longo alcance têm munição limitada — sem isso, alcançar
+            // o mapa inteiro seria dano ilimitado sem nenhum custo tático.
+            const rangedWeapon = this.player.getActiveWeapon();
+            if (rangedWeapon && rangedWeapon.maxAmmo) {
+                if (rangedWeapon.ammo <= 0) {
+                    resultMsg = `Sem munição para ${rangedWeapon.name}! Troque de arma ou use uma habilidade de recarga.`;
+                    this.isPlayerTurn = true;
+                    window.UI.toggleBattleButtons(true);
+                    window.UI.appendBattleLog(resultMsg);
+                    window.AudioManager.playError();
+                    return;
+                }
+                rangedWeapon.ammo--;
+            }
+
             const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState);
             resultMsg = atkResult.message;
+            if (rangedWeapon && rangedWeapon.maxAmmo) {
+                resultMsg += ` (Munição: ${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})`;
+            }
+        }
+        else if (actionCode === 'SWITCH_WEAPON') {
+            if (!this.player.hasDualWeapons()) {
+                resultMsg = "Você precisa de uma arma corpo a corpo e uma de longo alcance equipadas para trocar.";
+                this.isPlayerTurn = true;
+                window.UI.toggleBattleButtons(true);
+                window.UI.appendBattleLog(resultMsg);
+                window.AudioManager.playError();
+                return;
+            }
+            this.player.activeWeaponSlot = (this.player.activeWeaponSlot === SLOTS.MAIN_HAND) ? SLOTS.RANGED : SLOTS.MAIN_HAND;
+            this.player.calculateDerivedStats();
+            const newWeapon = this.player.getActiveWeapon();
+            resultMsg = `${this.player.name} troca de arma, agora empunhando ${newWeapon ? newWeapon.name : 'as mãos nuas'}!`;
+            if (window.GFX) window.GFX.playAnim(true, 'approach', 500);
         }
         else if (actionCode === 'DEF') {
             this.playerState.isDefending = true;
@@ -238,9 +272,15 @@ class BattleSystem {
             if (window.GFX) window.GFX.playAnim(true, 'charge', 700);
 
             const range = this.player.getWeaponRange();
-            if (this.isInRange(range)) {
+            const chargeWeapon = this.player.getActiveWeapon();
+            const outOfAmmo = chargeWeapon && chargeWeapon.maxAmmo && chargeWeapon.ammo <= 0;
+            if (this.isInRange(range) && !outOfAmmo) {
+                if (chargeWeapon && chargeWeapon.maxAmmo) chargeWeapon.ammo--;
                 const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState, 1.2);
                 resultMsg = `${this.player.name} investiu contra o oponente! ${atkResult.message}`;
+                if (chargeWeapon && chargeWeapon.maxAmmo) resultMsg += ` (Munição: ${chargeWeapon.ammo}/${chargeWeapon.maxAmmo})`;
+            } else if (outOfAmmo) {
+                resultMsg = `${this.player.name} investiu, mas está sem munição para ${chargeWeapon.name}!`;
             } else {
                 resultMsg = `${this.player.name} investiu, mas ainda não alcançou o oponente. (Distância: ${this.distance.toFixed(1)}m)`;
             }
@@ -390,6 +430,29 @@ class BattleSystem {
                     } else {
                         resultMsg = `${this.player.name} usou ${skill.name} mas errou o alvo!`;
                     }
+                }
+                else if (skill.type === 'TELEPORT_ENEMY') {
+                    this.distance = 0;
+                    resultMsg = `<span style="color:#66ccff">${this.player.name} usou ${skill.name} e teleportou-se para o corpo a corpo do inimigo! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+                    window.GFX.spawnParticles(playerX, playerY, "#66ccff", 20, 5, 4);
+                    window.AudioManager.playMagicCast();
+                }
+                else if (skill.type === 'TELEPORT_FAR') {
+                    this.distance = 10;
+                    resultMsg = `<span style="color:#66ccff">${this.player.name} usou ${skill.name} e teleportou-se para o ponto mais distante do inimigo! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+                    window.GFX.spawnParticles(playerX, playerY, "#66ccff", 20, 5, 4);
+                    window.AudioManager.playMagicCast();
+                }
+                else if (skill.type === 'AMMO_RECALL') {
+                    const rangedWeapon = this.player.equipment[SLOTS.RANGED];
+                    if (rangedWeapon && rangedWeapon.maxAmmo) {
+                        rangedWeapon.ammo = rangedWeapon.maxAmmo;
+                        resultMsg = `<span style="color:#66ccff">${this.player.name} usou ${skill.name} e recuperou toda a munição de ${rangedWeapon.name}! (${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})</span>`;
+                    } else {
+                        resultMsg = `${this.player.name} usou ${skill.name}, mas não possui nenhuma arma de longo alcance equipada.`;
+                    }
+                    window.GFX.spawnParticles(playerX, playerY, "#66ccff", 15, 4, 4);
+                    window.AudioManager.playMagicCast();
                 }
             } else {
                 // Failsafe: devolve o turno se por algum motivo a UI permitiu conjurar sem mana

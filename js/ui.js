@@ -160,6 +160,9 @@ class UIManager {
         });
         document.getElementById('btn-skill').addEventListener('click', () => this.openBattleSkillMenu());
         document.getElementById('btn-item').addEventListener('click', () => this.openBattleItemMenu());
+        document.getElementById('btn-switch-weapon').addEventListener('click', () => {
+            if (window.BattleEngine) window.BattleEngine.executePlayerTurn('SWITCH_WEAPON');
+        });
         document.getElementById('btn-close-skill-menu').addEventListener('click', () => {
             document.getElementById('battle-skills-menu').classList.add('hidden');
         });
@@ -497,6 +500,17 @@ class UIManager {
             window.AudioManager.startBattleMusic();
         }
 
+        // Recarrega a munição da arma de longo alcance equipada — cada
+        // batalha começa com a munição cheia, senão ela nunca seria
+        // reabastecida fora de magia. A arma ativa volta a ser a corpo a
+        // corpo por padrão, mas só se houver uma equipada (se o jogador só
+        // tiver arma de longo alcance, ela continua sendo a ativa).
+        const rangedWeapon = p.equipment[SLOTS.RANGED];
+        if (rangedWeapon && rangedWeapon.maxAmmo) rangedWeapon.ammo = rangedWeapon.maxAmmo;
+        if (p.equipment[SLOTS.MAIN_HAND]) p.activeWeaponSlot = SLOTS.MAIN_HAND;
+        else if (rangedWeapon) p.activeWeaponSlot = SLOTS.RANGED;
+        p.calculateDerivedStats();
+
         // Instancia a Engine de Batalha Global
         window.BattleEngine = new BattleSystem(p, opponent);
 
@@ -588,6 +602,19 @@ class UIManager {
         document.getElementById('player-mp-bar').style.width = `${pMP}%`;
         document.getElementById('player-hp-text').innerText = `${b.player.currentHp}/${b.player.derivedStats.maxHp}`;
         document.getElementById('player-mp-text').innerText = `${b.player.currentMp}/${b.player.derivedStats.maxMp}`;
+
+        // Munição da arma ativa (só aparece com arma de longo alcance
+        // equipada e ativa) e botão de troca de arma (só com set duplo)
+        const ammoText = document.getElementById('player-ammo-text');
+        const activeWeapon = b.player.getActiveWeapon ? b.player.getActiveWeapon() : null;
+        if (activeWeapon && activeWeapon.maxAmmo) {
+            ammoText.innerText = `Munição: ${activeWeapon.ammo}/${activeWeapon.maxAmmo}`;
+            ammoText.classList.remove('hidden');
+        } else {
+            ammoText.classList.add('hidden');
+        }
+        const switchBtn = document.getElementById('btn-switch-weapon');
+        switchBtn.classList.toggle('hidden', !(b.player.hasDualWeapons && b.player.hasDualWeapons()));
 
         // Animação de Barras (Enemy)
         const eHP = (b.enemy.currentHp / b.enemy.derivedStats.maxHp) * 100;
@@ -1380,6 +1407,7 @@ class UIManager {
                 if (item.blockChance) statsHtml += `<p style="color:#88ccff">+${item.blockChance}% Bloqueio</p>`;
                 if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;
                 if (item.mpBonus) statsHtml += `<p style="color:#3388ff">+${item.mpBonus} MP Máximo</p>`;
+                if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.maxAmmo} disparos por batalha</p>`;
             }
             document.getElementById('tt-stats').innerHTML = statsHtml;
             document.getElementById('tt-price').innerText = `Valor: ${item.value}g`;

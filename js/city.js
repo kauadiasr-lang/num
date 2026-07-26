@@ -311,7 +311,7 @@ class CityEngine {
                 document.getElementById('city-arena-menu').classList.remove('hidden');
                 break;
             case 'blacksmith':
-                window.UI.openShop([SLOTS.MAIN_HAND], 'Ferreiro');
+                window.UI.openShop([SLOTS.MAIN_HAND, SLOTS.RANGED], 'Ferreiro');
                 break;
             case 'armorer':
                 window.UI.openShop([SLOTS.HEAD, SLOTS.CHEST, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND, SLOTS.AMULET, SLOTS.RING], 'Armeiro');

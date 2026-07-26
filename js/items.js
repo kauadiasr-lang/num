@@ -12,7 +12,11 @@ const RARITY = {
 
 const SLOTS = {
     HEAD: 'head', CHEST: 'chest', HANDS: 'hands', LEGS: 'legs', FEET: 'feet',
-    MAIN_HAND: 'mainHand', OFF_HAND: 'offHand', AMULET: 'amulet', RING: 'ring'
+    MAIN_HAND: 'mainHand', OFF_HAND: 'offHand', AMULET: 'amulet', RING: 'ring',
+    // Arma de longo alcance (arco/besta) — slot separado da mainHand, pra dar
+    // pra equipar uma arma corpo a corpo E uma de longo alcance ao mesmo
+    // tempo (a de longo alcance como "suporte", ver Entity.activeWeaponSlot).
+    RANGED: 'ranged'
 };
 
 class Equipment {
@@ -58,6 +62,12 @@ class Equipment {
         this.approachSpeed = baseTemplate.approachSpeed || 2;
         this.retreatSpeed = baseTemplate.retreatSpeed || 2;
 
+        // Munição (só armas do slot RANGED) — limita quantos disparos dá pra
+        // dar por luta; null em armas sem maxAmmo (corpo a corpo) significa
+        // "sem limite de disparos", não precisa checar em lugar nenhum.
+        this.maxAmmo = baseTemplate.maxAmmo || null;
+        this.ammo = this.maxAmmo;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
@@ -99,10 +109,16 @@ const ItemDatabase = {
             minRange: 0, maxRange: 3, atkSpeed: 0.9, approachSpeed: 1.8, retreatSpeed: 1.8 },
         whip: { id: 'w_08', name: "Chicote", slot: SLOTS.MAIN_HAND, damage: 6, weight: 1.5, value: 70, durability: 70, stats: { agi: 1, acc: 1 },
             minRange: 2, maxRange: 6, atkSpeed: 1.1, approachSpeed: 1.5, retreatSpeed: 2.0 },
-        bow: { id: 'w_09', name: "Arco Curto", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 95, durability: 80, stats: { acc: 3 },
-            minRange: 8, maxRange: 15, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.5 },
-        crossbow: { id: 'w_10', name: "Besta de Aço", slot: SLOTS.MAIN_HAND, damage: 12, weight: 3.2, value: 110, durability: 90, stats: { acc: 2 }, armorPierce: 0.15,
-            minRange: 6, maxRange: 12, atkSpeed: 0.7, approachSpeed: 1.0, retreatSpeed: 2.0 }
+        // Armas de longo alcance: slot próprio (RANGED, não mainHand) e alcance
+        // 0-10 (a distância inteira do mapa de batalha) — servem de suporte
+        // pra qualquer arma corpo a corpo equipada junto, sem a limitação
+        // antiga de exigir distância mínima pra atirar. maxAmmo limita quantos
+        // disparos dá pra dar por luta (recarrega sozinho a cada nova luta,
+        // ou na hora com a magia de Recarregar Munição).
+        bow: { id: 'w_09', name: "Arco Curto", slot: SLOTS.RANGED, damage: 9, weight: 1.8, value: 95, durability: 80, stats: { acc: 3 },
+            minRange: 0, maxRange: 10, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.5, maxAmmo: 8 },
+        crossbow: { id: 'w_10', name: "Besta de Aço", slot: SLOTS.RANGED, damage: 12, weight: 3.2, value: 110, durability: 90, stats: { acc: 2 }, armorPierce: 0.15,
+            minRange: 0, maxRange: 10, atkSpeed: 0.7, approachSpeed: 1.0, retreatSpeed: 2.0, maxAmmo: 5 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
