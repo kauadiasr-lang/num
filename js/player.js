@@ -160,6 +160,7 @@ class Player extends Entity {
         super(name);
         this.exp = 0;
         this.gold = 100;
+        this.bankGold = 0; // Ouro guardado no Banco da cidade — fica de fora de `gold` (o que se carrega)
         this.inventory = [];
         this.inventoryCapacity = 20; // Expansível com mochilas/força no futuro
 

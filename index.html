@@ -156,9 +156,12 @@
                 </div>
             </div>
 
-            <!-- TELA: HUB DA CIDADE -->
-            <div id="screen-hub" class="screen">
+            <!-- TELA: CIDADE (Hub explorável — o jogador anda até cada prédio para entrar) -->
+            <div id="screen-hub" class="screen screen-city">
                 <button id="btn-hub-mainmenu" class="btn-hub-menu" title="Menu Principal">☰</button>
+                <!-- Inventário/Status é sempre acessível (não é um prédio físico, como
+                     em Swords and Sandals) — fica junto do botão de menu, no topo. -->
+                <button id="btn-hub-inventory" class="btn-hub-menu btn-hub-inventory" title="Inventário &amp; Status">🎒</button>
                 <div class="hud-top">
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
@@ -171,16 +174,15 @@
                     </div>
                 </div>
 
-                <div class="hub-menu">
-                    <button id="btn-arena" class="btn primary btn-large hub-btn-wide">Duelo Rápido</button>
-                    <button id="btn-ladder" class="btn primary hub-btn-wide">Adversários</button>
-                    <div class="hub-menu-grid">
-                        <button id="btn-shop" class="btn btn-compact">Mercado</button>
-                        <button id="btn-inventory" class="btn btn-compact">Inventário &amp; Status</button>
-                        <button id="btn-skills" class="btn btn-compact">Talentos</button>
-                        <button id="btn-healer" class="btn btn-compact">Curandeiro</button>
-                        <button id="btn-achievements" class="btn btn-compact">Conquistas</button>
-                    </div>
+                <!-- Botão contextual de interação com o prédio mais próximo (some quando fora de alcance) -->
+                <button id="city-interact-prompt" class="city-interact-prompt"></button>
+                <!-- Dica inicial de controles, desaparece após o primeiro movimento -->
+                <p id="city-hint" class="city-hint">Toque no chão para andar até lá — toque em um prédio para entrar</p>
+                <!-- Menu rápido da Arena (Duelo Rápido / Adversários) ao entrar pela porta -->
+                <div id="city-arena-menu" class="city-arena-menu hidden">
+                    <button id="btn-city-arena-quick" class="btn primary btn-large hub-btn-wide">Duelo Rápido</button>
+                    <button id="btn-city-arena-ladder" class="btn primary hub-btn-wide">Adversários</button>
+                    <button id="btn-city-arena-cancel" class="btn btn-small">Voltar</button>
                 </div>
             </div>
 
@@ -387,21 +389,75 @@
                 </div>
             </div>
 
-            <!-- TELA: MERCADO (FERREIRO + BOTICÁRIO) -->
+            <!-- TELA: MERCADO (FERREIRO / ARMEIRO + BOTICÁRIO) -->
             <div id="screen-shop" class="screen">
                 <div class="panel shop-panel">
                     <button class="btn-close" id="btn-close-shop">X</button>
-                    <h2 class="panel-title">Mercado</h2>
+                    <h2 class="panel-title" id="shop-panel-title">Mercado</h2>
                     <div class="shop-header">
                         <p>Seu Ouro: <span id="shop-player-gold" class="highlight-gold">0</span></p>
                     </div>
-                    <h3 class="shop-section-title">Boticário</h3>
-                    <div id="shop-consumables-container" class="shop-grid">
-                        <!-- Poções e consumíveis, estoque fixo -->
+                    <div id="shop-consumables-section">
+                        <h3 class="shop-section-title">Boticário</h3>
+                        <div id="shop-consumables-container" class="shop-grid">
+                            <!-- Poções e consumíveis, estoque fixo -->
+                        </div>
                     </div>
-                    <h3 class="shop-section-title">Ferreiro</h3>
+                    <h3 class="shop-section-title" id="shop-items-title">Ferreiro</h3>
                     <div id="shop-items-container" class="shop-grid">
                         <!-- Itens à venda -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: BANCO -->
+            <div id="screen-bank" class="screen">
+                <div class="panel bank-panel">
+                    <button class="btn-close" id="btn-close-bank">X</button>
+                    <h2 class="panel-title">Banco</h2>
+                    <p class="bank-sub">Guarde seu ouro em segurança — o que está no banco não pode ser roubado na cidade.</p>
+                    <div class="bank-balances">
+                        <div class="bank-balance-card">
+                            <span class="bank-balance-label">Na Mão</span>
+                            <span id="bank-carried-gold" class="bank-balance-value highlight-gold">0</span>
+                        </div>
+                        <div class="bank-balance-card">
+                            <span class="bank-balance-label">Guardado</span>
+                            <span id="bank-stored-gold" class="bank-balance-value highlight-gold">0</span>
+                        </div>
+                    </div>
+                    <div class="bank-actions">
+                        <input type="number" id="bank-amount" class="bank-amount-input" min="1" placeholder="Quantidade de ouro">
+                        <div class="bank-buttons">
+                            <button id="btn-bank-deposit" class="btn primary">Depositar</button>
+                            <button id="btn-bank-withdraw" class="btn">Sacar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: CASA DO JOGADOR -->
+            <div id="screen-house" class="screen">
+                <div class="panel house-panel">
+                    <button class="btn-close" id="btn-close-house">X</button>
+                    <h2 class="panel-title">Sua Casa</h2>
+                    <div id="house-stats-container" class="house-stats-grid">
+                        <!-- Preenchido via JS: nível, vitórias, derrotas, ouro total, conquistas, tempo jogado -->
+                    </div>
+                    <h3 class="shop-section-title">Troféus</h3>
+                    <div id="house-trophies-container" class="house-trophies-grid">
+                        <!-- Rivais derrotados, preenchido via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TELA: HALL DA FAMA -->
+            <div id="screen-halloffame" class="screen">
+                <div class="panel halloffame-panel">
+                    <button class="btn-close" id="btn-close-halloffame">X</button>
+                    <h2 class="panel-title">Hall da Fama</h2>
+                    <div id="halloffame-container" class="halloffame-list">
+                        <!-- Campeões derrotados e recordes, preenchido via JS -->
                     </div>
                 </div>
             </div>
@@ -466,6 +522,7 @@
     <script src="js/enemy.js"></script>
     <script src="js/battle.js"></script>
     <script src="js/graphics.js"></script>
+    <script src="js/city.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/mainmenu.js"></script>
     <script src="js/main.js"></script>

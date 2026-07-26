@@ -159,6 +159,29 @@ class AudioEngine {
             this._musicNodes.master.gain.setTargetAtTime(this.masterVolume * this.musicVolume, this.context.currentTime, 0.1);
         }
     }
+
+    // --- Ambiência da Cidade explorável ---
+    // Reaproveita o mesmo drone atmosférico do Menu Principal como base (a
+    // troca de tela já para/retoma isso automaticamente, sem duplicar
+    // osciladores); só soma texturas curtas ocasionais por cima.
+    startCityAmbience() { this.startAmbientMusic(); }
+    stopCityAmbience() { this.stopAmbientMusic(); }
+
+    // Textura sonora aleatória da praça: martelo da forja, murmúrio distante
+    // da multidão ou respingo d'água da fonte — sorteado e chamado
+    // periodicamente pelo CityEngine, sem sintetizador novo (reusa playTone).
+    playCityAmbientOneshot() {
+        if (!this.initialized) return;
+        const pick = Utils.randomInt(0, 2);
+        if (pick === 0) { // martelo do ferreiro
+            this.playTone(180, 'square', 0.08, 0.15, 90);
+            setTimeout(() => this.playTone(160, 'square', 0.06, 0.1, 80), 140);
+        } else if (pick === 1) { // murmúrio distante da multidão
+            this.playTone(Utils.randomInt(180, 260), 'sawtooth', 0.5, 0.05);
+        } else { // respingo d'água da fonte
+            this.playTone(Utils.randomInt(500, 700), 'sine', 0.15, 0.08, 300);
+        }
+    }
 }
 
 window.AudioManager = new AudioEngine();

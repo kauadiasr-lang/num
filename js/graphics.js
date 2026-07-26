@@ -215,9 +215,9 @@ class GraphicsEngine {
         this._torchClock = (this._torchClock || 0) + dt;
 
         // A arena cinematográfica (céu, plateia, poeira, pássaros) é usada tanto
-        // na batalha quanto de pano de fundo do Menu Principal e dos Créditos —
-        // qualquer uma dessas telas mantém a ambientação viva.
-        const isArenaBackdrop = window.Engine && ['BATTLE', 'MAINMENU', 'CREDITS'].includes(window.Engine.state.screen);
+        // na batalha quanto de pano de fundo do Menu Principal, dos Créditos e
+        // da Cidade explorável — qualquer uma dessas telas mantém a ambientação viva.
+        const isArenaBackdrop = window.Engine && ['BATTLE', 'MAINMENU', 'CREDITS', 'HUB'].includes(window.Engine.state.screen);
 
         if (isArenaBackdrop) {
             const isBattle = window.Engine.state.screen === 'BATTLE';
@@ -285,6 +285,12 @@ class GraphicsEngine {
             this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
             ctx.fillStyle = 'rgba(10,6,3,0.35)'; // véu escuro sutil pra dar contraste à UI por cima
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        } else if (screen === 'HUB') {
+            // A Cidade explorável mora bem em frente ao coliseu: reaproveita
+            // o mesmo céu/plateia/tochas da arena (CityEngine.draw desenha só
+            // a praça, os prédios, NPCs e o jogador por cima).
+            this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
+            if (window.City) window.City.draw(ctx, canvasWidth, canvasHeight);
         } else {
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);

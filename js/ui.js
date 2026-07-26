@@ -92,17 +92,35 @@ class UIManager {
                 window.GFX.floatingTexts = [];
             }
         }
+
+        // Toda vez que se volta pra Cidade (de uma loja, da batalha, etc), o
+        // CityEngine reposiciona o jogador na porta do prédio de onde saiu
+        // e retoma a ambiência (som, NPCs) — idempotente, sem custo se já
+        // estava rodando.
+        if (screenId === 'screen-hub' && window.City) window.City.onEnterCity();
     }
 
     initEventListeners() {
-        // --- Navegação do Hub ---
-        document.getElementById('btn-arena').addEventListener('click', () => this.startBattle());
-        document.getElementById('btn-ladder').addEventListener('click', () => this.openLadder());
-        document.getElementById('btn-shop').addEventListener('click', () => this.openShop());
-        document.getElementById('btn-inventory').addEventListener('click', () => this.openInventory());
-        document.getElementById('btn-skills').addEventListener('click', () => this.openSkillTree());
-        document.getElementById('btn-healer').addEventListener('click', () => this.openHealer());
-        document.getElementById('btn-achievements').addEventListener('click', () => this.openAchievements('hub'));
+        // --- Navegação da Cidade (Hub) ---
+        // O Hub deixou de ser um menu de botões: agora é a cidade explorável
+        // (js/city.js). O jogador anda até cada prédio e interage com o
+        // botão contextual "city-interact-prompt", que chama estes mesmos
+        // métodos diretamente (ver CityEngine.interact()) — nada aqui muda.
+        document.getElementById('btn-city-arena-quick').addEventListener('click', () => {
+            document.getElementById('city-arena-menu').classList.add('hidden');
+            this.startBattle();
+        });
+        document.getElementById('btn-city-arena-ladder').addEventListener('click', () => {
+            document.getElementById('city-arena-menu').classList.add('hidden');
+            this.openLadder();
+        });
+        document.getElementById('btn-city-arena-cancel').addEventListener('click', () => {
+            document.getElementById('city-arena-menu').classList.add('hidden');
+        });
+        // Inventário/Status não é um prédio — é sempre acessível pelo ícone da HUD
+        document.getElementById('btn-hub-inventory').addEventListener('click', () => this.openInventory());
+        document.getElementById('btn-bank-deposit').addEventListener('click', () => this.bankDeposit());
+        document.getElementById('btn-bank-withdraw').addEventListener('click', () => this.bankWithdraw());
 
         // --- Fechar painéis ---
         document.getElementById('btn-close-inv').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -110,6 +128,9 @@ class UIManager {
         document.getElementById('btn-close-skills').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
             // só espiando o save mais recente), volta pro menu e descarta o
@@ -463,6 +484,9 @@ class UIManager {
     // Prepara a tela de batalha para qualquer tipo de oponente (Enemy ou Rival)
     beginBattleWith(opponent) {
         const p = window.Engine.state.player;
+
+        // Para a ambiência pacata da cidade antes do combate
+        if (window.AudioManager) window.AudioManager.stopCityAmbience();
 
         // Instancia a Engine de Batalha Global
         window.BattleEngine = new BattleSystem(p, opponent);
@@ -929,14 +953,35 @@ class UIManager {
     }
 
     // --- SISTEMA DE MERCADO (SHOP) ---
-    openShop() {
+    // `filterSlots` (array de SLOTS ou null) diferencia Ferreiro (armas) de
+    // Armeiro (armaduras/escudos/acessórios) — mesma tela e lógica de compra,
+    // só filtra o que é mostrado. `title` troca o cabeçalho do painel.
+    openShop(filterSlots = null, title = 'Mercado') {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
+        document.getElementById('shop-panel-title').innerText = title;
+        this._currentShopFilter = filterSlots;
+        this._currentShopTitle = title;
 
         this.renderConsumableShop();
+        // O Boticário (poções) só aparece no Mercado geral — Ferreiro/Armeiro
+        // são especializados e não vendem consumíveis.
+        document.getElementById('shop-consumables-section').style.display = filterSlots ? 'none' : '';
+        document.getElementById('shop-items-title').innerText = filterSlots ? title : 'Ferreiro';
 
-        // Gera estoque caso a loja não tenha (Reseta a cada visita por enquanto)
-        this.currentShopItems = ItemFactory.generateShopInventory(p.level);
+        // Gera estoque (sempre novo a cada visita); quando filtrado por
+        // categoria, tenta mais algumas rodadas pra não mostrar uma
+        // prateleira vazia só porque o sorteio não bateu com a categoria certa.
+        let pool = ItemFactory.generateShopInventory(p.level);
+        if (filterSlots) {
+            pool = pool.filter(i => filterSlots.includes(i.slot));
+            let attempts = 0;
+            while (pool.length < 4 && attempts < 4) {
+                pool = pool.concat(ItemFactory.generateShopInventory(p.level).filter(i => filterSlots.includes(i.slot)));
+                attempts++;
+            }
+        }
+        this.currentShopItems = pool.slice(0, 8);
 
         const container = document.getElementById('shop-items-container');
         container.innerHTML = '';
@@ -964,7 +1009,7 @@ class UIManager {
                     this.currentShopItems.splice(index, 1); // Remove da loja
                     window.SaveManager.save(window.Engine.state);
                     this.hideTooltip();
-                    this.openShop(); // Refresh
+                    this.openShop(this._currentShopFilter, this._currentShopTitle); // Refresh, mantendo a categoria (Ferreiro/Armeiro)
                 } else if (p.gold < item.value) {
                     window.AudioManager.playError();
                     alert("Ouro insuficiente!");
@@ -1106,6 +1151,98 @@ class UIManager {
         document.getElementById('healer-message').innerText = 'Fadiga totalmente curada! Você está pronto para lutar.';
         this.updateHealerScreen();
         this.updateHubStats();
+    }
+
+    // --- BANCO ---
+    // Ouro guardado (`bankGold`) fica fora do que o jogador "carrega" (`gold`)
+    // — separado só pra dar função ao prédio; nenhuma mecânica existente
+    // depende de `gold` incluir o que está no banco.
+    openBank() {
+        this.updateBankScreen();
+        this.showScreen('screen-bank');
+    }
+
+    updateBankScreen() {
+        const p = window.Engine.state.player;
+        document.getElementById('bank-carried-gold').innerText = p.gold;
+        document.getElementById('bank-stored-gold').innerText = p.bankGold || 0;
+        document.getElementById('bank-amount').value = '';
+    }
+
+    bankDeposit() {
+        const p = window.Engine.state.player;
+        const amount = Math.floor(Number(document.getElementById('bank-amount').value));
+        if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
+        if (amount > p.gold) { window.AudioManager.playError(); alert('Você não tem ouro suficiente na mão!'); return; }
+        p.gold -= amount;
+        p.bankGold = (p.bankGold || 0) + amount;
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.updateBankScreen();
+        this.updateHubStats();
+    }
+
+    bankWithdraw() {
+        const p = window.Engine.state.player;
+        const amount = Math.floor(Number(document.getElementById('bank-amount').value));
+        if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
+        if (amount > (p.bankGold || 0)) { window.AudioManager.playError(); alert('Você não tem ouro suficiente guardado!'); return; }
+        p.bankGold -= amount;
+        p.gold += amount;
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.updateBankScreen();
+        this.updateHubStats();
+    }
+
+    // --- CASA DO JOGADOR ---
+    openPlayerHouse() {
+        const p = window.Engine.state.player;
+        const statsContainer = document.getElementById('house-stats-container');
+        const stats = [
+            { label: 'Nível', value: p.level },
+            { label: 'Vitórias', value: p.wins || 0 },
+            { label: 'Derrotas', value: p.losses || 0 },
+            { label: 'Ouro Total', value: (p.gold || 0) + (p.bankGold || 0) },
+            { label: 'Conquistas', value: `${p.achievements.length} / ${Object.keys(window.AchievementDB).length}` },
+            { label: 'Horas Jogadas', value: `${Math.round(((p.playTimeSeconds || 0) / 3600) * 10) / 10}h` },
+        ];
+        statsContainer.innerHTML = stats.map(s => `
+            <div class="house-stat-card">
+                <span class="house-stat-label">${s.label}</span>
+                <span class="house-stat-value">${s.value}</span>
+            </div>
+        `).join('');
+
+        const trophyContainer = document.getElementById('house-trophies-container');
+        const defeated = p.rivalsDefeated || [];
+        if (defeated.length === 0) {
+            trophyContainer.innerHTML = '<p class="house-empty">Nenhum troféu ainda — derrote rivais na Arena para exibi-los aqui.</p>';
+        } else {
+            trophyContainer.innerHTML = defeated.map(id => {
+                const def = window.RivalDatabase && window.RivalDatabase[id];
+                return `<div class="house-trophy-card">🏆 ${def ? def.name : id}</div>`;
+            }).join('');
+        }
+
+        this.showScreen('screen-house');
+    }
+
+    // --- HALL DA FAMA ---
+    openHallOfFame() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('halloffame-container');
+        const defeated = p.rivalsDefeated || [];
+        const champions = ['bronze_champion', 'silver_champion', 'gold_champion'].filter(id => defeated.includes(id));
+
+        let html = `
+            <div class="halloffame-entry"><span>Campeões Derrotados</span><span class="highlight-gold">${champions.length} / 3</span></div>
+            <div class="halloffame-entry"><span>Rivais Derrotados</span><span class="highlight-gold">${defeated.length} / ${Object.keys(window.RivalDatabase || {}).length}</span></div>
+            <div class="halloffame-entry"><span>Maior Nível Alcançado</span><span class="highlight-gold">${p.level}</span></div>
+            <div class="halloffame-entry"><span>Vitórias Totais</span><span class="highlight-gold">${p.wins || 0}</span></div>
+        `;
+        container.innerHTML = html;
+        this.showScreen('screen-halloffame');
     }
 
     // --- CONQUISTAS ---

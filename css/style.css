@@ -398,8 +398,10 @@ html, body {
 /* A tela de batalha não pode ter fundo opaco: o canvas com os gladiadores
    e os efeitos (VFX) fica logo atrás dela e precisa aparecer nos espaços
    entre a HUD, o log e os botões de ação. O mesmo vale pro Menu Principal
-   e os Créditos, que reaproveitam a arena cinematográfica como pano de fundo. */
-#screen-battle, #screen-mainmenu, #screen-credits {
+   e os Créditos, que reaproveitam a arena cinematográfica como pano de fundo,
+   e pro Hub/Cidade, cujo mapa explorável (prédios, NPCs, jogador) é desenhado
+   direto no canvas por trás da HUD e dos prompts de interação. */
+#screen-battle, #screen-mainmenu, #screen-credits, #screen-hub {
     background: transparent;
 }
 
@@ -411,9 +413,10 @@ html, body {
     box-shadow: 0 4px 16px rgba(0,0,0,0.5);
     display: flex; justify-content: space-between; padding: 15px 30px;
 }
-/* O botão redondo de voltar ao Menu Principal fica sobre o canto superior
-   esquerdo do Hub; reserva-se espaço para ele não cobrir nome/nível. */
-#screen-hub .hud-top { padding-left: 60px; }
+/* Os botões redondos de Menu Principal (esquerda) e Inventário (direita)
+   ficam sobre os cantos superiores do Hub; reserva-se espaço nos dois
+   lados pra não cobrir nome/nível nem ouro/exp/fadiga. */
+#screen-hub .hud-top { padding-left: 60px; padding-right: 60px; }
 .hub-menu {
     display: flex; flex-direction: column; gap: 12px; width: 360px; max-width: 90vw;
     max-height: 80vh; overflow-y: auto; padding: 4px;
@@ -427,6 +430,72 @@ html, body {
 
 @media (max-width: 500px) {
     .hub-menu-grid { grid-template-columns: 1fr; }
+}
+
+/* --- Cidade explorável (novo Hub) ---
+   O mapa (prédios, NPCs, jogador) é desenhado no canvas por CityEngine
+   (js/city.js); esta tela só hospeda a HUD e os elementos de interação
+   flutuantes por cima, todos position:absolute para não interferir na
+   centralização padrão de .screen nem bloquear cliques no plano de fundo. */
+.screen-city { justify-content: flex-start; }
+
+.city-interact-prompt {
+    position: absolute;
+    left: 50%; bottom: 12%;
+    transform: translateX(-50%) translateY(10px);
+    background: linear-gradient(180deg, var(--color-gold), var(--color-bronze-dark));
+    color: #1a1408;
+    font-weight: bold;
+    font-family: var(--font-display);
+    padding: 12px 28px;
+    border: 2px solid var(--color-gold-bright);
+    border-radius: 30px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5), 0 0 16px rgba(212,175,55,0.5);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+/* Usa a própria classe (não .hidden, que é display:none e cortaria a
+   transição de fade) para aparecer/sumir suavemente perto de um prédio. */
+.city-interact-prompt.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.city-interact-prompt:hover { filter: brightness(1.1); }
+.city-interact-prompt:active { transform: translateX(-50%) scale(0.96); }
+
+/* Fica perto do rodapé (não do topo) de propósito: a HUD no topo já muda de
+   altura entre desktop e mobile (empilha em coluna, ver breakpoint 768px),
+   e um texto fixo perto dela acabava sobrepondo nome/nível/fadiga em telas
+   estreitas. Embaixo, a única vizinha é o prompt de interação — mais
+   previsível em qualquer resolução. */
+.city-hint {
+    position: absolute;
+    left: 50%; bottom: 22%;
+    transform: translateX(-50%);
+    max-width: 90vw;
+    text-align: center;
+    background: rgba(10, 8, 5, 0.65);
+    color: var(--color-marble);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(212,175,55,0.4);
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+.city-hint.hidden { opacity: 0; }
+
+.city-arena-menu {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; gap: 12px;
+    width: 340px; max-width: 88vw;
+    background: var(--color-panel);
+    border: 2px solid var(--color-gold);
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: var(--shadow-deep);
+    pointer-events: auto;
 }
 
 /* A tela de batalha organiza HUD / log / ações em um fluxo vertical flexível
@@ -802,6 +871,55 @@ html, body {
 .healer-panel { width: 90%; max-width: 500px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
 .healer-info { font-size: 1.3rem; margin-bottom: 10px; }
 .healer-desc { color: var(--color-marble-dark); font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5; }
+
+/* --- Banco --- */
+.bank-panel { width: 90%; max-width: 480px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
+.bank-sub { color: var(--color-marble-dark); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; }
+.bank-balances { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+.bank-balance-card {
+    flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze);
+    border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.bank-balance-label { font-size: 0.85rem; color: var(--color-marble-dark); }
+.bank-balance-value { font-size: 1.4rem; font-weight: bold; }
+.bank-actions { display: flex; flex-direction: column; gap: 12px; }
+.bank-amount-input {
+    background: rgba(0,0,0,0.4); border: 1px solid var(--color-bronze); border-radius: 4px;
+    color: var(--color-text); padding: 10px; text-align: center; font-family: inherit; font-size: 1rem;
+}
+.bank-buttons { display: flex; gap: 10px; }
+.bank-buttons .btn { flex: 1; }
+
+/* --- Casa do Jogador --- */
+.house-panel { width: 92%; max-width: 700px; position: relative; max-height: 90vh; overflow-y: auto; }
+.house-stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;
+    margin-bottom: 20px;
+}
+.house-stat-card {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze); border-radius: 6px;
+    padding: 12px; text-align: center;
+}
+.house-stat-label { display: block; font-size: 0.8rem; color: var(--color-marble-dark); margin-bottom: 4px; }
+.house-stat-value { font-size: 1.3rem; font-weight: bold; color: var(--color-gold-bright); }
+.house-trophies-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+}
+.house-trophy-card {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze); border-radius: 6px;
+    padding: 10px; text-align: center; font-size: 0.85rem;
+}
+.house-empty { color: var(--color-marble-dark); font-style: italic; text-align: center; padding: 20px; }
+
+/* --- Hall da Fama --- */
+.halloffame-panel { width: 92%; max-width: 700px; position: relative; max-height: 90vh; overflow-y: auto; }
+.halloffame-list { display: flex; flex-direction: column; gap: 10px; }
+.halloffame-entry {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze); border-radius: 6px;
+    padding: 12px 16px;
+}
+.halloffame-entry .highlight-gold { font-weight: bold; }
 .healer-message { margin-top: 15px; min-height: 24px; color: #6fcf5a; font-weight: bold; }
 
 /* Conquistas */
@@ -922,6 +1040,9 @@ html, body {
 }
 .btn-hub-menu:hover { filter: brightness(1.2); transform: scale(1.08); }
 .btn-hub-menu:active { transform: scale(0.92); }
+
+/* Botão de Inventário/Status no canto oposto (topo-direito) do ☰. */
+.btn-hub-inventory { left: auto; right: 10px; }
 
 /* --- Slots de Save --- */
 .saveslots-panel { width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; }

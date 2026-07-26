@@ -139,6 +139,10 @@ class GameEngine {
         // Atualiza lógica gráfica (Partículas, Textos Flutuantes, etc)
         if (window.GFX) window.GFX.update(dt);
 
+        // Cidade explorável (novo Hub): movimento do jogador, NPCs, ciclo
+        // dia/noite, proximidade de prédios. Só age quando a tela é HUB.
+        if (window.City) window.City.update(dt);
+
         // Atualiza timer do Screen Shake
         if (this.shakeTimer > 0) {
             this.shakeTimer -= dt;
