@@ -551,7 +551,13 @@ html, body {
     box-shadow: var(--shadow-deep);
     transition: box-shadow 0.2s;
 }
-.enemy-status { border-color: var(--color-primary); text-align: right; }
+/* O card do jogador agora vem primeiro no HTML (fica à esquerda, alinhado
+   com o personagem dele na tela — GraphicsEngine.getEntityX desenha o
+   jogador à esquerda e o inimigo à direita). O alinhamento de texto de cada
+   card aponta pro centro (card esquerdo = texto à direita, card direito =
+   texto à esquerda), então os valores trocaram de lugar junto com a ordem. */
+.player-status { text-align: right; }
+.enemy-status { border-color: var(--color-primary); text-align: left; }
 
 /* Indicador de Distância e Alcance (entre os dois status na batalha) */
 .distance-indicator {
