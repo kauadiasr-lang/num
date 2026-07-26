@@ -222,12 +222,20 @@ html, body {
     border-radius: 6px;
     padding: 2rem;
     color: var(--color-text);
-    animation: panelEnter 0.4s ease-out;
+    animation: panelEnter 0.4s ease-out, panelGlow 4s ease-in-out 0.4s infinite;
 }
 
 @keyframes panelEnter {
     from { opacity: 0; transform: translateY(16px) scale(0.98); }
     to { opacity: 1; transform: none; }
+}
+
+/* Brilho suave e contínuo nas bordas de todo painel, como se refletisse a
+   luz tremeluzente das tochas da cidade — reforça a identidade "iluminado
+   por tocha" já estabelecida sem exigir nenhum elemento novo. */
+@keyframes panelGlow {
+    0%, 100% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.55), 0 0 16px rgba(212,175,55,0.14); }
+    50% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.55), 0 0 26px rgba(212,175,55,0.28); }
 }
 
 /* Cantos ornamentais em ouro, um clássico acabamento de moldura */
@@ -237,6 +245,23 @@ html, body {
 }
 .panel::before { top: 3px; left: 3px; border-right: none; border-bottom: none; }
 .panel::after { bottom: 3px; right: 3px; border-left: none; border-top: none; }
+
+/* Ícone gigante e bem discreto atrás do conteúdo — só pros painéis com
+   pouco conteúdo (Curandeiro, Banco, Hall da Fama), que ficavam com muito
+   vazio ao redor em telas altas. Puramente decorativo, não interfere no
+   clique de nada por trás. */
+.panel-watermark {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12rem;
+    line-height: 1;
+    opacity: 0.05;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+}
+.panel-watermark ~ * { position: relative; z-index: 1; }
 
 .panel-title {
     font-family: var(--font-display);
@@ -888,7 +913,11 @@ html, body {
     color: var(--color-text); padding: 10px; text-align: center; font-family: inherit; font-size: 1rem;
 }
 .bank-buttons { display: flex; gap: 10px; }
-.bank-buttons .btn { flex: 1; }
+/* "DEPOSITAR" (9 letras) não cabia no botão em telas estreitas e ficava
+   cortado ("DEPOSIT") — reduz padding/fonte só aqui e permite quebrar
+   linha como último recurso, sem afetar o tamanho do botão em outros
+   lugares do jogo. */
+.bank-buttons .btn { flex: 1; padding: 15px 10px; font-size: 1rem; white-space: normal; line-height: 1.2; }
 
 /* --- Casa do Jogador --- */
 .house-panel { width: 92%; max-width: 700px; position: relative; max-height: 90vh; overflow-y: auto; }
