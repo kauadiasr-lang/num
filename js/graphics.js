@@ -108,6 +108,11 @@ class GraphicsEngine {
 
         // Ambientação da arena (plateia, estrelas) — gerada uma vez e reaproveitada
         this.arenaTime = 'sunset';
+        // Progresso contínuo (0..1) do ciclo dia/noite da Cidade — usado só
+        // pelo céu da Cidade pra o sol/lua se moverem em arco de verdade ao
+        // longo do tempo, em vez de pular de posição a cada troca de fase.
+        // A Arena de combate continua com o céu estático por luta (this.arenaTime).
+        this.cityDayProgress = 0.5;
         this._dustTimer = 0;
         this._birdTimer = 6;
         this._initArenaAmbience();
@@ -356,7 +361,15 @@ class GraphicsEngine {
     // Céu (gradiente por horário, estrelas à noite, sol/lua, pássaros) —
     // compartilhado entre a arena de combate e a Cidade explorável, que têm
     // o mesmo ciclo dia/noite mas cenários diferentes por trás dele.
-    _drawSky(ctx, w, h, horizon, pal, t) {
+    //
+    // dayProgress (0..1, só usado pela Cidade) faz o sol/lua se moverem em
+    // arco de verdade ao longo do tempo — nascendo, subindo, se pondo atrás
+    // das montanhas (ocultado pelo desenho delas, por cima do céu) — em vez
+    // de pular de posição a cada troca de fase. A Arena de combate (dayProgress
+    // null) mantém o céu estático de sempre, sorteado uma vez por luta.
+    _drawSky(ctx, w, h, horizon, pal, t, dayProgress = null) {
+        if (dayProgress !== null) pal = this._blendCityPalette(dayProgress);
+
         const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
         skyGrad.addColorStop(0, pal.top);
         skyGrad.addColorStop(0.6, pal.mid);
@@ -364,27 +377,32 @@ class GraphicsEngine {
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, w, horizon);
 
-        if (this.arenaTime === 'night') {
+        const starAlpha = dayProgress !== null ? this._cityNightFactor(dayProgress) : (this.arenaTime === 'night' ? 1 : 0);
+        if (starAlpha > 0) {
             ctx.fillStyle = '#ffffff';
             this._stars.forEach(s => {
-                ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + s.phase);
+                ctx.globalAlpha = starAlpha * (0.35 + 0.35 * Math.sin(t * 2 + s.phase));
                 ctx.fillRect(s.x * w, s.y * horizon * 0.85, 2, 2);
             });
             ctx.globalAlpha = 1;
         }
 
-        // Sol / lua (em telas estreitas, encolhe e recua para o canto para não
-        // ficar atrás do menu/logo centralizado, que ocupa quase toda a largura)
         const narrow = w < 560;
-        const sunScale = narrow ? 0.5 : 1;
-        const sunX = narrow ? w * 0.91 : w * 0.82;
-        const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
-        ctx.globalAlpha = pal.sunAlpha;
-        ctx.fillStyle = pal.sun;
-        ctx.beginPath();
-        ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        if (dayProgress !== null) {
+            this._drawCelestialArc(ctx, w, horizon, dayProgress, narrow);
+        } else {
+            // Sol / lua estático por fase (em telas estreitas, encolhe e recua
+            // para o canto para não ficar atrás do menu/logo centralizado).
+            const sunScale = narrow ? 0.5 : 1;
+            const sunX = narrow ? w * 0.91 : w * 0.82;
+            const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
+            ctx.globalAlpha = pal.sunAlpha;
+            ctx.fillStyle = pal.sun;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
 
         ctx.strokeStyle = 'rgba(20,15,10,0.55)';
         ctx.lineWidth = 2;
@@ -398,22 +416,99 @@ class GraphicsEngine {
         });
     }
 
-    // Pano de fundo da Cidade explorável: mesmo céu/sol/lua/estrelas/pássaros
-    // e ciclo dia-noite da arena, mas com montanhas distantes no lugar do
-    // coliseu — a praça é um lugar diferente da arena de combate, não o
-    // mesmo coliseu por trás (CityEngine desenha a praça/prédios por cima).
-    drawCityBackdrop(ctx, w, h) {
-        const palettes = {
+    // As 4 paletas nomeadas (dawn/day/sunset/night) usadas tanto pela Arena
+    // (fixa por luta) quanto como referência pra interpolação contínua da Cidade.
+    _cityPalettes() {
+        return {
             dawn: { top: '#2b3a67', mid: '#c96a4e', bottom: '#f2b866', sun: '#ffdca0', sunAlpha: 0.75 },
             day: { top: '#3d7dc9', mid: '#79b8e8', bottom: '#cbe6f7', sun: '#fff6d8', sunAlpha: 0.9 },
             sunset: { top: '#1b1035', mid: '#8a3b5e', bottom: '#e8843f', sun: '#ffb35c', sunAlpha: 0.8 },
             night: { top: '#04050f', mid: '#0c1230', bottom: '#1c2140', sun: '#e8e8ff', sunAlpha: 0.85 }
         };
-        const pal = palettes[this.arenaTime] || palettes.sunset;
+    }
+
+    _lerpHex(hex0, hex1, f) {
+        const a = parseInt(hex0.slice(1), 16), b = parseInt(hex1.slice(1), 16);
+        const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+        const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+        const r = Math.round(ar + (br - ar) * f), g = Math.round(ag + (bg - ag) * f), bl = Math.round(ab + (bb - ab) * f);
+        return `rgb(${r},${g},${bl})`;
+    }
+
+    // Mistura suavemente as duas paletas nomeadas vizinhas conforme o
+    // progresso contínuo do dia — evita o "salto" brusco de cor toda vez que
+    // a Cidade troca de fase (dawn→day→sunset→night→dawn...).
+    _blendCityPalette(progress) {
+        const order = ['dawn', 'day', 'sunset', 'night'];
+        const palettes = this._cityPalettes();
+        const scaled = Utils.clamp(progress, 0, 0.999999) * order.length;
+        const i0 = Math.floor(scaled) % order.length;
+        const i1 = (i0 + 1) % order.length;
+        const f = scaled - Math.floor(scaled);
+        const p0 = palettes[order[i0]], p1 = palettes[order[i1]];
+        return {
+            top: this._lerpHex(p0.top, p1.top, f),
+            mid: this._lerpHex(p0.mid, p1.mid, f),
+            bottom: this._lerpHex(p0.bottom, p1.bottom, f),
+            sunAlpha: Utils.lerp(p0.sunAlpha, p1.sunAlpha, f)
+        };
+    }
+
+    // 0..1 — quão "noturno" o céu está agora (usado pro brilho das estrelas).
+    // Sobe suavemente entrando na fase de noite e desce saindo dela, em vez
+    // de ligar/desligar de uma vez.
+    _cityNightFactor(progress) {
+        const nightStart = 0.75, fade = 0.05;
+        if (progress < nightStart - fade) return 0;
+        if (progress < nightStart) return (progress - (nightStart - fade)) / fade;
+        if (progress < 1 - fade) return 1;
+        return Utils.clamp(1 - (progress - (1 - fade)) / fade, 0, 1);
+    }
+
+    // Sol (3/4 iniciais do ciclo: dawn+day+sunset) e lua (1/4 final: night) em
+    // arco contínuo — nascem numa ponta do céu, sobem até o topo do arco e se
+    // põem na outra ponta. Perto do horizonte, as montanhas (desenhadas depois,
+    // por cima) escondem o astro naturalmente, sem precisar recortar nada aqui.
+    _drawCelestialArc(ctx, w, horizon, progress, narrow) {
+        const dayFrac = 0.75;
+        let angle, isSun;
+        if (progress < dayFrac) {
+            angle = (progress / dayFrac) * Math.PI;
+            isSun = true;
+        } else {
+            angle = ((progress - dayFrac) / (1 - dayFrac)) * Math.PI;
+            isSun = false;
+        }
+        const marginX = w * (narrow ? 0.14 : 0.08);
+        const arcW = w - marginX * 2;
+        const x = marginX + arcW * (angle / Math.PI);
+        const peakHeight = horizon * 0.72;
+        const y = horizon * 0.94 - Math.sin(angle) * peakHeight;
+
+        const sizeMul = narrow ? 0.55 : 1;
+        const r = (isSun ? 36 : 22) * sizeMul;
+        // Fade suave nascendo/se pondo (perto das pontas do arco), além da
+        // oclusão natural das montanhas — evita o disco aparecer "cortado" (pop)
+        // assim que entra na tela.
+        const edgeFade = Utils.clamp(Math.sin(angle) * 5, 0, 1);
+        const pal = this._cityPalettes();
+        ctx.globalAlpha = (isSun ? pal.day.sunAlpha : pal.night.sunAlpha) * edgeFade;
+        ctx.fillStyle = isSun ? '#fff2c8' : '#e8e8ff';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+
+    // Pano de fundo da Cidade explorável: mesmo céu/sol/lua/estrelas/pássaros
+    // e ciclo dia-noite da arena, mas com montanhas distantes no lugar do
+    // coliseu — a praça é um lugar diferente da arena de combate, não o
+    // mesmo coliseu por trás (CityEngine desenha a praça/prédios por cima).
+    drawCityBackdrop(ctx, w, h) {
         const horizon = h * 0.62;
         const t = this._torchClock || 0;
 
-        this._drawSky(ctx, w, h, horizon, pal, t);
+        this._drawSky(ctx, w, h, horizon, null, t, this.cityDayProgress);
         this._drawMountains(ctx, w, horizon);
     }
 

@@ -329,7 +329,14 @@ class CityEngine {
             this.dayPhaseTimer = 0;
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
         }
-        if (window.GFX) window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
+        if (window.GFX) {
+            window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
+            // Progresso contínuo (0..1) do ciclo inteiro (dawn→day→sunset→
+            // night→dawn...) — é isso que faz o sol/lua se moverem em arco de
+            // verdade pelo céu em vez de só trocar de posição a cada fase.
+            const phaseFrac = Utils.clamp(this.dayPhaseTimer / this.dayPhaseDuration, 0, 1);
+            window.GFX.cityDayProgress = (this.dayPhaseIndex + phaseFrac) / this.dayPhases.length;
+        }
     }
 
     _updateMovement(dt) {
