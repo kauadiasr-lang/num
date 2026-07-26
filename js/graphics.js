@@ -286,10 +286,12 @@ class GraphicsEngine {
             ctx.fillStyle = 'rgba(10,6,3,0.35)'; // véu escuro sutil pra dar contraste à UI por cima
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         } else if (screen === 'HUB') {
-            // A Cidade explorável mora bem em frente ao coliseu: reaproveita
-            // o mesmo céu/plateia/tochas da arena (CityEngine.draw desenha só
-            // a praça, os prédios, NPCs e o jogador por cima).
-            this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
+            // A Cidade explorável tem seu próprio cenário — montanhas ao
+            // longe, não o coliseu (esse fica só para a arena de combate).
+            // Reaproveita o mesmo céu/sol/lua/pássaros e ciclo dia-noite;
+            // CityEngine.draw desenha a praça, os prédios, NPCs e o jogador
+            // por cima disso.
+            this.drawCityBackdrop(ctx, canvasWidth, canvasHeight);
             if (window.City) window.City.draw(ctx, canvasWidth, canvasHeight);
         } else {
             ctx.fillStyle = '#000000';
@@ -317,48 +319,7 @@ class GraphicsEngine {
         const horizon = h * 0.62;
         const t = this._torchClock || 0;
 
-        // Céu
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
-        skyGrad.addColorStop(0, pal.top);
-        skyGrad.addColorStop(0.6, pal.mid);
-        skyGrad.addColorStop(1, pal.bottom);
-        ctx.fillStyle = skyGrad;
-        ctx.fillRect(0, 0, w, horizon);
-
-        // Estrelas (só à noite)
-        if (this.arenaTime === 'night') {
-            ctx.fillStyle = '#ffffff';
-            this._stars.forEach(s => {
-                ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + s.phase);
-                ctx.fillRect(s.x * w, s.y * horizon * 0.85, 2, 2);
-            });
-            ctx.globalAlpha = 1;
-        }
-
-        // Sol / lua (em telas estreitas, encolhe e recua para o canto para não
-        // ficar atrás do menu/logo centralizado, que ocupa quase toda a largura)
-        const narrow = w < 560;
-        const sunScale = narrow ? 0.5 : 1;
-        const sunX = narrow ? w * 0.91 : w * 0.82;
-        const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
-        ctx.globalAlpha = pal.sunAlpha;
-        ctx.fillStyle = pal.sun;
-        ctx.beginPath();
-        ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-
-        // Pássaros
-        ctx.strokeStyle = 'rgba(20,15,10,0.55)';
-        ctx.lineWidth = 2;
-        this.birds.forEach(b => {
-            const flap = Math.sin(b.wingPhase) * 7;
-            ctx.beginPath();
-            ctx.moveTo(b.x - 9, b.y - flap);
-            ctx.lineTo(b.x, b.y);
-            ctx.lineTo(b.x + 9, b.y - flap);
-            ctx.stroke();
-        });
+        this._drawSky(ctx, w, h, horizon, pal, t);
 
         // Coliseu: bandas de arquibancada em camadas (silhueta com arcos romanos)
         this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
@@ -390,6 +351,93 @@ class GraphicsEngine {
             ctx.ellipse(w * (0.08 + i * 0.22), horizon + 22 + i * 5, 70, 7, 0, 0, Math.PI * 2);
             ctx.fill();
         }
+    }
+
+    // Céu (gradiente por horário, estrelas à noite, sol/lua, pássaros) —
+    // compartilhado entre a arena de combate e a Cidade explorável, que têm
+    // o mesmo ciclo dia/noite mas cenários diferentes por trás dele.
+    _drawSky(ctx, w, h, horizon, pal, t) {
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+        skyGrad.addColorStop(0, pal.top);
+        skyGrad.addColorStop(0.6, pal.mid);
+        skyGrad.addColorStop(1, pal.bottom);
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, w, horizon);
+
+        if (this.arenaTime === 'night') {
+            ctx.fillStyle = '#ffffff';
+            this._stars.forEach(s => {
+                ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 2 + s.phase);
+                ctx.fillRect(s.x * w, s.y * horizon * 0.85, 2, 2);
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // Sol / lua (em telas estreitas, encolhe e recua para o canto para não
+        // ficar atrás do menu/logo centralizado, que ocupa quase toda a largura)
+        const narrow = w < 560;
+        const sunScale = narrow ? 0.5 : 1;
+        const sunX = narrow ? w * 0.91 : w * 0.82;
+        const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
+        ctx.globalAlpha = pal.sunAlpha;
+        ctx.fillStyle = pal.sun;
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = 'rgba(20,15,10,0.55)';
+        ctx.lineWidth = 2;
+        this.birds.forEach(b => {
+            const flap = Math.sin(b.wingPhase) * 7;
+            ctx.beginPath();
+            ctx.moveTo(b.x - 9, b.y - flap);
+            ctx.lineTo(b.x, b.y);
+            ctx.lineTo(b.x + 9, b.y - flap);
+            ctx.stroke();
+        });
+    }
+
+    // Pano de fundo da Cidade explorável: mesmo céu/sol/lua/estrelas/pássaros
+    // e ciclo dia-noite da arena, mas com montanhas distantes no lugar do
+    // coliseu — a praça é um lugar diferente da arena de combate, não o
+    // mesmo coliseu por trás (CityEngine desenha a praça/prédios por cima).
+    drawCityBackdrop(ctx, w, h) {
+        const palettes = {
+            dawn: { top: '#2b3a67', mid: '#c96a4e', bottom: '#f2b866', sun: '#ffdca0', sunAlpha: 0.75 },
+            day: { top: '#3d7dc9', mid: '#79b8e8', bottom: '#cbe6f7', sun: '#fff6d8', sunAlpha: 0.9 },
+            sunset: { top: '#1b1035', mid: '#8a3b5e', bottom: '#e8843f', sun: '#ffb35c', sunAlpha: 0.8 },
+            night: { top: '#04050f', mid: '#0c1230', bottom: '#1c2140', sun: '#e8e8ff', sunAlpha: 0.85 }
+        };
+        const pal = palettes[this.arenaTime] || palettes.sunset;
+        const horizon = h * 0.62;
+        const t = this._torchClock || 0;
+
+        this._drawSky(ctx, w, h, horizon, pal, t);
+        this._drawMountains(ctx, w, horizon);
+    }
+
+    // Duas cadeias de montanhas em profundidade (mais clara/suave ao fundo,
+    // mais escura/nítida na frente) — silhuetas simples, no mesmo estilo
+    // "chapado" já usado no coliseu/plateia, sem exigir nenhum recurso novo.
+    _drawMountains(ctx, w, horizon) {
+        this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(70,64,86,0.5)', 6, 0.4);
+        this._drawMountainRange(ctx, w, horizon, horizon * 0.44, 'rgba(42,38,54,0.85)', 5, 2.1);
+    }
+
+    _drawMountainRange(ctx, w, horizon, peakHeight, color, count, phase) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, horizon);
+        const step = w / count;
+        for (let i = 0; i <= count; i++) {
+            const x = i * step;
+            const y = horizon - peakHeight * (0.4 + 0.6 * Math.abs(Math.sin(i * 2.3 + phase)));
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, horizon);
+        ctx.closePath();
+        ctx.fill();
     }
 
     _drawColosseumRing(ctx, w, horizon, heightFrac, color) {
@@ -880,7 +928,7 @@ class GraphicsEngine {
             case 8: // Afro
                 if (backLayer) return;
                 ctx.beginPath();
-                ctx.arc(0, headY - 2, headR + 9, 0, Math.PI * 2);
+                ctx.arc(0, headY - 2, headR + 6, 0, Math.PI * 2);
                 ctx.fill();
                 break;
             case 9: // Longo Liso
