@@ -224,14 +224,18 @@ class CityEngine {
 
     get _interactRadius() { return 70; }
 
-    // Os prédios foram desenhados pensando numa janela ~800px de altura. Em
-    // telas bem mais baixas (celular deitado, por exemplo) o horizonte
-    // (h*0.62) sobra muito menos espaço acima dele — sem encolher também os
-    // prédios, o telhado da Arena (o mais alto) acaba saindo por cima da
-    // tela/HUD, e a fileira da frente pode sair por baixo da praça.
+    // Os prédios foram desenhados pensando numa janela ~800px de altura e
+    // ~1100px de largura. Em telas bem mais baixas (celular deitado) o
+    // horizonte (h*0.62) sobra muito menos espaço acima dele; em telas bem
+    // mais estreitas (celular em pé) as 4 casas da fileira do meio (130px
+    // cada) não cabem lado a lado. Encolhemos pela dimensão mais restritiva
+    // das duas para garantir que prédios, jogador e NPCs sempre caibam.
     _cityScale(h) {
+        const w = window.Engine ? window.Engine.width : window.innerWidth;
         const horizon = this._horizon(h);
-        return Utils.clamp(horizon / 496, 0.45, 1); // 496 = horizonte de referência (h=800)
+        const heightScale = Utils.clamp(horizon / 496, 0.45, 1); // 496 = horizonte de referência (h=800)
+        const widthScale = Utils.clamp(w / 1100, 0.34, 1); // 1100 = largura de referência
+        return Math.min(heightScale, widthScale);
     }
 
     _doorPoint(building) {
@@ -494,6 +498,12 @@ class CityEngine {
         const door = this._doorPoint(b);
         const bw = rect.w, bh = rect.h;
         const left = door.x - bw / 2, top = door.y - bh;
+        const scale = this._cityScale(h);
+        // Em telas estreitas os prédios ficam bem menores; a fonte encolhe
+        // junto (com um piso mínimo pra continuar legível) pra não sobrar
+        // maior que o próprio prédio e colidir com o nome do vizinho.
+        const iconSize = Math.max(11, Math.round(20 * scale));
+        const nameSize = Math.max(8, Math.round(12 * scale));
 
         // Sombra no chão
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -535,17 +545,26 @@ class CityEngine {
         }
 
         // Ícone/placa identificando o prédio
-        ctx.font = 'bold 20px sans-serif';
+        ctx.font = `bold ${iconSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText(b.icon, door.x, top - bh * 0.32 - 6);
-        ctx.font = 'bold 12px sans-serif';
+        ctx.font = `bold ${nameSize}px sans-serif`;
         ctx.fillStyle = '#f2d98a';
         ctx.fillText(b.name, door.x, top - 6);
     }
 
+    // Jogador e NPCs usam o mesmo GFX.drawGladiator() da arena, que desenha
+    // em tamanho fixo em pixels — por isso escalamos com um save/translate/
+    // scale aqui (só na cidade) pra eles encolherem junto com os prédios em
+    // telas menores, sem tocar em nenhuma chamada de drawGladiator da arena.
     _drawNpc(ctx, npc) {
         if (window.GFX && window.GFX.drawGladiator) {
-            window.GFX.drawGladiator(ctx, npc.x, npc.y, npc.entity, npc.facing > 0, npc.anim, null);
+            const scale = this._cityScale(window.Engine.height);
+            ctx.save();
+            ctx.translate(npc.x, npc.y);
+            ctx.scale(scale, scale);
+            window.GFX.drawGladiator(ctx, 0, 0, npc.entity, npc.facing > 0, npc.anim, null);
+            ctx.restore();
         }
     }
 
@@ -554,7 +573,12 @@ class CityEngine {
         if (!p || !window.GFX) return;
         const anim = this._playerAnim || (this._playerAnim = { type: 'idle', start: performance.now(), duration: 0 });
         anim.type = this.player.moving ? 'walk' : 'idle';
-        window.GFX.drawGladiator(ctx, this.player.x, this.player.y, p, this.player.facing > 0, anim, null);
+        const scale = this._cityScale(window.Engine.height);
+        ctx.save();
+        ctx.translate(this.player.x, this.player.y);
+        ctx.scale(scale, scale);
+        window.GFX.drawGladiator(ctx, 0, 0, p, this.player.facing > 0, anim, null);
+        ctx.restore();
     }
 }
 
