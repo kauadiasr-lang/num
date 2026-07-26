@@ -128,6 +128,7 @@ class UIManager {
         document.getElementById('btn-close-skills').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-open-tavern-shop').addEventListener('click', () => this.openShop(null, 'Taverna', true));
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -770,10 +771,11 @@ class UIManager {
                 });
             }
 
-            // Exibe o Loot
+            // Exibe o Loot — vai direto pra mochila (com notificação), sem
+            // precisar clicar nele pra "pegar".
             if (loot) {
+                const p = window.Engine.state.player;
                 const lootTitle = document.createElement('h4');
-                lootTitle.innerText = "Itens Encontrados:";
                 lootTitle.style.width = '100%';
 
                 const itemDiv = document.createElement('div');
@@ -783,19 +785,17 @@ class UIManager {
                 itemDiv.innerText = "I"; // Ícone placeholder
                 this.attachTooltip(itemDiv, loot);
 
-                itemDiv.onclick = () => {
-                    const p = window.Engine.state.player;
-                    if (p.inventory.length < p.inventoryCapacity) {
-                        p.inventory.push(loot);
-                        itemDiv.style.display = 'none';
-                        this.hideTooltip();
-                        window.AudioManager.playTone(1000, 'sine', 0.1, 0.5);
-                        window.SaveManager.save(window.Engine.state);
-                    } else {
-                        window.AudioManager.playError();
-                        this.appendBattleLog("Mochila Cheia! Não foi possível pegar o item.");
-                    }
-                };
+                if (p.inventory.length < p.inventoryCapacity) {
+                    p.inventory.push(loot);
+                    window.SaveManager.save(window.Engine.state);
+                    window.AudioManager.playTone(1000, 'sine', 0.1, 0.5);
+                    lootTitle.innerText = "Item Encontrado (adicionado à mochila):";
+                    if (window.MainMenu) window.MainMenu.showToast(`Você encontrou ${loot.name}!`, 'success');
+                } else {
+                    window.AudioManager.playError();
+                    lootTitle.innerText = "Item Encontrado (mochila cheia, perdido):";
+                    if (window.MainMenu) window.MainMenu.showToast(`Mochila cheia! ${loot.name} foi perdido.`, 'error');
+                }
 
                 lootContainer.appendChild(lootTitle);
                 lootContainer.appendChild(itemDiv);
@@ -947,6 +947,26 @@ class UIManager {
                         this.openInventory(); // Refresh
                     };
                 }
+
+                // Vender por 40% do valor de mercado — botão separado (com
+                // stopPropagation) pra não disparar o clique principal de
+                // equipar/usar o item.
+                const sellBtn = document.createElement('div');
+                sellBtn.className = 'bag-item-sell';
+                const sellValue = Math.max(1, Math.floor(item.value * 0.4));
+                sellBtn.innerText = `$${sellValue}`;
+                sellBtn.title = `Vender por ${sellValue}g (40% do valor)`;
+                sellBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    p.gold += sellValue;
+                    p.inventory.splice(i, 1);
+                    window.SaveManager.save(window.Engine.state);
+                    this.hideTooltip();
+                    window.AudioManager.playTone(700, 'sine', 0.1, 0.4);
+                    if (window.MainMenu) window.MainMenu.showToast(`Vendido: ${item.name} (+${sellValue}g)`, 'success');
+                    this.openInventory(); // Refresh
+                };
+                itemSlot.appendChild(sellBtn);
             }
             grid.appendChild(itemSlot);
         }
@@ -956,18 +976,32 @@ class UIManager {
     // `filterSlots` (array de SLOTS ou null) diferencia Ferreiro (armas) de
     // Armeiro (armaduras/escudos/acessórios) — mesma tela e lógica de compra,
     // só filtra o que é mostrado. `title` troca o cabeçalho do painel.
-    openShop(filterSlots = null, title = 'Mercado') {
+    openShop(filterSlots = null, title = 'Mercado', consumablesOnly = false) {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
         document.getElementById('shop-panel-title').innerText = title;
         this._currentShopFilter = filterSlots;
         this._currentShopTitle = title;
+        this._currentShopConsumablesOnly = consumablesOnly;
 
         this.renderConsumableShop();
-        // O Boticário (poções) só aparece no Mercado geral — Ferreiro/Armeiro
-        // são especializados e não vendem consumíveis.
-        document.getElementById('shop-consumables-section').style.display = filterSlots ? 'none' : '';
-        document.getElementById('shop-items-title').innerText = filterSlots ? title : 'Ferreiro';
+        // O Boticário (poções/bandagens) aparece na Taverna (consumablesOnly)
+        // e no Mercado geral; Ferreiro/Armeiro são especializados e não
+        // vendem consumíveis.
+        document.getElementById('shop-consumables-section').style.display = (filterSlots && !consumablesOnly) ? 'none' : '';
+
+        const itemsTitleEl = document.getElementById('shop-items-title');
+        const itemsContainerEl = document.getElementById('shop-items-container');
+
+        // A Taverna só vende poções/bandagens — sem a seção de equipamentos.
+        itemsTitleEl.style.display = consumablesOnly ? 'none' : '';
+        itemsContainerEl.style.display = consumablesOnly ? 'none' : '';
+        if (consumablesOnly) {
+            this.currentShopItems = [];
+            this.showScreen('screen-shop');
+            return;
+        }
+        itemsTitleEl.innerText = filterSlots ? title : 'Ferreiro';
 
         // Gera estoque (sempre novo a cada visita); quando filtrado por
         // categoria, tenta mais algumas rodadas pra não mostrar uma
@@ -1148,7 +1182,7 @@ class UIManager {
         window.SaveManager.save(window.Engine.state);
         window.AudioManager.playHeal();
 
-        document.getElementById('healer-message').innerText = 'Fadiga totalmente curada! Você está pronto para lutar.';
+        document.getElementById('healer-message').innerText = 'Você dormiu e descansou. Fadiga totalmente curada!';
         this.updateHealerScreen();
         this.updateHubStats();
     }

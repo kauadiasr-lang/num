@@ -775,6 +775,14 @@ html, body {
     transition: border-color 0.2s, transform 0.15s;
 }
 .bag-item:hover { border-color: var(--color-gold); transform: translateY(-2px); }
+.bag-item-sell {
+    position: absolute; bottom: 1px; right: 1px;
+    background: rgba(0,0,0,0.75); color: var(--color-gold);
+    border: 1px solid var(--color-bronze-dark); border-radius: 3px;
+    font-size: 0.6rem; font-weight: bold; line-height: 1; padding: 2px 3px;
+    cursor: pointer; z-index: 2;
+}
+.bag-item-sell:hover { background: var(--color-gold); color: #1a1408; }
 
 /* Tooltip */
 .item-tooltip {
