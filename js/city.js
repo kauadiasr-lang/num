@@ -681,7 +681,16 @@ class CityEngine {
     _eventDuelist(p) {
         this._toast('Um duelista te desafiou no meio da praça!', 'info');
         setTimeout(() => {
-            if (this._isActive() && window.UI && window.UI.startBattle) window.UI.startBattle();
+            if (this._isActive() && window.UI && window.UI.startBattle) {
+                // Se o jogador tinha o menu "Entrar na Arena" aberto quando o
+                // evento disparou, esconde-o antes de ir pra batalha — do
+                // contrário ele fica com a classe "hidden" removida e volta a
+                // aparecer por cima da cidade quando a luta terminar (só os 3
+                // botões desse menu escondiam ele antes, não startBattle()).
+                const arenaMenu = document.getElementById('city-arena-menu');
+                if (arenaMenu) arenaMenu.classList.add('hidden');
+                window.UI.startBattle();
+            }
         }, 1800);
     }
 

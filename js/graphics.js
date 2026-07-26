@@ -20,9 +20,13 @@ class Particle {
         this.size = size;
     }
     update(dt) {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= this.decay;
+        // *60 porque vx/vy/decay foram calibrados assumindo ~60 chamadas por
+        // segundo (dt≈1/60) — sem isso, a partícula andava/sumia por chamada
+        // em vez de por tempo real, ficando mais rápida em telas de alta
+        // taxa de atualização e mais lenta quando o jogo engasga.
+        this.x += this.vx * dt * 60;
+        this.y += this.vy * dt * 60;
+        this.life -= this.decay * dt * 60;
     }
     draw(ctx) {
         ctx.globalAlpha = Math.max(0, this.life);
@@ -44,8 +48,10 @@ class FloatingText {
         this.isCrit = isCrit;
     }
     update(dt) {
-        this.y += this.vy;
-        this.life -= 0.02;
+        // Mesma correção das partículas: velocidade/decaimento por segundo,
+        // não por quadro (ver comentário em Particle.update).
+        this.y += this.vy * dt * 60;
+        this.life -= 0.02 * dt * 60;
     }
     draw(ctx) {
         ctx.globalAlpha = Math.max(0, this.life);
@@ -71,7 +77,7 @@ class ImpactBurst {
         this.life = 1.0;
         this.decay = 0.055;
     }
-    update(dt) { this.life -= this.decay; }
+    update(dt) { this.life -= this.decay * dt * 60; } // ver comentário em Particle.update
     draw(ctx) {
         const radius = (1 - this.life) * 46 + 4;
         ctx.globalAlpha = Math.max(0, this.life) * 0.85;
