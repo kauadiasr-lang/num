@@ -23,6 +23,7 @@ class CityEngine {
         this.walkSpeed = 210; // px/s
 
         this.keysHeld = { up: false, down: false, left: false, right: false };
+        this._mouseX = null;
         this._initialized = false;
         this._hintShown = true;
 
@@ -175,6 +176,16 @@ class CityEngine {
                 this._handleClick(t.clientX, t.clientY);
             }
         }, { passive: true });
+
+        // Enquanto parado, o gladiador acompanha o mouse com o olhar (vira
+        // pro lado onde o cursor está) — só cosmético, não interfere no
+        // clique-para-andar nem na colisão.
+        screenEl.addEventListener('mousemove', (e) => {
+            if (!this._isActive()) return;
+            const canvas = document.getElementById('game-canvas');
+            const rect = canvas.getBoundingClientRect();
+            this._mouseX = e.clientX - rect.left;
+        });
 
         window.addEventListener('keydown', (e) => this._handleKey(e, true));
         window.addEventListener('keyup', (e) => this._handleKey(e, false));
@@ -363,7 +374,15 @@ class CityEngine {
         }
 
         this.player.moving = vx !== 0 || vy !== 0;
-        if (vx !== 0) this.player.facing = vx > 0 ? 1 : -1;
+        if (vx !== 0) {
+            this.player.facing = vx > 0 ? 1 : -1;
+        } else if (!this.player.moving && this._mouseX != null) {
+            // Parado: olha na direção do cursor (com uma pequena zona morta
+            // pra não ficar tremendo quando o mouse está quase em cima dele).
+            const dead = 6;
+            if (this._mouseX > this.player.x + dead) this.player.facing = 1;
+            else if (this._mouseX < this.player.x - dead) this.player.facing = -1;
+        }
 
         let nx = this.player.x + vx * dt;
         let ny = this.player.y + vy * dt;
