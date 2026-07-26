@@ -537,11 +537,21 @@ class CityEngine {
         const doorW = bw * 0.22, doorH = bh * 0.42;
         ctx.fillRect(door.x - doorW / 2, door.y - doorH, doorW, doorH);
 
-        // Tochas nas laterais (reaproveita o desenho já usado na arena)
+        // Tochas nas laterais (reaproveita o desenho já usado na arena, mas
+        // escalada — do contrário a chama fica em tamanho fixo e passa a
+        // sobrepor o letreiro em prédios bem encolhidos por telas estreitas).
         if (window.GFX && window.GFX._drawTorch) {
             const tClock = window.GFX._torchClock || 0;
-            window.GFX._drawTorch(ctx, left + 6, door.y, tClock);
-            window.GFX._drawTorch(ctx, left + bw - 6, door.y, tClock);
+            ctx.save();
+            ctx.translate(left + 6, door.y);
+            ctx.scale(scale, scale);
+            window.GFX._drawTorch(ctx, 0, 0, tClock);
+            ctx.restore();
+            ctx.save();
+            ctx.translate(left + bw - 6, door.y);
+            ctx.scale(scale, scale);
+            window.GFX._drawTorch(ctx, 0, 0, tClock);
+            ctx.restore();
         }
 
         // Ícone/placa identificando o prédio
