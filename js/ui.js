@@ -972,6 +972,16 @@ class UIManager {
         }
     }
 
+    // Desconto por fama: comerciantes reconhecem um gladiador com muitas
+    // vitórias e cobram menos. Simples e sem estado extra pra salvar — só
+    // olha p.wins (já existente) toda vez que uma loja é aberta/atualizada.
+    _shopDiscount(p) {
+        if (!p) return 0;
+        if (p.wins >= 25) return 0.20;
+        if (p.wins >= 10) return 0.10;
+        return 0;
+    }
+
     // --- SISTEMA DE MERCADO (SHOP) ---
     // `filterSlots` (array de SLOTS ou null) diferencia Ferreiro (armas) de
     // Armeiro (armaduras/escudos/acessórios) — mesma tela e lógica de compra,
@@ -1020,31 +1030,34 @@ class UIManager {
         const container = document.getElementById('shop-items-container');
         container.innerHTML = '';
 
+        const discount = this._shopDiscount(p);
         this.currentShopItems.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
 
             const statsText = item.damage ? `Dano: ${item.damage}` : `Def: ${item.defense}`;
+            const price = Math.max(1, Math.round(item.value * (1 - discount)));
+            const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
 
             card.innerHTML = `
                 <div>
                     <h4 style="color: ${item.rarity.color}">${item.name}</h4>
                     <p style="font-size: 0.8rem; color: #aaa;">${statsText}</p>
                 </div>
-                <button class="btn btn-small">Comprar (${item.value}g)</button>
+                <button class="btn btn-small">${priceLabel}</button>
             `;
 
             this.attachTooltip(card, item);
 
             card.querySelector('button').onclick = () => {
-                if (p.gold >= item.value && p.inventory.length < p.inventoryCapacity) {
-                    p.gold -= item.value;
+                if (p.gold >= price && p.inventory.length < p.inventoryCapacity) {
+                    p.gold -= price;
                     p.inventory.push(item);
                     this.currentShopItems.splice(index, 1); // Remove da loja
                     window.SaveManager.save(window.Engine.state);
                     this.hideTooltip();
                     this.openShop(this._currentShopFilter, this._currentShopTitle); // Refresh, mantendo a categoria (Ferreiro/Armeiro)
-                } else if (p.gold < item.value) {
+                } else if (p.gold < price) {
                     window.AudioManager.playError();
                     alert("Ouro insuficiente!");
                 } else {
@@ -1065,28 +1078,31 @@ class UIManager {
         const container = document.getElementById('shop-consumables-container');
         container.innerHTML = '';
 
+        const discount = this._shopDiscount(p);
         ItemFactory.getConsumableStock().forEach(item => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
+            const price = Math.max(1, Math.round(item.value * (1 - discount)));
+            const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
 
             card.innerHTML = `
                 <div>
                     <h4 style="color: #33cc99">${item.name}</h4>
                     <p style="font-size: 0.8rem; color: #aaa;">${item.description}</p>
                 </div>
-                <button class="btn btn-small">Comprar (${item.value}g)</button>
+                <button class="btn btn-small">${priceLabel}</button>
             `;
 
             this.attachTooltip(card, item);
 
             card.querySelector('button').onclick = () => {
-                if (p.gold >= item.value && p.inventory.length < p.inventoryCapacity) {
-                    p.gold -= item.value;
+                if (p.gold >= price && p.inventory.length < p.inventoryCapacity) {
+                    p.gold -= price;
                     p.inventory.push(item);
                     window.SaveManager.save(window.Engine.state);
                     this.hideTooltip();
                     document.getElementById('shop-player-gold').innerText = p.gold;
-                } else if (p.gold < item.value) {
+                } else if (p.gold < price) {
                     window.AudioManager.playError();
                     alert("Ouro insuficiente!");
                 } else {

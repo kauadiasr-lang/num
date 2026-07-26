@@ -40,6 +40,12 @@ class CityEngine {
         this._ambientSoundTimer = 0;
         this._nearBuilding = null;
 
+        // Eventos aleatórios enquanto explora a cidade (mercadores, ladrões,
+        // duelistas, mensageiros, nobres, promoções, artistas, pregoeiros) —
+        // um temporizador simples, sem fila/histórico: só um toast (e, no
+        // caso do duelista, uma batalha de verdade) de vez em quando.
+        this._eventTimer = Utils.randomFloat(35, 60);
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -108,16 +114,33 @@ class CityEngine {
         while (this.npcs.length < targetCount) {
             this.npcs.push(this._makeNpc());
         }
+
+        // Arena "viva": um espectador e um gladiador treinando, sempre perto
+        // da entrada (raio pequeno, "pinado" em vez de vagar pela praça
+        // inteira) — dá a sensação de movimento constante junto à Arena.
+        if (!this._arenaNpcsSpawned) {
+            this._arenaNpcsSpawned = true;
+            const arena = this.buildings.find(b => b.id === 'arena');
+            const door = this._doorPoint(arena);
+            this.npcs.push(this._makeNpc({ x: door.x - 95, y: door.y + 50, radius: 28 }));
+            this.npcs.push(this._makeNpc({ x: door.x + 95, y: door.y + 50, radius: 28 }));
+        }
     }
 
-    _makeNpc() {
+    _makeNpc(pin = null) {
         const w = window.Engine.width, h = window.Engine.height;
         const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
         const hairColors = ['#2a1c10', '#5a3a1a', '#1a1a1a', '#8a5a2b'];
-        const x = Utils.randomFloat(w * 0.1, w * 0.9);
-        const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        let x, y;
+        if (pin) {
+            x = Utils.randomFloat(pin.x - pin.radius, pin.x + pin.radius);
+            y = Utils.randomFloat(pin.y - pin.radius * 0.4, pin.y + pin.radius * 0.4);
+        } else {
+            x = Utils.randomFloat(w * 0.1, w * 0.9);
+            y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        }
         return {
-            x, y, targetX: x, targetY: y,
+            x, y, targetX: x, targetY: y, pin,
             waitTimer: Utils.randomFloat(1, 4),
             facing: Utils.chance(50) ? 1 : -1,
             entity: {
@@ -148,7 +171,11 @@ class CityEngine {
                 npc.anim.type = 'walk';
             } else {
                 npc.anim.type = 'idle';
-                if (npc.waitTimer <= 0) {
+                if (npc.waitTimer <= 0 && npc.pin) {
+                    npc.targetX = Utils.randomFloat(npc.pin.x - npc.pin.radius, npc.pin.x + npc.pin.radius);
+                    npc.targetY = Utils.randomFloat(npc.pin.y - npc.pin.radius * 0.4, npc.pin.y + npc.pin.radius * 0.4);
+                    npc.waitTimer = Utils.randomFloat(2, 6);
+                } else if (npc.waitTimer <= 0) {
                     const w = window.Engine.width;
                     npc.targetX = Utils.randomFloat(w * 0.1, w * 0.9);
                     npc.targetY = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
@@ -321,6 +348,7 @@ class CityEngine {
         this._updateNpcs(dt);
         this._updateProximity();
         this._updateAmbientEffects(dt);
+        this._updateRandomEvents(dt);
     }
 
     _updateDayCycle(dt) {
@@ -601,6 +629,119 @@ class CityEngine {
         }
     }
 
+    // --- Eventos aleatórios da cidade ---
+    // Cada evento é só um toast (window.MainMenu.showToast) mais, em alguns
+    // casos, um efeito mecânico simples que já existe no jogo (ouro, exp,
+    // uma batalha via UI.startBattle) — sem inventar sistemas novos de
+    // diálogo/missão só pra isso.
+    _updateRandomEvents(dt) {
+        this._eventTimer -= dt;
+        if (this._eventTimer > 0) return;
+        this._eventTimer = Utils.randomFloat(50, 100);
+
+        const p = window.Engine.state.player;
+        const table = [
+            { w: 3, run: () => this._eventRareMerchant(p) },
+            { w: 2, run: () => this._eventThief(p) },
+            { w: 2, run: () => this._eventDuelist(p) },
+            { w: 2, run: () => this._eventMessenger(p) },
+            { w: 2, run: () => this._eventNoble() },
+            { w: 2, run: () => this._eventPromotion() },
+            { w: 2, run: () => this._eventPerformer() },
+            { w: 2, run: () => this._eventCrier() },
+        ];
+        if (p && p.wins > 0) table.push({ w: 3, run: () => this._eventVictoryComment(p) });
+
+        const totalW = table.reduce((s, e) => s + e.w, 0);
+        let roll = Utils.randomFloat(0, totalW);
+        for (const entry of table) {
+            if (roll < entry.w) { entry.run(); return; }
+            roll -= entry.w;
+        }
+    }
+
+    _toast(msg, type = 'info') {
+        if (window.MainMenu) window.MainMenu.showToast(msg, type);
+    }
+
+    _eventRareMerchant(p) {
+        const gain = Utils.randomInt(15, 40);
+        if (p) p.gold += gain;
+        this._toast(`Um mercador raro passou pela praça — você fez um bom negócio (+${gain}g)!`, 'success');
+    }
+
+    _eventThief(p) {
+        if (!p || p.gold <= 0) { this._eventPerformer(); return; }
+        const loss = Math.min(p.gold, Utils.randomInt(5, 20));
+        p.gold -= loss;
+        if (window.AudioManager) window.AudioManager.playError();
+        this._toast(`Um ladrão aproveitou a multidão e roubou ${loss}g da sua bolsa!`, 'error');
+    }
+
+    _eventDuelist(p) {
+        this._toast('Um duelista te desafiou no meio da praça!', 'info');
+        setTimeout(() => {
+            if (this._isActive() && window.UI && window.UI.startBattle) window.UI.startBattle();
+        }, 1800);
+    }
+
+    _eventMessenger(p) {
+        const exp = Utils.randomInt(5, 15);
+        if (p && p.gainExp) p.gainExp(exp);
+        this._toast(`Um mensageiro trouxe notícias de terras distantes (+${exp} exp).`, 'success');
+    }
+
+    _eventNoble() {
+        const lines = [
+            'Um nobre observou seus treinos com interesse silencioso...',
+            'Um nobre comentou que ouviu falar do seu nome nas tabernas da região.',
+            'Um nobre local prometeu "lembrar de você" caso continue vencendo.'
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    _eventPromotion() {
+        const shops = ['Ferreiro', 'Armeiro', 'Taverna', 'Mercado Arcano'];
+        const shop = shops[Utils.randomInt(0, shops.length - 1)];
+        this._toast(`Promoção no ${shop}: preços especiais só por hoje!`, 'info');
+    }
+
+    _eventPerformer() {
+        const lines = [
+            'Um artista de rua se apresenta na praça, arrancando aplausos da multidão.',
+            'Um malabarista entretém os transeuntes perto da fonte.',
+            'Um músico ambulante toca uma melodia animada na praça.'
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    _eventCrier() {
+        const lines = [
+            'Pregoeiro anuncia: um grande torneio se aproxima na Arena!',
+            'Pregoeiro anuncia: novos desafiantes chegaram para a Ladder!',
+            'Pregoeiro anuncia: a fama de todo campeão é registrada no Hall da Fama!'
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    _eventVictoryComment(p) {
+        const lines = [
+            `"Ouvi dizer que ${p.name} venceu outro duelo!"`,
+            `"O nome de ${p.name} anda em todas as tabernas..."`,
+            `"Dizem que ${p.name} já soma ${p.wins} vitórias na Arena!"`
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    // --- Evolução da cidade conforme a fama do jogador ---
+    _fameTitle(p) {
+        if (!p) return null;
+        if (p.wins >= 30) return 'Lenda da Arena';
+        if (p.wins >= 15) return 'Grande Campeão';
+        if (p.wins >= 5) return 'Campeão em Ascensão';
+        return null;
+    }
+
     // --- Desenho ---
     // Chamado por GraphicsEngine.draw() quando state.screen === 'HUB', logo
     // depois de drawArenaBackground() (céu/coliseu/plateia já desenhados).
@@ -748,6 +889,28 @@ class CityEngine {
         ctx.font = `bold ${nameSize}px sans-serif`;
         ctx.fillStyle = '#f2d98a';
         ctx.fillText(b.name, door.x, top - 6);
+
+        // Mural do Campeão — placa na fachada da Arena com o nome do
+        // jogador (e um título de fama, conforme seu número de vitórias
+        // sobe), ou "Nenhum campeão ainda" antes da primeira vitória.
+        if (b.id === 'arena') this._drawChampionMural(ctx, door, top, nameSize, scale);
+    }
+
+    _drawChampionMural(ctx, door, top, nameSize, scale) {
+        const p = window.Engine.state.player;
+        const title = this._fameTitle(p);
+        const text = p && p.wins > 0
+            ? `🏆 Campeão: ${p.name}${title ? ' (' + title + ')' : ''}`
+            : '🏆 Nenhum campeão ainda';
+        const fontSize = Math.max(9, Math.round(11 * scale));
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        const muralY = top - 6 + nameSize + 5;
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(door.x - textWidth / 2 - 6, muralY - fontSize, textWidth + 12, fontSize + 5);
+        ctx.fillStyle = '#ffe08a';
+        ctx.fillText(text, door.x, muralY);
     }
 
     // Jogador e NPCs usam o mesmo GFX.drawGladiator() da arena, que desenha
