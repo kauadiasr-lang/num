@@ -923,9 +923,17 @@ class CityEngine {
     // ~160px (_legLen 58 + _torsoH 62 + _headR*2 40), quase 4x a altura da
     // porta de um prédio (~44px num prédio da fileira do meio) — bem maior
     // que um prédio de verdade. NPC_EXTRA_SHRINK aproxima a altura deles da
-    // porta. O jogador continua só com _cityScale (fica visivelmente maior
-    // que os cidadãos — um "herói" de destaque no meio da multidão).
+    // porta.
     static get NPC_EXTRA_SHRINK() { return 0.32; }
+
+    // O jogador usava só _cityScale (sem encolhimento extra), o que na
+    // prática o deixava mais alto que a própria casa inteira (~160px de
+    // personagem contra ~105px de prédio) — um "gigante" andando pela
+    // cidade, e não um herói em destaque como pretendido. PLAYER_EXTRA_SHRINK
+    // é maior que o dos NPCs (0.32) pra ele continuar visivelmente mais
+    // proeminente que os cidadãos comuns, mas pequeno o bastante pra caber
+    // na escala real dos prédios ao seu redor.
+    static get PLAYER_EXTRA_SHRINK() { return 0.4; }
 
     _drawNpc(ctx, npc) {
         if (window.GFX && window.GFX.drawGladiator) {
@@ -943,7 +951,7 @@ class CityEngine {
         if (!p || !window.GFX) return;
         const anim = this._playerAnim || (this._playerAnim = { type: 'idle', start: performance.now(), duration: 0 });
         anim.type = this.player.moving ? 'walk' : 'idle';
-        const scale = this._cityScale(window.Engine.height);
+        const scale = this._cityScale(window.Engine.height) * CityEngine.PLAYER_EXTRA_SHRINK;
         ctx.save();
         ctx.translate(this.player.x, this.player.y);
         ctx.scale(scale, scale);

@@ -111,13 +111,18 @@ class AudioEngine {
         master.gain.value = this.masterVolume * this.musicVolume;
         master.connect(ctx.destination);
 
-        const baseFreqs = [82.41, 110.0, 123.47]; // E2, A2, B2 — acorde suspenso, clima solene
+        // Fundamental + quinta + oitava (C2/G2/C3): intervalos puros e
+        // consonantes. A versão anterior usava E2/A2/B2, com A2-B2 formando
+        // uma segunda maior sustentada na mesma oitava — dissonância batendo
+        // continuamente que soava como um chiado tenso em vez de uma trilha
+        // calma (relatado pelo jogador).
+        const baseFreqs = [65.41, 98.00, 130.81]; // C2, G2, C3
         const oscillators = baseFreqs.map((freq, i) => {
             const osc = ctx.createOscillator();
             osc.type = 'sine';
-            osc.frequency.value = freq * (1 + (i - 1) * 0.003); // leve destonação orgânica
+            osc.frequency.value = freq * (1 + (i - 1) * 0.0015); // destonação bem sutil, só pra dar corpo
             const g = ctx.createGain();
-            g.gain.value = 0.22;
+            g.gain.value = 0.2;
             osc.connect(g);
             g.connect(master);
             osc.start();
@@ -126,9 +131,9 @@ class AudioEngine {
 
         // LFO lento modulando o volume geral, pra "respirar" em vez de ficar estático
         const lfo = ctx.createOscillator();
-        lfo.frequency.value = 0.06;
+        lfo.frequency.value = 0.05;
         const lfoGain = ctx.createGain();
-        lfoGain.gain.value = 0.08;
+        lfoGain.gain.value = 0.05;
         lfo.connect(lfoGain);
         lfoGain.connect(master.gain);
         lfo.start();
@@ -136,9 +141,10 @@ class AudioEngine {
         this._musicNodes = { master, oscillators, lfo, melodyTimer: null };
 
         // Melodia suave e lenta por cima do pad — sem isso a trilha era só um
-        // drone estático; notas espaçadas de uma escala pentatônica maior
-        // (E), com timing levemente aleatório pra não soar como um metrônomo.
-        const scale = [329.63, 369.99, 415.30, 493.88, 554.37]; // E4 pentatônica maior
+        // drone estático; notas espaçadas de uma escala pentatônica maior em
+        // C (consonante com o novo acorde-base), com timing levemente
+        // aleatório pra não soar como um metrônomo.
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00]; // C4 pentatônica maior
         const scheduleNote = () => {
             if (!this._musicNodes) return;
             const freq = scale[Utils.randomInt(0, scale.length - 1)];
@@ -247,8 +253,8 @@ class AudioEngine {
         if (pick === 0) { // martelo do ferreiro
             this.playTone(180, 'square', 0.08, 0.15, 90);
             setTimeout(() => this.playTone(160, 'square', 0.06, 0.1, 80), 140);
-        } else if (pick === 1) { // murmúrio distante da multidão
-            this.playTone(Utils.randomInt(180, 260), 'sawtooth', 0.5, 0.05);
+        } else if (pick === 1) { // murmúrio distante da multidão (triangle: mais suave que o serrote usado nos impactos de combate)
+            this.playTone(Utils.randomInt(180, 260), 'triangle', 0.5, 0.05);
         } else { // respingo d'água da fonte
             this.playTone(Utils.randomInt(500, 700), 'sine', 0.15, 0.08, 300);
         }
