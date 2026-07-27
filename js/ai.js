@@ -103,6 +103,19 @@ const AICombat = {
         return pool[Utils.randomInt(0, pool.length - 1)];
     },
 
+    // Sorteia um escudo (ou null) conforme `preferShield` do estilo — bug de
+    // auditoria: essa flag existia em ai_data.js desde a criação do motor de
+    // IA mas nunca era lida em lugar nenhum, então Gladiadores e Guardiões
+    // (os dois únicos estilos com preferShield: true, ambos com shield_bash
+    // no skillPool) nunca carregavam escudo de verdade, nem visual nem
+    // mecanicamente (sem o blockChance do item).
+    pickShieldFromStyle(styleId) {
+        const style = AI_FIGHTING_STYLES[styleId];
+        if (!style || !style.preferShield) return null;
+        const shieldKeys = Object.keys(ItemDatabase.shields);
+        return shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
+    },
+
     // ==========================================================================
     // ESTADO DE BATALHA (memória, emoção, moral, combo)
     // ==========================================================================

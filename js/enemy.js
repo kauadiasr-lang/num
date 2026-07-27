@@ -130,6 +130,10 @@ class Enemy extends Entity {
         let rarity = RARITY.COMMON;
         if (Utils.chance(15 + this.level)) rarity = RARITY.UNCOMMON;
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        // Estilos "tank" (Gladiador/Guardião, preferShield: true) carregam
+        // escudo de verdade — visual e mecanicamente (blockChance do item).
+        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
+        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -209,6 +213,8 @@ class Vampire extends Entity {
         const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
         const rarity = Utils.chance(20) ? RARITY.UNCOMMON : RARITY.COMMON;
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
+        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -295,6 +301,8 @@ class Ghost extends Entity {
         const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
         const rarity = Utils.chance(15) ? RARITY.UNCOMMON : RARITY.COMMON;
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
+        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
