@@ -273,6 +273,13 @@ html, body {
     padding-bottom: 12px;
 }
 
+/* Fala do comerciante — dá a sensação de estar num lugar com gente de
+   verdade, não só numa lista de compras (ver ui.js openShop). */
+.shop-merchant-greeting {
+    font-style: italic; text-align: center; color: var(--color-marble-dark);
+    margin: -1rem 0 1rem; font-size: 0.9rem;
+}
+
 .panel-title::after {
     content: '';
     display: block;
@@ -805,7 +812,12 @@ html, body {
 
 /* Shop Grid */
 .shop-panel { position: relative; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; }
-.shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; max-height: 50vh; overflow-y: auto; }
+/* Sem scroll/altura fixa própria: o `.shop-panel` já rola o painel inteiro
+   (overflow-y: auto acima). Um segundo scroll aninhado aqui cortava o
+   último cartão da grade no meio (ex: botão "Comprar" da Bandagem sumindo
+   por baixo do título "Ferreiro" em telas estreitas de 1 coluna) — ver
+   auditoria. */
+.shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
 .shop-item-card {
     background: linear-gradient(160deg, rgba(43,36,29,0.9), rgba(22,17,11,0.9));
     border: 1px solid var(--color-bronze); border-radius: 6px; padding: 10px; display: flex;

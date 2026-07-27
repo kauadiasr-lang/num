@@ -97,6 +97,7 @@ class Entity {
         // activeWeaponSlot) — equipar as duas ao mesmo tempo não deveria
         // somar o dano das duas, só dar a opção de trocar entre elas em
         // combate (ver getActiveWeapon/BattleSystem SWITCH_WEAPON).
+        let currentLoad = 0;
         for (let key in this.equipment) {
             let item = this.equipment[key];
             if (item) {
@@ -107,8 +108,18 @@ class Entity {
                 if (item.mpBonus) maxMp += item.mpBonus;
                 if (item.critBonus) critChance += item.critBonus;
                 if (item.blockChance) blockChance += item.blockChance;
+                if (item.weight) currentLoad += item.weight;
             }
         }
+
+        // Capacidade de carga (segunda função real da Força, além do dano
+        // físico): equipar peças mais pesadas do que a própria Força aguenta
+        // reduz a esquiva. `item.weight` já existia em todo template de
+        // items.js mas nunca era lido em lugar nenhum — Força agora também
+        // define "peso carregável", não só dano.
+        const carryCapacity = 15 + str * 3;
+        const overloadRatio = Utils.clamp((currentLoad - carryCapacity) / carryCapacity, 0, 1);
+        if (overloadRatio > 0) dodgeChance *= (1 - overloadRatio * 0.3);
 
         // Fadiga (acúmulo de ferimentos por derrotas): penaliza levemente
         // dano e reflexos até ser curada no Curandeiro ou com bandagem
@@ -135,6 +146,9 @@ class Entity {
         this.derivedStats.critChance = Utils.clamp(critChance, 1, 65);
         this.derivedStats.defenseRating = defenseRating;
         this.derivedStats.blockChance = Utils.clamp(blockChance, 0, 60);
+        this.derivedStats.carryCapacity = carryCapacity;
+        this.derivedStats.currentLoad = Math.round(currentLoad * 10) / 10;
+        this.derivedStats.isOverloaded = overloadRatio > 0;
 
         // Estatísticas derivadas da Linhagem (0 se não houver mutação ativa)
         // — expostas de forma genérica pra battle.js consumir sem precisar

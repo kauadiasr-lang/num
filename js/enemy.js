@@ -56,12 +56,19 @@ class Enemy extends Entity {
         this.level = playerLevel + Utils.randomInt(-1, 1);
         if (this.level < 1) this.level = 1;
 
-        // Distribui pontos de atributo com base no nível gerado
-        this.generateStats();
-
         // Personalidade + estilo de luta (+ raramente um arquétipo raro) via
-        // motor de IA — nunca mais um simples multiplicador de dano.
+        // motor de IA — nunca mais um simples multiplicador de dano. Sorteado
+        // ANTES da distribuição de atributos, de propósito: assim os pontos
+        // podem ser enviesados pelo `statFocus` do estilo (ver generateStats),
+        // e um "Mago" de verdade nasce com INT alto, um "Brutamontes" com
+        // STR alto, etc — antes disso os dois sistemas rolavam sem se
+        // conhecer, e um estilo podia nascer com o atributo que o define
+        // baixíssimo, por puro azar da rolagem uniforme.
         window.AICombat.assignProfile(this, { level: this.level });
+
+        // Distribui pontos de atributo com base no nível gerado, enviesados
+        // pelo estilo de luta já sorteado.
+        this.generateStats();
 
         // Aparência completa e coerente com o estilo sorteado — cada
         // inimigo do Duelo Rápido agora parece um lutador diferente, não uma
@@ -86,10 +93,22 @@ class Enemy extends Entity {
     generateStats() {
         const totalPoints = 35 + (this.level * 5); // Base + escalonamento
 
-        // Distribuição procedural básica
+        // Distribuição procedural enviesada pelo `statFocus` do estilo de
+        // luta já sorteado (ver ai_data.js) — um "Mago" tende a nascer com
+        // INT alto, um "Brutamontes" com STR alto, etc, sem deixar de ser
+        // aleatório (ainda pode variar bastante rodada a rodada). Sem
+        // `statFocus` (estilo desconhecido), cai de volta pro sorteio
+        // uniforme entre todos os atributos.
+        const statsArray = Object.keys(this.baseStats);
+        const focus = this.aiStyle && this.aiStyle.statFocus;
+        const weightedPool = [];
+        statsArray.forEach(stat => {
+            const weight = focus ? (focus[stat] || 1) : 1;
+            for (let w = 0; w < weight; w++) weightedPool.push(stat);
+        });
+
         for (let i = 0; i < totalPoints; i++) {
-            const statsArray = Object.keys(this.baseStats);
-            const randomStat = statsArray[Utils.randomInt(0, statsArray.length - 1)];
+            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
             this.baseStats[randomStat]++;
         }
 
@@ -140,9 +159,12 @@ class Vampire extends Entity {
 
         this.level = playerLevel + Utils.randomInt(0, 2); // vampiros são um desafio um degrau acima do normal
         if (this.level < 2) this.level = 2;
-        this.generateStats();
 
+        // Estilo sorteado ANTES dos atributos, pelo mesmo motivo do Enemy
+        // comum: permite que generateStats enviese os pontos pelo statFocus
+        // do estilo (um Vampiro "brutamontes" nasce forte de verdade).
         window.AICombat.assignProfile(this, { level: this.level, styleId: Utils.chance(50) ? 'assassino' : 'brutamontes' });
+        this.generateStats();
         this.equipStyleWeapon();
 
         // Identidade visual de vampiro (mesma paleta descrita em
@@ -161,9 +183,15 @@ class Vampire extends Entity {
 
     generateStats() {
         const totalPoints = 40 + (this.level * 5);
+        const statsArray = Object.keys(this.baseStats);
+        const focus = this.aiStyle && this.aiStyle.statFocus;
+        const weightedPool = [];
+        statsArray.forEach(stat => {
+            const weight = focus ? (focus[stat] || 1) : 1;
+            for (let w = 0; w < weight; w++) weightedPool.push(stat);
+        });
         for (let i = 0; i < totalPoints; i++) {
-            const statsArray = Object.keys(this.baseStats);
-            const randomStat = statsArray[Utils.randomInt(0, statsArray.length - 1)];
+            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
             this.baseStats[randomStat]++;
         }
         this.calculateDerivedStats();

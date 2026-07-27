@@ -712,15 +712,29 @@ class CityEngine {
         if (window.MainMenu) window.MainMenu.showToast(msg, type);
     }
 
+    // Carisma negocia de verdade aqui: cada ponto acima de 5 aumenta o ganho
+    // (até +80% com Carisma bem alto) — o mesmo atributo que dá desconto na
+    // loja (ver ui.js _shopDiscount) também rende mais nesse tipo de evento.
     _eventRareMerchant(p) {
-        const gain = Utils.randomInt(15, 40);
+        const cha = (p && p.getTotalStat) ? p.getTotalStat('cha') : 5;
+        const chaMult = 1 + Utils.clamp((cha - 5) * 0.04, 0, 0.8);
+        const gain = Math.floor(Utils.randomInt(15, 40) * chaMult);
         if (p) p.gold += gain;
         this._toast(`Um mercador raro passou pela praça — você fez um bom negócio (+${gain}g)!`, 'success');
     }
 
+    // Carisma dá uma chance de convencer o ladrão a devolver parte do
+    // roubado (ou desistir por completo, com Carisma muito alto) — sem
+    // isso, o evento era puramente punitivo e nenhum atributo o influenciava.
     _eventThief(p) {
         if (!p || p.gold <= 0) { this._eventPerformer(); return; }
         const loss = Math.min(p.gold, Utils.randomInt(5, 20));
+        const cha = p.getTotalStat ? p.getTotalStat('cha') : 5;
+        if (Utils.chance(cha * 2)) {
+            this._toast('Um ladrão tentou roubar sua bolsa, mas suas palavras o convenceram a desistir!', 'success');
+            if (window.AudioManager) window.AudioManager.playConfirm();
+            return;
+        }
         p.gold -= loss;
         if (window.AudioManager) window.AudioManager.playError();
         this._toast(`Um ladrão aproveitou a multidão e roubou ${loss}g da sua bolsa!`, 'error');

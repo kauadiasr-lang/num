@@ -1,4 +1,33 @@
 /**
+ * Falas de comerciantes por tipo de loja (ver UIManager.openShop) — dá a
+ * sensação de um lugar com gente de verdade, não só um menu de compras.
+ * Orientado a dados: uma loja nova só precisa registrar sua própria
+ * entrada aqui, sem tocar em nenhuma lógica de abertura de loja.
+ */
+const SHOP_GREETINGS = {
+    Ferreiro: [
+        '"Aço forjado nas fornalhas da própria arena. Nada melhor pra sobreviver lá dentro."',
+        '"Cada lâmina que saiu daqui já provou sangue. Escolha bem a sua."',
+        '"Vim de uma família de ferreiros de armas. Meu avô forjou a espada do próprio Campeão."'
+    ],
+    Armeiro: [
+        '"Armadura não é covardia, gladiador. É o que separa quem volta pra casa de quem não volta."',
+        '"Toquei toda essa cota de malha com as próprias mãos. Prove."',
+        '"Um bom escudo vale mais que dez golpes de sorte."'
+    ],
+    Taverna: [
+        '"Poções frescas, direto do porão. Nada de água suja com corante, prometo."',
+        '"Beba, coma, descanse. Amanhã a arena não vai ter piedade."',
+        '"Já vi gladiadores morrerem por economizar numa bandagem. Não seja um deles."'
+    ],
+    Mercado: [
+        '"Um pouco de tudo, pra quem sabe procurar."',
+        '"Fama e ouro abrem portas que a espada sozinha não abre."',
+        '"Já vendi pra campeões e pra quem nunca voltou da arena. Você decide qual vai ser."'
+    ]
+};
+
+/**
  * Gerenciador de Interface de Usuário
  */
 class UIManager {
@@ -1151,6 +1180,13 @@ class UIManager {
         document.getElementById('stat-crit').innerText = Math.floor(p.derivedStats.critChance);
         document.getElementById('stat-block').innerText = Math.floor(p.derivedStats.blockChance || 0);
         document.getElementById('stat-fatigue').innerText = p.fatigue || 0;
+
+        // Carga (Força): peso equipado vs. capacidade — fica em vermelho
+        // quando sobrecarregado (reduz esquiva, ver Entity.calculateDerivedStats).
+        const loadEl = document.getElementById('stat-load');
+        loadEl.innerText = p.derivedStats.currentLoad;
+        loadEl.style.color = p.derivedStats.isOverloaded ? '#ff4444' : '';
+        document.getElementById('stat-load-max').innerText = Math.round(p.derivedStats.carryCapacity);
     }
 
     renderEquipment() {
@@ -1264,13 +1300,19 @@ class UIManager {
     }
 
     // Desconto por fama: comerciantes reconhecem um gladiador com muitas
-    // vitórias e cobram menos. Simples e sem estado extra pra salvar — só
-    // olha p.wins (já existente) toda vez que uma loja é aberta/atualizada.
+    // vitórias e cobram menos. Some-se um desconto contínuo por Carisma —
+    // o atributo que antes só existia como número, sem nenhuma mecânica
+    // própria (ver auditoria) — pra que negociar de verdade valha a pena
+    // independente de fama.
     _shopDiscount(p) {
         if (!p) return 0;
-        if (p.wins >= 25) return 0.20;
-        if (p.wins >= 10) return 0.10;
-        return 0;
+        let discount = 0;
+        if (p.wins >= 25) discount = 0.20;
+        else if (p.wins >= 10) discount = 0.10;
+
+        const cha = p.getTotalStat ? p.getTotalStat('cha') : 5;
+        const chaDiscount = Utils.clamp((cha - 5) * 0.006, 0, 0.12); // até +12% com Carisma bem alto
+        return Utils.clamp(discount + chaDiscount, 0, 0.35);
     }
 
     // --- SISTEMA DE MERCADO (SHOP) ---
@@ -1284,6 +1326,16 @@ class UIManager {
         this._currentShopFilter = filterSlots;
         this._currentShopTitle = title;
         this._currentShopConsumablesOnly = consumablesOnly;
+
+        // Fala do comerciante: dá a sensação de um lugar com gente de
+        // verdade, não só um menu de compras. Sorteada uma vez por visita
+        // (não a cada refresh de estoque após uma compra), pra não ficar
+        // trocando de frase toda hora que o jogador compra algo.
+        if (!this._shopGreetingCache || this._shopGreetingCache.title !== title) {
+            const lines = SHOP_GREETINGS[title] || SHOP_GREETINGS.Mercado;
+            this._shopGreetingCache = { title, text: lines[Utils.randomInt(0, lines.length - 1)] };
+        }
+        document.getElementById('shop-merchant-greeting').innerText = this._shopGreetingCache.text;
 
         this.renderConsumableShop();
         // O Boticário (poções/bandagens) aparece na Taverna (consumablesOnly)

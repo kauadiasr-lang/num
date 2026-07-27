@@ -2458,73 +2458,85 @@ class GraphicsEngine {
         ctx.fillRect(0, -4, 12, 8);
         ctx.fillStyle = '#c7ccd1';
 
-        switch (weapon.id) {
-            case 'w_02': // Machado
-                ctx.beginPath();
-                ctx.moveTo(12, -4); ctx.lineTo(34, -17); ctx.lineTo(39, 0); ctx.lineTo(34, 17); ctx.lineTo(12, 4);
-                ctx.closePath(); ctx.fill();
-                break;
-            case 'w_03': // Adaga
-                ctx.beginPath();
-                ctx.moveTo(12, -3); ctx.lineTo(27, 0); ctx.lineTo(12, 3);
-                ctx.closePath(); ctx.fill();
-                break;
-            case 'w_04': // Martelo de Guerra
-                ctx.fillRect(12, -11, 27, 22);
-                ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -11, 27, 22);
-                break;
-            case 'w_05': // Lança
-                ctx.fillRect(12, -2, 52, 4);
-                ctx.beginPath();
-                ctx.moveTo(64, -6); ctx.lineTo(76, 0); ctx.lineTo(64, 6);
-                ctx.closePath(); ctx.fill();
-                break;
-            case 'w_06': // Rapieira
-                ctx.fillRect(12, -1.5, 46, 3);
-                ctx.strokeStyle = '#c7ccd1'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
-                break;
-            case 'w_07': // Espada Longa: lâmina mais comprida e larga que a curta
-                ctx.fillRect(12, -3.5, 54, 7);
-                ctx.fillStyle = '#3a2f22';
-                ctx.fillRect(10, -9, 4, 18);
-                break;
-            case 'w_08': // Chicote: tira fina e ondulada saindo do cabo
-                ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(12, 0);
-                ctx.quadraticCurveTo(30, -14, 46, 2);
-                ctx.quadraticCurveTo(58, 12, 50, 22);
-                ctx.stroke();
-                break;
-            case 'w_09': // Arco Curto: arco recurvo com corda, empunhado verticalmente
-                ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(6, 0, 22, -Math.PI * 0.42, Math.PI * 0.42);
-                ctx.stroke();
-                ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(20, -18.5); ctx.lineTo(20, 18.5);
-                ctx.stroke();
-                break;
-            case 'w_10': // Besta de Aço: estrutura (trilho) + arco curto horizontal
-                ctx.fillRect(8, -2.5, 34, 5);
-                ctx.strokeStyle = '#8891a0'; ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(16, 0, 16, Math.PI * 0.15, Math.PI * 1.85);
-                ctx.stroke();
-                ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(24, -14); ctx.lineTo(24, 14);
-                ctx.stroke();
-                break;
-            default: // w_01 e qualquer arma futura não mapeada: espada genérica
-                ctx.fillRect(12, -3, 40, 6);
-                ctx.fillStyle = '#3a2f22';
-                ctx.fillRect(10, -8, 4, 16);
-                break;
-        }
+        // Registry orientado a dados (id -> função de desenho), em vez de um
+        // switch grande: uma arma nova só precisa registrar sua própria
+        // entrada aqui (ver WEAPON_RENDERERS), sem tocar em nenhum outro
+        // código de renderização. Sem entrada correspondente, cai no
+        // `default` (espada genérica) — nunca quebra pra uma arma futura
+        // ainda não desenhada especificamente.
+        const draw = WEAPON_RENDERERS[weapon.id] || WEAPON_RENDERERS.default;
+        draw(ctx);
     }
 }
+
+// Cada função recebe o contexto já posicionado/rotacionado na mão do
+// lutador (ver _drawWeapon acima) e desenha só a "lâmina"/cabeça da arma —
+// o cabo comum já foi desenhado antes de chamar o registry.
+const WEAPON_RENDERERS = {
+    w_02(ctx) { // Machado
+        ctx.beginPath();
+        ctx.moveTo(12, -4); ctx.lineTo(34, -17); ctx.lineTo(39, 0); ctx.lineTo(34, 17); ctx.lineTo(12, 4);
+        ctx.closePath(); ctx.fill();
+    },
+    w_03(ctx) { // Adaga
+        ctx.beginPath();
+        ctx.moveTo(12, -3); ctx.lineTo(27, 0); ctx.lineTo(12, 3);
+        ctx.closePath(); ctx.fill();
+    },
+    w_04(ctx) { // Martelo de Guerra
+        ctx.fillRect(12, -11, 27, 22);
+        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -11, 27, 22);
+    },
+    w_05(ctx) { // Lança
+        ctx.fillRect(12, -2, 52, 4);
+        ctx.beginPath();
+        ctx.moveTo(64, -6); ctx.lineTo(76, 0); ctx.lineTo(64, 6);
+        ctx.closePath(); ctx.fill();
+    },
+    w_06(ctx) { // Rapieira
+        ctx.fillRect(12, -1.5, 46, 3);
+        ctx.strokeStyle = '#c7ccd1'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
+    },
+    w_07(ctx) { // Espada Longa: lâmina mais comprida e larga que a curta
+        ctx.fillRect(12, -3.5, 54, 7);
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(10, -9, 4, 18);
+    },
+    w_08(ctx) { // Chicote: tira fina e ondulada saindo do cabo
+        ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.quadraticCurveTo(30, -14, 46, 2);
+        ctx.quadraticCurveTo(58, 12, 50, 22);
+        ctx.stroke();
+    },
+    w_09(ctx) { // Arco Curto: arco recurvo com corda, empunhado verticalmente
+        ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(6, 0, 22, -Math.PI * 0.42, Math.PI * 0.42);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(20, -18.5); ctx.lineTo(20, 18.5);
+        ctx.stroke();
+    },
+    w_10(ctx) { // Besta de Aço: estrutura (trilho) + arco curto horizontal
+        ctx.fillRect(8, -2.5, 34, 5);
+        ctx.strokeStyle = '#8891a0'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(16, 0, 16, Math.PI * 0.15, Math.PI * 1.85);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(24, -14); ctx.lineTo(24, 14);
+        ctx.stroke();
+    },
+    default(ctx) { // w_01 e qualquer arma futura não mapeada: espada genérica
+        ctx.fillRect(12, -3, 40, 6);
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(10, -8, 4, 16);
+    }
+};
 
 window.GFX = new GraphicsEngine();

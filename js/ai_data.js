@@ -130,48 +130,60 @@ const AI_PERSONALITIES = {
 // arma equipada); weaponPool guia a escolha de arma; skillPool restringe quais
 // habilidades esse estilo pode receber (filtradas depois pelo nível do inimigo);
 // actionBias são multiplicadores base por tipo de ação, aplicados por cima dos
-// pesos de personalidade.
+// pesos de personalidade. `statFocus` é um peso relativo (não precisa somar 1)
+// usado por Enemy.generateStats() pra enviesar a distribuição procedural de
+// atributos — sem isso, um "Mago" podia nascer com INT baixíssimo só por azar
+// da rolagem, o que quebrava a identidade do estilo (ver auditoria: estilo e
+// atributos rolavam de forma totalmente desconectada um do outro).
 const AI_FIGHTING_STYLES = {
     espadachim: { id: 'espadachim', name: 'Espadachim', preferredRangeBand: 'melee_short',
         weaponPool: ['shortsword', 'longsword', 'rapier'], preferShield: false,
         skillPool: ['heavy_strike', 'bleeding_cut'],
-        actionBias: { ATK: 1.0, SKILL: 0.8, DEF: 0.6, APPROACH: 0.7, RETREAT: 0.4, HOLD: 0.3 } },
+        actionBias: { ATK: 1.0, SKILL: 0.8, DEF: 0.6, APPROACH: 0.7, RETREAT: 0.4, HOLD: 0.3 },
+        statFocus: { str: 3, agi: 2, acc: 2, def: 1, int: 1, luk: 1, cha: 1 } },
 
     lanceiro: { id: 'lanceiro', name: 'Lanceiro', preferredRangeBand: 'reach',
         weaponPool: ['spear'], preferShield: false,
         skillPool: ['heavy_strike', 'fury'],
-        actionBias: { ATK: 0.9, SKILL: 0.6, DEF: 0.5, APPROACH: 0.3, RETREAT: 0.6, HOLD: 0.8 } },
+        actionBias: { ATK: 0.9, SKILL: 0.6, DEF: 0.5, APPROACH: 0.3, RETREAT: 0.6, HOLD: 0.8 },
+        statFocus: { str: 3, def: 2, acc: 2, agi: 1, int: 1, luk: 1, cha: 1 } },
 
     arqueiro: { id: 'arqueiro', name: 'Arqueiro', preferredRangeBand: 'ranged',
         weaponPool: ['bow', 'crossbow'], preferShield: false,
         skillPool: ['heavy_strike', 'bleeding_cut'],
-        actionBias: { ATK: 0.9, SKILL: 0.5, DEF: 0.3, APPROACH: 0.1, RETREAT: 0.9, HOLD: 0.7 } },
+        actionBias: { ATK: 0.9, SKILL: 0.5, DEF: 0.3, APPROACH: 0.1, RETREAT: 0.9, HOLD: 0.7 },
+        statFocus: { agi: 3, acc: 3, luk: 2, str: 1, int: 1, def: 1, cha: 1 } },
 
     brutamontes: { id: 'brutamontes', name: 'Brutamontes', preferredRangeBand: 'melee_short',
         weaponPool: ['warhammer', 'rustyaxe'], preferShield: false,
         skillPool: ['fury', 'heavy_strike'],
-        actionBias: { ATK: 1.0, SKILL: 0.6, DEF: 0.2, APPROACH: 0.9, RETREAT: 0.1, HOLD: 0.1 } },
+        actionBias: { ATK: 1.0, SKILL: 0.6, DEF: 0.2, APPROACH: 0.9, RETREAT: 0.1, HOLD: 0.1 },
+        statFocus: { str: 4, def: 1, agi: 1, acc: 1, int: 1, luk: 1, cha: 1 } },
 
     assassino: { id: 'assassino', name: 'Assassino', preferredRangeBand: 'melee_short',
         weaponPool: ['dagger'], preferShield: false,
         skillPool: ['bleeding_cut', 'vampiric_strike'],
         actionBias: { ATK: 0.8, SKILL: 0.9, DEF: 0.2, APPROACH: 0.8, RETREAT: 0.7, HOLD: 0.2 },
-        hitAndRun: true },
+        hitAndRun: true,
+        statFocus: { agi: 3, luk: 3, acc: 2, str: 1, int: 1, def: 1, cha: 1 } },
 
     gladiador: { id: 'gladiador', name: 'Gladiador', preferredRangeBand: 'melee_short',
         weaponPool: ['shortsword', 'rapier'], preferShield: true,
         skillPool: ['heavy_strike', 'shield_bash'],
-        actionBias: { ATK: 0.85, SKILL: 0.65, DEF: 0.55, APPROACH: 0.6, RETREAT: 0.35, HOLD: 0.4 } },
+        actionBias: { ATK: 0.85, SKILL: 0.65, DEF: 0.55, APPROACH: 0.6, RETREAT: 0.35, HOLD: 0.4 },
+        statFocus: { str: 2, def: 2, agi: 2, acc: 1, int: 1, luk: 1, cha: 1 } },
 
     guardiao: { id: 'guardiao', name: 'Guardião', preferredRangeBand: 'melee_short',
         weaponPool: ['shortsword', 'rustyaxe'], preferShield: true,
         skillPool: ['shield_bash', 'quick_heal'],
-        actionBias: { ATK: 0.55, SKILL: 0.6, DEF: 0.9, APPROACH: 0.3, RETREAT: 0.3, HOLD: 0.85 } },
+        actionBias: { ATK: 0.55, SKILL: 0.6, DEF: 0.9, APPROACH: 0.3, RETREAT: 0.3, HOLD: 0.85 },
+        statFocus: { def: 4, str: 1, agi: 1, acc: 1, int: 1, luk: 1, cha: 1 } },
 
     mago: { id: 'mago', name: 'Mago', preferredRangeBand: 'caster',
         weaponPool: ['dagger', 'rapier'], preferShield: false,
         skillPool: ['fireball', 'quick_heal'],
-        actionBias: { ATK: 0.3, SKILL: 1.0, DEF: 0.4, APPROACH: 0.2, RETREAT: 0.8, HOLD: 0.6 } },
+        actionBias: { ATK: 0.3, SKILL: 1.0, DEF: 0.4, APPROACH: 0.2, RETREAT: 0.8, HOLD: 0.6 },
+        statFocus: { int: 4, luk: 1, acc: 1, agi: 1, str: 1, def: 1, cha: 1 } },
 };
 
 // --- ARQUÉTIPOS RAROS (comportamentos únicos, chance muito baixa de aparecer) ---
