@@ -243,13 +243,21 @@ const AICombat = {
         if (!Utils.chance(30 + p.emotionVolatility * 60)) return; // nem todo turno reavalia
 
         const hpPercent = enemy.currentHp / enemy.derivedStats.maxHp;
+        // `moraleSensitivity` (ai_data.js) existia em todas as 16
+        // personalidades desde a criação do motor, mas nunca era lida — bug
+        // de auditoria: toda personalidade reagia a oscilações de moral
+        // exatamente igual, mesmo uma tendo sido desenhada como "abalada
+        // fácil" (covarde: 0.80) e outra como "fria e estável" (executor:
+        // 0.15). Os três termos abaixo que dependem de `ai.morale` agora
+        // escalam por essa sensibilidade.
+        const moraleSens = p.moraleSensitivity !== undefined ? p.moraleSensitivity : 0.5;
         const scores = {
-            confiante: (hpPercent - 0.5) * 2 + (ai.morale - 50) / 50 + ai.hitStreak * 0.3,
-            assustado: (1 - hpPercent) * (0.3 + p.resilience) + (50 - ai.morale) / 50 * 0.6,
+            confiante: (hpPercent - 0.5) * 2 + (ai.morale - 50) / 50 * moraleSens + ai.hitStreak * 0.3,
+            assustado: (1 - hpPercent) * (0.3 + p.resilience) + (50 - ai.morale) / 50 * 0.6 * moraleSens,
             frustrado: ai.missStreak * 0.5 - hpPercent * 0.2,
             enfurecido: (p.aggression - 0.5) * 2 * (1 - hpPercent < 0.5 ? 1 : 0.4) + (ai.hitStreak === 0 && ai.missStreak > 1 ? 0.3 : 0),
             desesperado: (1 - hpPercent) * (1.2 - p.resilience) * (hpPercent < 0.25 ? 1.5 : 0.3),
-            determinado: 0.4 + (ai.morale - 40) / 100,
+            determinado: 0.4 + (ai.morale - 40) / 100 * moraleSens,
         };
         let best = 'determinado', bestScore = -Infinity;
         for (let key in scores) { if (scores[key] > bestScore) { bestScore = scores[key]; best = key; } }
