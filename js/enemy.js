@@ -7,8 +7,13 @@
  * combatente para AICombat.assignProfile().
  */
 
-const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassino", "Bárbaro"];
-const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário"];
+// Pool ampliado (10x11 = 110 combinações, contra as 25 originais) — reduz
+// bastante a sensação de repetição no Duelo Rápido, sem precisar de
+// nenhum sistema novo (só mais dados no mesmo registry).
+const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassino", "Bárbaro",
+    "Fugitivo", "Escravo Rebelde", "Bandido", "Guerreiro Errante", "Desertor"];
+const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário",
+    "Faminto", "Traiçoeiro", "Feroz", "Silencioso", "Amaldiçoado", "Desprezível"];
 
 // Antes deste sistema, Enemy/Rival não tinham NENHUM `visuals` (a classe
 // base Entity não define o campo, só Player) — todo inimigo caía no
