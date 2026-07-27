@@ -990,10 +990,6 @@ class BattleSystem {
                 }
             }
 
-            const newAchievements = this.player.checkAchievements({
-                victory: true, hpPercent, gotLegendary: isLegendary, defeatedRivalId
-            });
-
             // Ritual do Vampirismo: Vampiros comuns (não o boss) têm chance
             // pequena de dropar uma Essência Vampírica ao serem derrotados.
             if (this.enemy.isVampireEnemy && this.enemy.rollEssenceDrop && this.enemy.rollEssenceDrop()) {
@@ -1020,6 +1016,15 @@ class BattleSystem {
                     if (awakened) awakenedLineageId = ritualEntry.lineageId;
                 }
             }
+
+            // checkAchievements roda DEPOIS do despertar de Linhagem (não
+            // antes, como estava) — senão a conquista "Sangue Renovado"
+            // nunca teria como saber que a Linhagem acabou de despertar
+            // NESTA MESMA vitória.
+            const newAchievements = this.player.checkAchievements({
+                victory: true, hpPercent, gotLegendary: isLegendary, defeatedRivalId,
+                awakenedLineage: !!awakenedLineageId
+            });
 
             // Cura passiva após a batalha (20% do HP max)
             this.player.currentHp = Utils.clamp(this.player.currentHp + Math.floor(this.player.derivedStats.maxHp * 0.2), 0, this.player.derivedStats.maxHp);
