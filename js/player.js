@@ -213,7 +213,9 @@ class Player extends Entity {
             beardColor: '#2a1c10',
             eyebrowColor: '#2a1c10',
             eyeColor: '#1a1a1a',
-            faceShape: 1       // 1 = redondo, 2 = oval, 3 = anguloso
+            faceShape: 1,      // 1 = redondo, 2 = oval, 3 = anguloso
+            archetype: 'veterano', // identidade visual (silhueta/paleta) — ver FIGHTER_ARCHETYPES em graphics.js
+            scarStyle: 0       // 0 = nenhuma; ver SCAR_STYLES em graphics.js
         };
     }
 

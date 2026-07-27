@@ -12,7 +12,8 @@ class UIManager {
             names: { str: "Força", agi: "Agilidade", int: "Inteligência", def: "Defesa", acc: "Precisão", luk: "Sorte", cha: "Carisma" },
             visuals: {
                 gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1, hairColor: '#2a1c10',
-                beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1
+                beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1,
+                archetype: 'veterano', scarStyle: 0
             }
         };
 
@@ -53,6 +54,20 @@ class UIManager {
             { name: 'Barba por Fazer', genders: ['Masculino', 'Feminino'] }
         ];
         this.faceOptions = ['Redondo', 'Oval', 'Anguloso'];
+        // Identidade de lutador (silhueta/paleta/adereço assinatura — ver
+        // FIGHTER_ARCHETYPES em graphics.js). Ordem/ids batem 1:1 com a
+        // tabela de lá; nomes aqui são só o rótulo exibido no botão.
+        this.archetypeOptions = [
+            { id: 'veterano', name: 'Gladiador Veterano' },
+            { id: 'barbaro', name: 'Bárbaro' },
+            { id: 'cavaleiro', name: 'Cavaleiro' },
+            { id: 'assassino', name: 'Assassino' },
+            { id: 'guerreira', name: 'Guerreira' },
+            { id: 'mercenario', name: 'Mercenário' },
+            { id: 'campeao', name: 'Campeão' }
+        ];
+        // Índice = scarStyle (0 = nenhuma). Ver SCAR_STYLES em graphics.js.
+        this.scarOptions = ['Nenhuma', 'Cicatriz na Bochecha', 'Cicatriz na Sobrancelha', 'Cicatriz na Testa', 'Cicatriz no Queixo'];
         this._previewRAFId = null;
 
         this.currentShopItems = [];
@@ -232,6 +247,16 @@ class UIManager {
             this.creationData.visuals.faceShape = idx + 1;
             e.target.innerText = this.faceOptions[idx];
         });
+        document.getElementById('btn-archetype').addEventListener('click', (e) => {
+            const idx = (this.archetypeOptions.findIndex(a => a.id === this.creationData.visuals.archetype) + 1) % this.archetypeOptions.length;
+            this.creationData.visuals.archetype = this.archetypeOptions[idx].id;
+            e.target.innerText = this.archetypeOptions[idx].name;
+        });
+        document.getElementById('btn-scar').addEventListener('click', (e) => {
+            const idx = (this.creationData.visuals.scarStyle + 1) % this.scarOptions.length;
+            this.creationData.visuals.scarStyle = idx;
+            e.target.innerText = this.scarOptions[idx];
+        });
 
         // --- Configuração: sangue nos combates (opcional, desligado por padrão) ---
         document.getElementById('btn-toggle-blood').addEventListener('click', (e) => {
@@ -317,6 +342,14 @@ class UIManager {
         v.faceShape = faceIdx + 1;
         document.getElementById('btn-face').innerText = this.faceOptions[faceIdx];
 
+        const archIdx = Utils.randomInt(0, this.archetypeOptions.length - 1);
+        v.archetype = this.archetypeOptions[archIdx].id;
+        document.getElementById('btn-archetype').innerText = this.archetypeOptions[archIdx].name;
+
+        const scarIdx = Utils.randomInt(0, this.scarOptions.length - 1);
+        v.scarStyle = scarIdx;
+        document.getElementById('btn-scar').innerText = this.scarOptions[scarIdx];
+
         v.skinTone = randColor();
         v.hairColor = randColor();
         v.beardColor = randColor();
@@ -336,7 +369,8 @@ class UIManager {
         this.creationData.stats = { str: 5, agi: 5, int: 5, def: 5, acc: 5, luk: 5, cha: 5 };
         this.creationData.visuals = {
             gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1, hairColor: '#2a1c10',
-            beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1
+            beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1,
+            archetype: 'veterano', scarStyle: 0
         };
 
         document.getElementById('char-name').value = '';
@@ -349,6 +383,8 @@ class UIManager {
         document.getElementById('char-beard-color').value = this.creationData.visuals.beardColor;
         document.getElementById('char-eye-color').value = this.creationData.visuals.eyeColor;
         document.getElementById('btn-face').innerText = this.faceOptions[0];
+        document.getElementById('btn-archetype').innerText = this.archetypeOptions[0].name;
+        document.getElementById('btn-scar').innerText = this.scarOptions[0];
 
         this.startCreatorPreviewLoop();
 

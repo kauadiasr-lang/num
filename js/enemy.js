@@ -10,6 +10,44 @@
 const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassino", "Bárbaro"];
 const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário"];
 
+// Antes deste sistema, Enemy/Rival não tinham NENHUM `visuals` (a classe
+// base Entity não define o campo, só Player) — todo inimigo caía no
+// fallback padrão do GraphicsEngine e ficava visualmente IDÊNTICO a
+// qualquer outro, só variando equipamento. Isso gera uma aparência
+// completa e coerente (gênero, cores, cicatriz e arquétipo — ver
+// FIGHTER_ARCHETYPES em graphics.js) pra cada inimigo do Duelo Rápido.
+const ENEMY_SKIN_TONES = ['#ffcc99', '#e8b382', '#c68642', '#8d5524', '#f0d5b8', '#7a4a2f'];
+const ENEMY_HAIR_COLORS = ['#2a1c10', '#4a2f1a', '#6b4423', '#8a6a3a', '#c9a876', '#1a1a1a', '#7a7a7a', '#8b1a1a'];
+const ENEMY_EYE_COLORS = ['#1a1a1a', '#3a2a1a', '#2a4a6a', '#4a6a2a', '#5a2a4a'];
+// Estilo de luta -> arquétipo visualmente coerente (não é garantido, só
+// preferido — ver randomFighterVisuals) já que a identidade visual é
+// puramente estética e não precisa bater 1:1 com a IA.
+const STYLE_TO_ARCHETYPE = {
+    espadachim: 'cavaleiro', assassino: 'assassino', brutamontes: 'barbaro',
+    gladiador: 'campeao', guardiao: 'cavaleiro', mago: 'mercenario', arqueiro: 'mercenario'
+};
+
+function randomFighterVisuals(styleId) {
+    const gender = Utils.chance(50) ? 'Masculino' : 'Feminino';
+    const archetypeIds = Object.keys(window.FIGHTER_ARCHETYPES || { veterano: 1 });
+    const preferred = STYLE_TO_ARCHETYPE[styleId];
+    const archetype = (preferred && Utils.chance(70)) ? preferred : archetypeIds[Utils.randomInt(0, archetypeIds.length - 1)];
+    const hairColor = ENEMY_HAIR_COLORS[Utils.randomInt(0, ENEMY_HAIR_COLORS.length - 1)];
+    return {
+        gender,
+        skinTone: ENEMY_SKIN_TONES[Utils.randomInt(0, ENEMY_SKIN_TONES.length - 1)],
+        hairStyle: Utils.randomInt(1, 15),
+        hairColor,
+        beardStyle: Utils.randomInt(0, 11),
+        beardColor: hairColor,
+        eyebrowColor: hairColor,
+        eyeColor: ENEMY_EYE_COLORS[Utils.randomInt(0, ENEMY_EYE_COLORS.length - 1)],
+        faceShape: Utils.randomInt(1, 3),
+        archetype,
+        scarStyle: Utils.chance(40) ? Utils.randomInt(1, 4) : 0 // veteranos de arena costumam ter marcas
+    };
+}
+
 class Enemy extends Entity {
     constructor(playerLevel) {
         const name = `${ENEMY_NAMES[Utils.randomInt(0, ENEMY_NAMES.length - 1)]} ${ENEMY_ADJECTIVES[Utils.randomInt(0, ENEMY_ADJECTIVES.length - 1)]}`;
@@ -24,6 +62,11 @@ class Enemy extends Entity {
         // Personalidade + estilo de luta (+ raramente um arquétipo raro) via
         // motor de IA — nunca mais um simples multiplicador de dano.
         window.AICombat.assignProfile(this, { level: this.level });
+
+        // Aparência completa e coerente com o estilo sorteado — cada
+        // inimigo do Duelo Rápido agora parece um lutador diferente, não uma
+        // cópia idêntica só com equipamento trocado.
+        this.visuals = randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null);
 
         // Arma coerente com o estilo sorteado (a menos que o arquétipo raro
         // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
@@ -110,6 +153,12 @@ class Rival extends Entity {
             level: this.level, allowRareArchetype: false
         });
 
+        // Aparência: cada rival nomeado tem gênero/arquétipo/cicatriz
+        // AUTORAIS (def.visuals, ver RivalDatabase abaixo) — reforça que é
+        // "aquele adversário específico", não um número genérico — e o
+        // resto (cores, cabelo, rosto) é preenchido aleatoriamente por cima.
+        this.visuals = Object.assign(randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null), def.visuals || {});
+
         this.equipGear(def.gearRarity);
 
         this.calculateDerivedStats();
@@ -177,13 +226,17 @@ const RivalDatabase = {
             id: 'bronze', name: 'Liga de Bronze',
             rivals: [
                 { id: 'gorlak', name: 'Gorlak, o Novato', title: 'Novato', level: 2, focus: { str: 0.5, def: 0.3, agi: 0.2 },
-                    personalityId: 'impulsivo', styleId: 'espadachim', gearRarity: RARITY.COMMON },
+                    personalityId: 'impulsivo', styleId: 'espadachim', gearRarity: RARITY.COMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 0 } },
                 { id: 'vesna', name: 'Vesna, a Ágil', title: 'Ágil', level: 3, focus: { agi: 0.5, acc: 0.3, luk: 0.2 },
-                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.COMMON },
+                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.COMMON,
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
                 { id: 'thom', name: 'Thom Punho-de-Ferro', title: 'Punho-de-Ferro', level: 4, focus: { str: 0.6, def: 0.4 },
-                    personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON },
+                    personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 } },
                 { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
+                    visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.6, personalityId: 'executor', unlockSkill: 'shield_bash', emotion: 'determinado',
                             message: 'Karg abandona a cautela e avança com fúria calculada!' },
@@ -196,13 +249,17 @@ const RivalDatabase = {
             id: 'silver', name: 'Liga de Prata',
             rivals: [
                 { id: 'ysolda', name: 'Ysolda, Lâmina Veloz', title: 'Lâmina Veloz', level: 6, focus: { agi: 0.4, luk: 0.3, acc: 0.3 },
-                    personalityId: 'cacador', styleId: 'assassino', gearRarity: RARITY.UNCOMMON },
+                    personalityId: 'cacador', styleId: 'assassino', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 0 } },
                 { id: 'bruntok', name: 'Bruntok, o Touro', title: 'o Touro', level: 7, focus: { str: 0.5, def: 0.35, cha: 0.15 },
-                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 1 } },
                 { id: 'nyx', name: 'Nyx, a Sombria', title: 'a Sombria', level: 8, focus: { int: 0.35, acc: 0.35, luk: 0.3 },
-                    personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.RARE },
+                    personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.RARE,
+                    visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 3 } },
                 { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.65, personalityId: 'calculista', unlockSkill: 'heavy_strike', emotion: 'determinado',
                             message: 'Draven reavalia sua estratégia e adapta seu estilo de luta!' },
@@ -215,13 +272,17 @@ const RivalDatabase = {
             id: 'gold', name: 'Liga de Ouro',
             rivals: [
                 { id: 'freya', name: 'Freya Tempestade', title: 'Tempestade', level: 11, focus: { agi: 0.45, acc: 0.35, luk: 0.2 },
-                    personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.RARE },
+                    personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.RARE,
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 } },
                 { id: 'moloch', name: 'Moloch, o Destruidor', title: 'o Destruidor', level: 12, focus: { str: 0.65, def: 0.35 },
-                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.EPIC },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
                 { id: 'sable', name: 'Sable, a Serpente', title: 'a Serpente', level: 13, focus: { luk: 0.4, agi: 0.35, acc: 0.25 },
-                    personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.EPIC },
+                    personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
                 { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
                     personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
+                    visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.7, personalityId: 'gladiador_experiente', unlockSkill: 'shield_bash', emotion: 'confiante',
                             message: 'Aurelion, o Imortal, desperta de verdade!' },

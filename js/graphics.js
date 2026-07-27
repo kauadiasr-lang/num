@@ -90,6 +90,28 @@ class ImpactBurst {
     }
 }
 
+// ==========================================================================
+// ARQUÉTIPOS DE LUTADOR: identidade visual (silhueta/proporções + paleta de
+// destaque + adereço assinatura), independente de atributos/equipamento —
+// dois personagens com o mesmo equipamento ainda parecem lutadores
+// diferentes. Usado pelo criador de personagem (ui.js) e pela geração de
+// inimigos/rivais (enemy.js), então fica exposto em window.
+// ==========================================================================
+const FIGHTER_ARCHETYPES = {
+    veterano: { name: 'Gladiador Veterano', build: { shoulder: 1.05, waist: 1.0, limb: 1.04 }, accent: '#9c7a4e' },
+    barbaro: { name: 'Bárbaro', build: { shoulder: 1.24, waist: 1.12, limb: 1.2 }, accent: '#6b4226' },
+    cavaleiro: { name: 'Cavaleiro', build: { shoulder: 1.1, waist: 0.95, limb: 1.0 }, accent: '#3d5a80' },
+    assassino: { name: 'Assassino', build: { shoulder: 0.9, waist: 0.84, limb: 0.9 }, accent: '#2a2a2a' },
+    guerreira: { name: 'Guerreira', build: { shoulder: 0.95, waist: 0.8, limb: 0.95 }, accent: '#a13d4c' },
+    mercenario: { name: 'Mercenário', build: { shoulder: 1.0, waist: 1.0, limb: 1.0 }, accent: '#7a7a4a' },
+    campeao: { name: 'Campeão', build: { shoulder: 1.16, waist: 0.9, limb: 1.05 }, accent: '#d4af37' }
+};
+window.FIGHTER_ARCHETYPES = FIGHTER_ARCHETYPES;
+
+// Estilos de cicatriz (índice = visuals.scarStyle, 0 = nenhuma)
+const SCAR_STYLES = ['none', 'cheek', 'brow', 'forehead', 'jaw'];
+window.SCAR_STYLES = SCAR_STYLES;
+
 class GraphicsEngine {
     constructor() {
         this.particles = [];
@@ -162,6 +184,22 @@ class GraphicsEngine {
         this._birdTimer = Utils.randomFloat(3, 7);
         // Distância exibida (suavizada) começa já alinhada com a distância real da batalha
         this._displayDistance = (window.BattleEngine && typeof window.BattleEngine.distance === 'number') ? window.BattleEngine.distance : 5;
+
+        // Entrada na arena: os dois lutadores "chegam" de fora da tela e a
+        // câmera dá um leve zoom-in que relaxa até o enquadramento normal —
+        // uma apresentação antes da luta, em vez de um corte direto pro idle.
+        this._entrance = { start: performance.now(), duration: 950 };
+        this.playAnim(true, 'prepare', 900);
+        this.playAnim(false, 'prepare', 900);
+    }
+
+    // 0 (início da entrada) .. 1 (entrada concluída, enquadramento normal).
+    // Usa easing "ease-out" (1-(1-t)^3) pra desacelerar suavemente no final.
+    _entranceProgress() {
+        if (!this._entrance) return 1;
+        const raw = Utils.clamp((performance.now() - this._entrance.start) / this._entrance.duration, 0, 1);
+        if (raw >= 1) this._entrance = null;
+        return 1 - Math.pow(1 - raw, 3);
     }
 
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
@@ -288,8 +326,21 @@ class GraphicsEngine {
             // por isso o resultado nunca fica mais alto que horizonte + margem.
             const horizon = canvasHeight * 0.62;
             const groundY = Math.max(canvasHeight / 2 + 100, horizon + 40);
-            this.drawGladiator(ctx, this.getEntityX(true, canvasWidth), groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
-            this.drawGladiator(ctx, this.getEntityX(false, canvasWidth), groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+
+            // Entrada na arena: câmera com leve zoom-in relaxando ao normal,
+            // e os lutadores "andando" pra dentro da cena a partir de fora
+            // da tela — só cosmético, não afeta a distância tática real.
+            const entranceT = this._entranceProgress();
+            const zoom = Utils.lerp(1.12, 1, entranceT);
+            const walkIn = Utils.lerp(140, 0, entranceT);
+            ctx.save();
+            ctx.translate(canvasWidth / 2, groundY);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -groundY);
+
+            this.drawGladiator(ctx, this.getEntityX(true, canvasWidth) - walkIn, groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
+            this.drawGladiator(ctx, this.getEntityX(false, canvasWidth) + walkIn, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            ctx.restore();
         } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
             // Mesma arena cinematográfica, sem gladiadores — pano de fundo do
             // Menu Principal e dos Créditos (entardecer, coliseu, plateia, poeira)
@@ -649,7 +700,8 @@ class GraphicsEngine {
             offsetX: 0, // negativo = recua (longe do oponente), local, antes do espelhamento
             offsetY: 0,
             rotation: 0,
-            alpha: 1
+            alpha: 1,
+            animType: anim.type // usado pela expressão facial (_drawMouth) pra reagir ao momento da luta
         };
 
         switch (anim.type) {
@@ -729,6 +781,16 @@ class GraphicsEngine {
                 pose.offsetY = -k * 4;
                 break;
             }
+            case 'prepare': { // Entrada na arena: flourish erguendo a arma antes da postura de combate.
+                // Curva senoidal (sobe e volta à linha de base) igual a
+                // hurt/dodge/victory — assim a pose sempre termina neutra em
+                // t=1 sem precisar de nenhum reset explícito depois.
+                const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                pose.weaponAngle -= 26 * k;
+                pose.torsoLean -= 2 * k;
+                pose.offsetY = -3 * k;
+                break;
+            }
             case 'walk': {
                 // Passada de verdade (usado ao caminhar livremente pela Cidade,
                 // jogador e NPCs): pernas alternando bem mais largo que o balanço
@@ -744,7 +806,7 @@ class GraphicsEngine {
             default: break;
         }
 
-        const exclusiveAnims = ['attack', 'hurt', 'death', 'approach', 'retreat', 'run', 'charge', 'push', 'cast'];
+        const exclusiveAnims = ['attack', 'hurt', 'death', 'approach', 'retreat', 'run', 'charge', 'push', 'cast', 'prepare'];
         pose.guard = !!isDefending && !exclusiveAnims.includes(anim.type);
         return pose;
     }
@@ -753,10 +815,14 @@ class GraphicsEngine {
         const pose = this.computePose(anim, battleState && battleState.isDefending);
         const dir = isPlayer ? 1 : -1;
 
-        // Sombra (fixa no chão, não acompanha os pequenos deslocamentos de pose)
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        // Sombra com gradiente suave (em vez de uma elipse chapada de opacidade
+        // única) — dá uma sensação de contato com o chão bem mais natural.
+        const shadowGrad = ctx.createRadialGradient(x, y + 8, 2, x, y + 8, 34);
+        shadowGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
+        shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = shadowGrad;
         ctx.beginPath();
-        ctx.ellipse(x, y + 8, 32, 9, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + 8, 34, 10, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.save();
@@ -766,12 +832,13 @@ class GraphicsEngine {
         ctx.scale(dir, 1);
         ctx.translate(pose.offsetX, 0);
 
+        this._drawCape(ctx, entity, pose); // capa/manto (arquétipos com adereço nas costas) — atrás de tudo
         this._drawLegs(ctx, entity, pose);
         this._drawTorso(ctx, entity, pose);
         this._drawBackArm(ctx, entity, pose);
         this._drawTorsoDetail(ctx, entity);
         this._drawHead(ctx, entity, pose);
-        this._drawFrontArm(ctx, entity, pose);
+        this._drawFrontArm(ctx, entity, pose, anim);
 
         ctx.restore();
         ctx.globalAlpha = 1;
@@ -779,15 +846,42 @@ class GraphicsEngine {
 
     _legLen() { return 58; }
     _torsoH() { return 62; }
-    // Silhueta ligeiramente diferente por identidade visual entre os gêneros
-    // (puramente estética — não afeta hitbox, alcance ou qualquer cálculo de
-    // combate, que continuam vindo só dos atributos/equipamento).
-    _torsoW(entity) {
-        const base = 34;
-        return (entity && entity.visuals && entity.visuals.gender === 'Feminino') ? base * 0.85 : base;
-    }
     _headR() { return 20; }
     _armLen() { return 46; }
+
+    // Arquétipo visual do lutador (identidade independente do equipamento —
+    // ver FIGHTER_ARCHETYPES no topo do arquivo). Some lutadores antigos
+    // (salvos antes deste sistema existir) podem não ter o campo: cai em
+    // "veterano" como padrão neutro.
+    _archetype(entity) {
+        const id = entity && entity.visuals && entity.visuals.archetype;
+        return FIGHTER_ARCHETYPES[id] || FIGHTER_ARCHETYPES.veterano;
+    }
+
+    // Medidas do corpo (ombro/cintura/quadril/espessura de braço e perna),
+    // combinando gênero (silhueta) x arquétipo (build) — é isso que faz dois
+    // lutadores com o mesmo equipamento parecerem fisicamente diferentes.
+    _bodyMetrics(entity) {
+        const arch = this._archetype(entity);
+        const isFem = entity && entity.visuals && entity.visuals.gender === 'Feminino';
+        const shoulderBase = isFem ? 30 : 34;
+        const waistFrac = isFem ? 0.58 : 0.78;
+        const limbMul = arch.build.limb * (isFem ? 0.92 : 1);
+        return {
+            shoulder: shoulderBase * arch.build.shoulder,
+            waist: shoulderBase * waistFrac * arch.build.waist,
+            hip: shoulderBase * (isFem ? 0.72 : 0.62) * arch.build.waist,
+            ankle: 8 * limbMul,
+            armShoulder: 9 * limbMul,
+            armWrist: 6.5 * limbMul
+        };
+    }
+
+    // Mantido por compatibilidade com o restante do arquivo — agora deriva
+    // da mesma métrica de corpo (ombro) usada pelo torso afunilado.
+    _torsoW(entity) {
+        return this._bodyMetrics(entity).shoulder;
+    }
 
     _roundRect(ctx, x, y, w, h, r) {
         ctx.beginPath();
@@ -799,41 +893,127 @@ class GraphicsEngine {
         ctx.closePath();
     }
 
+    // Quadrilátero afunilado entre duas alturas locais (y0->y1) com larguras
+    // diferentes em cada ponta — substitui os retângulos "de bloco" antigos
+    // de braços/pernas por membros com silhueta humana de verdade.
+    _drawTaperedLimb(ctx, x0, y0, y1, wStart, wEnd) {
+        ctx.beginPath();
+        ctx.moveTo(x0 - wStart / 2, y0);
+        ctx.lineTo(x0 + wStart / 2, y0);
+        ctx.lineTo(x0 + wEnd / 2, y1);
+        ctx.lineTo(x0 - wEnd / 2, y1);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Capa/manto atrás dos ombros — só alguns arquétipos têm (Campeão: capa
+    // ampla e dourada; Cavaleiro: capa curta de nobreza); balança levemente
+    // com o idle, sem depender de nenhum equipamento específico.
+    _drawCape(ctx, entity, pose) {
+        const archId = entity && entity.visuals && entity.visuals.archetype;
+        if (archId !== 'campeao' && archId !== 'cavaleiro') return;
+        const arch = this._archetype(entity);
+        const big = archId === 'campeao';
+        const legLen = this._legLen();
+        const m = this._bodyMetrics(entity);
+        const topY = -legLen - this._torsoH() + 6;
+        const sway = Math.sin(performance.now() / 900) * (big ? 4 : 2);
+
+        ctx.save();
+        ctx.translate(-m.shoulder * 0.3, topY);
+        ctx.fillStyle = arch.accent;
+        ctx.globalAlpha = 0.92;
+        ctx.beginPath();
+        ctx.moveTo(-m.shoulder * 0.35, -4);
+        ctx.lineTo(m.shoulder * 0.35, -4);
+        ctx.quadraticCurveTo(m.shoulder * 0.5 + sway, legLen * (big ? 0.75 : 0.4), m.shoulder * 0.25 + sway, legLen * (big ? 0.95 : 0.5));
+        ctx.lineTo(-m.shoulder * 0.25 + sway, legLen * (big ? 0.95 : 0.5));
+        ctx.quadraticCurveTo(-m.shoulder * 0.5 + sway, legLen * (big ? 0.75 : 0.4), -m.shoulder * 0.35, -4);
+        ctx.closePath();
+        ctx.fill();
+        if (big) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-m.shoulder * 0.35, -4);
+            ctx.lineTo(-m.shoulder * 0.25 + sway, legLen * 0.9);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
     _drawLegs(ctx, entity, pose) {
         const legLen = this._legLen();
         const boots = entity.equipment && entity.equipment[SLOTS.FEET];
+        const m = this._bodyMetrics(entity);
         const legColor = '#4a3826';
         const sway = pose.legSway * 0.15;
+        const hipW = m.ankle * 1.7, ankleW = m.ankle;
 
         ctx.fillStyle = legColor;
         ctx.save();
         ctx.translate(-8, 0);
         ctx.rotate(sway * Math.PI / 180);
-        ctx.fillRect(-6, -legLen, 11, legLen);
+        this._drawTaperedLimb(ctx, 0, -legLen, 0, hipW, ankleW);
+        // linha de sombra interna simples pra sugerir volume, sem exigir gradiente por perna
+        ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(hipW * 0.15, -legLen + 4); ctx.lineTo(ankleW * 0.15, -4); ctx.stroke();
         ctx.restore();
 
         ctx.save();
         ctx.translate(8, 0);
         ctx.rotate(-sway * Math.PI / 180);
-        ctx.fillRect(-5, -legLen, 11, legLen);
+        this._drawTaperedLimb(ctx, 0, -legLen, 0, hipW, ankleW);
         ctx.restore();
+
+        // Arquétipo: tiras/enfaixamento nas pernas (Bárbaro: peles no topo da
+        // coxa; Assassino: correias de utilidade na coxa) — puramente estético.
+        const archId = entity.visuals && entity.visuals.archetype;
+        if (archId === 'barbaro') {
+            const arch = this._archetype(entity);
+            ctx.fillStyle = arch.accent;
+            ctx.fillRect(-8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
+            ctx.fillRect(8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
+        } else if (archId === 'assassino') {
+            ctx.strokeStyle = this._archetype(entity).accent;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(-8 - hipW / 2, -legLen * 0.62); ctx.lineTo(-8 + hipW / 2, -legLen * 0.68); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(8 - hipW / 2, -legLen * 0.62); ctx.lineTo(8 + hipW / 2, -legLen * 0.68); ctx.stroke();
+        }
 
         if (boots) {
             const bootColor = boots.rarity ? boots.rarity.color : '#8a5a2b';
+            const bw = ankleW + 6;
             ctx.fillStyle = '#2c2318';
-            ctx.fillRect(-14, -16, 12, 16);
-            ctx.fillRect(2, -16, 12, 16);
+            ctx.fillRect(-8 - bw / 2, -16, bw, 16);
+            ctx.fillRect(8 - bw / 2, -16, bw, 16);
             ctx.strokeStyle = bootColor;
             ctx.lineWidth = 2;
-            ctx.strokeRect(-14, -16, 12, 16);
-            ctx.strokeRect(2, -16, 12, 16);
+            ctx.strokeRect(-8 - bw / 2, -16, bw, 16);
+            ctx.strokeRect(8 - bw / 2, -16, bw, 16);
+            // Sola e cadarço/fivela simples pra não ficarem blocos lisos
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fillRect(-8 - bw / 2, -3, bw, 3);
+            ctx.fillRect(8 - bw / 2, -3, bw, 3);
         }
+    }
+
+    // Caminho do torso afunilado (ombros largos -> cintura estreita) — usado
+    // tanto pro preenchimento quanto pra sobrepor o sombreamento direcional.
+    _torsoPath(ctx, m, torsoH) {
+        ctx.beginPath();
+        ctx.moveTo(-m.shoulder / 2, -torsoH);
+        ctx.quadraticCurveTo(-m.shoulder / 2 - 3, -torsoH * 0.55, -m.waist / 2, 0);
+        ctx.lineTo(m.waist / 2, 0);
+        ctx.quadraticCurveTo(m.shoulder / 2 + 3, -torsoH * 0.55, m.shoulder / 2, -torsoH);
+        ctx.closePath();
     }
 
     _drawTorso(ctx, entity, pose) {
         const legLen = this._legLen();
         const torsoH = this._torsoH();
-        const torsoW = this._torsoW(entity);
+        const m = this._bodyMetrics(entity);
         const chest = entity.equipment && entity.equipment[SLOTS.CHEST];
         const teamColor = entity.__teamColor || '#5a4632';
 
@@ -854,22 +1034,85 @@ class GraphicsEngine {
         ctx.translate(0, -legLen);
         ctx.rotate(pose.torsoLean * Math.PI / 180 * 0.3);
         ctx.scale(1, pose.torsoScaleY);
+
         ctx.fillStyle = torsoColor;
-        this._roundRect(ctx, -torsoW / 2, -torsoH, torsoW, torsoH, 6);
+        this._torsoPath(ctx, m, torsoH);
+        ctx.fill();
+
+        // Sombreamento direcional (luz vindo da esquerda) — dá volume ao
+        // torso em vez do preenchimento chapado de antes.
+        const shade = ctx.createLinearGradient(-m.shoulder / 2, 0, m.shoulder / 2, 0);
+        shade.addColorStop(0, 'rgba(255,255,255,0.16)');
+        shade.addColorStop(0.5, 'rgba(255,255,255,0)');
+        shade.addColorStop(1, 'rgba(0,0,0,0.22)');
+        ctx.fillStyle = shade;
+        this._torsoPath(ctx, m, torsoH);
         ctx.fill();
 
         if (metallic) {
             ctx.strokeStyle = 'rgba(255,255,255,0.35)';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(-torsoW / 2 + 5, -torsoH + 6);
-            ctx.lineTo(-torsoW / 2 + 5, -6);
+            ctx.moveTo(-m.shoulder / 2 + 5, -torsoH + 6);
+            ctx.lineTo(-m.waist / 2 + 4, -6);
             ctx.stroke();
         }
 
+        this._drawArchetypeTorsoSignature(ctx, entity, m, torsoH);
+
         ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(-torsoW / 2, -12, torsoW, 6);
+        ctx.fillRect(-m.waist / 2, -12, m.waist, 6);
         ctx.restore();
+    }
+
+    // Adereço de torso assinatura por arquétipo — reforça a identidade visual
+    // de cada lutador além do equipamento (ver FIGHTER_ARCHETYPES).
+    _drawArchetypeTorsoSignature(ctx, entity, m, torsoH) {
+        const archId = entity.visuals && entity.visuals.archetype;
+        if (!archId) return;
+        const arch = this._archetype(entity);
+
+        if (archId === 'cavaleiro') { // tabardo (livrea) sobre a armadura
+            ctx.fillStyle = arch.accent;
+            ctx.globalAlpha = 0.9;
+            ctx.fillRect(-m.waist * 0.22, -torsoH + 8, m.waist * 0.44, torsoH - 10);
+            ctx.globalAlpha = 1;
+        } else if (archId === 'barbaro') { // peles no ombro + pintura tribal
+            ctx.fillStyle = arch.accent;
+            ctx.beginPath(); ctx.arc(-m.shoulder / 2 + 4, -torsoH + 5, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(m.shoulder / 2 - 4, -torsoH + 5, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#c94f3f'; ctx.lineWidth = 3; ctx.globalAlpha = 0.75;
+            ctx.beginPath(); ctx.moveTo(-m.waist / 2, -torsoH * 0.45); ctx.lineTo(m.waist / 2, -torsoH * 0.62); ctx.stroke();
+            ctx.globalAlpha = 1;
+        } else if (archId === 'guerreira') { // faixa/sash diagonal
+            ctx.strokeStyle = arch.accent; ctx.lineWidth = 6; ctx.globalAlpha = 0.85;
+            ctx.beginPath(); ctx.moveTo(-m.shoulder / 2 + 2, -torsoH + 6); ctx.lineTo(m.waist / 2 - 2, -4); ctx.stroke();
+            ctx.globalAlpha = 1;
+        } else if (archId === 'mercenario') { // remendos assimétricos e contrastantes, equipamento improvisado
+            ctx.fillStyle = 'rgba(70,95,110,0.8)';
+            ctx.fillRect(-m.waist / 2 + 2, -torsoH * 0.68, m.waist * 0.42, torsoH * 0.26);
+            ctx.strokeStyle = 'rgba(20,20,20,0.5)'; ctx.lineWidth = 1;
+            ctx.strokeRect(-m.waist / 2 + 2, -torsoH * 0.68, m.waist * 0.42, torsoH * 0.26);
+            ctx.fillStyle = 'rgba(150,80,40,0.8)';
+            ctx.fillRect(-m.waist * 0.1, -torsoH * 0.36, m.waist * 0.38, torsoH * 0.22);
+            ctx.strokeRect(-m.waist * 0.1, -torsoH * 0.36, m.waist * 0.38, torsoH * 0.22);
+        } else if (archId === 'campeao') { // friso dourado + emblema de laurel
+            ctx.strokeStyle = arch.accent; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, -torsoH + 6); ctx.lineTo(0, -6); ctx.stroke();
+            ctx.fillStyle = arch.accent;
+            ctx.beginPath(); ctx.arc(0, -torsoH * 0.6, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (archId === 'assassino') { // correias cruzadas no peito
+            ctx.strokeStyle = arch.accent; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+            ctx.beginPath(); ctx.moveTo(-m.shoulder / 2 + 2, -torsoH + 6); ctx.lineTo(m.waist / 2 - 2, -6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(m.shoulder / 2 - 2, -torsoH + 6); ctx.lineTo(-m.waist / 2 + 2, -6); ctx.stroke();
+            ctx.globalAlpha = 1;
+        } else if (archId === 'veterano') { // faixa de bandagem enrolada cruzando o peito, marca de batalhas antigas
+            ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 5.5; ctx.globalAlpha = 0.95;
+            ctx.beginPath(); ctx.moveTo(-m.shoulder / 2 + 4, -torsoH * 0.68); ctx.lineTo(m.waist / 2 - 4, -torsoH * 0.22); ctx.stroke();
+            ctx.fillStyle = 'rgba(140,30,30,0.6)';
+            ctx.beginPath(); ctx.arc(m.waist * 0.05, -torsoH * 0.45, 2.8, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
     }
 
     // Amuleto/anel: um leve brilho no peito quando equipados (acessório visível)
@@ -902,6 +1145,7 @@ class GraphicsEngine {
         const headR = this._headR();
         const headY = this._headAnchorY();
         const helmet = entity.equipment && entity.equipment[SLOTS.HEAD];
+        const archId = v.archetype;
 
         // Pescoço
         ctx.fillStyle = skin;
@@ -919,13 +1163,21 @@ class GraphicsEngine {
         ctx.arc(0, 0, headR, 0, Math.PI * 2);
         ctx.fillStyle = skin;
         ctx.fill();
+        // Sombra sutil no lado de trás do rosto — mesmo truque de luz vindo
+        // da esquerda usado no torso, evita a cabeça parecer um disco chapado.
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        ctx.beginPath();
+        ctx.arc(headR * 0.35, 0, headR * 0.85, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.fill();
         ctx.restore();
 
-        // Sobrancelha e olho
+        // Sobrancelha: ângulo varia por arquétipo (Bárbaro/Assassino mais
+        // cerrada e agressiva, Cavaleiro/Campeão mais neutra e confiante)
+        const browDrop = (archId === 'barbaro' || archId === 'assassino') ? 3 : 0;
         ctx.strokeStyle = v.eyebrowColor || v.hairColor || '#2a1c10';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(4, headY - 4);
+        ctx.moveTo(4, headY - 4 + browDrop);
         ctx.lineTo(13, headY - 6);
         ctx.stroke();
 
@@ -934,9 +1186,70 @@ class GraphicsEngine {
         ctx.arc(10, headY, 2, 0, Math.PI * 2);
         ctx.fill();
 
+        this._drawMouth(ctx, v, headY, pose);
+        this._drawScar(ctx, v, headY, headR);
+
         if (!helmet) this._drawHair(ctx, v, headY, headR, false);
         this._drawFacialHair(ctx, v, headY);
+        this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
+    }
+
+    // Boca simples que reage à animação em curso — sem isso o rosto ficava
+    // sempre com a mesma expressão vazia em qualquer momento da luta.
+    _drawMouth(ctx, v, headY, pose) {
+        const type = pose && pose.animType;
+        ctx.strokeStyle = 'rgba(60,30,20,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (type === 'attack' || type === 'run' || type === 'charge') {
+            ctx.arc(7, headY + 8, 3, 0.1 * Math.PI, 0.9 * Math.PI); // boca aberta, esforço
+        } else if (type === 'hurt') {
+            ctx.moveTo(4, headY + 9); ctx.quadraticCurveTo(8, headY + 6, 12, headY + 9); // careta
+        } else if (type === 'victory') {
+            ctx.arc(7, headY + 7, 3.5, 0.15 * Math.PI, 0.85 * Math.PI); // sorriso
+        } else {
+            ctx.moveTo(3, headY + 8); ctx.lineTo(12, headY + 8); // neutro
+        }
+        ctx.stroke();
+    }
+
+    // Cicatriz (visuals.scarStyle, 0 = nenhuma) — puramente estética, mesmo
+    // padrão de v.hairColor/v.eyeColor: só identidade visual.
+    _drawScar(ctx, v, headY, headR) {
+        const style = SCAR_STYLES[v.scarStyle || 0];
+        if (!style || style === 'none') return;
+        ctx.strokeStyle = 'rgba(150,90,80,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (style === 'cheek') { ctx.moveTo(2, headY - 2); ctx.lineTo(9, headY + 10); }
+        else if (style === 'brow') { ctx.moveTo(0, headY - 9); ctx.lineTo(6, headY - 3); }
+        else if (style === 'forehead') { ctx.moveTo(-6, headY - headR + 6); ctx.lineTo(2, headY - 10); }
+        else if (style === 'jaw') { ctx.moveTo(6, headY + 9); ctx.lineTo(13, headY + 14); }
+        ctx.stroke();
+    }
+
+    // Adereço de cabeça assinatura por arquétipo (Assassino: véu cobrindo o
+    // rosto inferior; Campeão: coroa de louros) — some quando há capacete
+    // equipado, já que o capacete cobre a mesma área.
+    _drawArchetypeHeadSignature(ctx, entity, headY, headR) {
+        const v = entity.visuals || {};
+        const archId = v.archetype;
+        const helmet = entity.equipment && entity.equipment[SLOTS.HEAD];
+        if (helmet) return;
+        if (archId === 'assassino') {
+            ctx.fillStyle = this._archetype(entity).accent;
+            ctx.globalAlpha = 0.85;
+            ctx.beginPath();
+            ctx.ellipse(4, headY + 8, headR * 0.55, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        } else if (archId === 'campeao') {
+            ctx.strokeStyle = '#5a7a3a'; ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, headY - 3, headR + 4, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.stroke();
+        }
     }
 
     // Dome básico de cabelo curto — base compartilhada por vários estilos que
@@ -1201,6 +1514,13 @@ class GraphicsEngine {
         ctx.fillRect(-headR - 2, headY - 4, 4, 15);
         ctx.fillRect(headR - 2, headY - 4, 4, 15);
 
+        // Brilho metálico no topo — sem isso o capacete ficava um domo cinza
+        // liso, igual à armadura antes do sombreamento direcional do torso.
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(-headR * 0.3, headY - 4, headR - 3, Math.PI * 1.05, Math.PI * 1.4);
+        ctx.stroke();
+
         ctx.fillStyle = crestColor;
         ctx.beginPath();
         ctx.moveTo(0, headY - headR - 10);
@@ -1215,28 +1535,41 @@ class GraphicsEngine {
         const shoulderY = -this._legLen() - this._torsoH() + 10;
         const skin = (entity.visuals && entity.visuals.skinTone) || '#ffcc99';
         const gloves = entity.equipment && entity.equipment[SLOTS.HANDS];
+        const gloveColor = gloves ? (gloves.rarity ? gloves.rarity.color : '#5a4632') : null;
         const armColor = gloves ? '#3a2f22' : skin;
+        const m = this._bodyMetrics(entity);
         const shield = entity.equipment && entity.equipment[SLOTS.OFF_HAND];
         const angle = pose.guard ? -110 : -75;
 
         ctx.save();
-        ctx.translate(-this._torsoW(entity) / 2 + 3, shoulderY);
+        ctx.translate(-m.shoulder / 2 + 3, shoulderY);
         ctx.rotate(angle * Math.PI / 180);
         ctx.fillStyle = armColor;
-        ctx.fillRect(-4, 0, 8, this._armLen() * 0.7);
+        this._drawTaperedLimb(ctx, 0, 0, this._armLen() * 0.7, m.armShoulder, m.armWrist);
+        if (gloveColor) {
+            ctx.strokeStyle = gloveColor; ctx.lineWidth = 1.5;
+            ctx.strokeRect(-m.armWrist / 2, this._armLen() * 0.5, m.armWrist, this._armLen() * 0.2);
+        }
         ctx.restore();
 
         if (shield) {
             const shieldColor = shield.rarity ? shield.rarity.color : '#8a5a2b';
-            const sx = pose.guard ? -this._torsoW(entity) / 2 - 14 : -this._torsoW(entity) / 2 - 4;
+            const sx = pose.guard ? -m.shoulder / 2 - 14 : -m.shoulder / 2 - 4;
             const sy = pose.guard ? shoulderY + 2 : shoulderY + 22;
+            const shieldSize = 12 + (shield.defense || 0) * 0.15; // escudos mais fortes aparecem visivelmente maiores
             ctx.save();
             ctx.fillStyle = '#5a4632';
             ctx.strokeStyle = shieldColor;
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.ellipse(sx, sy, 12, 17, 0, 0, Math.PI * 2);
+            ctx.ellipse(sx, sy, shieldSize, shieldSize * 1.42, 0, 0, Math.PI * 2);
             ctx.fill();
+            ctx.stroke();
+            // Aro interno + umbo central — dá a sensação de metal batido em
+            // vez de um disco liso de cor única.
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, shieldSize * 0.62, shieldSize * 0.88, 0, 0, Math.PI * 2);
             ctx.stroke();
             ctx.beginPath();
             ctx.arc(sx, sy, 4, 0, Math.PI * 2);
@@ -1246,23 +1579,49 @@ class GraphicsEngine {
         }
     }
 
-    // Braço da frente: sempre a arma equipada (ou punho nu)
-    _drawFrontArm(ctx, entity, pose) {
+    // Braço da frente: sempre a arma equipada (ou punho nu). anim (opcional)
+    // permite desenhar um leve rastro de movimento durante o golpe de ataque.
+    _drawFrontArm(ctx, entity, pose, anim) {
         const shoulderY = -this._legLen() - this._torsoH() + 10;
         const skin = (entity.visuals && entity.visuals.skinTone) || '#ffcc99';
         const gloves = entity.equipment && entity.equipment[SLOTS.HANDS];
+        const gloveColor = gloves ? (gloves.rarity ? gloves.rarity.color : '#5a4632') : null;
         const armColor = gloves ? '#3a2f22' : skin;
+        const m = this._bodyMetrics(entity);
+        const armLen = this._armLen();
+        const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
+
+        // Rastro de movimento (afterimage) durante o swing de ataque — 2 cópias
+        // fracas do braço/arma num ângulo levemente anterior, sem precisar
+        // rastrear histórico de quadros anteriores.
+        if (anim && anim.type === 'attack') {
+            [24, 12].forEach((back, i) => {
+                ctx.save();
+                ctx.globalAlpha = 0.14 + i * 0.08;
+                ctx.translate(m.shoulder / 2 - 3, shoulderY);
+                ctx.rotate((pose.weaponAngle - back) * Math.PI / 180);
+                ctx.fillStyle = armColor;
+                this._drawTaperedLimb(ctx, 0, 0, armLen, m.armShoulder, m.armWrist);
+                ctx.translate(0, armLen);
+                this._drawWeapon(ctx, activeWeapon);
+                ctx.restore();
+            });
+            ctx.globalAlpha = 1;
+        }
 
         ctx.save();
-        ctx.translate(this._torsoW(entity) / 2 - 3, shoulderY);
+        ctx.translate(m.shoulder / 2 - 3, shoulderY);
         ctx.rotate(pose.weaponAngle * Math.PI / 180);
         ctx.fillStyle = armColor;
-        ctx.fillRect(-4, 0, 8, this._armLen());
-        ctx.translate(0, this._armLen());
+        this._drawTaperedLimb(ctx, 0, 0, armLen, m.armShoulder, m.armWrist);
+        if (gloveColor) {
+            ctx.strokeStyle = gloveColor; ctx.lineWidth = 1.5;
+            ctx.strokeRect(-m.armWrist / 2, armLen * 0.72, m.armWrist, armLen * 0.22);
+        }
+        ctx.translate(0, armLen);
         // Usa a arma ATIVA (mainHand ou ranged, conforme activeWeaponSlot),
         // não sempre a mainHand — senão trocar de arma em combate mudava o
         // dano/alcance mas o sprite continuava mostrando a arma antiga.
-        const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
         this._drawWeapon(ctx, activeWeapon);
         ctx.restore();
     }
