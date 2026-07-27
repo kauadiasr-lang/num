@@ -531,6 +531,11 @@ const AICombat = {
         let retreatScore = style.actionBias.RETREAT * (0.2 + p.retreatDrive) * (em.RETREAT || 1) * (0.4 + ctx.risk);
         if (rare && rare.id === 'nunca_recua') retreatScore = 0;
         if (ctx.repeatedPattern === 'APPROACH' || ctx.repeatedPattern === 'RUN' || ctx.repeatedPattern === 'CHARGE') retreatScore *= 1.4;
+        // Estilos "hitAndRun" (ver ai_data.js, ex: assassino) reforçam MUITO a
+        // fuga logo depois de acertar um golpe — bug de auditoria: essa flag
+        // existia há tempos mas nunca era lida em lugar nenhum, então
+        // assassinos nunca recuavam de propósito fora do combo pré-roteirizado.
+        if (style.hitAndRun && enemy.aiState.hitStreak > 0) retreatScore *= 2.2;
         add('RETREAT', null, retreatScore, `${enemy.name} recua, mantendo distância segura.`);
 
         // APPROACH voluntário (perseguição extra quando o jogador kita)
