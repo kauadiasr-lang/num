@@ -2494,6 +2494,25 @@ class GraphicsEngine {
         // ainda não desenhada especificamente.
         const draw = WEAPON_RENDERERS[weapon.id] || WEAPON_RENDERERS.default;
         draw(ctx);
+
+        // Brilho elemental do Encantamento (ver enchantments.js) — a arma
+        // nunca mostrava visualmente estar encantada, só o VFX passageiro
+        // do acerto (ver battle.js executeAttack, enchantEff.particleColor).
+        // Reaproveita a MESMA cor já definida por encantamento, sem precisar
+        // de nenhum campo visual novo — aura sutil e pulsante na lâmina.
+        if (weapon.enchantmentId && window.ENCHANTMENTS) {
+            const ench = window.ENCHANTMENTS[weapon.enchantmentId];
+            if (ench) {
+                const pulse = 0.35 + Math.sin(performance.now() / 333) * 0.15;
+                ctx.save();
+                ctx.globalAlpha = pulse;
+                ctx.fillStyle = ench.color;
+                ctx.beginPath();
+                ctx.arc(8, 0, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
     }
 }
 
