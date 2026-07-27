@@ -566,7 +566,17 @@ const AICombat = {
         // Troca de arma (adaptação): mais provável quando frustrado ou sob padrão detectado
         let swapScore = p.weaponSwapTendency * 0.3;
         if (enemy.aiState.missStreak >= 3) swapScore *= 2.2;
-        if (enemy.aiState.turnCount - (enemy.aiState.lastSwapTurn || 0) < 3) swapScore = 0; // não troca toda hora
+        // "O Inconstante" (trocador_de_armas) existia em ai_data.js prometendo
+        // trocar de arma constantemente, mas nada em ai.js checava esse
+        // arquétipo raro — na prática ele se comportava como um inimigo
+        // qualquer. Agora ele ignora o cooldown normal de troca e mantém uma
+        // pontuação alta e constante de SWAP.
+        const isInconstante = rare && rare.id === 'trocador_de_armas';
+        if (isInconstante) {
+            swapScore = 0.8;
+        } else if (enemy.aiState.turnCount - (enemy.aiState.lastSwapTurn || 0) < 3) {
+            swapScore = 0; // não troca toda hora
+        }
         add('SWAP', null, swapScore, null);
 
         // Provocar (flavor puro, reaproveita DEF/HOLD com mensagem diferente e leve ganho de moral)
