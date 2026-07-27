@@ -29,6 +29,10 @@ class BattleSystem {
         // continuam livres de usar sem "quebrar" o requisito.
         this.usedOffensiveMagic = false;
 
+        // Renascimento (nó capstone da árvore da Luz) só pode disparar uma
+        // vez por batalha — ver checkWinCondition().
+        this.autoReviveUsed = false;
+
         // Memória/emoção/moral/combo do inimigo para esta luta (nunca salvo —
         // só existe durante a batalha, ver ai.js)
         if (window.AICombat) window.AICombat.initBattleState(this);
@@ -285,7 +289,30 @@ class BattleSystem {
         if (this.enemy.currentHp <= 0) {
             this.isBattleActive = false;
             return 'VICTORY';
-        } else if (this.player.currentHp <= 0) {
+        }
+
+        // Renascimento (Luz, tier 4 — ver skilltrees.js): uma vez por
+        // batalha, cair abaixo de 20% de HP cura 25% do HP máximo na hora.
+        // O nó já existia e custava pontos de mutação reais, mas nada lia
+        // `derivedStats.mutationSpecials` — o efeito nunca disparava.
+        const specials = this.player.derivedStats && this.player.derivedStats.mutationSpecials;
+        if (specials && specials.includes('auto_revive_heal') && !this.autoReviveUsed &&
+            this.player.currentHp > 0 && this.player.currentHp < this.player.derivedStats.maxHp * 0.2) {
+            this.autoReviveUsed = true;
+            const healAmount = Math.floor(this.player.derivedStats.maxHp * 0.25);
+            this.player.currentHp = Utils.clamp(this.player.currentHp + healAmount, 0, this.player.derivedStats.maxHp);
+            if (window.GFX) {
+                const playerX = window.GFX.getEntityX(true, window.innerWidth);
+                const playerY = window.innerHeight / 2;
+                window.GFX.spawnText(playerX, playerY - 60, `+${healAmount}`, '#ffe9a3', false);
+                window.GFX.spawnParticles(playerX, playerY, '#ffe9a3', 30, 5, 5);
+            }
+            if (window.UI && window.UI.appendBattleLog) {
+                window.UI.appendBattleLog(`<span style="color:#ffe9a3">Renascimento: a Luz interior te salva, curando ${healAmount} HP!</span>`);
+            }
+        }
+
+        if (this.player.currentHp <= 0) {
             this.isBattleActive = false;
             return 'DEFEAT';
         }
