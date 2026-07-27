@@ -345,6 +345,19 @@ class GraphicsEngine {
         this.bursts.push(new ImpactBurst(x, y, color));
     }
 
+    // Explosão de partículas + anéis de luz pra cinemática "NOVA LINHAGEM
+    // DESPERTA" (ver ui.js showLineageAwakening) — centrada no jogador,
+    // cor vinda do acento da linhagem (ver LINEAGES em lineages.js).
+    playLineageAwakeningVFX(color) {
+        if (!window.Engine) return;
+        const x = this.getEntityX(true, window.Engine.width);
+        const y = window.Engine.height / 2;
+        this.spawnParticles(x, y, color, 60, 7, 5);
+        for (let i = 0; i < 4; i++) {
+            setTimeout(() => this.spawnCritBurst(x, y, color), i * 150);
+        }
+    }
+
     // Posição X de um gladiador na arena. Reflete a distância tática real da
     // batalha (suavizada quadro a quadro): quanto maior window.BattleEngine.distance,
     // mais afastados os gladiadores aparecem — e vice-versa quando se aproximam.
@@ -1510,6 +1523,27 @@ class GraphicsEngine {
                 pose.offsetY = -k * 4;
                 break;
             }
+            case 'boss_bats': { // Conde Vampiro: Enxame de Morcegos — gesto amplo e caótico convocando o enxame
+                const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                pose.weaponAngle -= 70 * Math.sin(t * Math.PI * 3); // agito rápido, irregular
+                pose.torsoLean += 10 * k;
+                pose.offsetX = Math.sin(t * Math.PI * 4) * 6 * k;
+                break;
+            }
+            case 'boss_slam': { // Conde Vampiro: Garra Imortal — golpe pesado de cima pra baixo, atordoante
+                const k = Utils.clamp(t / 0.5, 0, 1);
+                pose.weaponAngle = Utils.lerp(-90, 40, k);
+                pose.offsetY = Math.sin(Utils.clamp(t, 0, 1) * Math.PI) * 10;
+                pose.torsoLean += 14 * Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                break;
+            }
+            case 'boss_judgment': { // Anjo Guardião: Julgamento Final — braços erguidos aos céus, depois libera
+                const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                pose.weaponAngle = -140 * k;
+                pose.offsetY = -12 * k;
+                pose.torsoLean -= 4 * k;
+                break;
+            }
             case 'prepare': { // Entrada na arena: flourish erguendo a arma antes da postura de combate.
                 // Curva senoidal (sobe e volta à linha de base) igual a
                 // hurt/dodge/victory — assim a pose sempre termina neutra em
@@ -1535,7 +1569,7 @@ class GraphicsEngine {
             default: break;
         }
 
-        const exclusiveAnims = ['attack', 'hurt', 'death', 'approach', 'retreat', 'run', 'charge', 'push', 'cast', 'prepare'];
+        const exclusiveAnims = ['attack', 'hurt', 'death', 'approach', 'retreat', 'run', 'charge', 'push', 'cast', 'prepare', 'boss_bats', 'boss_slam', 'boss_judgment'];
         pose.guard = !!isDefending && !exclusiveAnims.includes(anim.type);
         return pose;
     }
@@ -1561,6 +1595,7 @@ class GraphicsEngine {
         ctx.scale(dir, 1);
         ctx.translate(pose.offsetX, 0);
 
+        this._drawLineageAura(ctx, entity); // aura/fumaça da Linhagem — atrás de tudo, igual à capa
         this._drawCape(ctx, entity, pose); // capa/manto (arquétipos com adereço nas costas) — atrás de tudo
         this._drawLegs(ctx, entity, pose);
         this._drawTorso(ctx, entity, pose);
@@ -1638,6 +1673,37 @@ class GraphicsEngine {
     // Capa/manto atrás dos ombros — só alguns arquétipos têm (Campeão: capa
     // ampla e dourada; Cavaleiro: capa curta de nobreza); balança levemente
     // com o idle, sem depender de nenhum equipamento específico.
+    // Aura/fumaça da Linhagem (ver lineages.js `visual`) — um halo suave
+    // atrás do personagem, independente de arquétipo/equipamento. Luz ganha
+    // um brilho dourado com partículas subindo; Sombras (ainda bloqueada,
+    // mas com a arquitetura pronta) ganharia fumaça escura viva.
+    _drawLineageAura(ctx, entity) {
+        const v = entity && entity.visuals;
+        if (!v || (!v.hasAura && !v.hasSmoke)) return;
+        const legLen = this._legLen();
+        const cy = -legLen - this._torsoH() * 0.6;
+        const t = performance.now() / 1000;
+
+        if (v.hasAura) {
+            const r = 46 + Math.sin(t * 1.5) * 4;
+            const glow = ctx.createRadialGradient(0, cy, 4, 0, cy, r);
+            glow.addColorStop(0, v.auraColor || 'rgba(255,242,192,0.35)');
+            glow.addColorStop(1, 'rgba(255,242,192,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(0, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (v.hasSmoke) {
+            ctx.fillStyle = 'rgba(20,15,25,0.3)';
+            for (let i = 0; i < 3; i++) {
+                const wob = Math.sin(t * 1.2 + i * 2) * 6;
+                ctx.beginPath();
+                ctx.ellipse(wob, cy - i * 14, 22 - i * 3, 14, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
     _drawCape(ctx, entity, pose) {
         const archId = entity && entity.visuals && entity.visuals.archetype;
         if (archId !== 'campeao' && archId !== 'cavaleiro') return;
@@ -1910,6 +1976,16 @@ class GraphicsEngine {
         ctx.lineTo(13, headY - 6);
         ctx.stroke();
 
+        // Olhos brilhantes (Linhagem Luz): halo suave em volta do olho, além
+        // da cor normal — não é só uma cor diferente, é luminoso de verdade.
+        if (v.hasAura) {
+            ctx.fillStyle = v.eyeColor || '#fff6d8';
+            ctx.globalAlpha = 0.35;
+            ctx.beginPath();
+            ctx.arc(10, headY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
         ctx.fillStyle = v.eyeColor || '#1a1a1a';
         ctx.beginPath();
         ctx.arc(10, headY, 2, 0, Math.PI * 2);
@@ -1917,11 +1993,25 @@ class GraphicsEngine {
 
         this._drawMouth(ctx, v, headY, pose);
         this._drawScar(ctx, v, headY, headR);
+        this._drawFangs(ctx, v, headY);
 
         if (!helmet) this._drawHair(ctx, v, headY, headR, false);
         this._drawFacialHair(ctx, v, headY);
         this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
+    }
+
+    // Presas pequenas (Linhagem Vampirismo) — dois triângulos discretos na
+    // borda inferior da boca. Puramente estético, igual cicatriz/cabelo.
+    _drawFangs(ctx, v, headY) {
+        if (!v.hasFangs) return;
+        ctx.fillStyle = '#fff8ec';
+        ctx.beginPath();
+        ctx.moveTo(4, headY + 8); ctx.lineTo(5.5, headY + 12); ctx.lineTo(7, headY + 8);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(9, headY + 8); ctx.lineTo(10.5, headY + 12); ctx.lineTo(12, headY + 8);
+        ctx.closePath(); ctx.fill();
     }
 
     // Boca simples que reage à animação em curso — sem isso o rosto ficava

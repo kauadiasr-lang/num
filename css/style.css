@@ -995,6 +995,87 @@ html, body {
 .achievements-summary { text-align: center; color: var(--color-gold); font-weight: bold; margin-bottom: 12px; }
 
 /* ==========================================================================
+   Mutações (Linhagens) — sistema mágico secundário, separado de
+   Encantamentos (que ficam junto do Inventário, ver .enchant-container)
+   ========================================================================== */
+.mutations-panel { width: 92%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; }
+.mutations-empty { text-align: center; padding: 30px 10px; color: var(--color-marble-dark); }
+.mutations-empty p:first-child { font-size: 1.2rem; color: var(--color-gold); margin-bottom: 10px; }
+.mutations-hint { font-style: italic; opacity: 0.85; max-width: 520px; margin: 0 auto; }
+.mutations-section { margin-top: 18px; }
+.mutations-subtitle { color: var(--color-gold); border-bottom: 1px solid var(--color-bronze-dark); padding-bottom: 6px; margin-bottom: 10px; }
+.mutations-current {
+    display: flex; align-items: center; gap: 16px; padding: 14px; border-radius: 8px;
+    background: linear-gradient(160deg, rgba(43,36,29,0.92), rgba(22,17,11,0.92));
+    border: 2px solid var(--color-gold);
+}
+.mutations-current-icon { font-size: 2.4rem; }
+.mutations-current-name { color: var(--color-gold); font-size: 1.3rem; font-weight: bold; }
+.mutations-current-tagline { font-style: italic; color: var(--color-marble-dark); font-size: 0.9rem; }
+.mutations-current-specialty, .mutations-current-weakness { font-size: 0.85rem; margin-top: 4px; }
+.mutations-current-weakness { color: #ff6666; }
+
+.mutations-rituals-list { display: flex; flex-direction: column; gap: 12px; }
+.ritual-card {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--color-bronze-dark); border-radius: 6px; padding: 12px;
+}
+.ritual-card h4 { color: var(--color-gold); margin-bottom: 4px; }
+.ritual-card p { font-size: 0.85rem; color: var(--color-marble-dark); margin-bottom: 8px; }
+.ritual-progress-bar { width: 100%; height: 10px; background: var(--color-stone); border-radius: 5px; overflow: hidden; }
+.ritual-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-bronze-light), var(--color-gold)); transition: width 0.4s ease; }
+.ritual-card .btn-ritual { margin-top: 10px; width: 100%; }
+.ritual-card.locked-lineage { opacity: 0.5; }
+
+.mutations-skillpoints { text-align: center; color: var(--color-gold); font-weight: bold; margin-bottom: 10px; }
+.mutations-skilltree { display: flex; flex-direction: column; gap: 14px; }
+.skilltree-tier { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.skilltree-node {
+    width: 130px; padding: 8px; border-radius: 6px; text-align: center; font-size: 0.78rem;
+    background: rgba(0,0,0,0.3); border: 2px solid var(--color-bronze-dark); cursor: default;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.skilltree-node.unlocked { border-color: var(--color-gold); box-shadow: 0 0 8px rgba(212,175,55,0.35); }
+.skilltree-node.unlockable { border-color: #6bb2ff; cursor: pointer; }
+.skilltree-node.unlockable:hover { transform: translateY(-2px); }
+.skilltree-node.locked { opacity: 0.45; filter: grayscale(70%); }
+.skilltree-node h5 { color: var(--color-gold); font-size: 0.82rem; margin-bottom: 3px; }
+.skilltree-node .node-type { font-size: 0.68rem; text-transform: uppercase; color: #6bb2ff; margin-bottom: 3px; }
+.skilltree-node .node-cost { font-size: 0.68rem; color: var(--color-marble-dark); margin-top: 3px; }
+
+.mutations-bosses-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.boss-defeated-card {
+    padding: 8px 14px; border-radius: 6px; background: rgba(0,0,0,0.3);
+    border: 1px solid var(--color-gold); color: var(--color-gold); font-size: 0.85rem;
+}
+
+/* Encantamentos (Inventário) */
+.enchant-container { display: flex; flex-direction: column; gap: 8px; }
+.enchant-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    background: rgba(0,0,0,0.25); border: 1px solid var(--color-bronze-dark); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem;
+}
+.enchant-row .enchant-item-name { flex: 1; }
+.enchant-row .btn-enchant-cycle { font-size: 0.72rem; padding: 4px 8px; }
+
+/* Cinemática de despertar de Linhagem */
+.lineage-awakening-overlay {
+    position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(20,10,10,0.75), rgba(0,0,0,0.95));
+    animation: lineageFadeIn 0.6s ease;
+}
+.lineage-awakening-content { text-align: center; }
+.lineage-awakening-kicker {
+    letter-spacing: 4px; color: var(--color-gold); font-size: 1rem; margin-bottom: 10px;
+    animation: lineagePulse 1.4s ease-in-out infinite;
+}
+.lineage-awakening-name {
+    font-family: var(--font-display); font-size: 3rem; color: #fff; text-shadow: 0 0 20px var(--color-gold), 0 0 40px var(--color-gold);
+}
+.lineage-awakening-tagline { font-style: italic; color: var(--color-marble-dark); margin-top: 12px; font-size: 1.1rem; }
+@keyframes lineageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lineagePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+/* ==========================================================================
    Menu Principal, Slots de Save, Configurações, Créditos
    ========================================================================== */
 
@@ -1087,6 +1168,8 @@ html, body {
 
 /* Botão de Inventário/Status no canto oposto (topo-direito) do ☰. */
 .btn-hub-inventory { left: auto; right: 10px; }
+/* Botão de Mutações, logo abaixo do Inventário (mesmo canto) */
+.btn-hub-mutations { left: auto; right: 10px; top: 54px; }
 
 /* --- Slots de Save --- */
 .saveslots-panel { width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; }

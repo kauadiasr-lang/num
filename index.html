@@ -170,6 +170,7 @@
                 <!-- Inventário/Status é sempre acessível (não é um prédio físico, como
                      em Swords and Sandals) — fica junto do botão de menu, no topo. -->
                 <button id="btn-hub-inventory" class="btn-hub-menu btn-hub-inventory" title="Inventário &amp; Status">🎒</button>
+                <button id="btn-hub-mutations" class="btn-hub-menu btn-hub-mutations" title="Mutações">🩸</button>
                 <div class="hud-top">
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
@@ -224,6 +225,55 @@
                     <h2 class="panel-title">Conquistas</h2>
                     <p id="achievements-summary" class="achievements-summary">0 / 0 desbloqueadas</p>
                     <div id="achievements-container" class="achievements-grid"></div>
+                </div>
+            </div>
+
+            <!-- TELA: MUTAÇÕES (Linhagens) — sistema mágico secundário e
+                 completamente separado de Encantamentos (que ficam só nos
+                 itens, ver enchantments.js). Uma linhagem é escolhida uma
+                 única vez, ao vencer o boss de um Ritual (ver rituals.js) —
+                 o jogo nunca explica como desbloquear, só dá pistas veladas
+                 (ver city.js _eventLineageRumor). -->
+            <div id="screen-mutations" class="screen">
+                <div class="panel mutations-panel">
+                    <button class="btn-close" id="btn-close-mutations">X</button>
+                    <h2 class="panel-title">Mutações</h2>
+
+                    <div id="mutations-no-lineage" class="mutations-empty hidden">
+                        <p>Você ainda não despertou nenhuma linhagem.</p>
+                        <p class="mutations-hint">Rumores dizem que forças antigas esperam por quem for digno — preste atenção ao que ouve pela cidade, e ao que faz durante suas lutas.</p>
+                    </div>
+
+                    <div id="mutations-content">
+                        <div id="mutations-current" class="mutations-current"></div>
+
+                        <div class="mutations-section">
+                            <h3 class="mutations-subtitle">Progresso dos Rituais</h3>
+                            <div id="mutations-rituals" class="mutations-rituals-list"></div>
+                        </div>
+
+                        <div class="mutations-section" id="mutations-skilltree-section">
+                            <h3 class="mutations-subtitle">Árvore de Habilidades</h3>
+                            <p id="mutations-skillpoints" class="mutations-skillpoints">Pontos disponíveis: 0</p>
+                            <div id="mutations-skilltree" class="mutations-skilltree"></div>
+                        </div>
+
+                        <div class="mutations-section">
+                            <h3 class="mutations-subtitle">Bosses Derrotados</h3>
+                            <div id="mutations-bosses" class="mutations-bosses-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CINEMÁTICA: "NOVA LINHAGEM DESPERTA" — overlay de tela cheia
+                 mostrado ao derrotar o boss de um Ritual, antes da tela de
+                 resultados normal da batalha (ver ui.js showLineageAwakening). -->
+            <div id="lineage-awakening-overlay" class="lineage-awakening-overlay hidden">
+                <div class="lineage-awakening-content">
+                    <p class="lineage-awakening-kicker">NOVA LINHAGEM DESPERTA</p>
+                    <h1 id="lineage-awakening-name" class="lineage-awakening-name">Vampirismo</h1>
+                    <p id="lineage-awakening-tagline" class="lineage-awakening-tagline"></p>
                 </div>
             </div>
 
@@ -391,6 +441,12 @@
                                 <div class="equip-slot" data-slot="legs" id="slot-legs">Calças</div>
                                 <div class="equip-slot" data-slot="feet" id="slot-feet">Botas</div>
                             </div>
+
+                            <!-- Encantamentos (ver enchantments.js): sistema mágico
+                                 separado da Linhagem — só afeta o item equipado,
+                                 nunca o corpo do gladiador, e pode ser trocado livremente. -->
+                            <h3 class="panel-title" style="margin-top:14px;">Encantamentos</h3>
+                            <div id="enchant-container" class="enchant-container"></div>
                         </div>
 
                         <!-- Coluna 3: Mochila -->
@@ -533,11 +589,16 @@
     <script src="js/audio.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/items.js"></script>
+    <script src="js/enchantments.js"></script>
     <script src="js/skills.js"></script>
+    <script src="js/lineages.js"></script>
+    <script src="js/skilltrees.js"></script>
+    <script src="js/rituals.js"></script>
     <script src="js/player.js"></script>
     <script src="js/ai_data.js"></script>
     <script src="js/ai.js"></script>
     <script src="js/enemy.js"></script>
+    <script src="js/bossai.js"></script>
     <script src="js/battle.js"></script>
     <script src="js/graphics.js"></script>
     <script src="js/city.js"></script>

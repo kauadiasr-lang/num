@@ -124,6 +124,154 @@ class Enemy extends Entity {
 }
 
 /**
+ * Vampiro — inimigo especial do Ritual do Vampirismo (ver rituals.js). Só
+ * aparece à noite na Cidade (ver city.js) e tem chance pequena de dropar uma
+ * Essência Vampírica, o recurso que o jogador precisa reunir (10 no total)
+ * pra liberar o botão "Realizar Ritual". Usa a MESMA IA comum de combate
+ * (AICombat) que qualquer inimigo — não é um boss, é só um adversário
+ * temático; só o boss do ritual (Conde Vampiro) tem IA exclusiva (ver bossai.js).
+ */
+const VAMPIRE_NAMES = ['Vampiro Renascido', 'Nobre da Noite Eterna', 'Servo do Conde', 'Sanguessuga Ancestral', 'Filho das Trevas'];
+class Vampire extends Entity {
+    constructor(playerLevel) {
+        super(VAMPIRE_NAMES[Utils.randomInt(0, VAMPIRE_NAMES.length - 1)]);
+        this.isVampireEnemy = true; // flag que battle.js usa pra sortear a Essência ao derrotá-lo
+        this.lineage = 'vampirismo'; // usado por LineageSystem.getWeaknessMultiplier em battle.js (jogadores da Linhagem Luz causam +25% de dano nele)
+
+        this.level = playerLevel + Utils.randomInt(0, 2); // vampiros são um desafio um degrau acima do normal
+        if (this.level < 2) this.level = 2;
+        this.generateStats();
+
+        window.AICombat.assignProfile(this, { level: this.level, styleId: Utils.chance(50) ? 'assassino' : 'brutamontes' });
+        this.equipStyleWeapon();
+
+        // Identidade visual de vampiro (mesma paleta descrita em
+        // LINEAGES.vampirismo.visual) — pele pálida, olhos vermelhos, presas.
+        this.visuals = {
+            gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+            skinTone: '#e8dce8', eyeColor: '#c81e2a', eyebrowColor: '#2a1c10',
+            hairStyle: Utils.randomInt(1, 15), hairColor: '#1a1218', beardStyle: 0, beardColor: '#1a1218',
+            faceShape: Utils.randomInt(1, 3), archetype: 'assassino', scarStyle: 0,
+            hasFangs: true // lido por graphics.js pra desenhar as presas
+        };
+
+        this.expValue = Math.floor(24 * Math.pow(1.2, this.level));
+        this.goldValue = Math.floor(Utils.randomInt(12, 32) * (this.level * 0.5 + 1));
+    }
+
+    generateStats() {
+        const totalPoints = 40 + (this.level * 5);
+        for (let i = 0; i < totalPoints; i++) {
+            const statsArray = Object.keys(this.baseStats);
+            const randomStat = statsArray[Utils.randomInt(0, statsArray.length - 1)];
+            this.baseStats[randomStat]++;
+        }
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
+
+    equipStyleWeapon() {
+        const styleId = this.aiStyle ? this.aiStyle.id : 'assassino';
+        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
+        const rarity = Utils.chance(20) ? RARITY.UNCOMMON : RARITY.COMMON;
+        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
+
+    // Chance pequena e independente do loot normal de itens — checado em
+    // battle.js no fim da luta quando `this.enemy.isVampireEnemy` é true.
+    rollEssenceDrop() {
+        return Utils.chance(18);
+    }
+
+    generateLoot(playerLuk) {
+        const dropChance = 25 + (playerLuk * 2);
+        if (Utils.chance(dropChance)) {
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
+            return dropTable[0];
+        }
+        return null;
+    }
+}
+
+/**
+ * Bosses de Ritual (Conde Vampiro, Anjo Guardião) — muito mais fortes que
+ * qualquer inimigo comum, com IA 100% exclusiva (ver bossai.js, nunca usa
+ * AICombat). Orientado a dados: BOSS_DEFS é o registry; adicionar um boss
+ * novo é só registrar uma entrada aqui + a IA correspondente em bossai.js.
+ */
+const BOSS_DEFS = {
+    conde_vampiro: {
+        id: 'conde_vampiro', name: 'Conde Vampiro', title: 'Senhor da Noite Eterna',
+        levelBonus: 8, statMult: 1.9,
+        weaponId: 'dagger', weaponRarity: 'LEGENDARY',
+        armorId: 'chainmail', armorRarity: 'LEGENDARY',
+        visuals: { gender: 'Masculino', skinTone: '#ded0de', eyeColor: '#ff1a2a', eyebrowColor: '#1a1218',
+            hairStyle: 4, hairColor: '#1a1218', beardStyle: 0, beardColor: '#1a1218', faceShape: 3, archetype: 'assassino', scarStyle: 0, hasFangs: true },
+        lineage: 'vampirismo'
+    },
+    anjo_guardiao: {
+        id: 'anjo_guardiao', name: 'Anjo Guardião', title: 'Sentinela da Luz Eterna',
+        levelBonus: 8, statMult: 1.9,
+        weaponId: 'spear', weaponRarity: 'LEGENDARY',
+        armorId: 'platearmor', armorRarity: 'LEGENDARY',
+        visuals: { gender: 'Feminino', skinTone: '#fff6ea', eyeColor: '#fff6d8', eyebrowColor: '#d8c890',
+            hairStyle: 9, hairColor: '#f0e6c0', beardStyle: 0, beardColor: '#f0e6c0', faceShape: 2, archetype: 'campeao', scarStyle: 0, hasAura: true },
+        lineage: 'luz'
+    }
+};
+window.BOSS_DEFS = BOSS_DEFS;
+
+// Cria a instância de combate do boss (Entity completo, com stats/
+// equipamento/visual próprios) — bossId vem de LINEAGES[x].bossId.
+function createBoss(bossId, playerLevel) {
+    const def = BOSS_DEFS[bossId];
+    if (!def) return null;
+
+    const boss = new Entity(def.name);
+    boss.title = def.title;
+    boss.personality = def.title; // usado pela tela de batalha ("Você encontrou X (título)!")
+    boss.isBoss = true;
+    boss.bossId = bossId;
+    boss.lineage = def.lineage;
+    boss.level = Math.max(playerLevel + def.levelBonus, 10);
+
+    // Distribuição de atributos generosa e equilibrada (bosses não têm
+    // fraquezas de build como os inimigos comuns — são desafios completos)
+    const totalPoints = Math.floor((40 + boss.level * 6) * def.statMult);
+    const keys = Object.keys(boss.baseStats);
+    for (let i = 0; i < totalPoints; i++) boss.baseStats[keys[Utils.randomInt(0, keys.length - 1)]]++;
+
+    boss.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(def.weaponId, 'weapons', RARITY[def.weaponRarity]);
+    boss.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(def.armorId, 'armors', RARITY[def.armorRarity]);
+    boss.visuals = { ...def.visuals };
+
+    boss.calculateDerivedStats();
+    // Bosses são MUITO mais resistentes que a fórmula base de atributos
+    // sozinha daria — reforça que não são "só mais um inimigo forte".
+    boss.derivedStats.maxHp = Math.floor(boss.derivedStats.maxHp * 2.2);
+    boss.currentHp = boss.derivedStats.maxHp;
+    boss.derivedStats.maxMp = Math.floor(boss.derivedStats.maxMp * 1.5);
+    boss.currentMp = boss.derivedStats.maxMp;
+
+    boss.expValue = Math.floor(80 * Math.pow(1.15, boss.level));
+    boss.goldValue = Math.floor(150 + boss.level * 12);
+
+    // Recompensa de loot garantida e lendária, além do desbloqueio da Linhagem
+    boss.generateLoot = function (playerLuk) {
+        const pool = window.ItemFactory.generateShopInventory(boss.level + 4);
+        const legendary = pool.find(i => i.rarity && i.rarity.id === RARITY.LEGENDARY.id);
+        return legendary || pool[0];
+    };
+
+    return boss;
+}
+window.createBoss = createBoss;
+
+/**
  * Ladder de Rivais: adversários nomeados e fixos, organizados em ligas
  * progressivas. Diferente do Duelo Rápido (Enemy, acima, totalmente
  * aleatório), cada Rival tem uma distribuição de atributos e equipamento

@@ -138,6 +138,8 @@ class UIManager {
         });
         // Inventário/Status não é um prédio — é sempre acessível pelo ícone da HUD
         document.getElementById('btn-hub-inventory').addEventListener('click', () => this.openInventory());
+        document.getElementById('btn-hub-mutations').addEventListener('click', () => this.openMutations());
+        document.getElementById('btn-close-mutations').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-bank-deposit').addEventListener('click', () => this.bankDeposit());
         document.getElementById('btn-bank-withdraw').addEventListener('click', () => this.bankWithdraw());
 
@@ -885,8 +887,224 @@ class UIManager {
     openInventory() {
         this.updateInventoryStats();
         this.renderEquipment();
+        this.renderEnchantments();
         this.renderBag();
         this.showScreen('screen-inventory');
+    }
+
+    // Encantamentos (ver enchantments.js): lista cada peça de equipamento
+    // capaz de receber um encantamento (armas: qualquer elemento; armaduras:
+    // só Sagrado/Profano) com um ciclo de opções + botão de aplicar. Sistema
+    // TOTALMENTE separado da Linhagem — nunca aparece aqui nada relacionado
+    // a Mutações.
+    renderEnchantments() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('enchant-container');
+        container.innerHTML = '';
+
+        const enchantableSlots = [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.CHEST, SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND];
+        const allIds = Object.keys(window.ENCHANTMENTS);
+
+        enchantableSlots.forEach(slot => {
+            const item = p.equipment[slot];
+            if (!item) return;
+            const isWeapon = slot === SLOTS.MAIN_HAND || slot === SLOTS.RANGED;
+            const validIds = allIds.filter(id => window.EnchantmentSystem.canApply(item, id));
+            if (validIds.length === 0) return;
+
+            if (this._enchantCycle === undefined) this._enchantCycle = {};
+            const cycleKey = item.uuid;
+            if (this._enchantCycle[cycleKey] === undefined) {
+                const currentIdx = item.enchantmentId ? validIds.indexOf(item.enchantmentId) : -1;
+                this._enchantCycle[cycleKey] = currentIdx >= 0 ? currentIdx : 0;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'enchant-row';
+            const previewId = validIds[this._enchantCycle[cycleKey] % validIds.length];
+            const preview = window.ENCHANTMENTS[previewId];
+            const currentName = item.enchantmentId ? window.ENCHANTMENTS[item.enchantmentId].name : 'Nenhum';
+
+            row.innerHTML = `
+                <span class="enchant-item-name">${item.name}<br><small style="color:#888">Atual: ${currentName}</small></span>
+                <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
+                <button class="btn-small btn-enchant-apply">Aplicar (${preview.cost}g)</button>
+            `;
+
+            row.querySelector('.btn-enchant-cycle').addEventListener('click', () => {
+                this._enchantCycle[cycleKey] = (this._enchantCycle[cycleKey] + 1) % validIds.length;
+                this.renderEnchantments();
+            });
+            row.querySelector('.btn-enchant-apply').addEventListener('click', () => {
+                if (p.gold < preview.cost) {
+                    window.AudioManager.playError();
+                    return;
+                }
+                p.gold -= preview.cost;
+                window.EnchantmentSystem.apply(item, previewId);
+                window.SaveManager.save(window.Engine.state);
+                this.renderEnchantments();
+                this.updateInventoryStats();
+                if (window.AudioManager) window.AudioManager.playConfirm();
+            });
+
+            container.appendChild(row);
+        });
+
+        if (container.children.length === 0) {
+            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Equipe uma arma ou armadura para encantá-la.</p>';
+        }
+    }
+
+    // --- SISTEMA DE MUTAÇÕES (Linhagens) ---
+    // Tela separada do Inventário/Encantamentos: mostra a linhagem permanente
+    // do jogador (se houver), o progresso dos Rituais de descoberta (ver
+    // rituals.js), a Skill Tree da linhagem ativa (ver skilltrees.js) e os
+    // bosses de ritual já derrotados (ver enemy.js BOSS_DEFS).
+    openMutations() {
+        const p = window.Engine.state.player;
+        const hasLineage = !!p.lineage;
+
+        // `mutations-content` NUNCA é escondido inteiro: mesmo sem linhagem
+        // despertada, o jogador precisa continuar vendo (e clicando em) o
+        // progresso dos Rituais — é assim que a linhagem é descoberta. O
+        // aviso "ainda não despertou" aparece como um banner ACIMA disso,
+        // nunca no lugar disso.
+        document.getElementById('mutations-no-lineage').classList.toggle('hidden', hasLineage);
+
+        const currentEl = document.getElementById('mutations-current');
+        currentEl.classList.toggle('hidden', !hasLineage);
+        if (hasLineage) {
+            const lineage = window.LineageSystem.get(p.lineage);
+            currentEl.innerHTML = `
+                <span class="mutations-current-icon">${lineage.id === 'vampirismo' ? '🩸' : '✨'}</span>
+                <div>
+                    <div class="mutations-current-name">${lineage.name}</div>
+                    <div class="mutations-current-tagline">${lineage.tagline}</div>
+                    <div class="mutations-current-specialty">Especialidade: ${lineage.specialty.join(', ')}</div>
+                    <div class="mutations-current-weakness">Fraqueza: ${lineage.weaknessName}</div>
+                </div>
+            `;
+        } else {
+            currentEl.innerHTML = '';
+        }
+
+        // Rituais: uma vez despertada a linhagem, nenhum outro ritual pode
+        // mais ser realizado nesta campanha (regra de "apenas UMA linhagem").
+        const ritualsEl = document.getElementById('mutations-rituals');
+        ritualsEl.innerHTML = '';
+        if (hasLineage) {
+            ritualsEl.innerHTML = '<p style="text-align:center; color:#888; font-size:0.85rem;">Sua linhagem já foi despertada. Nenhum outro ritual pode ser realizado nesta campanha.</p>';
+        } else {
+            window.RitualSystem.getAll().forEach(ritual => {
+                const lineage = window.LineageSystem.get(ritual.lineageId);
+                const progress = ritual.progress(p);
+                const ready = ritual.isReady(p);
+                const canNow = ritual.canPerformNow(p);
+
+                let btnLabel = 'Realizar Ritual';
+                if (!ready) btnLabel = `Progresso: ${Math.floor(progress * 100)}%`;
+                else if (!canNow && ritual.requiresNight) btnLabel = 'Aguarde a noite...';
+
+                const card = document.createElement('div');
+                card.className = 'ritual-card';
+                card.innerHTML = `
+                    <h4>${ritual.name} <small style="color:#888">(${lineage.name})</small></h4>
+                    <p>${ritual.description}</p>
+                    <div class="ritual-progress-bar"><div class="ritual-progress-fill" style="width:${Math.floor(progress * 100)}%"></div></div>
+                    <button class="btn-small btn-ritual" ${canNow ? '' : 'disabled'}>${btnLabel}</button>
+                `;
+                card.querySelector('.btn-ritual').addEventListener('click', () => {
+                    if (!ritual.canPerformNow(p)) return;
+                    const boss = window.createBoss(lineage.bossId, p.level);
+                    if (!boss) return;
+                    this.beginBattleWith(boss);
+                });
+                ritualsEl.appendChild(card);
+            });
+        }
+
+        // Skill Tree: só existe uma vez a linhagem despertada.
+        const treeSection = document.getElementById('mutations-skilltree-section');
+        treeSection.classList.toggle('hidden', !hasLineage);
+        if (hasLineage) {
+            document.getElementById('mutations-skillpoints').innerText = `Pontos disponíveis: ${p.mutationSkillPoints || 0}`;
+            const treeEl = document.getElementById('mutations-skilltree');
+            treeEl.innerHTML = '';
+            const tree = window.SkillTreeSystem.getTreeForDisplay(p, p.lineage);
+            if (tree) {
+                const tiers = {};
+                tree.nodes.forEach(n => { (tiers[n.tier] = tiers[n.tier] || []).push(n); });
+                Object.keys(tiers).sort((a, b) => a - b).forEach(tierNum => {
+                    const tierRow = document.createElement('div');
+                    tierRow.className = 'skilltree-tier';
+                    tiers[tierNum].forEach(node => {
+                        const nodeEl = document.createElement('div');
+                        nodeEl.className = 'skilltree-node ' + (node.unlocked ? 'unlocked' : (node.unlockable ? 'unlockable' : 'locked'));
+                        nodeEl.innerHTML = `
+                            <h5>${node.name}</h5>
+                            <div class="node-type">${node.type === 'active' ? 'Ativa' : 'Passiva'}</div>
+                            <div>${node.description}</div>
+                            <div class="node-cost">Custo: ${node.cost}${node.unlocked ? ' (Desbloqueado)' : ''}</div>
+                        `;
+                        if (node.unlockable) {
+                            nodeEl.addEventListener('click', () => {
+                                if (window.SkillTreeSystem.unlockNode(p, p.lineage, node.id)) {
+                                    window.SaveManager.save(window.Engine.state);
+                                    if (window.AudioManager) window.AudioManager.playConfirm();
+                                    this.openMutations();
+                                }
+                            });
+                        }
+                        tierRow.appendChild(nodeEl);
+                    });
+                    treeEl.appendChild(tierRow);
+                });
+            }
+        }
+
+        // Bosses de ritual derrotados
+        const bossesEl = document.getElementById('mutations-bosses');
+        bossesEl.innerHTML = '';
+        if (p.bossesDefeated && p.bossesDefeated.length > 0) {
+            p.bossesDefeated.forEach(bossId => {
+                const def = window.BOSS_DEFS[bossId];
+                if (!def) return;
+                const card = document.createElement('div');
+                card.className = 'boss-defeated-card';
+                card.innerText = `${def.name} — ${def.title}`;
+                bossesEl.appendChild(card);
+            });
+        } else {
+            bossesEl.innerHTML = '<p style="font-size:0.8rem; color:#888;">Nenhum boss derrotado ainda.</p>';
+        }
+
+        this.showScreen('screen-mutations');
+    }
+
+    // Cinemática "NOVA LINHAGEM DESPERTA", disparada por battle.js ao vencer
+    // um boss de ritual — mostra o overlay por cima da própria tela de
+    // batalha (ainda visível por trás), dispara o VFX de partículas
+    // centrado no jogador, e só então chama o callback (normalmente
+    // showBattleResults) para seguir o fluxo normal de fim de combate.
+    showLineageAwakening(lineageId, callback) {
+        const lineage = window.LineageSystem.get(lineageId);
+        if (!lineage) { if (callback) callback(); return; }
+
+        const overlay = document.getElementById('lineage-awakening-overlay');
+        document.getElementById('lineage-awakening-name').innerText = lineage.name;
+        document.getElementById('lineage-awakening-tagline').innerText = lineage.tagline;
+        overlay.classList.remove('hidden');
+
+        if (window.GFX && window.GFX.playLineageAwakeningVFX) {
+            window.GFX.playLineageAwakeningVFX((lineage.visual && lineage.visual.accent) || '#ffd700');
+        }
+        if (window.AudioManager && window.AudioManager.playConfirm) window.AudioManager.playConfirm();
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            if (callback) callback();
+        }, 3200);
     }
 
     updateInventoryStats() {

@@ -68,6 +68,11 @@ class Equipment {
         this.maxAmmo = baseTemplate.maxAmmo || null;
         this.ammo = this.maxAmmo;
 
+        // Encantamento aplicado (ver enchantments.js) — null = nenhum. Sistema
+        // totalmente independente da Linhagem: nunca altera o corpo do
+        // gladiador, só a peça, e pode ser trocado livremente a qualquer momento.
+        this.enchantmentId = null;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;

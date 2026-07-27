@@ -640,15 +640,72 @@ class CityEngine {
             { w: 2, run: () => this._eventPromotion() },
             { w: 2, run: () => this._eventPerformer() },
             { w: 2, run: () => this._eventCrier() },
+            // Rumores sobre as Linhagens (Mutações) — pistas veladas, nunca
+            // explica o mecanismo diretamente (ver rituals.js/lineages.js).
+            // Só aparece pra quem ainda não despertou nenhuma linhagem.
+            { w: (p && !p.lineage) ? 3 : 0, run: () => this._eventLineageRumor(p) }
         ];
         if (p && p.wins > 0) table.push({ w: 3, run: () => this._eventVictoryComment(p) });
 
+        // Vampiros só saem à noite (Ritual do Vampirismo, ver rituals.js) —
+        // peso relevante só quando window.GFX.arenaTime === 'night'.
+        if (p && !p.lineage && window.GFX && window.GFX.arenaTime === 'night') {
+            table.push({ w: 4, run: () => this._eventVampireEncounter(p) });
+        }
+
+        // Fragmentos Sagrados (Ritual da Luz) — encontrados a qualquer hora,
+        // raramente, enquanto o jogador ainda não completou o requisito.
+        if (p && !p.lineage && (!p.ritualProgress.luz || p.ritualProgress.luz.sacredFragments < 5)) {
+            table.push({ w: 2, run: () => this._eventSacredFragment(p) });
+        }
+
         const totalW = table.reduce((s, e) => s + e.w, 0);
+        if (totalW <= 0) return;
         let roll = Utils.randomFloat(0, totalW);
         for (const entry of table) {
             if (roll < entry.w) { entry.run(); return; }
             roll -= entry.w;
         }
+    }
+
+    // Encontro com um Vampiro — só à noite, só enquanto o jogador ainda não
+    // despertou nenhuma Linhagem. Ganha uma batalha comum (Vampire estende
+    // Entity com IA normal, ver enemy.js) que dropa Essência Vampírica com
+    // chance pequena ao ser derrotado.
+    _eventVampireEncounter(p) {
+        this._toast('Uma figura pálida observa você das sombras antes de atacar...', 'error');
+        setTimeout(() => {
+            if (this._isActive() && window.UI && window.UI.startBattle) {
+                const arenaMenu = document.getElementById('city-arena-menu');
+                if (arenaMenu) arenaMenu.classList.add('hidden');
+                const vampire = new Vampire(p.level);
+                window.UI.beginBattleWith(vampire);
+            }
+        }, 1800);
+    }
+
+    // Fragmento Sagrado — recurso do Ritual da Luz, encontrado por acaso na
+    // cidade (nunca comprado, nunca explicado diretamente ao jogador).
+    _eventSacredFragment(p) {
+        window.RitualSystem.onSacredFragmentFound(p, 1);
+        const have = p.ritualProgress.luz.sacredFragments;
+        this._toast(`Você encontra um Fragmento Sagrado brilhando entre as pedras da praça... (${have}/5)`, 'success');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+    }
+
+    // Rumores veIados sobre as Linhagens — nunca explicam o mecanismo
+    // (essências/rituais/bosses) diretamente, só incentivam a explorar e
+    // prestar atenção à noite/aos próprios hábitos de luta.
+    _eventLineageRumor(p) {
+        const lines = [
+            'Um bêbado na taverna jura ter visto "olhos vermelhos brilhando na escuridão perto da arena, só depois que o sol se põe".',
+            'Um velho pergaminho fala de guerreiros que "beberam da própria dor até se tornarem outra coisa".',
+            'Um sacerdote sussurra: "aqueles que só curam, nunca ferem com magia, e perseveram... um dia serão chamados."',
+            'Dizem que um Conde esquecido ainda caça pela noite, esperando por um digno de seu sangue.',
+            'Uma criança conta que viu "uma luz descer dos céus" perto de um templo em ruínas, mas ninguém acreditou nela.',
+            'Um mercador estrangeiro comenta: "fragmentos sagrados... alguns dizem que ainda estão espalhados por aí, esperando por quem os mereça".'
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
     }
 
     _toast(msg, type = 'info') {

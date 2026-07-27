@@ -117,6 +117,17 @@ class Entity {
         physicalDamage = Math.floor(physicalDamage * fatigueMult);
         dodgeChance = dodgeChance * fatigueMult;
 
+        // Linhagem (Mutação): soma os passivos da árvore de habilidades da
+        // linhagem ativa (ver skilltrees.js) — sistema TOTALMENTE separado
+        // dos encantamentos de equipamento. `this.lineage` só existe no
+        // Player (Enemy/Rival nunca têm mutação), então isso não afeta em
+        // nada os inimigos comuns.
+        const mutation = (this.lineage && window.SkillTreeSystem) ? window.SkillTreeSystem.sumPassiveStats(this) : null;
+        if (mutation) {
+            if (mutation.defenseBonusPercent) defenseRating *= (1 + mutation.defenseBonusPercent / 100);
+            if (mutation.dodgeBonusPercent) dodgeChance += mutation.dodgeBonusPercent;
+        }
+
         this.derivedStats.maxHp = maxHp;
         this.derivedStats.maxMp = maxMp;
         this.derivedStats.physicalDamage = physicalDamage;
@@ -124,6 +135,19 @@ class Entity {
         this.derivedStats.critChance = Utils.clamp(critChance, 1, 65);
         this.derivedStats.defenseRating = defenseRating;
         this.derivedStats.blockChance = Utils.clamp(blockChance, 0, 60);
+
+        // Estatísticas derivadas da Linhagem (0 se não houver mutação ativa)
+        // — expostas de forma genérica pra battle.js consumir sem precisar
+        // saber qual linhagem específica está ativa.
+        this.derivedStats.lifestealPercent = mutation ? mutation.lifestealPercent : 0;
+        this.derivedStats.hpRegenPerTurn = mutation ? mutation.hpRegenPerTurn : 0;
+        this.derivedStats.lowHpDamageBonusPercent = mutation ? mutation.lowHpDamageBonusPercent : 0;
+        this.derivedStats.bleedResistPercent = mutation ? mutation.bleedResistPercent : 0;
+        this.derivedStats.drainOnCritPercent = mutation ? mutation.drainOnCritPercent : 0;
+        this.derivedStats.healPowerBonusPercent = mutation ? mutation.healPowerBonusPercent : 0;
+        this.derivedStats.negativeEffectResistPercent = mutation ? mutation.negativeEffectResistPercent : 0;
+        this.derivedStats.critChanceLowHpBonus = mutation ? mutation.critChanceLowHpBonus : 0;
+        this.derivedStats.mutationSpecials = mutation ? mutation.specials : [];
 
         // Se HP/MP atual for 0 (nova entidade) ou maior que o novo máximo, ajusta.
         if (this.currentHp === 0 || this.currentHp > this.derivedStats.maxHp) {
@@ -217,6 +241,23 @@ class Player extends Entity {
             archetype: 'veterano', // identidade visual (silhueta/paleta) — ver FIGHTER_ARCHETYPES em graphics.js
             scarStyle: 0       // 0 = nenhuma; ver SCAR_STYLES em graphics.js
         };
+
+        // --- Linhagem (Mutação) — ver lineages.js/skilltrees.js/rituals.js ---
+        // Sistema TOTALMENTE separado de Encantamentos (que ficam só nos
+        // itens, ver enchantments.js). Uma única linhagem por personagem,
+        // para sempre, adquirida ao vencer o boss do ritual correspondente.
+        this.lineage = null;              // null = nenhuma mutação despertada ainda
+        this.lineageAwakenedAt = null;    // timestamp de quando despertou (exibido no menu Mutações)
+        this.mutationSkillPoints = 0;     // pontos pra desbloquear nós da árvore da linhagem
+        this.skillTreeUnlocked = {};      // { nodeId: true } — nós já desbloqueados (qualquer árvore)
+        this.bossesDefeated = [];         // IDs de bosses de ritual derrotados (Conde Vampiro, Anjo Guardião...)
+        // Progresso de cada ritual, independente de qual linhagem o jogador
+        // já despertou — permite acompanhar o progresso de descoberta de
+        // TODAS as linhagens ainda não obtidas ao mesmo tempo.
+        this.ritualProgress = {
+            vampirismo: { vampiricEssences: 0 },
+            luz: { potionsUsed: 0, noMagicWins: 0, sacredFragments: 0 }
+        };
     }
 
     addFatigue(amount) {
@@ -246,9 +287,15 @@ class Player extends Entity {
 
         let message = '';
         if (item.type === 'HEAL_HP') {
+            // Poder de cura da Linhagem (Luz) também fortalece poções, não só
+            // magias de cura — reforça a especialidade "cura" da árvore inteira.
+            const healMult = 1 + ((this.derivedStats.healPowerBonusPercent || 0) / 100);
             const before = this.currentHp;
-            this.currentHp = Utils.clamp(this.currentHp + item.power, 0, this.derivedStats.maxHp);
+            this.currentHp = Utils.clamp(this.currentHp + Math.floor(item.power * healMult), 0, this.derivedStats.maxHp);
             message = `Recuperou ${this.currentHp - before} HP`;
+            // Ritual da Luz: conta poções de cura usadas (ver rituals.js) —
+            // silenciosamente, mesmo antes de a Linhagem existir.
+            if (window.RitualSystem) window.RitualSystem.onPotionUsed(this);
         } else if (item.type === 'HEAL_MP') {
             const before = this.currentMp;
             this.currentMp = Utils.clamp(this.currentMp + item.power, 0, this.derivedStats.maxMp);
