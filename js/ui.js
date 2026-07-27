@@ -97,6 +97,9 @@ class UIManager {
         ];
         // Índice = scarStyle (0 = nenhuma). Ver SCAR_STYLES em graphics.js.
         this.scarOptions = ['Nenhuma', 'Cicatriz na Bochecha', 'Cicatriz na Sobrancelha', 'Cicatriz na Testa', 'Cicatriz no Queixo'];
+        // Raças jogáveis (ver races.js) — vantagens/desvantagens reais de
+        // atributo, escolhidas uma única vez na Criação de Personagem.
+        this.raceOptions = window.RACES ? Object.values(window.RACES) : [];
         this._previewRAFId = null;
 
         this.currentShopItems = [];
@@ -248,6 +251,12 @@ class UIManager {
         });
 
         // --- Seletores Visuais do Criador de Personagem (todos atualizam o preview ao vivo) ---
+        document.getElementById('btn-race').addEventListener('click', (e) => {
+            const idx = (this.raceOptions.findIndex(r => r.id === this.creationData.race) + 1) % this.raceOptions.length;
+            this.creationData.race = this.raceOptions[idx].id;
+            e.target.innerText = this.raceOptions[idx].name;
+            this._updateRaceTagline();
+        });
         document.getElementById('btn-gender').addEventListener('click', (e) => {
             const idx = (this.genderOptions.indexOf(this.creationData.visuals.gender) + 1) % this.genderOptions.length;
             this.creationData.visuals.gender = this.genderOptions[idx];
@@ -339,6 +348,15 @@ class UIManager {
         document.getElementById('btn-beard').innerText = this.beardOptions[idx].name;
     }
 
+    // Mostra a tagline mecânica da raça atual (ver races.js) abaixo do
+    // seletor — deixa claro que "Origem" não é só estética, tem
+    // vantagem/desvantagem real de atributo.
+    _updateRaceTagline() {
+        const race = window.RaceSystem ? window.RaceSystem.get(this.creationData.race) : null;
+        const el = document.getElementById('race-tagline');
+        if (el) el.innerText = race ? race.tagline : '';
+    }
+
     // Chamado ao trocar de gênero: se o cabelo/barba selecionado for
     // exclusivo do outro gênero, avança para a próxima opção válida.
     _ensureValidHairBeardForGender() {
@@ -355,6 +373,13 @@ class UIManager {
     randomizeAppearance() {
         const v = this.creationData.visuals;
         const randColor = () => '#' + Utils.randomInt(0, 0xffffff).toString(16).padStart(6, '0');
+
+        if (this.raceOptions.length > 0) {
+            const raceIdx = Utils.randomInt(0, this.raceOptions.length - 1);
+            this.creationData.race = this.raceOptions[raceIdx].id;
+            document.getElementById('btn-race').innerText = this.raceOptions[raceIdx].name;
+            this._updateRaceTagline();
+        }
 
         v.gender = this.genderOptions[Utils.randomInt(0, this.genderOptions.length - 1)];
         document.getElementById('btn-gender').innerText = v.gender;
@@ -398,6 +423,7 @@ class UIManager {
         // Reseta os dados de criação para uma nova jornada
         this.creationData.pointsLeft = 10;
         this.creationData.stats = { str: 5, agi: 5, int: 5, def: 5, acc: 5, luk: 5, cha: 5 };
+        this.creationData.race = 'humano';
         this.creationData.visuals = {
             gender: 'Masculino', skinTone: '#ffcc99', hairStyle: 1, hairColor: '#2a1c10',
             beardStyle: 0, beardColor: '#2a1c10', eyebrowColor: '#2a1c10', eyeColor: '#1a1a1a', faceShape: 1,
@@ -406,6 +432,9 @@ class UIManager {
 
         document.getElementById('char-name').value = '';
         document.getElementById('points-left').innerText = this.creationData.pointsLeft;
+        const defaultRace = window.RaceSystem ? window.RaceSystem.get('humano') : null;
+        document.getElementById('btn-race').innerText = defaultRace ? defaultRace.name : 'Humano';
+        this._updateRaceTagline();
         document.getElementById('char-skin-color').value = this.creationData.visuals.skinTone;
         document.getElementById('btn-gender').innerText = this.creationData.visuals.gender;
         document.getElementById('btn-hair').innerText = this.hairOptions[0].name;
@@ -519,8 +548,9 @@ class UIManager {
         const name = document.getElementById('char-name').value.trim();
         window.Engine.state.player = new Player(name);
 
-        // Passa os atributos e visual customizados
+        // Passa os atributos, raça e visual customizados
         window.Engine.state.player.baseStats = { ...this.creationData.stats };
+        window.Engine.state.player.race = this.creationData.race || 'humano';
         window.Engine.state.player.visuals = { ...this.creationData.visuals };
 
         // Dá uma arma inicial ao jogador

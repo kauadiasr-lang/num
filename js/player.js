@@ -61,9 +61,15 @@ class Entity {
         }
     }
 
-    // Calcula os atributos reais (Base + Equipamentos)
+    // Calcula os atributos reais (Base + Raça + Equipamentos)
     getTotalStat(statName) {
         let total = this.baseStats[statName];
+        // Raça (ver races.js) — só Player tem `this.race`; Enemy/Rival nunca
+        // definem esse campo, então o bônus/penalidade nunca afeta inimigos.
+        if (this.race && window.RACES && window.RACES[this.race]) {
+            const mod = window.RACES[this.race].statMods[statName];
+            if (mod) total += mod;
+        }
         for (let key in this.equipment) {
             let item = this.equipment[key];
             if (item && item.statBonuses && item.statBonuses[statName]) {
@@ -260,6 +266,12 @@ class Player extends Entity {
             archetype: 'veterano', // identidade visual (silhueta/paleta) — ver FIGHTER_ARCHETYPES em graphics.js
             scarStyle: 0       // 0 = nenhuma; ver SCAR_STYLES em graphics.js
         };
+
+        // Raça (ver races.js) — escolhida uma única vez na Criação de
+        // Personagem, diferente da Linhagem (conquistada durante a
+        // campanha). 'humano' é o padrão neutro pra saves antigos, que
+        // nunca tiveram esse campo.
+        this.race = 'humano';
 
         // --- Linhagem (Mutação) — ver lineages.js/skilltrees.js/rituals.js ---
         // Sistema TOTALMENTE separado de Encantamentos (que ficam só nos

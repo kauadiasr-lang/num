@@ -280,6 +280,12 @@ html, body {
     margin: -1rem 0 1rem; font-size: 0.9rem;
 }
 
+/* Descrição da Raça escolhida na Criação de Personagem (ver races.js / ui.js) */
+.race-tagline {
+    font-style: italic; font-size: 0.78rem; color: var(--color-marble-dark);
+    margin: -0.4rem 0 0.6rem; text-align: center;
+}
+
 /* Reparo de equipamento no Ferreiro/Armeiro (ver ui.js openShop/repairAllEquipment) */
 #shop-repair-section {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
