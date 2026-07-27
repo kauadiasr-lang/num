@@ -39,6 +39,13 @@ function registerBossSkills() {
     defs.forEach(d => {
         if (!window.SkillDB[d.id]) {
             window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
+            // Marca como exclusiva de boss — ui.js openSkillTree() (Mercado
+            // Arcano) filtra por essa flag. Sem isso, essas 8 habilidades
+            // apareciam como aprendíveis por QUALQUER jogador usando pontos
+            // de talento comuns, desde o nível 1 (exploit real encontrado em
+            // auditoria: dava pra "comprar" Julgamento Final do Anjo Guardião
+            // sem nunca ter enfrentado o boss).
+            window.SkillDB[d.id].isBossSkill = true;
         }
     });
 }

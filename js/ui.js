@@ -1479,6 +1479,14 @@ class UIManager {
 
         for (let key in window.SkillDB) {
             const skill = window.SkillDB[key];
+            // Habilidades exclusivas de boss (bossai.js) e de árvores de
+            // Mutação/Linhagem (skilltrees.js) NUNCA aparecem aqui — essa
+            // tela é só a progressão comum de combate. Bug de auditoria
+            // corrigido: sem esse filtro, dava pra "comprar" habilidades de
+            // boss (ex: Julgamento Final do Anjo Guardião) com pontos de
+            // talento comuns, desde o nível 1, sem nunca ter enfrentado o
+            // boss — um exploit real de balanceamento.
+            if (skill.isBossSkill || skill.isMutationSkill) continue;
             const isUnlocked = p.learnedSkills.includes(key);
             const canUnlock = p.level >= skill.levelReq && p.skillPoints > 0 && !isUnlocked;
 

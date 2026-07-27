@@ -182,6 +182,12 @@ window.SkillTreeSystem = {
             const d = node.skillDef;
             if (!window.SkillDB[d.id]) {
                 window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
+                // Marca como exclusiva de Linhagem — ui.js openSkillTree()
+                // (Mercado Arcano, o menu de habilidades COMUM) filtra por
+                // essa flag, senão a habilidade "vazava" pra lá depois de
+                // desbloqueada pela árvore de Mutação, confundindo as duas
+                // árvores (que devem ficar completamente separadas).
+                window.SkillDB[d.id].isMutationSkill = true;
             }
             if (!player.learnedSkills.includes(d.id)) player.learnedSkills.push(d.id);
         }
