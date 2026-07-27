@@ -464,10 +464,16 @@ class Rival extends Entity {
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
 
-        if (this.isChampion) {
+        // Escudo por preferência de ESTILO (gladiador/guardião), igual a
+        // Enemy/Vampire — antes só Campeões ganhavam escudo, deixando
+        // rivais comuns de estilo "escudeiro" (ex: Brenna, Ágil da Prata
+        // com guardiao/gladiador) sem o escudo que sua própria IA já espera
+        // (ver AI_FIGHTING_STYLES.preferShield em ai_data.js).
+        const shieldId = window.AICombat.pickShieldFromStyle(this.aiStyle.id);
+        if (this.isChampion || shieldId) {
             const shieldKeys = Object.keys(ItemDatabase.shields);
-            const shieldId = shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
-            this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
+            const finalShieldId = shieldId || shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
+            this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(finalShieldId, 'shields', rarity);
         }
     }
 
