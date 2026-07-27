@@ -102,8 +102,12 @@ class Entity {
             let item = this.equipment[key];
             if (item) {
                 const isWeaponSlot = (key === SLOTS.MAIN_HAND || key === SLOTS.RANGED);
-                if (item.damage && (!isWeaponSlot || key === this.activeWeaponSlot)) physicalDamage += item.damage;
-                if (item.defense) defenseRating += item.defense;
+                // Peça "quebrada" (durabilidade zerada pelo desgaste de
+                // batalha, ver battle.js endBattle) só entrega metade do
+                // dano/defesa até ser reparada no Ferreiro/Armeiro.
+                const wear = (item.maxDurability && item.durability <= 0) ? 0.5 : 1;
+                if (item.damage && (!isWeaponSlot || key === this.activeWeaponSlot)) physicalDamage += Math.floor(item.damage * wear);
+                if (item.defense) defenseRating += Math.floor(item.defense * wear);
                 if (item.hpBonus) maxHp += item.hpBonus;
                 if (item.mpBonus) maxMp += item.mpBonus;
                 if (item.critBonus) critChance += item.critBonus;

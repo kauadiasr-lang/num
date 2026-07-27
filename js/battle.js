@@ -948,6 +948,18 @@ class BattleSystem {
     endBattle(result) {
         this.isBattleActive = false;
 
+        // Desgaste de equipamento: toda luta desgasta 1 ponto de
+        // durabilidade de cada peça equipada (vitória ou derrota — o
+        // combate desgasta o aço de qualquer jeito). `durability` já
+        // existia em todo item desde items.js, mas nada nunca o lia; peças
+        // com durabilidade 0 ficam "quebradas" (ver calculateDerivedStats
+        // em player.js) até serem reparadas no Ferreiro/Armeiro.
+        for (let key in this.player.equipment) {
+            const item = this.player.equipment[key];
+            if (item && item.durability > 0) item.durability--;
+        }
+        this.player.calculateDerivedStats();
+
         if (window.GFX) {
             window.GFX.playAnim(result === 'VICTORY', 'victory', 1600);
             window.GFX.playAnim(result !== 'VICTORY', 'death', 1600);

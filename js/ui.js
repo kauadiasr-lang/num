@@ -1326,6 +1326,22 @@ class UIManager {
         return Utils.clamp(discount + chaDiscount, 0, 0.35);
     }
 
+    // Soma quanto de durabilidade falta em todo o equipamento do jogador e
+    // converte num custo em ouro (0.5g por ponto, arredondado pra cima) —
+    // usado pelo botão "Reparar Equipamento" do Ferreiro/Armeiro.
+    _getRepairCost(p) {
+        let totalMissing = 0, brokenCount = 0;
+        for (let key in p.equipment) {
+            const item = p.equipment[key];
+            if (item && item.maxDurability) {
+                const missing = item.maxDurability - item.durability;
+                if (missing > 0) totalMissing += missing;
+                if (item.durability <= 0) brokenCount++;
+            }
+        }
+        return { totalMissing, brokenCount, cost: Math.ceil(totalMissing * 0.5) };
+    }
+
     // --- SISTEMA DE MERCADO (SHOP) ---
     // `filterSlots` (array de SLOTS ou null) diferencia Ferreiro (armas) de
     // Armeiro (armaduras/escudos/acessórios) — mesma tela e lógica de compra,
@@ -1347,6 +1363,41 @@ class UIManager {
             this._shopGreetingCache = { title, text: lines[Utils.randomInt(0, lines.length - 1)] };
         }
         document.getElementById('shop-merchant-greeting').innerText = this._shopGreetingCache.text;
+
+        // Reparo de equipamento: só faz sentido no Ferreiro/Armeiro (lojas
+        // especializadas em metal/couro), nunca na Taverna/Mercado geral.
+        // `durability` já existia em TODO item de equipamento desde
+        // items.js, mas nada nunca lia esse campo — peças nunca se
+        // desgastavam e reparar não existia. Agora cada luta desgasta o
+        // equipamento (ver battle.js endBattle) e peças com durabilidade 0
+        // ficam "quebradas" (metade do dano/defesa, ver player.js).
+        const repairSection = document.getElementById('shop-repair-section');
+        if (filterSlots) {
+            const missing = this._getRepairCost(p);
+            repairSection.style.display = '';
+            const statusEl = document.getElementById('shop-repair-status');
+            const btn = document.getElementById('btn-repair-all');
+            if (missing.totalMissing <= 0) {
+                statusEl.innerText = 'Seu equipamento está em perfeitas condições.';
+                btn.disabled = true;
+            } else {
+                statusEl.innerText = `Equipamento desgastado (${missing.brokenCount > 0 ? missing.brokenCount + ' peça(s) quebrada(s)! ' : ''}custo: ${missing.cost}g)`;
+                btn.disabled = p.gold < missing.cost;
+            }
+            btn.onclick = () => {
+                if (p.gold < missing.cost) return;
+                p.gold -= missing.cost;
+                for (let key in p.equipment) {
+                    const item = p.equipment[key];
+                    if (item && item.maxDurability) item.durability = item.maxDurability;
+                }
+                p.calculateDerivedStats();
+                window.SaveManager.save(window.Engine.state);
+                this.openShop(this._currentShopFilter, this._currentShopTitle);
+            };
+        } else {
+            repairSection.style.display = 'none';
+        }
 
         this.renderConsumableShop();
         // O Boticário (poções/bandagens) aparece na Taverna (consumablesOnly)
@@ -1748,6 +1799,11 @@ class UIManager {
                 if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;
                 if (item.mpBonus) statsHtml += `<p style="color:#3388ff">+${item.mpBonus} MP Máximo</p>`;
                 if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.ammo}/${item.maxAmmo} disparos (recarrega no início de cada batalha)</p>`;
+                if (item.maxDurability) {
+                    const broken = item.durability <= 0;
+                    const color = broken ? '#ff4444' : (item.durability < item.maxDurability * 0.3 ? '#ffaa00' : '#888');
+                    statsHtml += `<p style="color:${color}">Durabilidade: ${item.durability}/${item.maxDurability}${broken ? ' — QUEBRADA! (metade do dano/defesa, repare no Ferreiro/Armeiro)' : ''}</p>`;
+                }
             }
             document.getElementById('tt-stats').innerHTML = statsHtml;
             document.getElementById('tt-price').innerText = `Valor: ${item.value}g`;
