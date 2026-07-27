@@ -1693,6 +1693,25 @@ class GraphicsEngine {
             ctx.beginPath();
             ctx.arc(0, cy, r, 0, Math.PI * 2);
             ctx.fill();
+
+            // `particle` (ver lineages.js) diferencia o efeito por linhagem —
+            // Luz sobe partículas douradas; o comentário acima desta função
+            // já prometia isso, mas nada lia o campo até agora.
+            if (v.particle === 'light_motes') {
+                const cycle = 2.2;
+                ctx.fillStyle = v.auraColor || '#fff2c0';
+                for (let i = 0; i < 6; i++) {
+                    const phase = ((t + i * (cycle / 6)) % cycle) / cycle;
+                    const mx = Math.sin(t * 0.8 + i * 2.1) * (14 + i * 2);
+                    const my = cy - phase * 60;
+                    const alpha = Math.sin(phase * Math.PI);
+                    ctx.globalAlpha = alpha * 0.85;
+                    ctx.beginPath();
+                    ctx.arc(mx, my, 1.6 + (1 - phase) * 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
         } else if (v.hasSmoke) {
             ctx.fillStyle = 'rgba(20,15,25,0.3)';
             for (let i = 0; i < 3; i++) {
