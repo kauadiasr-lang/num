@@ -604,6 +604,18 @@ class UIManager {
         this.showScreen('screen-battle');
     }
 
+    // Todos os Rivais em ordem, de todas as ligas concatenadas — RivalDatabase
+    // é organizado por liga (`{ leagues: [{ rivals: [...] }] }`), não por id
+    // (ver enemy.js), então qualquer tela que precise contar o total de
+    // Rivais ou encontrar um pelo id passa por aqui, em vez de reimplementar
+    // a mesma flattening (ou pior, tratar RivalDatabase como se já fosse um
+    // mapa por id, que nunca foi — bug encontrado em auditoria).
+    _getAllRivals() {
+        const all = [];
+        window.RivalDatabase.leagues.forEach(league => league.rivals.forEach(r => all.push(r)));
+        return all;
+    }
+
     // --- LADDER DE ADVERSÁRIOS ---
     openLadder() {
         const p = window.Engine.state.player;
@@ -612,8 +624,7 @@ class UIManager {
 
         // Um rival só está disponível se todos os anteriores da ladder já
         // tiverem sido derrotados (progressão sequencial entre e dentro das ligas)
-        const allRivals = [];
-        window.RivalDatabase.leagues.forEach(league => league.rivals.forEach(r => allRivals.push(r)));
+        const allRivals = this._getAllRivals();
 
         window.RivalDatabase.leagues.forEach(league => {
             const leagueDiv = document.createElement('div');
@@ -1613,7 +1624,7 @@ class UIManager {
             trophyContainer.innerHTML = '<p class="house-empty">Nenhum troféu ainda — derrote rivais na Arena para exibi-los aqui.</p>';
         } else {
             trophyContainer.innerHTML = defeated.map(id => {
-                const def = window.RivalDatabase && window.RivalDatabase[id];
+                const def = this._getAllRivals().find(r => r.id === id);
                 return `<div class="house-trophy-card">🏆 ${def ? def.name : id}</div>`;
             }).join('');
         }
@@ -1630,7 +1641,7 @@ class UIManager {
 
         let html = `
             <div class="halloffame-entry"><span>Campeões Derrotados</span><span class="highlight-gold">${champions.length} / 3</span></div>
-            <div class="halloffame-entry"><span>Rivais Derrotados</span><span class="highlight-gold">${defeated.length} / ${Object.keys(window.RivalDatabase || {}).length}</span></div>
+            <div class="halloffame-entry"><span>Rivais Derrotados</span><span class="highlight-gold">${defeated.length} / ${this._getAllRivals().length}</span></div>
             <div class="halloffame-entry"><span>Maior Nível Alcançado</span><span class="highlight-gold">${p.level}</span></div>
             <div class="halloffame-entry"><span>Vitórias Totais</span><span class="highlight-gold">${p.wins || 0}</span></div>
         `;
