@@ -132,6 +132,12 @@ class CityEngine {
         const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
         const hairColors = ['#2a1c10', '#5a3a1a', '#1a1a1a', '#8a5a2b'];
         let x, y;
+        // Túnicas de tons gregos/romanos — antes TODO NPC caía no fallback
+        // padrão de _drawTorso (graphics.js), '#5a4632', porque `__teamColor`
+        // era lido lá mas nunca setado em lugar nenhum: a cidade inteira era
+        // um "exército de clones" com a mesma roupa marrom. Cada NPC agora
+        // sorteia a própria cor, dando variedade real de vestimenta à praça.
+        const tunicColors = ['#e8dcc0', '#c9a876', '#8a3a2a', '#6b7a4a', '#8a6a2a', '#5a6a7a', '#7a3a4a'];
         if (pin) {
             x = Utils.randomFloat(pin.x - pin.radius, pin.x + pin.radius);
             y = Utils.randomFloat(pin.y - pin.radius * 0.4, pin.y + pin.radius * 0.4);
@@ -151,7 +157,8 @@ class CityEngine {
                     hairColor: hairColors[Utils.randomInt(0, hairColors.length - 1)],
                     beardStyle: 0, eyeColor: '#1a1a1a', faceShape: 1
                 },
-                equipment: {}
+                equipment: {},
+                __teamColor: tunicColors[Utils.randomInt(0, tunicColors.length - 1)]
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
