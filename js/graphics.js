@@ -1657,17 +1657,40 @@ class GraphicsEngine {
         ctx.closePath();
     }
 
-    // Quadrilátero afunilado entre duas alturas locais (y0->y1) com larguras
-    // diferentes em cada ponta — substitui os retângulos "de bloco" antigos
-    // de braços/pernas por membros com silhueta humana de verdade.
-    _drawTaperedLimb(ctx, x0, y0, y1, wStart, wEnd) {
+    // Só o contorno do quadrilátero afunilado (sem preencher) — compartilhado
+    // entre o preenchimento base e a sobreposição de sombra em
+    // _drawTaperedLimb, pra nunca duas cópias do mesmo cálculo de path.
+    _taperedLimbPath(ctx, x0, y0, y1, wStart, wEnd) {
         ctx.beginPath();
         ctx.moveTo(x0 - wStart / 2, y0);
         ctx.lineTo(x0 + wStart / 2, y0);
         ctx.lineTo(x0 + wEnd / 2, y1);
         ctx.lineTo(x0 - wEnd / 2, y1);
         ctx.closePath();
+    }
+
+    // Quadrilátero afunilado entre duas alturas locais (y0->y1) com larguras
+    // diferentes em cada ponta — substitui os retângulos "de bloco" antigos
+    // de braços/pernas por membros com silhueta humana de verdade.
+    _drawTaperedLimb(ctx, x0, y0, y1, wStart, wEnd) {
+        this._taperedLimbPath(ctx, x0, y0, y1, wStart, wEnd);
         ctx.fill();
+
+        // Sombreamento direcional (mesma luz vindo da esquerda usada em
+        // _drawTorso) — antes só o torso tinha esse volume; braços e pernas
+        // ficavam com preenchimento chapado (uma perna nem tinha a linha de
+        // sombra improvisada que a outra tinha). Agora os 4 membros recebem
+        // o mesmo tratamento de luz consistente.
+        const halfW = Math.max(wStart, wEnd) / 2;
+        const shade = ctx.createLinearGradient(x0 - halfW, 0, x0 + halfW, 0);
+        shade.addColorStop(0, 'rgba(255,255,255,0.16)');
+        shade.addColorStop(0.5, 'rgba(255,255,255,0)');
+        shade.addColorStop(1, 'rgba(0,0,0,0.24)');
+        const prevStyle = ctx.fillStyle;
+        ctx.fillStyle = shade;
+        this._taperedLimbPath(ctx, x0, y0, y1, wStart, wEnd);
+        ctx.fill();
+        ctx.fillStyle = prevStyle;
     }
 
     // Capa/manto atrás dos ombros — só alguns arquétipos têm (Campeão: capa
@@ -1770,9 +1793,6 @@ class GraphicsEngine {
         ctx.translate(-8, 0);
         ctx.rotate(sway * Math.PI / 180);
         this._drawTaperedLimb(ctx, 0, -legLen, 0, hipW, ankleW);
-        // linha de sombra interna simples pra sugerir volume, sem exigir gradiente por perna
-        ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(hipW * 0.15, -legLen + 4); ctx.lineTo(ankleW * 0.15, -4); ctx.stroke();
         ctx.restore();
 
         ctx.save();
