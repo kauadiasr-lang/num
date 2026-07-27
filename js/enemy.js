@@ -226,6 +226,86 @@ class Vampire extends Entity {
 }
 
 /**
+ * Fantasma — o outro perigo noturno da cidade (ver city.js _eventNightDanger),
+ * ao lado do Vampiro. Usa a MESMA IA comum de combate (AICombat) que
+ * qualquer inimigo — não é um boss, é só um adversário temático que só
+ * aparece à noite. `lineage: 'sombras'` é só reaproveitamento de dado: a
+ * Linhagem Sombras já define sua fraqueza como Luz em lineages.js (ainda
+ * bloqueada como mutação jogável), então um jogador da Linhagem Luz já
+ * causa +25% de dano num Fantasma de graça, via
+ * LineageSystem.getWeaknessMultiplier — sem precisar duplicar essa regra aqui.
+ */
+const GHOST_NAMES = ['Fantasma Errante', 'Alma Penada', 'Sombra Uivante', 'Espectro sem Nome', 'Eco dos Mortos'];
+class Ghost extends Entity {
+    constructor(playerLevel) {
+        super(GHOST_NAMES[Utils.randomInt(0, GHOST_NAMES.length - 1)]);
+        this.isGhostEnemy = true; // flag informativa (paralela a isVampireEnemy), sem drop próprio por enquanto
+        this.lineage = 'sombras';
+
+        this.level = playerLevel + Utils.randomInt(0, 2);
+        if (this.level < 2) this.level = 2;
+
+        // Fantasmas favorecem esquiva/crítico (estilo assassino) — golpeiam
+        // e desaparecem antes de revidar, nunca encaram um combate direto.
+        window.AICombat.assignProfile(this, { level: this.level, styleId: 'assassino' });
+        this.generateStats();
+        this.equipStyleWeapon();
+
+        // Identidade visual etérea: pele e olhos muito pálidos, com a MESMA
+        // aura genérica usada pela Linhagem Luz (ver _drawLineageAura em
+        // graphics.js), só que num azul-esbranquiçado frio em vez de dourado
+        // — nenhum código novo de renderização precisou ser escrito.
+        this.visuals = {
+            gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+            skinTone: '#dce8f0', eyeColor: '#eaf6ff', eyebrowColor: '#c8dce8',
+            hairStyle: Utils.randomInt(1, 15), hairColor: '#c8dce8', beardStyle: 0, beardColor: '#c8dce8',
+            faceShape: Utils.randomInt(1, 3), archetype: 'assassino', scarStyle: 0,
+            hasAura: true, auraColor: 'rgba(168,216,255,0.4)'
+        };
+
+        this.expValue = Math.floor(22 * Math.pow(1.2, this.level));
+        this.goldValue = Math.floor(Utils.randomInt(10, 28) * (this.level * 0.5 + 1));
+    }
+
+    generateStats() {
+        const totalPoints = 38 + (this.level * 5);
+        const statsArray = Object.keys(this.baseStats);
+        const focus = this.aiStyle && this.aiStyle.statFocus;
+        const weightedPool = [];
+        statsArray.forEach(stat => {
+            const weight = focus ? (focus[stat] || 1) : 1;
+            for (let w = 0; w < weight; w++) weightedPool.push(stat);
+        });
+        for (let i = 0; i < totalPoints; i++) {
+            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
+            this.baseStats[randomStat]++;
+        }
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
+
+    equipStyleWeapon() {
+        const styleId = this.aiStyle ? this.aiStyle.id : 'assassino';
+        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
+        const rarity = Utils.chance(15) ? RARITY.UNCOMMON : RARITY.COMMON;
+        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
+
+    generateLoot(playerLuk) {
+        const dropChance = 22 + (playerLuk * 2);
+        if (Utils.chance(dropChance)) {
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
+            return dropTable[0];
+        }
+        return null;
+    }
+}
+
+/**
  * Bosses de Ritual (Conde Vampiro, Anjo Guardião) — muito mais fortes que
  * qualquer inimigo comum, com IA 100% exclusiva (ver bossai.js, nunca usa
  * AICombat). Orientado a dados: BOSS_DEFS é o registry; adicionar um boss

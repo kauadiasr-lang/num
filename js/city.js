@@ -341,7 +341,9 @@ class CityEngine {
 
         this._updateDayCycle(dt);
         this._updateMovement(dt);
-        this._updateNpcs(dt);
+        // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
+        // continuar simulando o passeio de alguém que ninguém vê.
+        if (!window.GFX || window.GFX.arenaTime !== 'night') this._updateNpcs(dt);
         this._updateProximity();
         this._updateAmbientEffects(dt);
         this._updateRandomEvents(dt);
@@ -351,7 +353,9 @@ class CityEngine {
         this.dayPhaseTimer += dt;
         if (this.dayPhaseTimer >= this.dayPhaseDuration) {
             this.dayPhaseTimer = 0;
+            const enteringNight = this.dayPhases[this.dayPhaseIndex] !== 'night' && this.dayPhases[(this.dayPhaseIndex + 1) % this.dayPhases.length] === 'night';
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
+            if (enteringNight) this._onNightFalls();
         }
         if (window.GFX) {
             window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
@@ -360,6 +364,24 @@ class CityEngine {
             // verdade pelo céu em vez de só trocar de posição a cada fase.
             const phaseFrac = Utils.clamp(this.dayPhaseTimer / this.dayPhaseDuration, 0, 1);
             window.GFX.cityDayProgress = (this.dayPhaseIndex + phaseFrac) / this.dayPhases.length;
+        }
+    }
+
+    // Chamado exatamente no instante em que a noite cai (transição de
+    // qualquer fase para 'night'). Se o jogador passar 3 noites seguidas sem
+    // dormir no Curandeiro (ver ui.js healFatigue, que zera o contador), a
+    // fadiga aumenta automaticamente — reforça que "dormir" é uma decisão
+    // real, não só uma forma de gastar ouro.
+    _onNightFalls() {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        p.nightsWithoutSleep = (p.nightsWithoutSleep || 0) + 1;
+        if (p.nightsWithoutSleep >= 3) {
+            p.nightsWithoutSleep = 0;
+            if (p.fatigue < 3) {
+                p.addFatigue(1);
+                this._toast('Três noites sem dormir cobram seu preço — sua fadiga aumentou.', 'error');
+            }
         }
     }
 
@@ -653,6 +675,16 @@ class CityEngine {
             table.push({ w: 4, run: () => this._eventVampireEncounter(p) });
         }
 
+        // Perigo noturno geral: andar pela cidade à noite é arriscado pra
+        // QUALQUER jogador, com ou sem Linhagem despertada (diferente do
+        // encontro com Vampiro acima, que é só sobre o Ritual). As ruas já
+        // ficam visualmente vazias à noite (ver draw()/_updateNpcs) — isso
+        // dá uma razão mecânica real pra essa sensação de perigo.
+        if (p && window.GFX && window.GFX.arenaTime === 'night') {
+            table.push({ w: 3, run: () => this._eventNightMugging(p) });
+            table.push({ w: 3, run: () => this._eventNightMonsterAttack(p) });
+        }
+
         // Fragmentos Sagrados (Ritual da Luz) — encontrados a qualquer hora,
         // raramente, enquanto o jogador ainda não completou o requisito.
         if (p && !p.lineage && (!p.ritualProgress.luz || p.ritualProgress.luz.sacredFragments < 5)) {
@@ -680,6 +712,42 @@ class CityEngine {
                 if (arenaMenu) arenaMenu.classList.add('hidden');
                 const vampire = new Vampire(p.level);
                 window.UI.beginBattleWith(vampire);
+            }
+        }, 1800);
+    }
+
+    // Assalto noturno: mais grave que o furto diurno (_eventThief) — as ruas
+    // vazias à noite não têm testemunhas. Carisma ainda pode evitar o pior,
+    // mas com menos chance que durante o dia.
+    _eventNightMugging(p) {
+        if (!p || p.gold <= 0) return;
+        const loss = Math.min(p.gold, Utils.randomInt(15, 40));
+        const cha = p.getTotalStat ? p.getTotalStat('cha') : 5;
+        if (Utils.chance(cha)) {
+            this._toast('Sombras se aproximam na rua deserta, mas suas palavras firmes as afastam.', 'success');
+            if (window.AudioManager) window.AudioManager.playConfirm();
+            return;
+        }
+        p.gold -= loss;
+        if (window.AudioManager) window.AudioManager.playError();
+        this._toast(`Assaltado na escuridão da rua vazia! Perdeu ${loss}g antes de conseguir fugir.`, 'error');
+    }
+
+    // Ataque de monstro noturno: independente do Ritual do Vampirismo (ver
+    // _eventVampireEncounter acima) — perigo real de andar pela cidade à
+    // noite, com ou sem Linhagem já despertada. Sorteia entre Vampiro e
+    // Fantasma (ambos em enemy.js), cada um com sua própria identidade.
+    _eventNightMonsterAttack(p) {
+        const isVampire = Utils.chance(50);
+        this._toast(isVampire
+            ? 'Uma figura pálida surge da escuridão, sedenta por sangue...'
+            : 'Um vulto etéreo atravessa a rua vazia, gélido e uivante...', 'error');
+        setTimeout(() => {
+            if (this._isActive() && window.UI && window.UI.beginBattleWith) {
+                const arenaMenu = document.getElementById('city-arena-menu');
+                if (arenaMenu) arenaMenu.classList.add('hidden');
+                const monster = isVampire ? new Vampire(p.level) : new Ghost(p.level);
+                window.UI.beginBattleWith(monster);
             }
         }, 1800);
     }
@@ -826,9 +894,13 @@ class CityEngine {
 
         // Ordena tudo que fica "no chão" (prédios, NPCs, jogador) por Y, pra
         // quem está mais embaixo na tela ser desenhado por cima (profundidade).
+        // NPCs comuns somem à noite — as ruas ficam vazias (e perigosas, ver
+        // _onNightFalls/_eventNightDanger), reforçando que sair à noite é
+        // uma escolha arriscada, não só estética.
+        const isNight = window.GFX && window.GFX.arenaTime === 'night';
         const drawables = [
             ...this.buildings.map(b => ({ y: this._doorPoint(b).y, draw: () => this._drawBuilding(ctx, w, h, b) })),
-            ...this.npcs.map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
+            ...(isNight ? [] : this.npcs.map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) }))),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);

@@ -1517,10 +1517,18 @@ class UIManager {
 
     // --- CURANDEIRO ---
     openHealer() {
+        document.getElementById('healer-message').innerText = '';
         this.updateHealerScreen();
         this.showScreen('screen-healer');
     }
 
+    // Bug de auditoria corrigido: antes, esta função limpava a mensagem de
+    // resultado a cada atualização — como healFatigue() SEMPRE chama
+    // updateHealerScreen() logo depois de escrever "Você dormiu e
+    // descansou...", a mensagem era apagada no mesmo tick, antes de qualquer
+    // repintura da tela. O jogador nunca chegava a ver a confirmação. Agora
+    // a mensagem só é limpa ao ABRIR a tela (ver openHealer), não a cada
+    // refresh de fadiga/custo/botão.
     updateHealerScreen() {
         const p = window.Engine.state.player;
         const fatigue = p.fatigue || 0;
@@ -1528,10 +1536,13 @@ class UIManager {
 
         document.getElementById('healer-fatigue-level').innerText = fatigue;
         document.getElementById('healer-cost').innerText = cost;
-        document.getElementById('healer-message').innerText = '';
 
+        // O botão continua habilitado mesmo com fadiga 0 (custo 0 nesse
+        // caso): dormir também zera as noites em claro (ver
+        // city.js _onNightFalls), então precisa ser possível vir descansar
+        // por prevenção, não só quando já há fadiga pra curar.
         const btn = document.getElementById('btn-heal-fatigue');
-        btn.disabled = fatigue === 0 || p.gold < cost;
+        btn.disabled = p.gold < cost;
         btn.onclick = () => this.healFatigue();
     }
 
@@ -1540,7 +1551,6 @@ class UIManager {
         const fatigue = p.fatigue || 0;
         const cost = fatigue * 30;
 
-        if (fatigue === 0) return;
         if (p.gold < cost) {
             window.AudioManager.playError();
             document.getElementById('healer-message').innerText = 'Ouro insuficiente!';
@@ -1548,11 +1558,14 @@ class UIManager {
         }
 
         p.gold -= cost;
-        p.cureFatigue(fatigue);
+        if (fatigue > 0) p.cureFatigue(fatigue);
+        p.nightsWithoutSleep = 0; // dormiu de verdade — zera o contador de noites em claro (ver city.js _onNightFalls)
         window.SaveManager.save(window.Engine.state);
         window.AudioManager.playHeal();
 
-        document.getElementById('healer-message').innerText = 'Você dormiu e descansou. Fadiga totalmente curada!';
+        document.getElementById('healer-message').innerText = fatigue > 0
+            ? 'Você dormiu e descansou. Fadiga totalmente curada!'
+            : 'Você dormiu bem. Amanhã será outro dia.';
         this.updateHealerScreen();
         this.updateHubStats();
     }

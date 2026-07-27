@@ -235,6 +235,7 @@ class Player extends Entity {
         // skillCooldowns já vem inicializado do construtor de Entity
 
         this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
+        this.nightsWithoutSleep = 0; // zera ao dormir no Curandeiro (ver ui.js healFatigue); a cada 3 noites sem dormir, +1 fadiga automática (ver city.js _updateDayCycle)
         this.wins = 0;
         this.losses = 0;
         this.rivalsDefeated = []; // IDs dos rivais da ladder já derrotados
