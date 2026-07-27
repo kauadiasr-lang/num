@@ -2324,21 +2324,30 @@ class GraphicsEngine {
         }
     }
 
+    // Capacetes de couro e de metal tinham exatamente a mesma forma antes
+    // (só a cor da crista, vinda da raridade, mudava) — "equipamentos sem
+    // identidade" apontado em auditoria. Agora o material do próprio item
+    // (`leathercap` vs qualquer capacete de metal) muda cor base e brilho:
+    // couro fica fosco e marrom, metal continua cinza com o realce
+    // especular de antes.
     _drawHelmet(ctx, item, headY, headR) {
         const crestColor = item.rarity ? item.rarity.color : '#d4af37';
-        ctx.fillStyle = '#8891a0';
+        const isLeather = item.id === 'leathercap';
+        ctx.fillStyle = isLeather ? '#5a4028' : '#8891a0';
         ctx.beginPath();
         ctx.arc(0, headY - 4, headR + 2, Math.PI, Math.PI * 2.05);
         ctx.fill();
         ctx.fillRect(-headR - 2, headY - 4, 4, 15);
         ctx.fillRect(headR - 2, headY - 4, 4, 15);
 
-        // Brilho metálico no topo — sem isso o capacete ficava um domo cinza
-        // liso, igual à armadura antes do sombreamento direcional do torso.
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(-headR * 0.3, headY - 4, headR - 3, Math.PI * 1.05, Math.PI * 1.4);
-        ctx.stroke();
+        // Brilho metálico no topo — só em capacetes de metal; couro é fosco
+        // por natureza, então nunca ganha esse realce especular.
+        if (!isLeather) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(-headR * 0.3, headY - 4, headR - 3, Math.PI * 1.05, Math.PI * 1.4);
+            ctx.stroke();
+        }
 
         ctx.fillStyle = crestColor;
         ctx.beginPath();
