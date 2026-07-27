@@ -108,6 +108,91 @@ const FIGHTER_ARCHETYPES = {
 };
 window.FIGHTER_ARCHETYPES = FIGHTER_ARCHETYPES;
 
+// ==========================================================================
+// BIOMAS DE ARENA: cada cenário de batalha tem identidade própria (paleta
+// de solo, vegetação, silhueta de fundo e props espalhados) — sorteado uma
+// vez por luta (resetForNewBattle), igual ao horário do dia já existente.
+// O solo detalhado de cada bioma é pré-renderizado uma única vez por luta
+// num canvas offscreen (ver _buildArenaGroundTexture) e só é "colado"
+// (drawImage) a cada quadro — o mesmo princípio de reaproveitar uma
+// textura/spritesheet em vez de redesenhar dezenas de pedras/rachaduras/
+// tufos de grama a cada frame, o que manteria os 60fps mesmo em qualidade alta.
+// ==========================================================================
+const ARENA_BIOMES = {
+    coliseu: {
+        name: 'Coliseu Imperial',
+        ground: ['#7a5a34', '#6b4d2a', '#8a6a3e', '#5a4025'], accent: '#3d2c18',
+        vegetation: 'none', special: null,
+        midground: 'colosseum', hasCrowd: true, hasBanners: true,
+        props: ['rock', 'rubble', 'brokenShield', 'bones']
+    },
+    areia: {
+        name: 'Arena de Areia Clássica',
+        ground: ['#c9a876', '#d4b483', '#b89563', '#e0c294'], accent: '#8a6a3e',
+        vegetation: 'none', special: 'sand',
+        midground: 'dunes', midgroundColor: 'rgba(180,150,100,0.45)', hasCrowd: false, hasBanners: true,
+        props: ['stake', 'bones', 'rock', 'brokenWeapon']
+    },
+    floresta: {
+        name: 'Clareira da Floresta',
+        ground: ['#4a3f24', '#5a4a2a', '#3d3520', '#4f4526'], accent: '#2a2415',
+        vegetation: 'dense', special: null,
+        midground: 'treeline', midgroundColor: 'rgba(30,42,26,0.75)', hasCrowd: false, hasBanners: false,
+        props: ['log', 'bush', 'flower', 'stump', 'rock']
+    },
+    ruinas: {
+        name: 'Ruínas Antigas',
+        ground: ['#6b6558', '#5a564a', '#7a7364', '#4f4b40'], accent: '#3a372e',
+        vegetation: 'moss', special: null,
+        midground: 'walls', midgroundColor: 'rgba(74,70,64,0.8)', midgroundBroken: true,
+        hasCrowd: false, hasBanners: true, bannerTattered: true,
+        props: ['brokenPillar', 'rubble', 'statue', 'bones', 'oldBanner']
+    },
+    deserto: {
+        name: 'Deserto Escaldante',
+        ground: ['#e0c294', '#d4b483', '#c9a876', '#e8cc9e'], accent: '#a3825a',
+        vegetation: 'none', special: 'sand',
+        midground: 'dunes', midgroundColor: 'rgba(201,168,118,0.55)', hasCrowd: false, hasBanners: false,
+        props: ['bones', 'deadBush', 'rock']
+    },
+    castelo: {
+        name: 'Pátio do Castelo',
+        ground: ['#8a8a8a', '#7a7a7a', '#95958f', '#6e6e6e'], accent: '#4a4a4a',
+        vegetation: 'none', special: 'cobblestone',
+        midground: 'walls', midgroundColor: 'rgba(90,90,90,0.85)', hasCrowd: true, hasBanners: true,
+        props: ['torchStake', 'brokenShield', 'rock']
+    },
+    templo: {
+        name: 'Templo Esquecido',
+        ground: ['#c9b896', '#b8a67e', '#d4c4a0', '#a39270'], accent: '#8a7a5a',
+        vegetation: 'sparse', special: null,
+        midground: 'columns', midgroundColor: 'rgba(184,166,126,0.7)', hasCrowd: false, hasBanners: true, bannerTattered: true,
+        props: ['brokenPillar', 'statue', 'flower', 'rubble']
+    },
+    montanhas: {
+        name: 'Platô da Montanha',
+        ground: ['#6a6355', '#5a5548', '#79715f', '#4f4a3e'], accent: '#3a362d',
+        vegetation: 'medium', special: null,
+        midground: 'peaks', midgroundColor: 'rgba(70,64,86,0.55)', hasCrowd: false, hasBanners: false,
+        props: ['bigRock', 'log', 'bush', 'rock']
+    },
+    vulcanica: {
+        name: 'Arena Vulcânica',
+        ground: ['#2a2220', '#3a2a24', '#241c1a', '#33241f'], accent: '#ff6a2b',
+        vegetation: 'none', special: 'lava',
+        midground: 'peaks', midgroundColor: 'rgba(90,30,20,0.55)', hasCrowd: false, hasBanners: false,
+        props: ['bigRock', 'bones', 'brokenWeapon']
+    },
+    congelada: {
+        name: 'Arena Congelada',
+        ground: ['#dce8f0', '#c7d8e3', '#eef5fa', '#b8cdda'], accent: '#8fa8ba',
+        vegetation: 'none', special: 'snow',
+        midground: 'peaks', midgroundColor: 'rgba(180,200,220,0.5)', hasCrowd: false, hasBanners: false,
+        props: ['icicleRock', 'bones', 'frozenBanner']
+    }
+};
+window.ARENA_BIOMES = ARENA_BIOMES;
+
 // Estilos de cicatriz (índice = visuals.scarStyle, 0 = nenhuma)
 const SCAR_STYLES = ['none', 'cheek', 'brow', 'forehead', 'jaw'];
 window.SCAR_STYLES = SCAR_STYLES;
@@ -136,6 +221,8 @@ class GraphicsEngine {
 
         // Ambientação da arena (plateia, estrelas) — gerada uma vez e reaproveitada
         this.arenaTime = 'sunset';
+        this.arenaBiome = 'coliseu'; // padrão até a primeira batalha sortear um bioma
+        this._ambientFx = [];
         // Progresso contínuo (0..1) do ciclo dia/noite da Cidade — usado só
         // pelo céu da Cidade pra o sol/lua se moverem em arco de verdade ao
         // longo do tempo, em vez de pular de posição a cada troca de fase.
@@ -162,6 +249,13 @@ class GraphicsEngine {
             x: Math.random(), y: Math.random(), phase: Math.random() * Math.PI * 2
         }));
         this.birds = [];
+
+        // Nuvens lentas: poucas, bem discretas, cada uma feita de 3 blobs
+        // sobrepostos (silhueta mais orgânica que uma única elipse)
+        this._clouds = Array.from({ length: 4 }, () => ({
+            x: Math.random(), y: Utils.randomFloat(0.08, 0.4), scale: Utils.randomFloat(0.7, 1.3),
+            speed: Utils.randomFloat(0.004, 0.009)
+        }));
     }
 
     // Chamado ao entrar no Menu Principal/Créditos: fixa o céu no entardecer
@@ -169,6 +263,10 @@ class GraphicsEngine {
     // batalha, que sorteia um horário dinâmico a cada luta.
     initMenuAmbience() {
         this.arenaTime = 'sunset';
+        // O menu sempre mostra o Coliseu Imperial (identidade fixa), mesmo
+        // que a última batalha tenha sorteado outro bioma — só as batalhas
+        // sorteiam um cenário novo (ver resetForNewBattle).
+        this.arenaBiome = 'coliseu';
         this.birds = [];
         this._birdTimer = Utils.randomFloat(2, 5);
     }
@@ -178,10 +276,19 @@ class GraphicsEngine {
     resetForNewBattle() {
         const times = ['dawn', 'day', 'sunset', 'night'];
         this.arenaTime = times[Utils.randomInt(0, times.length - 1)];
+
+        // Sorteia o bioma da arena (identidade própria de solo/vegetação/
+        // fundo/props) e pré-renderiza o solo detalhado uma única vez para
+        // esta luta — ver ARENA_BIOMES e _buildArenaGroundTexture.
+        const biomeIds = Object.keys(ARENA_BIOMES);
+        this.arenaBiome = biomeIds[Utils.randomInt(0, biomeIds.length - 1)];
+        this._buildArenaGroundTexture();
+
         this.playerAnim = { type: 'idle', start: performance.now(), duration: 0 };
         this.enemyAnim = { type: 'idle', start: performance.now(), duration: 0 };
         this.birds = [];
         this._birdTimer = Utils.randomFloat(3, 7);
+        this._ambientFx = []; // brasas/neve/folhas específicas do bioma (ver update())
         // Distância exibida (suavizada) começa já alinhada com a distância real da batalha
         this._displayDistance = (window.BattleEngine && typeof window.BattleEngine.distance === 'number') ? window.BattleEngine.distance : 5;
 
@@ -287,6 +394,13 @@ class GraphicsEngine {
                 this._spawnAmbientDust();
             }
 
+            // Nuvens à deriva, bem lentas (mantidas mesmo em qualidade baixa —
+            // é só translação de posição, sem redesenho pesado)
+            this._clouds.forEach(cl => {
+                cl.x += cl.speed * dt;
+                if (cl.x > 1.25) cl.x = -0.25;
+            });
+
             // Pássaros cruzando o céu ocasionalmente (também poupados em qualidade baixa)
             if (this.qualityLevel !== 'baixa') {
                 this._birdTimer -= dt;
@@ -297,6 +411,46 @@ class GraphicsEngine {
                 this.birds.forEach(b => { b.x += b.speed * dt; b.wingPhase += dt * 10; });
                 if (window.Engine) this.birds = this.birds.filter(b => b.x < window.Engine.width + 50);
             }
+
+            // Efeito ambiente específico do bioma da arena (folhas, brasas,
+            // neve, areia) — sempre discreto, nunca mais que um punhado de
+            // partículas de cada vez (ver _spawnBiomeAmbient).
+            if (isBattle && this.qualityLevel !== 'baixa') {
+                this._biomeFxTimer = (this._biomeFxTimer || 0) - dt;
+                if (this._biomeFxTimer <= 0 && this.particles.length < 80) {
+                    this._biomeFxTimer = Utils.randomFloat(0.5, 1.1);
+                    this._spawnBiomeAmbient();
+                }
+            }
+        }
+    }
+
+    // Poeira/folha/brasa/neve ambiente conforme o bioma sorteado — reaproveita
+    // a mesma classe Particle das outras partículas do jogo, só muda cor/
+    // velocidade/ponto de origem pra combinar com o cenário.
+    _spawnBiomeAmbient() {
+        if (!window.Engine) return;
+        const w = window.Engine.width, h = window.Engine.height;
+        const horizon = h * 0.62;
+        const biome = ARENA_BIOMES[this.arenaBiome];
+        if (!biome) return;
+
+        if (biome.special === 'lava') { // brasas subindo devagar
+            const p = new Particle(Utils.randomFloat(w * 0.1, w * 0.9), h - 10, '#ff8a3a', 0.6, Utils.randomFloat(1.5, 3));
+            p.vy = -Utils.randomFloat(0.4, 1.0); p.vx *= 0.3; p.decay = 0.012;
+            this.particles.push(p);
+        } else if (biome.special === 'snow') { // neve caindo devagar
+            const p = new Particle(Utils.randomFloat(0, w), horizon - 10, 'rgba(255,255,255,0.85)', 0.4, Utils.randomFloat(2, 4));
+            p.vy = Utils.randomFloat(0.6, 1.2); p.vx *= 0.4; p.decay = 0.006;
+            this.particles.push(p);
+        } else if (biome.vegetation === 'dense') { // folhas voando (floresta)
+            const p = new Particle(Utils.randomFloat(0, w * 0.3), Utils.randomFloat(horizon, horizon + 60), '#a3752a', 1.2, Utils.randomFloat(2, 3.5));
+            p.vy = Utils.randomFloat(0.2, 0.6); p.vx = Utils.randomFloat(0.8, 1.8); p.decay = 0.01;
+            this.particles.push(p);
+        } else if (biome.special === 'sand') { // névoa fina de areia
+            const p = new Particle(Utils.randomFloat(0, w), Utils.randomFloat(horizon, h - 20), 'rgba(220,190,140,0.25)', 1.5, Utils.randomFloat(3, 6));
+            p.vy *= 0.1; p.decay = 0.01;
+            this.particles.push(p);
         }
     }
 
@@ -370,28 +524,38 @@ class GraphicsEngine {
     // FUNDO DA ARENA: céu dinâmico, coliseu, plateia, bandeiras, tochas, areia
     // ======================================================================
 
-    drawArenaBackground(ctx, w, h) {
-        const palettes = {
-            dawn: { top: '#2b3a67', mid: '#c96a4e', bottom: '#f2b866', sun: '#ffdca0', crowd: '#3a2f45', torch: true, sunAlpha: 0.75 },
-            day: { top: '#3d7dc9', mid: '#79b8e8', bottom: '#cbe6f7', sun: '#fff6d8', crowd: '#5a4d3a', torch: false, sunAlpha: 0.9 },
-            sunset: { top: '#1b1035', mid: '#8a3b5e', bottom: '#e8843f', sun: '#ffb35c', crowd: '#2c2030', torch: true, sunAlpha: 0.8 },
-            night: { top: '#04050f', mid: '#0c1230', bottom: '#1c2140', sun: '#e8e8ff', crowd: '#0c0c14', torch: true, sunAlpha: 0.85 }
+    // Paletas de horário do dia — além das cores do céu (usadas por _drawSky),
+    // cada uma carrega groundTint/groundAlpha: o "banho de luz" aplicado sobre
+    // o solo pré-renderizado (quente e suave de dia, azulado e mais escuro à
+    // noite) sem precisar regenerar a textura cara pra cada horário.
+    _timePalettes() {
+        return {
+            dawn: { top: '#2b3a67', mid: '#c96a4e', bottom: '#f2b866', sun: '#ffdca0', crowd: '#3a2f45', torch: true, sunAlpha: 0.75, groundTint: 'rgba(255,180,120,0.16)', shadowAlpha: 0.12 },
+            day: { top: '#3d7dc9', mid: '#79b8e8', bottom: '#cbe6f7', sun: '#fff6d8', crowd: '#5a4d3a', torch: false, sunAlpha: 0.9, groundTint: 'rgba(255,240,200,0.10)', shadowAlpha: 0.10 },
+            sunset: { top: '#1b1035', mid: '#8a3b5e', bottom: '#e8843f', sun: '#ffb35c', crowd: '#2c2030', torch: true, sunAlpha: 0.8, groundTint: 'rgba(255,120,60,0.20)', shadowAlpha: 0.18 },
+            night: { top: '#04050f', mid: '#0c1230', bottom: '#1c2140', sun: '#e8e8ff', crowd: '#0c0c14', torch: true, sunAlpha: 0.85, groundTint: 'rgba(60,90,160,0.32)', shadowAlpha: 0.26 }
         };
-        const pal = palettes[this.arenaTime] || palettes.sunset;
+    }
+
+    drawArenaBackground(ctx, w, h) {
+        const pal = this._timePalettes()[this.arenaTime] || this._timePalettes().sunset;
+        const biome = ARENA_BIOMES[this.arenaBiome] || ARENA_BIOMES.coliseu;
         const horizon = h * 0.62;
         const t = this._torchClock || 0;
 
         this._drawSky(ctx, w, h, horizon, pal, t);
 
-        // Coliseu: bandas de arquibancada em camadas (silhueta com arcos romanos)
-        this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
-        this._drawColosseumRing(ctx, w, horizon, 0.38, '#332a1e');
+        // Plano intermediário: silhueta de fundo própria do bioma (arcos do
+        // coliseu, dunas, mata, muralhas, colunas ou picos) — camada de
+        // profundidade entre o céu e o solo, nunca a mesma pra todo cenário.
+        this._drawBiomeMidground(ctx, w, horizon, biome);
 
-        // Plateia animada (detalhe decorativo, poupado em qualidade baixa)
-        if (this.qualityLevel !== 'baixa') this._drawCrowd(ctx, w, horizon, pal.crowd);
+        // Plateia animada: só em arenas com arquibancada de verdade (detalhe
+        // poupado em qualidade baixa)
+        if (biome.hasCrowd && this.qualityLevel !== 'baixa') this._drawCrowd(ctx, w, horizon, pal.crowd);
 
-        // Bandeiras balançando ao vento
-        this._drawBanners(ctx, w, horizon, t);
+        // Bandeiras (ou tattered/rasgadas nas ruínas/templo) balançando ao vento
+        if (biome.hasBanners) this._drawBanners(ctx, w, horizon, t, !!biome.bannerTattered);
 
         // Tochas com chama tremulante (aparecem à noite/entardecer/amanhecer)
         if (pal.torch) {
@@ -399,20 +563,437 @@ class GraphicsEngine {
             this._drawTorch(ctx, w * 0.93, horizon, t);
         }
 
-        // Areia da arena
-        const sandGrad = ctx.createLinearGradient(0, horizon, 0, h);
-        sandGrad.addColorStop(0, '#7a5a34');
-        sandGrad.addColorStop(1, '#3d2c18');
-        ctx.fillStyle = sandGrad;
-        ctx.fillRect(0, horizon, w, h - horizon);
+        // Solo: textura rica pré-renderizada (rachaduras, pedras, vegetação,
+        // pegadas, marcas de batalha, props — ver _buildArenaGroundTexture),
+        // colada e esticada pra caber na tela atual (barato: um drawImage só,
+        // em vez de redesenhar dezenas de elementos todo quadro).
+        if (!this._groundCanvas || this._groundBiomeBuilt !== this.arenaBiome) this._buildArenaGroundTexture();
+        ctx.drawImage(this._groundCanvas, 0, horizon, w, h - horizon);
 
-        // Sombras suaves de ondulação na areia
-        ctx.fillStyle = 'rgba(0,0,0,0.10)';
-        for (let i = 0; i < 5; i++) {
+        // Banho de luz do horário por cima do solo (quente de dia, azulado à
+        // noite) — dinâmico, não precisa regenerar a textura cara.
+        ctx.fillStyle = pal.groundTint;
+        ctx.fillRect(0, horizon, w, h - horizon);
+    }
+
+    // ======================================================================
+    // SOLO: textura pré-renderizada por bioma — o "chão" deixa de ser um
+    // gradiente liso e passa a ter variação de cor, rachaduras, pedras,
+    // vegetação irregular, folhas secas, pegadas, marcas de batalha, manchas
+    // antigas e poeira, além dos props espalhados do bioma. Desenhado uma
+    // única vez por luta num canvas offscreen (this._groundCanvas, resolução
+    // de referência fixa) e reaproveitado (drawImage) a cada quadro — o
+    // equivalente, em Canvas puro, a usar um spritesheet em vez de redesenhar
+    // dezenas de elementos todo frame.
+    // ======================================================================
+    _buildArenaGroundTexture() {
+        const biome = ARENA_BIOMES[this.arenaBiome] || ARENA_BIOMES.coliseu;
+        this._groundBiomeBuilt = this.arenaBiome;
+
+        const W = 1400, H = 360; // resolução de referência; esticado no draw
+        if (!this._groundCanvas) this._groundCanvas = document.createElement('canvas');
+        const c = this._groundCanvas;
+        c.width = W; c.height = H;
+        const ctx = c.getContext('2d');
+
+        // 1) Base: gradiente sutil (mais claro perto do horizonte, mais
+        // escuro/próximo embaixo — sugere profundidade mesmo no solo plano)
+        const base = ctx.createLinearGradient(0, 0, 0, H);
+        base.addColorStop(0, biome.ground[0]);
+        base.addColorStop(1, biome.ground[3] || biome.ground[0]);
+        ctx.fillStyle = base;
+        ctx.fillRect(0, 0, W, H);
+
+        // 2) Manchas irregulares de variação de cor (terra/pedra/grama) —
+        // várias camadas de blobs semitransparentes, nunca uma cor sólida.
+        for (let i = 0; i < 26; i++) {
+            const x = Utils.randomFloat(0, W), y = Utils.randomFloat(0, H);
+            const r = Utils.randomFloat(30, 90);
+            ctx.fillStyle = biome.ground[Utils.randomInt(1, biome.ground.length - 1)];
+            ctx.globalAlpha = Utils.randomFloat(0.12, 0.28);
             ctx.beginPath();
-            ctx.ellipse(w * (0.08 + i * 0.22), horizon + 22 + i * 5, 70, 7, 0, 0, Math.PI * 2);
+            ctx.ellipse(x, y, r, r * Utils.randomFloat(0.4, 0.7), Utils.randomFloat(0, Math.PI), 0, Math.PI * 2);
             ctx.fill();
         }
+        ctx.globalAlpha = 1;
+
+        // 3) Tratamentos especiais de bioma (areia, neve, lava, pedra de calçada)
+        if (biome.special === 'sand') this._groundSandRipples(ctx, W, H, biome);
+        else if (biome.special === 'snow') this._groundSnowOverlay(ctx, W, H, biome);
+        else if (biome.special === 'lava') this._groundLavaCracks(ctx, W, H, biome);
+        else if (biome.special === 'cobblestone') this._groundCobblestone(ctx, W, H, biome);
+        else this._groundCracks(ctx, W, H, biome); // rachaduras comuns de terra/pedra seca
+
+        // 4) Pedras espalhadas (sempre, exceto neve/lava que têm as suas)
+        if (biome.special !== 'snow' && biome.special !== 'lava') {
+            for (let i = 0; i < 18; i++) this._propRock(ctx, Utils.randomFloat(0, W), Utils.randomFloat(H * 0.3, H), Utils.randomFloat(0.5, 1.3), biome.accent);
+        }
+
+        // 5) Vegetação irregular (grama/musgo/plantinhas), quando o bioma tem
+        if (biome.vegetation !== 'none') this._groundVegetation(ctx, W, H, biome);
+
+        // 6) Folhas secas espalhadas (mais em biomas com vegetação, algumas
+        // sempre presentes como detrito natural)
+        const leafCount = biome.vegetation === 'dense' ? 22 : (biome.vegetation === 'none' ? 4 : 12);
+        for (let i = 0; i < leafCount; i++) this._propDryLeaf(ctx, Utils.randomFloat(0, W), Utils.randomFloat(H * 0.3, H));
+
+        // 7) Pegadas (trilhas cruzando o solo — sugere que já houve movimento ali)
+        this._groundFootprintTrail(ctx, W, H);
+        this._groundFootprintTrail(ctx, W, H);
+
+        // 8) Marcas de batalha: sulcos/arranhões escuros e, se o sangue
+        // estiver habilitado nas configurações, manchas antigas bem sutis
+        // (memória de lutas passadas, não sangue da luta atual)
+        for (let i = 0; i < 6; i++) {
+            const x = Utils.randomFloat(W * 0.15, W * 0.85), y = Utils.randomFloat(H * 0.4, H * 0.92);
+            ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = Utils.randomFloat(2, 4);
+            ctx.beginPath();
+            const ang = Utils.randomFloat(0, Math.PI * 2), len = Utils.randomFloat(14, 30);
+            ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len * 0.4);
+            ctx.stroke();
+        }
+        if (this.bloodEnabled) {
+            for (let i = 0; i < 3; i++) {
+                const x = Utils.randomFloat(W * 0.2, W * 0.8), y = Utils.randomFloat(H * 0.45, H * 0.9);
+                ctx.fillStyle = 'rgba(90,20,20,0.22)';
+                ctx.beginPath();
+                ctx.ellipse(x, y, Utils.randomFloat(10, 20), Utils.randomFloat(4, 8), Utils.randomFloat(0, Math.PI), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 9) Props do bioma (pedras grandes, ossos, ruínas, bandeiras caídas,
+        // etc) — espalhados nas laterais/frente, deixando o centro livre pro
+        // combate (onde os gladiadores ficam posicionados).
+        const propFns = { rock: this._propRock, bigRock: this._propBigRock, rubble: this._propRubble,
+            bones: this._propBones, brokenShield: this._propBrokenShield, brokenWeapon: this._propBrokenWeapon,
+            stake: this._propStake, log: this._propLog, stump: this._propStump, bush: this._propBush,
+            deadBush: this._propDeadBush, flower: this._propFlower, brokenPillar: this._propBrokenPillar,
+            statue: this._propStatue, oldBanner: this._propOldBanner, torchStake: this._propTorchStake,
+            icicleRock: this._propIcicleRock, frozenBanner: this._propFrozenBanner };
+        const propCount = Utils.randomInt(6, 9);
+        for (let i = 0; i < propCount; i++) {
+            const propType = biome.props[Utils.randomInt(0, biome.props.length - 1)];
+            const fn = propFns[propType];
+            if (!fn) continue;
+            // Mantém uma faixa central livre (onde os lutadores ficam) —
+            // props só nas laterais (30% esquerda / 30% direita) ou bem à frente.
+            const zone = Utils.randomInt(0, 2);
+            const x = zone === 0 ? Utils.randomFloat(W * 0.02, W * 0.28)
+                : zone === 1 ? Utils.randomFloat(W * 0.72, W * 0.98)
+                : Utils.randomFloat(W * 0.1, W * 0.9);
+            const y = zone === 2 ? Utils.randomFloat(H * 0.78, H * 0.96) : Utils.randomFloat(H * 0.45, H * 0.92);
+            const scale = 0.7 + (y / H) * 0.7; // mais perto (embaixo) = maior, sugere profundidade
+            fn.call(this, ctx, x, y, scale, biome.accent);
+        }
+
+        // 10) Poeira fina por cima de tudo (speckle discreto)
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        for (let i = 0; i < 60; i++) {
+            ctx.fillRect(Utils.randomFloat(0, W), Utils.randomFloat(0, H), 1.5, 1.5);
+        }
+    }
+
+    // --- Tratamentos especiais de solo por bioma ---
+
+    _groundSandRipples(ctx, W, H, biome) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 2;
+        for (let i = 0; i < 10; i++) {
+            const y = (i / 10) * H + Utils.randomFloat(-8, 8);
+            ctx.beginPath();
+            for (let x = 0; x <= W; x += 40) {
+                const yy = y + Math.sin(x * 0.03 + i) * 5;
+                if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+            }
+            ctx.stroke();
+        }
+    }
+
+    _groundSnowOverlay(ctx, W, H, biome) {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        for (let i = 0; i < 40; i++) {
+            const x = Utils.randomFloat(0, W), y = Utils.randomFloat(0, H);
+            ctx.beginPath();
+            ctx.ellipse(x, y, Utils.randomFloat(18, 45), Utils.randomFloat(6, 14), 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 80; i++) ctx.fillRect(Utils.randomFloat(0, W), Utils.randomFloat(0, H), 2, 2);
+    }
+
+    _groundLavaCracks(ctx, W, H, biome) {
+        for (let i = 0; i < 8; i++) {
+            const x0 = Utils.randomFloat(0, W), y0 = Utils.randomFloat(0, H);
+            ctx.strokeStyle = biome.accent; ctx.lineWidth = Utils.randomFloat(1.5, 3);
+            ctx.shadowColor = biome.accent; ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            let x = x0, y = y0;
+            for (let k = 0; k < 4; k++) {
+                x += Utils.randomFloat(-40, 40); y += Utils.randomFloat(-20, 20);
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    _groundCobblestone(ctx, W, H, biome) {
+        const size = 46;
+        for (let y = 0; y < H; y += size * 0.8) {
+            for (let x = 0; x < W; x += size) {
+                const ox = (Math.round(y / size) % 2) * size / 2;
+                ctx.fillStyle = biome.ground[Utils.randomInt(0, biome.ground.length - 1)];
+                ctx.globalAlpha = 0.5;
+                this._roundRect(ctx, x + ox - size * 0.42, y - size * 0.36, size * 0.84, size * 0.68, 4);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+    }
+
+    _groundCracks(ctx, W, H, biome) {
+        for (let i = 0; i < 9; i++) {
+            const x0 = Utils.randomFloat(0, W), y0 = Utils.randomFloat(H * 0.2, H);
+            ctx.strokeStyle = biome.accent; ctx.globalAlpha = 0.35; ctx.lineWidth = Utils.randomFloat(1, 2.2);
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            let x = x0, y = y0;
+            const branches = Utils.randomInt(3, 5);
+            for (let k = 0; k < branches; k++) {
+                x += Utils.randomFloat(-35, 35); y += Utils.randomFloat(-18, 18);
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    _groundVegetation(ctx, W, H, biome) {
+        const density = biome.vegetation === 'dense' ? 55 : (biome.vegetation === 'medium' ? 32 : (biome.vegetation === 'moss' ? 18 : 14));
+        const color = biome.vegetation === 'moss' ? 'rgba(90,110,60,0.5)' : '#3a5a2a';
+        for (let i = 0; i < density; i++) {
+            const x = Utils.randomFloat(0, W), y = Utils.randomFloat(H * 0.35, H);
+            if (biome.vegetation === 'moss') {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(x, y, Utils.randomFloat(8, 18), Utils.randomFloat(4, 8), 0, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Tufo de grama irregular: 3-4 lâminas finas em leque
+                ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+                const blades = 3 + Utils.randomInt(0, 2);
+                for (let b = 0; b < blades; b++) {
+                    const ang = -Math.PI / 2 + Utils.randomFloat(-0.5, 0.5);
+                    const len = Utils.randomFloat(6, 14);
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.quadraticCurveTo(x + Math.cos(ang) * len * 0.5, y + Math.sin(ang) * len * 0.5 - 2, x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    _groundFootprintTrail(ctx, W, H) {
+        const y0 = Utils.randomFloat(H * 0.4, H * 0.55);
+        const dir = Utils.chance(50) ? 1 : -1;
+        let x = Utils.randomFloat(W * 0.2, W * 0.8);
+        const steps = Utils.randomInt(5, 9);
+        ctx.fillStyle = 'rgba(0,0,0,0.14)';
+        for (let i = 0; i < steps; i++) {
+            const y = y0 + i * 9;
+            const side = i % 2 === 0 ? -5 : 5;
+            ctx.beginPath();
+            ctx.ellipse(x + side, y, 5, 8, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            x += dir * Utils.randomFloat(3, 7);
+        }
+    }
+
+    // --- Biblioteca de props (cada um recebe ctx, x, y, scale, accentColor) ---
+
+    _propRock(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#5a564a';
+        ctx.beginPath();
+        ctx.ellipse(x, y, 9 * s, 6 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(x - 2 * s, y - 2 * s, 3 * s, 2 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    _propBigRock(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#4a463c';
+        ctx.beginPath();
+        ctx.moveTo(x - 22 * s, y);
+        ctx.lineTo(x - 14 * s, y - 26 * s);
+        ctx.lineTo(x + 6 * s, y - 32 * s);
+        ctx.lineTo(x + 22 * s, y - 8 * s);
+        ctx.lineTo(x + 16 * s, y + 4 * s);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x - 10 * s, y - 20 * s); ctx.lineTo(x, y - 26 * s); ctx.stroke();
+    }
+
+    _propRubble(ctx, x, y, s, accent) {
+        for (let i = 0; i < 4; i++) this._propRock(ctx, x + Utils.randomFloat(-14, 14) * s, y + Utils.randomFloat(-6, 6) * s, s * Utils.randomFloat(0.4, 0.8), accent);
+    }
+
+    _propBones(ctx, x, y, s, accent) {
+        ctx.strokeStyle = '#d8d0c0'; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x - 12 * s, y); ctx.lineTo(x + 12 * s, y - 4 * s); ctx.stroke();
+        ctx.fillStyle = '#c9c0ac';
+        ctx.beginPath(); ctx.arc(x, y - 12 * s, 5 * s, 0, Math.PI * 2); ctx.fill(); // caveira simplificada
+        ctx.fillStyle = '#3a352a';
+        ctx.beginPath(); ctx.arc(x - 2 * s, y - 13 * s, 1.3 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + 2 * s, y - 13 * s, 1.3 * s, 0, Math.PI * 2); ctx.fill();
+        ctx.lineCap = 'butt';
+    }
+
+    _propBrokenShield(ctx, x, y, s, accent) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-0.3);
+        ctx.fillStyle = '#5a4632'; ctx.strokeStyle = accent; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 14 * s, 18 * s, 0, -0.2, Math.PI * 1.5);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+    }
+
+    _propBrokenWeapon(ctx, x, y, s, accent) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(0.6);
+        ctx.fillStyle = '#8891a0';
+        ctx.fillRect(-2 * s, -18 * s, 4 * s, 20 * s);
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(-5 * s, 0, 10 * s, 6 * s);
+        ctx.restore();
+    }
+
+    _propStake(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#4a3826';
+        ctx.beginPath();
+        ctx.moveTo(x - 3 * s, y); ctx.lineTo(x - 2 * s, y - 30 * s); ctx.lineTo(x + 2 * s, y - 30 * s); ctx.lineTo(x + 3 * s, y);
+        ctx.closePath(); ctx.fill();
+    }
+
+    _propLog(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#5a4327';
+        this._roundRect(ctx, x - 24 * s, y - 8 * s, 48 * s, 12 * s, 6 * s);
+        ctx.fill();
+        ctx.fillStyle = '#3a2c18';
+        ctx.beginPath(); ctx.ellipse(x - 24 * s, y - 2 * s, 4 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _propStump(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#4a3826';
+        this._roundRect(ctx, x - 10 * s, y - 14 * s, 20 * s, 14 * s, 3 * s);
+        ctx.fill();
+        ctx.fillStyle = '#8a6a42';
+        ctx.beginPath(); ctx.ellipse(x, y - 14 * s, 10 * s, 4 * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _propBush(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#3a5a2a';
+        for (let i = -1; i <= 1; i++) {
+            ctx.beginPath();
+            ctx.arc(x + i * 8 * s, y - Math.abs(i) * 3 * s, 9 * s, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    _propDeadBush(ctx, x, y, s, accent) {
+        ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1.5 * s;
+        for (let i = 0; i < 6; i++) {
+            const ang = -Math.PI / 2 + (i - 2.5) * 0.35;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(ang) * 14 * s, y + Math.sin(ang) * 14 * s);
+            ctx.stroke();
+        }
+    }
+
+    _propFlower(ctx, x, y, s, accent) {
+        const colors = ['#e05a7a', '#e8c94a', '#8a6ae0'];
+        ctx.fillStyle = colors[Utils.randomInt(0, colors.length - 1)];
+        for (let i = 0; i < 5; i++) {
+            const ang = (i / 5) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.ellipse(x + Math.cos(ang) * 3 * s, y + Math.sin(ang) * 3 * s, 2.5 * s, 2 * s, ang, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = '#e8c94a';
+        ctx.beginPath(); ctx.arc(x, y, 1.8 * s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _propBrokenPillar(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#8a8272';
+        this._roundRect(ctx, x - 9 * s, y - 34 * s, 18 * s, 34 * s, 2 * s);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath(); ctx.moveTo(x - 9 * s, y - 30 * s); ctx.lineTo(x + 2 * s, y - 24 * s); ctx.lineTo(x - 9 * s, y - 18 * s); ctx.closePath(); ctx.fill();
+    }
+
+    _propStatue(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#9a9282';
+        this._roundRect(ctx, x - 7 * s, y - 26 * s, 14 * s, 26 * s, 3 * s);
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y - 30 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _propOldBanner(ctx, x, y, s, accent) {
+        ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 2 * s;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 26 * s); ctx.stroke();
+        ctx.fillStyle = 'rgba(120,80,80,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(x, y - 26 * s); ctx.lineTo(x + 14 * s, y - 22 * s); ctx.lineTo(x + 4 * s, y - 12 * s); ctx.lineTo(x + 10 * s, y - 4 * s); ctx.lineTo(x, y - 8 * s);
+        ctx.closePath(); ctx.fill();
+    }
+
+    _propTorchStake(ctx, x, y, s, accent) {
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(x - 2 * s, y - 24 * s, 4 * s, 24 * s);
+        ctx.fillStyle = '#ff8a1e';
+        ctx.beginPath(); ctx.ellipse(x, y - 28 * s, 5 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _propIcicleRock(ctx, x, y, s, accent) {
+        this._propRock(ctx, x, y, s, accent);
+        ctx.fillStyle = 'rgba(200,230,245,0.8)';
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(x - 6 * s + i * 6 * s, y - 4 * s);
+            ctx.lineTo(x - 5 * s + i * 6 * s, y - 4 * s - 10 * s);
+            ctx.lineTo(x - 4 * s + i * 6 * s, y - 4 * s);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    _propFrozenBanner(ctx, x, y, s, accent) {
+        ctx.strokeStyle = '#7a8a95'; ctx.lineWidth = 2 * s;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 28 * s); ctx.stroke();
+        ctx.fillStyle = 'rgba(180,210,230,0.55)';
+        ctx.fillRect(x, y - 28 * s, 14 * s, 20 * s);
+    }
+
+    _propDryLeaf(ctx, x, y) {
+        const colors = ['#8a6a2a', '#a3752a', '#6a5222'];
+        ctx.fillStyle = colors[Utils.randomInt(0, colors.length - 1)];
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Utils.randomFloat(0, Math.PI * 2));
+        ctx.beginPath();
+        ctx.ellipse(0, 0, Utils.randomFloat(3, 6), Utils.randomFloat(1.5, 2.5), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     // Céu (gradiente por horário, estrelas à noite, sol/lua, pássaros) —
@@ -445,19 +1026,61 @@ class GraphicsEngine {
         }
 
         const narrow = w < 560;
+        const isNightSky = dayProgress !== null ? starAlpha > 0.5 : this.arenaTime === 'night';
+        let moonPos = null;
         if (dayProgress !== null) {
-            this._drawCelestialArc(ctx, w, horizon, dayProgress, narrow);
+            moonPos = this._drawCelestialArc(ctx, w, horizon, dayProgress, narrow);
         } else {
             // Sol / lua estático por fase (em telas estreitas, encolhe e recua
             // para o canto para não ficar atrás do menu/logo centralizado).
             const sunScale = narrow ? 0.5 : 1;
             const sunX = narrow ? w * 0.91 : w * 0.82;
             const sunY = narrow ? horizon * 0.16 : horizon * 0.3;
+            const r = (this.arenaTime === 'night' ? 24 : 38) * sunScale;
+            if (this.arenaTime !== 'night') {
+                // Sol: núcleo + halo suave de raios (mais realista que um
+                // disco liso), sutil e sem exagero.
+                ctx.globalAlpha = pal.sunAlpha * 0.35;
+                const halo = ctx.createRadialGradient(sunX, sunY, r * 0.6, sunX, sunY, r * 2.2);
+                halo.addColorStop(0, pal.sun); halo.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = halo;
+                ctx.beginPath(); ctx.arc(sunX, sunY, r * 2.2, 0, Math.PI * 2); ctx.fill();
+            }
             ctx.globalAlpha = pal.sunAlpha;
             ctx.fillStyle = pal.sun;
             ctx.beginPath();
-            ctx.arc(sunX, sunY, (this.arenaTime === 'night' ? 24 : 38) * sunScale, 0, Math.PI * 2);
+            ctx.arc(sunX, sunY, r, 0, Math.PI * 2);
             ctx.fill();
+            ctx.globalAlpha = 1;
+            if (this.arenaTime === 'night') moonPos = { x: sunX, y: sunY, r };
+        }
+
+        // Crateras discretas na lua (só quando ela está visível) — dá textura
+        // à esfera em vez de um disco liso.
+        if (moonPos) {
+            ctx.globalAlpha = 0.16;
+            ctx.fillStyle = '#8a8aa0';
+            ctx.beginPath(); ctx.arc(moonPos.x - moonPos.r * 0.3, moonPos.y - moonPos.r * 0.2, moonPos.r * 0.22, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(moonPos.x + moonPos.r * 0.25, moonPos.y + moonPos.r * 0.3, moonPos.r * 0.15, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(moonPos.x + moonPos.r * 0.1, moonPos.y - moonPos.r * 0.35, moonPos.r * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        // Nuvens à deriva — silhueta suave, tingidas pela paleta do horário
+        // (mais claras de dia, acinzentadas ao entardecer/amanhecer, quase
+        // invisíveis de noite) pra nunca destoar do céu.
+        if (this.qualityLevel !== 'baixa') {
+            const cloudAlpha = isNightSky ? 0.10 : 0.30;
+            ctx.fillStyle = 'rgba(255,255,255,1)';
+            this._clouds.forEach(cl => {
+                const cx = cl.x * w, cy = cl.y * horizon;
+                ctx.globalAlpha = cloudAlpha;
+                [-1, 0, 1].forEach(off => {
+                    ctx.beginPath();
+                    ctx.ellipse(cx + off * 26 * cl.scale, cy + Math.abs(off) * 4 * cl.scale, 30 * cl.scale, 13 * cl.scale, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
             ctx.globalAlpha = 1;
         }
 
@@ -555,6 +1178,8 @@ class GraphicsEngine {
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
+
+        return isSun ? null : { x, y, r }; // permite crateras discretas na lua (ver _drawSky)
     }
 
     // Pano de fundo da Cidade explorável: mesmo céu/sol/lua/estrelas/pássaros
@@ -608,6 +1233,98 @@ class GraphicsEngine {
         }
     }
 
+    // Despacha a silhueta de fundo (plano intermediário) de acordo com o
+    // bioma sorteado — a arena imperial mantém os arcos do coliseu, mas cada
+    // outro cenário ganha uma camada de profundidade própria, nunca o mesmo
+    // pano de fundo genérico pra tudo.
+    _drawBiomeMidground(ctx, w, horizon, biome) {
+        switch (biome.midground) {
+            case 'colosseum':
+                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
+                this._drawColosseumRing(ctx, w, horizon, 0.38, '#332a1e');
+                break;
+            case 'dunes':
+                this._drawMountainRange(ctx, w, horizon, horizon * 0.22, biome.midgroundColor, 7, 0.9);
+                this._drawMountainRange(ctx, w, horizon, horizon * 0.14, 'rgba(0,0,0,0.12)', 9, 3.4);
+                break;
+            case 'treeline':
+                this._drawTreeline(ctx, w, horizon, biome.midgroundColor);
+                break;
+            case 'walls':
+                this._drawWalls(ctx, w, horizon, biome.midgroundColor, !!biome.midgroundBroken);
+                break;
+            case 'columns':
+                this._drawColumnRow(ctx, w, horizon, biome.midgroundColor);
+                break;
+            case 'peaks':
+                this._drawMountainRange(ctx, w, horizon, horizon * 0.5, biome.midgroundColor, 5, 0.4);
+                this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(20,16,20,0.35)', 6, 2.1);
+                break;
+            default:
+                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
+        }
+    }
+
+    // Linha de árvores densas — copas irregulares sobrepostas, mais escuras
+    // no fundo pra dar profundidade (Floresta).
+    _drawTreeline(ctx, w, horizon, color) {
+        ctx.fillStyle = color;
+        const count = 14;
+        for (let i = 0; i < count; i++) {
+            const x = (i / count) * w + (i % 2 === 0 ? 10 : -10);
+            const canopyR = 34 + (i % 3) * 8;
+            const trunkH = 30;
+            ctx.fillRect(x - 3, horizon - trunkH, 6, trunkH + 4);
+            ctx.beginPath();
+            ctx.arc(x, horizon - trunkH - canopyR * 0.5, canopyR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Muralhas de pedra (Castelo íntegro, ou Ruínas com o topo quebrado
+    // irregular em vez da linha reta das ameias).
+    _drawWalls(ctx, w, horizon, color, broken) {
+        const wallH = horizon * 0.4;
+        const topY = horizon - wallH;
+        ctx.fillStyle = color;
+        if (!broken) {
+            ctx.fillRect(0, topY, w, wallH);
+            // Ameias (merlons) no topo
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            const step = 40;
+            for (let x = 0; x < w; x += step) ctx.fillRect(x, topY, step * 0.5, 10);
+        } else {
+            // Muralha desmoronada: topo irregular, brechas ocasionais
+            ctx.beginPath();
+            ctx.moveTo(0, horizon);
+            let x = 0;
+            while (x < w) {
+                const seg = Utils.randomFloat(50, 110);
+                const gap = Utils.chance(20);
+                const yTop = gap ? horizon - wallH * 0.25 : topY + Utils.randomFloat(-14, 14);
+                ctx.lineTo(x, yTop);
+                x += seg;
+                ctx.lineTo(x, yTop);
+            }
+            ctx.lineTo(w, horizon);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    // Fileira de colunas de pedra (Templo) — algumas já quebradas pela metade.
+    _drawColumnRow(ctx, w, horizon, color) {
+        ctx.fillStyle = color;
+        const count = 9;
+        for (let i = 0; i < count; i++) {
+            const x = (i / count) * w + w / (count * 2);
+            const broken = Utils.chance(30);
+            const colH = horizon * (broken ? 0.22 : 0.42);
+            ctx.fillRect(x - 8, horizon - colH, 16, colH);
+            if (!broken) ctx.fillRect(x - 12, horizon - colH - 6, 24, 8); // capitel
+        }
+    }
+
     _drawCrowd(ctx, w, horizon, baseColor) {
         const t = this._torchClock || 0;
         this.crowd.forEach(p => {
@@ -627,7 +1344,10 @@ class GraphicsEngine {
         ctx.globalAlpha = 1;
     }
 
-    _drawBanners(ctx, w, horizon, t) {
+    // tattered: bandeiras velhas e rasgadas (Ruínas/Templo) — pano puído com
+    // um rasgo triangular e cor desbotada, em vez do estandarte cheio da
+    // arena imperial. Reforça que aquele cenário já viu dias melhores.
+    _drawBanners(ctx, w, horizon, t, tattered = false) {
         const positions = [0.13, 0.36, 0.64, 0.87];
         positions.forEach((fx, i) => {
             const x = fx * w;
@@ -638,17 +1358,26 @@ class GraphicsEngine {
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(x, y - 8);
-            ctx.lineTo(x, y + 44);
+            ctx.lineTo(x, y + (tattered ? 30 : 44));
             ctx.stroke();
 
-            ctx.fillStyle = i % 2 === 0 ? '#7a1f1f' : '#8a5a2b';
+            ctx.globalAlpha = tattered ? 0.55 : 1;
+            ctx.fillStyle = i % 2 === 0 ? (tattered ? '#5a3a3a' : '#7a1f1f') : (tattered ? '#5a4a3a' : '#8a5a2b');
             ctx.beginPath();
             ctx.moveTo(x, y);
-            ctx.lineTo(x, y + 40);
-            ctx.quadraticCurveTo(x + 15 + sway, y + 30, x + 3 + sway, y + 18);
-            ctx.quadraticCurveTo(x + 15 + sway, y + 6, x, y);
+            ctx.lineTo(x, y + (tattered ? 24 : 40));
+            if (tattered) {
+                // Pano rasgado: ponta irregular em vez da curva cheia
+                ctx.lineTo(x + 6, y + 14);
+                ctx.lineTo(x + 12, y + 20);
+                ctx.lineTo(x + 8 + sway * 0.4, y + 6);
+            } else {
+                ctx.quadraticCurveTo(x + 15 + sway, y + 30, x + 3 + sway, y + 18);
+                ctx.quadraticCurveTo(x + 15 + sway, y + 6, x, y);
+            }
             ctx.closePath();
             ctx.fill();
+            ctx.globalAlpha = 1;
         });
     }
 
