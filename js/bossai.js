@@ -95,12 +95,21 @@ const BOSS_AI = {
             const boss = battle.enemy;
             const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
             const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 10 };
+            const ready = id => boss.isSkillReady(id);
 
+            // Corrigido: antes isso disparava Raio Sagrado incondicionalmente
+            // fora de alcance, ignorando o próprio cooldown da habilidade —
+            // um jogador que só mantivesse distância forçava o boss a lançar
+            // o feixe TODO turno, sem nunca respeitar o intervalo de 3 turnos
+            // que o resto da IA (inclusive o caso "em alcance" logo abaixo)
+            // já respeitava.
             if (!battle.isInRange(range)) {
-                return { action: 'SKILL', param: 'anjo_raio_sagrado', message: `${boss.name} pune à distância com luz pura!` };
+                if (ready('anjo_raio_sagrado')) {
+                    return { action: 'SKILL', param: 'anjo_raio_sagrado', message: `${boss.name} pune à distância com luz pura!` };
+                }
+                return { action: 'APPROACH', message: `${boss.name} avança para restabelecer a distância de combate.` };
             }
 
-            const ready = id => boss.isSkillReady(id);
             const desperate = hpFrac <= 0.3;
 
             if (desperate && ready('anjo_julgamento_final') && Utils.chance(55)) {
