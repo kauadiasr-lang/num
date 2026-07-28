@@ -652,7 +652,7 @@ class GraphicsEngine {
         // Plano intermediário: silhueta de fundo própria do bioma (arcos do
         // coliseu, dunas, mata, muralhas, colunas ou picos) — camada de
         // profundidade entre o céu e o solo, nunca a mesma pra todo cenário.
-        this._drawBiomeMidground(ctx, w, horizon, biome);
+        this._drawBiomeMidground(ctx, w, horizon, biome, pal);
 
         // Plateia animada: só em arenas com arquibancada de verdade (detalhe
         // poupado em qualidade baixa)
@@ -1441,19 +1441,55 @@ class GraphicsEngine {
         ctx.fill();
     }
 
-    _drawColosseumRing(ctx, w, horizon, heightFrac, color) {
+    _drawColosseumRing(ctx, w, horizon, heightFrac, color, cutThrough, pal) {
         const bandHeight = horizon * heightFrac * 0.5;
         const y = horizon - bandHeight - (horizon * (heightFrac === 0.62 ? 0.05 : 0));
         ctx.fillStyle = color;
         ctx.fillRect(0, y, w, bandHeight + 4);
 
-        // Arcos romanos repetidos ao longo da banda
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
         const archWidth = 36;
-        for (let x = archWidth / 2; x < w; x += archWidth) {
-            ctx.beginPath();
-            ctx.arc(x, y + bandHeight * 0.5, 11, Math.PI, 0);
-            ctx.fill();
+        if (cutThrough) {
+            // Arcos de verdade: pinta a MESMA cor do céu (ver _drawSky) por
+            // cima da banda sólida, no formato de um vão arqueado — antes
+            // disso os "arcos" eram só um leve escurecimento por cima da
+            // banda sólida, nunca uma abertura de verdade, então a fileira
+            // inteira ficava com cara de muralha lisa cobrindo tudo, em vez
+            // do Coliseu com vãos livres entre as colunas mostrando o
+            // horizonte por trás. Usar 'destination-out' aqui apagaria o
+            // pixel até a transparência total (mostrando o fundo da página,
+            // não o céu), por isso repintamos com a cor do céu em vez de
+            // recortar.
+            const archW = Math.max(14, archWidth * 0.6);
+            const archR = archW / 2;
+            const archTopY = y + bandHeight * 0.12;
+            const archH = bandHeight * 0.7;
+            ctx.fillStyle = (pal && pal.bottom) || '#79b8e8';
+            for (let x = archWidth / 2; x < w; x += archWidth) {
+                ctx.beginPath();
+                ctx.moveTo(x - archR, archTopY + archR);
+                ctx.arc(x, archTopY + archR, archR, Math.PI, 0);
+                ctx.lineTo(x + archR, archTopY + archH);
+                ctx.lineTo(x - archR, archTopY + archH);
+                ctx.closePath();
+                ctx.fill();
+            }
+            // Sombra fina nas bordas do vão pra sugerir profundidade na
+            // pedra, sem cobrir a abertura em si.
+            ctx.fillStyle = 'rgba(0,0,0,0.22)';
+            for (let x = archWidth / 2; x < w; x += archWidth) {
+                ctx.fillRect(x - archR - 3, archTopY, 3, archH);
+                ctx.fillRect(x + archR, archTopY, 3, archH);
+            }
+        } else {
+            // Arcos romanos repetidos ao longo da banda (recesso escuro,
+            // não um vão real — representa a fileira mais próxima do
+            // combate, funcionando como parede sólida atrás dos lutadores).
+            ctx.fillStyle = 'rgba(0,0,0,0.28)';
+            for (let x = archWidth / 2; x < w; x += archWidth) {
+                ctx.beginPath();
+                ctx.arc(x, y + bandHeight * 0.5, 11, Math.PI, 0);
+                ctx.fill();
+            }
         }
     }
 
@@ -1461,12 +1497,12 @@ class GraphicsEngine {
     // bioma sorteado — a arena imperial mantém os arcos do coliseu, mas cada
     // outro cenário ganha uma camada de profundidade própria, nunca o mesmo
     // pano de fundo genérico pra tudo.
-    _drawBiomeMidground(ctx, w, horizon, biome) {
+    _drawBiomeMidground(ctx, w, horizon, biome, pal) {
         this._buildMidgroundShapeIfNeeded(biome);
         switch (biome.midground) {
             case 'colosseum':
-                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
-                this._drawColosseumRing(ctx, w, horizon, 0.38, '#332a1e');
+                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030', true, pal);
+                this._drawColosseumRing(ctx, w, horizon, 0.38, '#332a1e', false, pal);
                 break;
             case 'dunes':
                 this._drawMountainRange(ctx, w, horizon, horizon * 0.22, biome.midgroundColor, 7, 0.9);
@@ -1486,7 +1522,7 @@ class GraphicsEngine {
                 this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(20,16,20,0.35)', 6, 2.1);
                 break;
             default:
-                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
+                this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030', true, pal);
         }
     }
 
