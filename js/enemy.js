@@ -234,15 +234,26 @@ class Enemy extends Entity {
     // jogador. Elite SEMPRE dropa algo, de um nível bem mais alto — o
     // desafio extra precisa se traduzir num prêmio garantido, não só numa
     // chance melhor.
+    //
+    // cityId (ver citydatabase.js) SEMPRE repassado pro sorteio de loot —
+    // antes generateShopInventory era chamado sem esse argumento em TODO
+    // generateLoot do arquivo, e como o filtro de região trata `region ===
+    // cityId` com cityId ausente (undefined) como "não bate", isso excluía
+    // CATEGORICAMENTE qualquer item regional (Lâmina Élfica, Machado de
+    // Guerra Orc...) do drop de loot em QUALQUER cidade, inclusive a
+    // própria cidade de origem do item — só dava pra conseguir esses itens
+    // comprando na loja certa. Loot agora respeita a mesma regra de região
+    // já usada pelas lojas.
     generateLoot(playerLuk) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         if (this.isElite) {
-            const dropTable = window.ItemFactory.generateShopInventory(this.level + 5);
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 5, cityId);
             return dropTable[0];
         }
 
         const dropChance = 30 + (playerLuk * 2);
         if (Utils.chance(dropChance)) {
-            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
             return dropTable[0];
         }
         return null;
@@ -321,9 +332,10 @@ class Vampire extends Entity {
     }
 
     generateLoot(playerLuk) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const dropChance = 25 + (playerLuk * 2);
         if (Utils.chance(dropChance)) {
-            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
             return dropTable[0];
         }
         return null;
@@ -384,9 +396,10 @@ class Ghost extends Entity {
     }
 
     generateLoot(playerLuk) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const dropChance = 22 + (playerLuk * 2);
         if (Utils.chance(dropChance)) {
-            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
             return dropTable[0];
         }
         return null;
@@ -458,7 +471,8 @@ function createBoss(bossId, playerLevel) {
 
     // Recompensa de loot garantida e lendária, além do desbloqueio da Linhagem
     boss.generateLoot = function (playerLuk) {
-        const pool = window.ItemFactory.generateShopInventory(boss.level + 4);
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const pool = window.ItemFactory.generateShopInventory(boss.level + 4, cityId);
         const legendary = pool.find(i => i.rarity && i.rarity.id === RARITY.LEGENDARY.id);
         return legendary || pool[0];
     };
@@ -584,8 +598,9 @@ class Rival extends Entity {
         const dropChance = this.isChampion ? 100 : 40 + playerLuk;
         if (!Utils.chance(dropChance)) return null;
 
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const minRarityId = this.isChampion ? RARITY.EPIC.id : RARITY.UNCOMMON.id;
-        const pool = window.ItemFactory.generateShopInventory(this.level + 2);
+        const pool = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
         const goodItems = pool.filter(i => i.rarity.id >= minRarityId);
         return goodItems.length > 0 ? goodItems[0] : pool[0];
     }
