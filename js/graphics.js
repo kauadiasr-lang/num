@@ -1788,6 +1788,27 @@ class GraphicsEngine {
                     ctx.fill();
                 }
                 ctx.globalAlpha = 1;
+            } else if (v.particle === 'elite_sparks') {
+                // Inimigo Elite (ver enemy.js ELITE_ENEMY_CHANCE): faíscas
+                // douradas irradiando pra fora, bem diferentes do fluxo
+                // ascendente e suave da Linhagem Luz — reforça visualmente
+                // que este é um combatente perigoso à parte, não só um
+                // prefixo no nome.
+                const cycle = 1.4;
+                ctx.fillStyle = v.auraColor || '#ffd700';
+                for (let i = 0; i < 8; i++) {
+                    const phase = ((t + i * (cycle / 8)) % cycle) / cycle;
+                    const angle = (i / 8) * Math.PI * 2 + t * 0.6;
+                    const dist = phase * 42;
+                    const sx = Math.cos(angle) * dist;
+                    const sy = cy + Math.sin(angle) * dist * 0.6;
+                    const alpha = 1 - phase;
+                    ctx.globalAlpha = alpha * 0.9;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 2 - phase * 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
             }
         } else if (v.hasSmoke) {
             ctx.fillStyle = 'rgba(20,15,25,0.3)';

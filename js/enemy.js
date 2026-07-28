@@ -107,6 +107,18 @@ class Enemy extends Entity {
         // cópia idêntica só com equipamento trocado.
         this.visuals = randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null);
 
+        // Aura dourada do Elite (reaproveita o mesmo hook visual da aura de
+        // Linhagem, ver graphics.js _drawLineageAura — `hasAura`/`auraColor`/
+        // `particle` já eram lidos genericamente ali; só nunca tinham sido
+        // setados por nada além do jogador com Linhagem despertada). Sem
+        // isso, o "★ ... o Elite" no nome era o ÚNICO sinal visual de que
+        // esse combatente é diferente — fácil de não perceber em batalha.
+        if (this.isElite) {
+            this.visuals.hasAura = true;
+            this.visuals.auraColor = '#ffd700';
+            this.visuals.particle = 'elite_sparks';
+        }
+
         // Arma coerente com o estilo sorteado (a menos que o arquétipo raro
         // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
         if (!this.aiRareArchetype || this.aiRareArchetype.id !== 'lutador_desarmado') {
