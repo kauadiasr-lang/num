@@ -230,7 +230,34 @@ class GraphicsEngine {
         this.cityDayProgress = 0.5;
         this._dustTimer = 0;
         this._birdTimer = 6;
+
+        // Tremor de tela ao acertar/ser acertado (ver _triggerScreenShake,
+        // chamado por playAnim em golpes 'hurt') — antes um acerto crítico
+        // só se distinguia por número maior/cor e pela pose 'hurt' mais
+        // exagerada (ver computePose); nada fazia a CÂMERA reagir ao
+        // impacto, um feedback básico de combate AAA que faltava.
+        this._shakeStart = 0;
+        this._shakeDuration = 0;
+        this._shakeMag = 0;
         this._initArenaAmbience();
+    }
+
+    _triggerScreenShake(magnitude, duration) {
+        this._shakeStart = performance.now();
+        this._shakeDuration = duration;
+        this._shakeMag = this.reduceEffects ? magnitude * 0.5 : magnitude;
+    }
+
+    _currentShakeOffset() {
+        if (!this._shakeDuration) return { x: 0, y: 0 };
+        const elapsed = performance.now() - this._shakeStart;
+        if (elapsed >= this._shakeDuration) return { x: 0, y: 0 };
+        const t = 1 - elapsed / this._shakeDuration;
+        const amount = this._shakeMag * t;
+        return {
+            x: Utils.randomFloat(-amount, amount),
+            y: Utils.randomFloat(-amount, amount) * 0.6
+        };
     }
 
     _initArenaAmbience() {
@@ -341,6 +368,10 @@ class GraphicsEngine {
         // num acerto crítico, pra crits serem visualmente distintos de um
         // acerto normal e não só na cor do número/partícula.
         anim.crit = crit;
+        // Tremor de câmera no impacto — crítico sacode mais forte/mais tempo
+        // que um acerto normal, reforçando o mesmo contraste que computePose
+        // já dá à pose.
+        if (type === 'hurt') this._triggerScreenShake(crit ? 10 : 4, crit ? 320 : 160);
     }
 
     spawnParticles(x, y, color, amount, speed = 5, size = 4) {
@@ -508,6 +539,9 @@ class GraphicsEngine {
         const screen = window.Engine && window.Engine.state.screen;
 
         if (screen === 'BATTLE' && window.BattleEngine) {
+            const shake = this._currentShakeOffset();
+            ctx.save();
+            ctx.translate(shake.x, shake.y);
             this.drawArenaBackground(ctx, canvasWidth, canvasHeight);
 
             // Os gladiadores precisam ficar sempre dentro da areia (abaixo do
@@ -532,6 +566,7 @@ class GraphicsEngine {
             this.drawGladiator(ctx, this.getEntityX(true, canvasWidth) - walkIn, groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
             this.drawGladiator(ctx, this.getEntityX(false, canvasWidth) + walkIn, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
             ctx.restore();
+            ctx.restore(); // fecha o translate do tremor de câmera
         } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
             // Mesma arena cinematográfica, sem gladiadores — pano de fundo do
             // Menu Principal e dos Créditos (entardecer, coliseu, plateia, poeira)
