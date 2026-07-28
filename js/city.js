@@ -628,10 +628,24 @@ class CityEngine {
         // comentava sobre isso: reputação (wins) e mutação visível ficavam
         // sem nenhuma diferença nas falas, mesmo a mutação sendo o que
         // qualquer um cruzando a praça literalmente VERIA primeiro.
+        // Cidade-Hub atual (ver citydatabase.js) — moradores das novas
+        // cidades regionais comentam sobre onde vivem de verdade, não só o
+        // discurso genérico de praça grega. Só a cidade natal (Porto
+        // Helênico) fica sem esse comentário: os gregos já têm bastante
+        // identidade própria no resto das falas (profissões, eventos).
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const cityDialoguePool = (cityId && cityId !== 'porto_helenico') ? CityEngine.NPC_DIALOGUE[cityId] : null;
+
         if (p && p.lineage && CityEngine.NPC_DIALOGUE[p.lineage]) {
             pool = CityEngine.NPC_DIALOGUE[p.lineage];
         } else if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
         else if (wins >= 10) pool = CityEngine.NPC_DIALOGUE.famous;
+        // Chance de comentar sobre a própria cidade em vez da profissão —
+        // não every vez, pra profissão continuar sendo a identidade
+        // principal de cada NPC na maior parte das conversas.
+        else if (cityDialoguePool && Utils.chance(35)) {
+            pool = cityDialoguePool;
+        }
         // Sem fama ainda: cada NPC fala como a profissão que É, não como um
         // figurante genérico (ver NPC_PROFESSIONS/_makeNpc). NPCs mais
         // antigos que por algum motivo não tenham `profession` (não deveria
@@ -1819,6 +1833,20 @@ class CityEngine {
                 'Há uma luz em você que não é natural. Os deuses te tocaram?',
                 'Sinto um calor estranho perto de você, como se estivesse perto de algo sagrado.',
                 'As crianças da cidade já falam de um gladiador que brilha como o sol.'
+            ],
+            // Comentários sobre a própria cidade (ver Cidades-Hub Regionais,
+            // citydatabase.js) — antes nenhum NPC reagia a ONDE estava, só
+            // ao jogador; agora quem mora na Fortaleza Orc ou no Santuário
+            // Élfico fala como alguém que vive ali de verdade.
+            fortaleza_orc: [
+                'Rocha vulcânica sob os pés, ferro enferrujado na mão — é assim que se cresce em Gorkhal.',
+                'Não é fácil viver aqui, mas quem sobrevive vira forte de verdade, não só no nome.',
+                'Já vi forasteiro fraco entrar por aquele portão. Poucos voltam a sair pelo mesmo.'
+            ],
+            santuario_elfico: [
+                'A chuva quase nunca para por aqui — a floresta bebe antes de nós, e não reclamamos.',
+                'Nascemos entre raízes que já eram velhas antes dos nossos avós nascerem.',
+                'Sylvaneth guarda seus segredos bem — poucos forasteiros veem além da fronteira da mata.'
             ]
         };
     }
