@@ -228,10 +228,21 @@ window.ItemFactory = {
             if (pool.length === 0) continue; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)
             const randomId = pool[Utils.randomInt(0, pool.length - 1)];
 
-            // Probabilidade de raridade baseada no nível do jogador
+            // Probabilidade de raridade baseada no nível do jogador — curva
+            // dura no início de propósito (ver pedido do jogador: lutadores
+            // fracos não deveriam já encontrar equipamento raro nos primeiros
+            // níveis). Antes disso, mesmo nível 1 já tinha 11% de chance de
+            // Incomum e 2.5% de Raro — pouco isoladamente, mas contribuía
+            // pra sensação de "inimigos de nível 1-3 já aparecem com item bom
+            // e armadura" quando somado a várias lutas. Agora Incomum só
+            // começa a aparecer a partir do nível 3 (0% em 1-2) e Raro só a
+            // partir do nível 6, ambos crescendo gradualmente depois e com
+            // teto pra nunca virar garantido.
             let rarity = RARITY.COMMON;
-            if (Utils.chance(10 + playerLevel)) rarity = RARITY.UNCOMMON;
-            if (Utils.chance(2 + playerLevel * 0.5)) rarity = RARITY.RARE;
+            const uncommonChance = Utils.clamp((playerLevel - 2) * 3, 0, 35);
+            const rareChance = Utils.clamp((playerLevel - 5) * 2, 0, 20);
+            if (Utils.chance(uncommonChance)) rarity = RARITY.UNCOMMON;
+            if (Utils.chance(rareChance)) rarity = RARITY.RARE;
 
             const item = this.createEquipment(randomId, category, rarity);
             shopInventory.push(item);

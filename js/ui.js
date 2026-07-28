@@ -1832,6 +1832,36 @@ class UIManager {
         const btn = document.getElementById('btn-heal-fatigue');
         btn.disabled = p.gold < cost;
         btn.onclick = () => this.healFatigue();
+
+        // Válvula de segurança contra a espiral "sem ouro pra pagar a fadiga,
+        // sem ouro pra pagar poção" (fadiga reduz dano/esquiva, o que reduz
+        // ganho de ouro em batalha, que impede pagar a cura, e por aí vai) —
+        // só aparece quando o jogador não pode pagar a cura completa, e cura
+        // apenas 1 nível de fadiga (não zera tudo de graça, então pagar
+        // continua sendo a opção melhor sempre que possível).
+        const freeBtn = document.getElementById('btn-free-rest');
+        freeBtn.classList.toggle('hidden', !(fatigue > 0 && p.gold < cost));
+        freeBtn.onclick = () => this.freeRest();
+    }
+
+    freeRest() {
+        const p = window.Engine.state.player;
+        const fatigue = p.fatigue || 0;
+        if (fatigue <= 0) return;
+
+        p.cureFatigue(1);
+        p.nightsWithoutSleep = 0;
+
+        if (window.City && window.City.dayPhases) {
+            window.City.dayPhaseIndex = (window.City.dayPhaseIndex + 2) % window.City.dayPhases.length;
+            window.City.dayPhaseTimer = 0;
+        }
+
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playHeal();
+        document.getElementById('healer-message').innerText = 'Você dormiu no chão da taverna. Cansado, mas 1 nível de fadiga a menos.';
+        this.updateHealerScreen();
+        this.updateHubStats();
     }
 
     healFatigue() {

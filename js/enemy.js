@@ -190,8 +190,19 @@ class Enemy extends Entity {
     // enchantments.js) — antes só o Jogador podia ter arma encantada, mesmo
     // battle.js já lendo encantamento de QUALQUER `entity` genericamente.
     // Elite tem chance de raridade e de encantamento bem maiores.
+    //
+    // Chance de raridade Incomum escalada com o nível (0% em nível 1-2,
+    // crescendo devagar depois) — antes era `15 + nível`, ou seja, um
+    // inimigo de nível 1 já tinha 16% de chance de Incomum, o que
+    // contribuía pra sensação de "arena de nível 1-3 já aparece com item
+    // bom" reportada pelo jogador. Elite (raro por si só, ver
+    // ELITE_ENEMY_CHANCE) mantém a fórmula antiga — é justo que ele seja
+    // sempre notavelmente mais bem equipado.
     equipStyleWeapon() {
-        this.equipStyleWeaponGeneric(15 + this.level + (this.isElite ? 30 : 0), this.isElite ? 45 : 20);
+        const rarityChance = this.isElite
+            ? (15 + this.level + 30)
+            : Utils.clamp((this.level - 2) * 5, 0, 40);
+        this.equipStyleWeaponGeneric(rarityChance, this.isElite ? 45 : 20);
     }
 
     // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do
