@@ -255,6 +255,28 @@ function validateGameData() {
                 need(!!l.skillTreeId, `LINEAGES['${key}']: não bloqueada mas sem skillTreeId`);
                 need(!!l.ritualId, `LINEAGES['${key}']: não bloqueada mas sem ritualId`);
                 need(!!l.bossId, `LINEAGES['${key}']: não bloqueada mas sem bossId`);
+
+                // Bug de auditoria: skillTreeId/ritualId/bossId só eram
+                // checados quanto a "existe algo aqui", nunca quanto a "o
+                // que está aqui aponta pra um registro de verdade" — a
+                // MESMA classe de referência cruzada já coberta pra
+                // arenaBiomes/raceDemographics/NPC_PROFESSIONS_REGIONAL/
+                // SHOP_GREETINGS_REGIONAL/NPC_DIALOGUE/CITY_MUSIC_MOODS
+                // acima, só que esquecida justamente no primeiro registry
+                // de variante que o projeto criou. Um typo em qualquer um
+                // dos três nunca quebraria nada visivelmente na hora (o
+                // jogador simplesmente nunca conseguiria completar aquele
+                // Ritual/enfrentar aquele boss), então sem essa checagem o
+                // erro passaria despercebido até alguém tentar de verdade.
+                if (typeof SKILL_TREES !== 'undefined') {
+                    need(!!SKILL_TREES[l.skillTreeId], `LINEAGES['${key}']: skillTreeId '${l.skillTreeId}' não existe em SKILL_TREES`);
+                }
+                if (typeof RITUALS !== 'undefined') {
+                    need(!!RITUALS[l.ritualId], `LINEAGES['${key}']: ritualId '${l.ritualId}' não existe em RITUALS`);
+                }
+                if (typeof BOSS_DEFS !== 'undefined') {
+                    need(!!BOSS_DEFS[l.bossId], `LINEAGES['${key}']: bossId '${l.bossId}' não existe em BOSS_DEFS`);
+                }
             }
         }
     }
