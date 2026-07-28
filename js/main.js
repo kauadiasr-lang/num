@@ -283,6 +283,53 @@ function validateGameData() {
         }
     }
 
+    // CityDatabase (ver citydatabase.js) — registro das Cidades-Hub
+    // Regionais, faltando aqui desde que o sistema foi criado. Confere as
+    // MESMAS classes de erro que os registros acima (id != chave, campo
+    // obrigatório ausente) e também as referências cruzadas próprias desse
+    // registro: `arenaBiomes` precisa apontar pra biomas que existem de
+    // verdade em ARENA_BIOMES (graphics.js) e `raceDemographics` precisa
+    // apontar pra raças que existem de verdade em RACES (races.js) — um
+    // typo em qualquer um dos dois nunca quebraria nada visivelmente na
+    // hora (o sorteio ponderado só ignora chaves desconhecidas em
+    // silêncio), então sem essa checagem o erro passaria despercebido.
+    if (window.CityDatabase) {
+        const knownBiomes = window.ARENA_BIOMES ? Object.keys(window.ARENA_BIOMES) : null;
+        const knownRaces = window.RACES ? Object.keys(window.RACES) : null;
+        for (const key in window.CityDatabase) {
+            const c = window.CityDatabase[key];
+            need(c.id === key, `CityDatabase['${key}']: id ('${c.id}') não bate com a chave do registro`);
+            need(!!c.name && !!c.description, `CityDatabase['${key}']: name/description ausente`);
+            need(typeof c.unlockLevel === 'number' && typeof c.travelCost === 'number', `CityDatabase['${key}']: unlockLevel/travelCost ausente ou inválido`);
+            need(Array.isArray(c.arenaBiomes) && c.arenaBiomes.length > 0, `CityDatabase['${key}']: arenaBiomes ausente ou vazio`);
+            if (knownBiomes && Array.isArray(c.arenaBiomes)) {
+                c.arenaBiomes.forEach(b => need(knownBiomes.includes(b), `CityDatabase['${key}']: arenaBiomes referencia bioma inexistente '${b}'`));
+            }
+            need(c.weather && typeof c.weather.rainChance === 'number' && typeof c.weather.stormChance === 'number', `CityDatabase['${key}']: weather ausente ou inválido`);
+            if (knownRaces && c.raceDemographics) {
+                Object.keys(c.raceDemographics).forEach(r => need(knownRaces.includes(r), `CityDatabase['${key}']: raceDemographics referencia raça inexistente '${r}'`));
+            }
+        }
+    }
+
+    // CITY_MUSIC_MOODS (ver audio.js) — mood por cidade da trilha ambiente.
+    // Toda chave (exceto 'default', que não é uma cidade) precisa existir
+    // de verdade em CityDatabase, senão o mood nunca seria escolhido por
+    // nenhuma cidade real (chave morta, provável typo).
+    if (typeof CITY_MUSIC_MOODS !== 'undefined' && window.CityDatabase) {
+        for (const key in CITY_MUSIC_MOODS) {
+            if (key === 'default') continue;
+            need(!!window.CityDatabase[key], `CITY_MUSIC_MOODS['${key}']: cidade não existe em CityDatabase`);
+        }
+    }
+
+    // SHOP_GREETINGS_REGIONAL (ver ui.js) — mesma checagem de chave morta.
+    if (typeof SHOP_GREETINGS_REGIONAL !== 'undefined' && window.CityDatabase) {
+        for (const key in SHOP_GREETINGS_REGIONAL) {
+            need(!!window.CityDatabase[key], `SHOP_GREETINGS_REGIONAL['${key}']: cidade não existe em CityDatabase`);
+        }
+    }
+
     if (problems.length > 0) {
         console.warn(`[validateGameData] ${problems.length} problema(s) encontrado(s) nos registros de dados:`);
         problems.forEach(p => console.warn(' - ' + p));
