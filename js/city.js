@@ -567,6 +567,21 @@ class CityEngine {
         if (this.activePromotion.timer <= 0) this.activePromotion = null;
     }
 
+    // Juros diários do ouro guardado no Banco (ver ui.js openBank/
+    // bankDeposit/bankWithdraw) — antes `bankGold` só existia pra proteger
+    // ouro de ladrões/assaltos noturnos (nenhum evento de roubo nunca mexe
+    // nele), sem NENHUMA razão pra realmente preferir guardar lá em vez de
+    // só carregar tudo. +2% a cada amanhecer dá um motivo de verdade pra
+    // usar o Banco como um lugar de poupança, não só um cofre.
+    _applyBankInterest() {
+        const p = window.Engine.state.player;
+        if (!p || !p.bankGold || p.bankGold <= 0) return;
+        const interest = Math.floor(p.bankGold * 0.02);
+        if (interest <= 0) return;
+        p.bankGold += interest;
+        this._toast(`O Banco rendeu juros durante a noite: +${interest}g guardados.`, 'success');
+    }
+
     _updateDayCycle(dt) {
         this.dayPhaseTimer += dt;
         if (this.dayPhaseTimer >= this.dayPhaseDuration) {
@@ -578,6 +593,7 @@ class CityEngine {
             if (enteringDawn) {
                 this.dayCount++; // novo dia — ver openShop (ui.js)
                 this.nightWanderers = []; // vampiros se recolhem com a luz do sol
+                this._applyBankInterest();
             }
         }
         if (window.GFX) {
