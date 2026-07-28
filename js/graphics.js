@@ -2948,6 +2948,48 @@ const WEAPON_RENDERERS = {
         ctx.fillRect(12, -3, 40, 6);
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(10, -8, 4, 16);
+    },
+    // Armas regionais (Cidades-Hub Regionais, ver items.js w_11-w_14) — antes
+    // caíam todas no `default` (espada curta genérica) por falta de entrada
+    // aqui, então Machado de Guerra Orc, Martelo Rúnico Anão, Lâmina Élfica e
+    // Arco Élfico Longo apareciam visualmente como uma espada comum em
+    // combate, apesar de já terem dano/alcance/velocidade completamente
+    // diferentes (ver items.js). Cada uma reaproveita a MESMA técnica de
+    // desenho do arquétipo genérico equivalente (w_02 Machado, w_04 Martelo,
+    // w_06 Rapieira, w_09 Arco Curto), só com proporção/detalhe próprio.
+    w_11(ctx) { // Machado de Guerra Orc: cabeça maior e mais brutal que w_02
+        ctx.beginPath();
+        ctx.moveTo(12, -6); ctx.lineTo(40, -22); ctx.lineTo(47, 0); ctx.lineTo(40, 22); ctx.lineTo(12, 6);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#3a5a1a'; // acento verde-oliva orc no cabo, ecoa RACES.orc.accent
+        ctx.fillRect(10, -2, 4, 4);
+    },
+    w_12(ctx) { // Martelo Rúnico Anão: cabeça de martelo + glifo rúnico gravado
+        ctx.fillRect(12, -12, 30, 24);
+        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -12, 30, 24);
+        ctx.strokeStyle = '#8a3a1a'; ctx.lineWidth = 1.5; // cobre/ferrugem, RACES.anao.accent
+        ctx.beginPath();
+        ctx.moveTo(20, -6); ctx.lineTo(27, 6); ctx.moveTo(27, -6); ctx.lineTo(20, 6);
+        ctx.stroke();
+    },
+    w_13(ctx) { // Lâmina Élfica: lâmina fina e longa, mais elegante que a adaga/curta
+        ctx.fillRect(12, -2, 50, 4);
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(10, -6, 4, 12);
+        ctx.fillStyle = 'rgba(74,138,58,0.55)'; // brilho verde-floresta sutil, RACES.elfo.accent
+        ctx.beginPath();
+        ctx.moveTo(58, -2); ctx.lineTo(66, 0); ctx.lineTo(58, 2);
+        ctx.closePath(); ctx.fill();
+    },
+    w_14(ctx) { // Arco Élfico Longo: arco mais alto e esguio que o Arco Curto (w_09)
+        ctx.strokeStyle = '#4a8a3a'; ctx.lineWidth = 3; // verde floresta vívido, RACES.elfo.accent
+        ctx.beginPath();
+        ctx.arc(6, 0, 34, -Math.PI * 0.46, Math.PI * 0.46);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(31, -28); ctx.lineTo(31, 28);
+        ctx.stroke();
     }
 };
 
