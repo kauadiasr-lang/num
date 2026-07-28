@@ -190,8 +190,25 @@ class BattleSystem {
                 // A resistência a sangramento (Vampirismo) é aplicada a cada
                 // tique (ver applyBleedTick), não aqui — assim protege contra
                 // QUALQUER fonte de dano contínuo, não só encantamentos.
+                //
+                // Bug de auditoria: `dot.stacks` (ver enchantments.js,
+                // encantamento Sangramento — "acumula com golpes repetidos"
+                // na própria descrição mostrada ao jogador no tooltip) nunca
+                // era lido aqui; TODO dot (com ou sem `stacks`) sempre
+                // sobrescrevia bleedTurns/bleedDamage direto, então acertar
+                // duas vezes com uma arma de Sangramento só reiniciava o
+                // sangramento pro MESMO valor base, nunca acumulava — a
+                // mecânica prometida no próprio texto do encantamento nunca
+                // funcionou de verdade. Com `stacks: true` e um sangramento
+                // já ativo, agora SOMA o dano do tique em vez de substituir
+                // (e ainda renova a duração, senão o efeito somado
+                // terminaria antes do previsto).
+                if (enchantEff.dot.stacks && defenderState.bleedTurns > 0) {
+                    defenderState.bleedDamage += Math.max(1, enchantEff.dot.damage);
+                } else {
+                    defenderState.bleedDamage = Math.max(1, enchantEff.dot.damage);
+                }
                 defenderState.bleedTurns = enchantEff.dot.turns;
-                defenderState.bleedDamage = Math.max(1, enchantEff.dot.damage);
             }
             if (enchantEff.stunChance && Utils.chance(enchantEff.stunChance * (1 - negResist))) defenderState.stunned = true;
             if (enchantEff.slowChance && Utils.chance(enchantEff.slowChance * (1 - negResist))) defenderState.justRan = true; // reaproveita a penalidade de esquiva já existente como "lentidão"
