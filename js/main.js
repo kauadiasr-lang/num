@@ -51,6 +51,7 @@ class GameEngine {
     // Mantém a proporção e lida com DPI em telas mobile (Retina).
     // Usamos setTransform (não scale) para não acumular escala a cada resize.
     resize() {
+        const oldWidth = this.width, oldHeight = this.height;
         const dpr = window.devicePixelRatio || 1;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -65,6 +66,20 @@ class GameEngine {
         // #game-container usa esta variável (com fallback para 100vh) para
         // ficar sempre do tamanho exato da janela visível de verdade.
         document.documentElement.style.setProperty('--app-height', `${this.height}px`);
+
+        // Bug reportado: o personagem "desaparecia" na Cidade depois de uma
+        // barra de endereço do celular aparecer/sumir (ou o navegador ser
+        // redimensionado) — prédios/NPCs comuns já reposicionam sozinhos a
+        // cada frame (xFrac/rowOffset relativos à tela atual, ver city.js
+        // draw()), mas o jogador e os NPCs guardam coordenadas em pixel
+        // ABSOLUTO, fixadas só uma vez ao entrar na Cidade. Depois de um
+        // resize, essas coordenadas absolutas ficavam desproporcionais ao
+        // novo tamanho de tela — o jogador ainda "existia", só ficava longe
+        // de onde os prédios foram redesenhados, muitas vezes perto da
+        // borda ou fora da área visível. Reescala tudo proporcionalmente.
+        if (window.City && window.City.handleResize && oldWidth > 0 && oldHeight > 0) {
+            window.City.handleResize(oldWidth, oldHeight, this.width, this.height);
+        }
     }
 
     async simulateAssetLoading() {

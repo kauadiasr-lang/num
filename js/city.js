@@ -76,6 +76,14 @@ class CityEngine {
         // real dura (ver ui.js _shopDiscount).
         this.activePromotion = null;
 
+        // Emboscada noturna garantida (ver _onNightFalls/_updateNightAmbush)
+        this._nightAmbushTimer = null;
+        // Trava simples pra nunca deixar dois encontros noturnos forçados
+        // (o sorteio ambiental de _updateRandomEvents E a emboscada
+        // garantida) chamarem beginBattleWith quase ao mesmo tempo — cada
+        // um seta isso antes do próprio setTimeout e limpa depois.
+        this._nightEncounterPending = false;
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -132,6 +140,38 @@ class CityEngine {
         if (window.AudioManager) window.AudioManager.startCityAmbience();
         this._interactPromptEl = document.getElementById('city-interact-prompt');
         this._hintEl = document.getElementById('city-hint');
+    }
+
+    // Bug reportado: personagem "sumindo" na praça depois de um resize da
+    // janela (ex: barra de endereço do celular aparecendo/sumindo ao voltar
+    // de uma batalha). Prédios usam xFrac/rowOffset recalculados a cada
+    // frame a partir do tamanho ATUAL da tela (ver draw()), mas o jogador e
+    // os NPCs guardam posição em pixel absoluto, fixada só uma vez — depois
+    // de um resize essas coordenadas ficavam desproporcionais ao novo
+    // tamanho e ninguém as corrigia. Chamado por GameEngine.resize()
+    // (main.js) sempre que width/height mudam de verdade.
+    handleResize(oldW, oldH, newW, newH) {
+        if (!this._initialized || !oldW || !oldH) return;
+        const fx = newW / oldW, fy = newH / oldH;
+        if (fx === 1 && fy === 1) return;
+
+        const rescale = (entity) => {
+            entity.x *= fx;
+            entity.y *= fy;
+            if (entity.targetX !== null && entity.targetX !== undefined) entity.targetX *= fx;
+            if (entity.targetY !== null && entity.targetY !== undefined) entity.targetY *= fy;
+            if (entity.pathQueue) entity.pathQueue.forEach(p => { p.x *= fx; p.y *= fy; });
+            // NPCs "presos" a um ponto de ancoragem (ver _spawnNpcsIfNeeded,
+            // espectadores da arena): sem reescalar o pin junto, eles
+            // voltariam a vagar em torno da posição ANTIGA assim que o
+            // waitTimer expirasse, desfazendo o reajuste aos poucos.
+            if (entity.pin) { entity.pin.x *= fx; entity.pin.y *= fy; }
+        };
+
+        rescale(this.player);
+        this.player.x = Utils.clamp(this.player.x, 30, newW - 30);
+        this.npcs.forEach(rescale);
+        this.nightWanderers.forEach(rescale);
     }
 
     _plazaBottom(h) {
@@ -515,6 +555,7 @@ class CityEngine {
         this._updateWeather(dt);
         this._updateRandomEvents(dt);
         this._updatePromotion(dt);
+        this._updateNightAmbush(dt);
     }
 
     // Conta regressiva da promoção de loja ativa (ver _eventPromotion) — some
@@ -563,6 +604,16 @@ class CityEngine {
         const count = Utils.randomInt(1, 2);
         for (let i = 0; i < count; i++) this.nightWanderers.push(this._makeVampireWanderer());
 
+        // Emboscada noturna garantida (ver _updateNightAmbush): antes o
+        // ÚNICO jeito de topar com uma batalha noturna forçada era o sorteio
+        // lento de _updateRandomEvents (rolagem a cada 50-100s, e só ~25% do
+        // tempo mesmo é noite) — na prática, um jogador podia passar várias
+        // noites inteiras na cidade sem NUNCA ser emboscado, mesmo o sistema
+        // existindo. Agora toda vez que a noite cai, há uma chance real e
+        // independente de uma emboscada acontecer pouco depois, sem
+        // depender daquele sorteio ambiental raro.
+        this._nightAmbushTimer = Utils.chance(55) ? Utils.randomFloat(8, 22) : null;
+
         const p = window.Engine.state.player;
         if (!p) return;
         p.nightsWithoutSleep = (p.nightsWithoutSleep || 0) + 1;
@@ -572,6 +623,24 @@ class CityEngine {
                 p.addFatigue(1);
                 this._toast('Três noites sem dormir cobram seu preço — sua fadiga aumentou.', 'error');
             }
+        }
+    }
+
+    // Decrementa o temporizador da emboscada noturna garantida (ver
+    // _onNightFalls) e a dispara quando chega a zero — reaproveitando a
+    // mesma lógica de _eventNightMonsterAttack (Vampiro ou Fantasma,
+    // ambos com IA própria em enemy.js), só que sem depender do sorteio
+    // ambiental lento. Cancela silenciosamente se a noite já tiver
+    // acabado antes do timer disparar (o jogador dormiu ou o dia virou).
+    _updateNightAmbush(dt) {
+        if (this._nightAmbushTimer === null) return;
+        if (!window.GFX || window.GFX.arenaTime !== 'night') { this._nightAmbushTimer = null; return; }
+        this._nightAmbushTimer -= dt;
+        if (this._nightAmbushTimer <= 0) {
+            this._nightAmbushTimer = null;
+            if (this._nightEncounterPending) return; // já tem um encontro a caminho, não empilha
+            const p = window.Engine.state.player;
+            if (p) this._eventNightMonsterAttack(p);
         }
     }
 
@@ -901,8 +970,10 @@ class CityEngine {
         if (p && p.wins > 0) table.push({ w: 3, run: () => this._eventVictoryComment(p) });
 
         // Vampiros só saem à noite (Ritual do Vampirismo, ver rituals.js) —
-        // peso relevante só quando window.GFX.arenaTime === 'night'.
-        if (p && !p.lineage && window.GFX && window.GFX.arenaTime === 'night') {
+        // peso relevante só quando window.GFX.arenaTime === 'night'. Nunca
+        // sorteia um SEGUNDO encontro forçado enquanto um já está a
+        // caminho (ver _nightEncounterPending/_updateNightAmbush).
+        if (p && !p.lineage && !this._nightEncounterPending && window.GFX && window.GFX.arenaTime === 'night') {
             table.push({ w: 4, run: () => this._eventVampireEncounter(p) });
         }
 
@@ -913,7 +984,7 @@ class CityEngine {
         // dá uma razão mecânica real pra essa sensação de perigo.
         if (p && window.GFX && window.GFX.arenaTime === 'night') {
             table.push({ w: 3, run: () => this._eventNightMugging(p) });
-            table.push({ w: 3, run: () => this._eventNightMonsterAttack(p) });
+            if (!this._nightEncounterPending) table.push({ w: 3, run: () => this._eventNightMonsterAttack(p) });
         }
 
         // Fragmentos Sagrados (Ritual da Luz) — encontrados a qualquer hora,
@@ -936,8 +1007,10 @@ class CityEngine {
     // Entity com IA normal, ver enemy.js) que dropa Essência Vampírica com
     // chance pequena ao ser derrotado.
     _eventVampireEncounter(p) {
+        this._nightEncounterPending = true;
         this._toast('Uma figura pálida observa você das sombras antes de atacar...', 'error');
         setTimeout(() => {
+            this._nightEncounterPending = false;
             if (this._isActive() && window.UI && window.UI.startBattle) {
                 const arenaMenu = document.getElementById('city-arena-menu');
                 if (arenaMenu) arenaMenu.classList.add('hidden');
@@ -969,11 +1042,13 @@ class CityEngine {
     // noite, com ou sem Linhagem já despertada. Sorteia entre Vampiro e
     // Fantasma (ambos em enemy.js), cada um com sua própria identidade.
     _eventNightMonsterAttack(p) {
+        this._nightEncounterPending = true;
         const isVampire = Utils.chance(50);
         this._toast(isVampire
             ? 'Uma figura pálida surge da escuridão, sedenta por sangue...'
             : 'Um vulto etéreo atravessa a rua vazia, gélido e uivante...', 'error');
         setTimeout(() => {
+            this._nightEncounterPending = false;
             if (this._isActive() && window.UI && window.UI.beginBattleWith) {
                 const arenaMenu = document.getElementById('city-arena-menu');
                 if (arenaMenu) arenaMenu.classList.add('hidden');
