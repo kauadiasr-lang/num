@@ -924,16 +924,39 @@ class BattleSystem {
             if (window.GFX) window.GFX.playAnim(false, 'charge', 700);
             const range = this.enemy.getWeaponRange();
             if (this.isInRange(range)) {
-                const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, 1.2);
-                resultMsg = `${this.enemy.name} investiu contra você! ${atkResult.message}`;
-                if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+                // Munição limitada (ver ATK abaixo pelo mesmo motivo) — antes
+                // só o ATK comum do inimigo ganhou essa checagem, deixando o
+                // caminho de CHARGE atirar de graça mesmo sem munição.
+                const chargeWeapon = this.enemy.getActiveWeapon();
+                if (chargeWeapon && chargeWeapon.maxAmmo && chargeWeapon.ammo <= 0) {
+                    resultMsg = `${this.enemy.name} investiu, mas está sem munição para ${chargeWeapon.name}!`;
+                } else {
+                    if (chargeWeapon && chargeWeapon.maxAmmo) chargeWeapon.ammo--;
+                    const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, 1.2);
+                    resultMsg = `${this.enemy.name} investiu contra você! ${atkResult.message}`;
+                    if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+                }
             } else {
                 resultMsg = `${this.enemy.name} investiu, mas não alcançou você.`;
             }
         } else if (decision.action === 'ATK') {
-            const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState);
-            resultMsg = atkResult.message;
-            if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+            // Munição limitada em armas de longo alcance — bug de auditoria:
+            // essa checagem (e o decremento) só existia no ATK do JOGADOR
+            // (ver executePlayerTurn acima); um inimigo/Rival de estilo
+            // Arqueiro (ver ai_data.js weaponPool: bow/crossbow/
+            // elvenlongbow) atirava infinitamente, sem nunca ficar sem
+            // munição — quebrando pra um dos lados o próprio "custo tático"
+            // que a munição existe pra impor.
+            const rangedWeapon = this.enemy.getActiveWeapon();
+            if (rangedWeapon && rangedWeapon.maxAmmo && rangedWeapon.ammo <= 0) {
+                resultMsg = `${this.enemy.name} tenta atacar à distância, mas está sem munição para ${rangedWeapon.name}!`;
+            } else {
+                if (rangedWeapon && rangedWeapon.maxAmmo) rangedWeapon.ammo--;
+                const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState);
+                resultMsg = atkResult.message;
+                if (rangedWeapon && rangedWeapon.maxAmmo) resultMsg += ` (Munição do inimigo: ${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})`;
+                if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
+            }
         } else if (decision.action === 'SKILL') {
             resultMsg = this.executeEnemySkill(decision.param);
         } else if (decision.action === 'ITEM') {
