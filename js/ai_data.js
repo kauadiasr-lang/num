@@ -209,23 +209,62 @@ const RARE_ARCHETYPE_CHANCE = 3; // % de chance por Duelo Rápido gerado
 // disponível para o inimigo); combos usam só ações já testadas do motor de
 // batalha, então nenhuma mecânica nova precisa existir para eles funcionarem —
 // é a IA se comprometendo com uma sequência, com falas próprias por passo.
+//
+// _maybeStartCombo (ai.js) já sorteia aleatoriamente entre TODOS os combos de
+// `comboSet` (array) — a arquitetura sempre esperou múltiplas variantes por
+// estilo, mas até agora cada estilo só tinha exatamente 1 entrada, então o
+// "sorteio" nunca teve escolha real. Cada estilo ganha uma 2ª variante
+// (usando a outra habilidade do próprio skillPool em ai_data.js), dobrando a
+// variedade de sequências que um jogador vê ao longo de várias lutas.
 const AI_COMBOS = {
-    espadachim: [{ steps: ['APPROACH', 'ATK', 'SKILL:heavy_strike'],
-        flavor: ['Avança em posição de ataque!', 'Golpeia com precisão!', 'Finaliza com um golpe pesado!'] }],
-    lanceiro: [{ steps: ['HOLD', 'ATK', 'ATK'],
-        flavor: ['Planta os pés e nivela a lança!', 'Estoca!', 'Estoca de novo, sem dar espaço!'] }],
-    arqueiro: [{ steps: ['RETREAT', 'ATK', 'ATK'],
-        flavor: ['Recua para abrir linha de tiro!', 'Dispara!', 'Dispara outra flecha em sequência!'] }],
-    brutamontes: [{ steps: ['APPROACH', 'CHARGE', 'ATK'],
-        flavor: ['Avança pesadamente!', 'Investe com todo o peso do corpo!', 'Desfere um golpe final devastador!'] }],
-    assassino: [{ steps: ['RUN', 'ATK', 'RETREAT'],
-        flavor: ['Corre para as sombras do seu ponto cego!', 'Crava a lâmina!', 'Desaparece antes que você reaja!'] }],
-    gladiador: [{ steps: ['SKILL:shield_bash', 'ATK', 'ATK'],
-        flavor: ['Investida de escudo!', 'Aproveita a brecha!', 'Continua o combo com outro golpe!'] }],
-    guardiao: [{ steps: ['HOLD', 'DEF', 'SKILL:shield_bash'],
-        flavor: ['Firma o escudo e espera!', 'Absorve o impacto sem ceder!', 'Contra-ataca com o escudo!'] }],
-    mago: [{ steps: ['RETREAT', 'SKILL:fireball', 'SKILL:fireball'],
-        flavor: ['Recua conjurando!', 'Bola de fogo!', 'Outra explosão arcana antes que você se aproxime!'] }],
+    espadachim: [
+        { steps: ['APPROACH', 'ATK', 'SKILL:heavy_strike'],
+            flavor: ['Avança em posição de ataque!', 'Golpeia com precisão!', 'Finaliza com um golpe pesado!'] },
+        { steps: ['ATK', 'SKILL:bleeding_cut', 'ATK'],
+            flavor: ['Testa sua guarda com um golpe rápido!', 'Abre um corte certeiro!', 'Pressiona antes que o sangramento estanque!'] },
+    ],
+    lanceiro: [
+        { steps: ['HOLD', 'ATK', 'ATK'],
+            flavor: ['Planta os pés e nivela a lança!', 'Estoca!', 'Estoca de novo, sem dar espaço!'] },
+        { steps: ['APPROACH', 'SKILL:fury', 'ATK'],
+            flavor: ['Avança quebrando a distância!', 'Golpeia com fúria contida!', 'Encerra a sequência com mais uma estocada!'] },
+    ],
+    arqueiro: [
+        { steps: ['RETREAT', 'ATK', 'ATK'],
+            flavor: ['Recua para abrir linha de tiro!', 'Dispara!', 'Dispara outra flecha em sequência!'] },
+        { steps: ['HOLD', 'SKILL:bleeding_cut', 'RETREAT'],
+            flavor: ['Mira com calma antes de atirar!', 'Acerta um tiro que corta fundo!', 'Recua mantendo distância segura!'] },
+    ],
+    brutamontes: [
+        { steps: ['APPROACH', 'CHARGE', 'ATK'],
+            flavor: ['Avança pesadamente!', 'Investe com todo o peso do corpo!', 'Desfere um golpe final devastador!'] },
+        { steps: ['ATK', 'SKILL:fury', 'ATK'],
+            flavor: ['Golpeia sem dó!', 'Explode em fúria bruta!', 'Termina com outro golpe pesado!'] },
+    ],
+    assassino: [
+        { steps: ['RUN', 'ATK', 'RETREAT'],
+            flavor: ['Corre para as sombras do seu ponto cego!', 'Crava a lâmina!', 'Desaparece antes que você reaja!'] },
+        { steps: ['APPROACH', 'SKILL:vampiric_strike', 'RETREAT'],
+            flavor: ['Se aproxima pelas sombras!', 'Crava a lâmina, roubando vida!', 'Desaparece antes que você reaja!'] },
+    ],
+    gladiador: [
+        { steps: ['SKILL:shield_bash', 'ATK', 'ATK'],
+            flavor: ['Investida de escudo!', 'Aproveita a brecha!', 'Continua o combo com outro golpe!'] },
+        { steps: ['ATK', 'SKILL:heavy_strike', 'ATK'],
+            flavor: ['Testa sua defesa!', 'Golpe pesado calculado!', 'Aproveita a abertura com outro golpe!'] },
+    ],
+    guardiao: [
+        { steps: ['HOLD', 'DEF', 'SKILL:shield_bash'],
+            flavor: ['Firma o escudo e espera!', 'Absorve o impacto sem ceder!', 'Contra-ataca com o escudo!'] },
+        { steps: ['DEF', 'SKILL:quick_heal', 'HOLD'],
+            flavor: ['Absorve o primeiro golpe sem ceder!', 'Recupera o fôlego com uma cura rápida!', 'Volta a se posicionar com cautela!'] },
+    ],
+    mago: [
+        { steps: ['RETREAT', 'SKILL:fireball', 'SKILL:fireball'],
+            flavor: ['Recua conjurando!', 'Bola de fogo!', 'Outra explosão arcana antes que você se aproxime!'] },
+        { steps: ['HOLD', 'SKILL:quick_heal', 'SKILL:fireball'],
+            flavor: ['Concentra energia arcana!', 'Cura-se antes de continuar!', 'Lança uma bola de fogo certeira!'] },
+    ],
 };
 
 // --- ESTADOS EMOCIONAIS ---
