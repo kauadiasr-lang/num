@@ -1891,6 +1891,7 @@ class UIManager {
                     const color = broken ? '#ff4444' : (item.durability < item.maxDurability * 0.3 ? '#ffaa00' : '#888');
                     statsHtml += `<p style="color:${color}">Durabilidade: ${item.durability}/${item.maxDurability}${broken ? ' — QUEBRADA! (metade do dano/defesa, repare no Ferreiro/Armeiro)' : ''}</p>`;
                 }
+                statsHtml += this._buildEquippedComparison(item);
             }
             document.getElementById('tt-stats').innerHTML = statsHtml;
             document.getElementById('tt-price').innerText = `Valor: ${item.value}g`;
@@ -1902,6 +1903,44 @@ class UIManager {
 
     hideTooltip() {
         document.getElementById('item-tooltip').classList.add('hidden');
+    }
+
+    // Comparação rápida com o item já equipado no mesmo slot — antes o
+    // tooltip só mostrava os números do item em si, obrigando o jogador a
+    // decorar (ou reabrir o tooltip do equipado) pra saber se uma peça nova
+    // da loja/mochila é realmente uma melhoria. Cobre só os campos que já
+    // aparecem no tooltip acima (damage/defense/statBonuses/critBonus/
+    // accBonus/blockChance/hpBonus/mpBonus) — nunca compara o item consigo
+    // mesmo (mesmo uuid).
+    _buildEquippedComparison(item) {
+        const p = window.Engine.state.player;
+        if (!p || !item.slot) return '';
+        const equipped = p.equipment[item.slot];
+        if (!equipped || equipped.uuid === item.uuid) return '';
+
+        const delta = (label, newVal, curVal) => {
+            const d = (newVal || 0) - (curVal || 0);
+            if (d === 0) return '';
+            const sign = d > 0 ? '+' : '';
+            const color = d > 0 ? '#33ff66' : '#ff5555';
+            const arrow = d > 0 ? '▲' : '▼';
+            return `<p style="color:${color}">${arrow} ${label}: ${sign}${d}</p>`;
+        };
+
+        let html = delta('Dano Base', item.damage, equipped.damage);
+        html += delta('Defesa Base', item.defense, equipped.defense);
+        const allStats = new Set([...Object.keys(item.statBonuses || {}), ...Object.keys(equipped.statBonuses || {})]);
+        allStats.forEach(stat => {
+            html += delta(stat.toUpperCase(), (item.statBonuses || {})[stat], (equipped.statBonuses || {})[stat]);
+        });
+        html += delta('Crítico', item.critBonus, equipped.critBonus);
+        html += delta('Precisão', item.accBonus, equipped.accBonus);
+        html += delta('Bloqueio', item.blockChance, equipped.blockChance);
+        html += delta('HP Máximo', item.hpBonus, equipped.hpBonus);
+        html += delta('MP Máximo', item.mpBonus, equipped.mpBonus);
+
+        if (!html) return '';
+        return `<p style="color:#aaa;margin-top:4px;border-top:1px solid rgba(255,255,255,0.15);padding-top:4px;">Comparado a ${equipped.name} equipado:</p>` + html;
     }
 }
 
