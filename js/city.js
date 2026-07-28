@@ -382,6 +382,7 @@ class CityEngine {
         }
         const wins = p ? (p.wins || 0) : 0;
         let pool = CityEngine.NPC_DIALOGUE.generic;
+        let speaker = null; // prefixo "Profissão: " no toast — só faz sentido pro pool de profissão
         // Linhagem despertada (ver lineages.js) muda a APARÊNCIA de verdade
         // (presas/pele pálida do Vampirismo, aura dourada da Luz — ver
         // graphics.js _drawFangs/_drawLineageAura), mas nenhum NPC jamais
@@ -398,10 +399,15 @@ class CityEngine {
         // acontecer, mas evita quebrar) caem de volta no pool genérico.
         else if (npc.profession && CityEngine.NPC_PROFESSIONS[npc.profession]) {
             pool = CityEngine.NPC_PROFESSIONS[npc.profession].lines;
+            speaker = CityEngine.NPC_PROFESSIONS[npc.profession].name;
         }
 
         const line = pool[Utils.randomInt(0, pool.length - 1)];
-        this._toast(line, 'info');
+        // A profissão (ver NPC_PROFESSIONS, iteração 15) nunca aparecia na
+        // fala em si — o jogador só descobriria que falou com um "Mercador"
+        // lendo o código-fonte. Prefixar com quem está falando fecha essa
+        // lacuna sem exigir nenhum sistema de nome próprio por NPC.
+        this._toast(speaker ? `${speaker}: ${line}` : line, 'info');
         if (window.AudioManager) window.AudioManager.playConfirm();
         // Vira de frente pro jogador por um instante — pequeno detalhe de
         // vida, sem precisar de nenhum estado de animação novo.
