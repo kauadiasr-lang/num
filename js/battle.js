@@ -623,7 +623,14 @@ class BattleSystem {
                     let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
 
                     this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
-                    const stunned = Utils.chance(skill.stunChance);
+                    // Resistência a efeitos negativos (Ateniense/Linhagem Luz do
+                    // defensor) — já era aplicada ao stun de encantamento de arma
+                    // (ver executeAttack, linha ~186), mas faltava aqui: quem
+                    // investisse na árvore da Luz ou escolhesse Ateniense
+                    // continuava sendo atordoado na chance bruta sempre que o
+                    // stun vinha de uma habilidade tipo STUN em vez de encantamento.
+                    const negResist = (this.enemy.derivedStats.negativeEffectResistPercent || 0) / 100;
+                    const stunned = Utils.chance(skill.stunChance * (1 - negResist));
                     if (stunned) this.enemyState.stunned = true;
 
                     resultMsg = stunned
@@ -793,7 +800,12 @@ class BattleSystem {
             let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
             let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
             this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
-            const stunned = Utils.chance(skill.stunChance);
+            // Espelha a mesma resistência a efeitos negativos aplicada acima
+            // no STUN do jogador (ver executePlayerTurn) — sem isso, a
+            // resistência prometida pela árvore da Luz/Ateniense só protegia
+            // o jogador quando o inimigo usava STUN, nunca o contrário.
+            const negResist = (this.player.derivedStats.negativeEffectResistPercent || 0) / 100;
+            const stunned = Utils.chance(skill.stunChance * (1 - negResist));
             if (stunned) this.playerState.stunned = true;
             message = stunned
                 ? `<span style="color:#3388ff">${this.enemy.name} usou ${skill.name}: ${mitigatedDamage} de dano e ${this.player.name} ficou atordoado!</span>`
