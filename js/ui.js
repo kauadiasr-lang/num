@@ -962,7 +962,7 @@ class UIManager {
                 itemDiv.className = 'bag-item';
                 itemDiv.style.borderColor = loot.rarity.color;
                 itemDiv.style.color = loot.rarity.color;
-                itemDiv.innerText = "I"; // Ícone placeholder
+                itemDiv.innerText = this._itemIcon(loot);
                 this.attachTooltip(itemDiv, loot);
 
                 if (p.inventory.length < p.inventoryCapacity) {
@@ -1322,7 +1322,7 @@ class UIManager {
                 const item = p.inventory[i];
                 const isConsumable = item.category === 'consumable';
 
-                itemSlot.innerText = isConsumable ? "P" : "I"; // P = Poção/consumível, I = item equipável
+                itemSlot.innerText = this._itemIcon(item);
                 itemSlot.style.borderColor = isConsumable ? '#33cc99' : item.rarity.color;
                 itemSlot.style.color = isConsumable ? '#33cc99' : item.rarity.color;
 
@@ -1526,7 +1526,7 @@ class UIManager {
 
             card.innerHTML = `
                 <div>
-                    <h4 style="color: ${item.rarity.color}">${item.name}</h4>
+                    <h4 style="color: ${item.rarity.color}">${this._itemIcon(item)} ${item.name}</h4>
                     <p style="font-size: 0.8rem; color: #aaa;">${statsText}</p>
                 </div>
                 <button class="btn btn-small">${priceLabel}</button>
@@ -1572,7 +1572,7 @@ class UIManager {
 
             card.innerHTML = `
                 <div>
-                    <h4 style="color: #33cc99">${item.name}</h4>
+                    <h4 style="color: #33cc99">${this._itemIcon(item)} ${item.name}</h4>
                     <p style="font-size: 0.8rem; color: #aaa;">${item.description}</p>
                 </div>
                 <button class="btn btn-small">${priceLabel}</button>
@@ -1903,6 +1903,22 @@ class UIManager {
             tt.classList.remove('hidden');
         };
         element.onmouseleave = () => this.hideTooltip();
+    }
+
+    // Ícone de item por slot (equipamento) ou categoria (consumível) — antes
+    // a mochila/loot mostravam só a letra solta "I"/"P" como "ícone
+    // placeholder" (literalmente comentado como tal no código), e a loja
+    // não mostrava ícone nenhum. Reaproveita o mesmo estilo de emoji já
+    // usado pelos prédios da Cidade (ver city.js `icon:`), em vez de inventar
+    // um sistema de sprites novo só pra isso.
+    _itemIcon(item) {
+        if (item.category === 'consumable') return '🧪';
+        const icons = {
+            [SLOTS.MAIN_HAND]: '⚔️', [SLOTS.RANGED]: '🏹', [SLOTS.OFF_HAND]: '🛡️',
+            [SLOTS.HEAD]: '🪖', [SLOTS.CHEST]: '👕', [SLOTS.HANDS]: '🧤',
+            [SLOTS.LEGS]: '👖', [SLOTS.FEET]: '👢', [SLOTS.AMULET]: '📿', [SLOTS.RING]: '💍'
+        };
+        return icons[item.slot] || '❔';
     }
 
     hideTooltip() {
