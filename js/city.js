@@ -26,6 +26,10 @@ class CityEngine {
         this._mouseX = null;
         this._initialized = false;
         this._hintShown = true;
+        // Ver _setupInput: timestamp do último toque tratado, usado pra
+        // ignorar o clique de compatibilidade que o navegador dispara
+        // depois de um toque real (ghost click).
+        this._lastTouchHandledAt = -Infinity;
 
         // NPC que o jogador clicou pra conversar, mas ainda não chegou perto
         // o bastante (ver _approachAndTalk/_updatePendingTalk) — antes
@@ -426,22 +430,25 @@ class CityEngine {
         screenEl.addEventListener('click', (e) => {
             if (!this._isActive()) return;
             if (e.target.closest('button')) return; // não interfere com ☰/🎒/prompt
+            // Trava de segurança contra o "clique" de compatibilidade que
+            // navegadores disparam alguns instantes depois de um toque real
+            // (ver touchend abaixo) — mesmo com preventDefault() lá, alguns
+            // navegadores/webviews ainda disparam esse clique sintético de
+            // qualquer forma. Ignorar qualquer clique logo após um toque já
+            // tratado fecha essa brecha de vez, sem depender de nenhuma
+            // API específica de navegador se comportar do jeito esperado.
+            // Era exatamente essa falha que fazia falar com um NPC (ou
+            // qualquer clique) "executar duas vezes" no toque.
+            if (performance.now() - this._lastTouchHandledAt < 600) return;
             this._handleClick(e.clientX, e.clientY);
         });
         // Toque dedicado (evita atraso de "ghost click" em alguns navegadores móveis).
-        // Bug corrigido aqui: o listener era `passive: true`, então não podia
-        // chamar preventDefault() — o navegador então disparava, alguns
-        // instantes depois, um evento "click" sintético de compatibilidade
-        // NO MESMO ponto, acionando o listener de 'click' acima e chamando
-        // _handleClick() (logo _talkToNpc) uma SEGUNDA vez pro mesmo toque —
-        // por isso falar com um NPC no toque repetia a fala. Removendo
-        // `passive` e chamando preventDefault() aqui suprime esse clique
-        // sintético de vez.
         screenEl.addEventListener('touchend', (e) => {
             if (!this._isActive()) return;
             if (e.target.closest('button')) return;
             if (e.changedTouches && e.changedTouches[0]) {
                 e.preventDefault();
+                this._lastTouchHandledAt = performance.now();
                 const t = e.changedTouches[0];
                 this._handleClick(t.clientX, t.clientY);
             }
