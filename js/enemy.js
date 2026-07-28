@@ -162,11 +162,13 @@ class Enemy extends Entity {
         // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
         if (!this.aiRareArchetype || this.aiRareArchetype.id !== 'lutador_desarmado') {
             this.equipStyleWeapon();
-        } else {
-            this.calculateDerivedStats();
-            this.currentHp = this.derivedStats.maxHp;
-            this.currentMp = this.derivedStats.maxMp;
         }
+        // Armadura independe do arquétipo — "Lutador de Punho Nu" recusa
+        // ARMA, não armadura (thematicamente é bem normal um brigão de
+        // punho nu ainda vestir proteção no torso). equipArmor() já faz a
+        // recalculação final de stats/HP/MP, então cobre os dois ramos
+        // acima sem precisar duplicar a chamada.
+        this.equipArmor();
 
         // Recompensa ao ser derrotado — Elite vale bem mais que o dobro,
         // pra recompensar de verdade o risco extra de enfrentá-lo.
@@ -203,6 +205,29 @@ class Enemy extends Entity {
             ? (15 + this.level + 30)
             : Utils.clamp((this.level - 2) * 5, 0, 40);
         this.equipStyleWeaponGeneric(rarityChance, this.isElite ? 45 : 20);
+    }
+
+    // Armadura (peitoral) — antes só Rivais nomeados da Ladder (ver
+    // Rival.equipGear) tinham algo no slot CHEST; o Duelo Rápido comum
+    // (Enemy) nunca equipava nada ali, apesar de graphics.js _drawTorso já
+    // ler `equipment[SLOTS.CHEST]` de QUALQUER entidade genericamente pra
+    // colorir/metalizar o torso — todo oponente comum da arena sempre
+    // desenhava um torso "civil" sem armadura visível nenhuma, mesmo o
+    // sistema já suportando isso havia muitas iterações. Mesma curva de
+    // raridade "tamed" e mesmo filtro regional já usados pra arma (ver
+    // equipStyleWeapon acima e AICombat.pickArmor) — nunca reintroduz o
+    // problema de "item bom demais cedo demais" que o balanceamento
+    // anterior corrigiu, e nunca equipa armadura de outra cidade.
+    equipArmor() {
+        const rarityChance = this.isElite
+            ? (15 + this.level + 30)
+            : Utils.clamp((this.level - 2) * 5, 0, 40);
+        const armorId = window.AICombat.pickArmor();
+        const rarity = Utils.chance(rarityChance) ? RARITY.UNCOMMON : RARITY.COMMON;
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
     }
 
     // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do

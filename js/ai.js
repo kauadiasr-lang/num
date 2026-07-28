@@ -138,6 +138,26 @@ const AICombat = {
         return shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
     },
 
+    // Sorteia uma armadura de PEITORAL (só slot CHEST — `ItemDatabase.armors`
+    // mistura cabeça/mãos/pernas/pés na mesma categoria, então filtrar por
+    // slot é obrigatório aqui, senão um "Botas de Couro" acabaria equipado
+    // no slot de peito por engano), mesmo filtro regional das duas funções
+    // acima — usada pelo Duelo Rápido comum (ver Enemy.equipArmor em
+    // enemy.js), que antes NUNCA equipava nada no slot CHEST (só Rivais da
+    // Ladder tinham peitoral próprio, ver Rival.equipGear). graphics.js
+    // _drawTorso já lê `equipment[SLOTS.CHEST]` de QUALQUER entidade
+    // genericamente pra colorir o torso — sem essa função, todo oponente
+    // comum da arena sempre desenhava um torso "civil" sem nenhuma
+    // armadura visível, apesar do sistema já suportar isso.
+    pickArmor() {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const armorKeys = Object.keys(ItemDatabase.armors).filter(id => {
+            const t = ItemDatabase.armors[id];
+            return t.slot === SLOTS.CHEST && (!t.region || t.region === cityId);
+        });
+        return armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
+    },
+
     // ==========================================================================
     // ESTADO DE BATALHA (memória, emoção, moral, combo)
     // ==========================================================================
