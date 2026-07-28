@@ -174,6 +174,7 @@ class UIManager {
         document.getElementById('btn-close-mutations').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-bank-deposit').addEventListener('click', () => this.bankDeposit());
         document.getElementById('btn-bank-withdraw').addEventListener('click', () => this.bankWithdraw());
+        document.getElementById('btn-respec-stats').addEventListener('click', () => this.respecStats());
 
         // --- Fechar painéis ---
         document.getElementById('btn-close-inv').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -1253,11 +1254,58 @@ class UIManager {
         }, 3200);
     }
 
+    // Soma quantos pontos de atributo já foram investidos (Criação de
+    // Personagem + upagens por nível) — toda base começa em 5 (ver
+    // Entity.baseStats/creationData.stats), então qualquer valor acima disso
+    // é "gasto". Usado tanto pro custo do respec quanto pra decidir se há
+    // algo pra redistribuir (não faz sentido cobrar por um respec vazio).
+    _totalSpentStatPoints(p) {
+        let total = 0;
+        for (let key in p.baseStats) total += Math.max(0, p.baseStats[key] - 5);
+        return total;
+    }
+
+    // Custo em ouro pra redistribuir TODOS os atributos — cresce com o
+    // nível (mais pontos acumulados = respec mais valioso), mas nunca chega
+    // a ser proibitivo: é uma correção de erro de build, não uma taxa punitiva.
+    _respecCost(p) {
+        return 50 + p.level * 15;
+    }
+
+    // Zera todo baseStats de volta a 5 e devolve TODOS os pontos investidos
+    // (Criação de Personagem + upagens por nível) pra statPoints, cobrando
+    // em ouro — antes não existia NENHUM jeito de corrigir uma distribuição
+    // de atributos ruim a não ser recomeçar o personagem do zero.
+    respecStats() {
+        const p = window.Engine.state.player;
+        const spent = this._totalSpentStatPoints(p);
+        if (spent <= 0) return;
+        const cost = this._respecCost(p);
+        if (p.gold < cost) {
+            if (window.AudioManager) window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
+            return;
+        }
+        p.gold -= cost;
+        for (let key in p.baseStats) p.baseStats[key] = 5;
+        p.statPoints = (p.statPoints || 0) + spent;
+        p.calculateDerivedStats();
+        window.SaveManager.save(window.Engine.state);
+        this.updateInventoryStats();
+        if (window.AudioManager) window.AudioManager.playConfirm();
+        if (window.MainMenu) window.MainMenu.showToast(`Atributos redistribuídos! ${spent} pontos devolvidos.`, 'success');
+    }
+
     updateInventoryStats() {
         const p = window.Engine.state.player;
         p.calculateDerivedStats(); // Garante atualização
 
         document.getElementById('inv-stat-points').innerText = p.statPoints || 0;
+
+        const respecCost = this._respecCost(p);
+        const respecBtn = document.getElementById('btn-respec-stats');
+        document.getElementById('respec-cost').innerText = respecCost;
+        respecBtn.disabled = this._totalSpentStatPoints(p) <= 0 || p.gold < respecCost;
 
         // Renderiza lista de botões de upar status
         const container = document.getElementById('inv-stats-list');
