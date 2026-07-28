@@ -97,6 +97,7 @@ class GameEngine {
     }
 
     onAssetsLoaded() {
+        validateGameData();
         document.getElementById('loading-text').innerText = "Tudo Pronto!";
         const btnStart = document.getElementById('btn-start');
         btnStart.classList.remove('hidden');
@@ -206,6 +207,85 @@ class GameEngine {
 
         // Restaura câmera
         ctx.restore();
+    }
+}
+
+// Validação de integridade dos registries de dados (SkillDatabase, RACES,
+// LINEAGES, AchievementDB, RivalDatabase, CityEngine.NPC_PROFESSIONS) — roda
+// uma vez no boot (ver onAssetsLoaded) e só ALERTA no console via
+// console.warn; nunca interrompe o carregamento nem altera nada. Vários dos
+// bugs reais corrigidos ao longo do projeto (promoção de loja sem efeito,
+// título de loja errado) só apareciam em runtime bem específico porque
+// nenhuma verificação central conferia se um registro batia com o formato
+// que o código consumidor espera — isso pega erros de digitação/typo em
+// registros novos (campo ausente, id duplicado) na hora do carregamento.
+function validateGameData() {
+    const problems = [];
+    const need = (cond, msg) => { if (!cond) problems.push(msg); };
+
+    if (typeof SkillDatabase !== 'undefined') {
+        for (const key in SkillDatabase) {
+            const s = SkillDatabase[key];
+            need(s.id === key, `SkillDatabase['${key}']: id ('${s.id}') não bate com a chave do registro`);
+            need(typeof SKILL_TYPES[s.type] === 'string', `SkillDatabase['${key}']: type '${s.type}' não existe em SKILL_TYPES`);
+            need(typeof s.mpCost === 'number', `SkillDatabase['${key}']: mpCost ausente/inválido`);
+            need(typeof s.powerMulti === 'number', `SkillDatabase['${key}']: powerMulti ausente/inválido`);
+            need(typeof s.levelReq === 'number', `SkillDatabase['${key}']: levelReq ausente/inválido`);
+        }
+    }
+
+    if (window.RACES) {
+        for (const key in window.RACES) {
+            const r = window.RACES[key];
+            need(r.id === key, `RACES['${key}']: id ('${r.id}') não bate com a chave do registro`);
+            need(typeof r.statMods === 'object', `RACES['${key}']: statMods ausente`);
+            if (r.passive) {
+                need(typeof r.passive.statKey === 'string' && typeof r.passive.value === 'number',
+                    `RACES['${key}']: passive presente mas statKey/value inválidos`);
+            }
+        }
+    }
+
+    if (window.LINEAGES) {
+        for (const key in window.LINEAGES) {
+            const l = window.LINEAGES[key];
+            need(l.id === key, `LINEAGES['${key}']: id ('${l.id}') não bate com a chave do registro`);
+            need(typeof l.locked === 'boolean', `LINEAGES['${key}']: locked ausente`);
+            if (!l.locked) {
+                need(!!l.skillTreeId, `LINEAGES['${key}']: não bloqueada mas sem skillTreeId`);
+                need(!!l.ritualId, `LINEAGES['${key}']: não bloqueada mas sem ritualId`);
+                need(!!l.bossId, `LINEAGES['${key}']: não bloqueada mas sem bossId`);
+            }
+        }
+    }
+
+    if (window.AchievementDB) {
+        for (const key in window.AchievementDB) {
+            const a = window.AchievementDB[key];
+            need(a.id === key, `AchievementDB['${key}']: id ('${a.id}') não bate com a chave do registro`);
+            need(!!a.name && !!a.description && !!a.rarity && !!a.icon, `AchievementDB['${key}']: campo obrigatório ausente (name/description/rarity/icon)`);
+        }
+    }
+
+    if (window.RivalDatabase && Array.isArray(window.RivalDatabase.leagues)) {
+        window.RivalDatabase.leagues.forEach(league => {
+            need(!!league.id && !!league.name && Array.isArray(league.rivals), `RivalDatabase: liga malformada (${JSON.stringify(league.id)})`);
+            (league.rivals || []).forEach(rival => {
+                need(!!rival.id && !!rival.name && typeof rival.level === 'number', `RivalDatabase['${league.id}']: rival malformado (${JSON.stringify(rival.id)})`);
+            });
+        });
+    }
+
+    if (typeof CityEngine !== 'undefined' && CityEngine.NPC_PROFESSIONS) {
+        for (const key in CityEngine.NPC_PROFESSIONS) {
+            const prof = CityEngine.NPC_PROFESSIONS[key];
+            need(!!prof.name && Array.isArray(prof.lines) && prof.lines.length > 0, `NPC_PROFESSIONS['${key}']: name/lines ausente ou vazio`);
+        }
+    }
+
+    if (problems.length > 0) {
+        console.warn(`[validateGameData] ${problems.length} problema(s) encontrado(s) nos registros de dados:`);
+        problems.forEach(p => console.warn(' - ' + p));
     }
 }
 
