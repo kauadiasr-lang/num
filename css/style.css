@@ -971,6 +971,7 @@ html, body {
 .rival-card h4 { font-size: 1rem; margin-bottom: 4px; color: var(--color-text); }
 .rival-card p { font-size: 0.8rem; color: var(--color-marble-dark); }
 .rival-card .rival-status { margin-top: 8px; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; }
+.rival-level-warning { margin-top: 6px !important; font-size: 0.7rem !important; color: #ff8a3d !important; text-transform: none !important; font-weight: normal !important; }
 
 /* Curandeiro */
 .healer-panel { width: 90%; max-width: 500px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }

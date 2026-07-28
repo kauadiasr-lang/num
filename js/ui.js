@@ -728,6 +728,16 @@ class UIManager {
                 const personalityName = (window.AI_PERSONALITIES[rivalDef.personalityId] || {}).name || rivalDef.personalityId;
                 const styleName = (window.AI_FIGHTING_STYLES[rivalDef.styleId] || {}).name || rivalDef.styleId;
 
+                // Aviso de nível: a progressão da Ladder é por sequência
+                // (derrotar o anterior desbloqueia o próximo), não por nível
+                // do jogador — então nada impede alguém de ter farmado pouco
+                // e chegar a um rival vários níveis acima do seu, e apanhar
+                // sem entender por quê. Um aviso visível ANTES do clique
+                // (não depois de já ter perdido) deixa a escolha informada,
+                // sem impedir ninguém de tentar mesmo assim.
+                const levelGap = rivalDef.level - p.level;
+                const showLevelWarning = isUnlocked && !isDefeated && levelGap >= 4;
+
                 const card = document.createElement('div');
                 card.className = `rival-card ${rivalDef.isChampion ? 'champion' : ''} ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
                 card.innerHTML = `
@@ -736,6 +746,7 @@ class UIManager {
                     <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
                         ${isDefeated ? 'Derrotado' : (isUnlocked ? (rivalDef.isChampion ? 'Campeão' : 'Disponível') : 'Bloqueado')}
                     </p>
+                    ${showLevelWarning ? `<p class="rival-level-warning">⚠️ ${levelGap} níveis acima de você — considere subir de nível antes</p>` : ''}
                 `;
 
                 if (isUnlocked) {
