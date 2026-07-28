@@ -1957,9 +1957,29 @@ class GraphicsEngine {
         }
 
         this._drawArchetypeTorsoSignature(ctx, entity, m, torsoH);
+        this._drawRaceSash(ctx, entity, m, torsoH);
 
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(-m.waist / 2, -12, m.waist, 6);
+        ctx.restore();
+    }
+
+    // Faixa/baldric diagonal com a cor cultural da Raça (ver races.js
+    // `accent`) — antes Raça era só uma camada de bônus/penalidade de
+    // atributo (Entity.getTotalStat em player.js), sem NENHUMA marca visual
+    // distinguindo um Espartano de um Ateniense na arena. Humano não tem
+    // `accent` (raça "neutra") e não desenha nada aqui.
+    _drawRaceSash(ctx, entity, m, torsoH) {
+        const race = entity.race && window.RACES ? window.RACES[entity.race] : null;
+        if (!race || !race.accent) return;
+        ctx.save();
+        ctx.strokeStyle = race.accent;
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-m.shoulder / 2 + 2, -torsoH + 8);
+        ctx.lineTo(m.waist / 2 - 2, -8);
+        ctx.stroke();
         ctx.restore();
     }
 
