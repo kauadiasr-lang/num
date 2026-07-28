@@ -1653,6 +1653,17 @@ class UIManager {
         p.gold -= cost;
         if (fatigue > 0) p.cureFatigue(fatigue);
         p.nightsWithoutSleep = 0; // dormiu de verdade — zera o contador de noites em claro (ver city.js _onNightFalls)
+
+        // Dormir avança o relógio da cidade pro período OPOSTO do atual —
+        // dia vira noite e noite vira dia (dawn/sunset invertem entre si do
+        // mesmo jeito, já que ficam exatamente na metade oposta do ciclo de
+        // 4 fases). Antes dormir não tinha NENHUM efeito no relógio: o
+        // jogador "dormia" e continuava no mesmo instante exato do dia.
+        if (window.City && window.City.dayPhases) {
+            window.City.dayPhaseIndex = (window.City.dayPhaseIndex + 2) % window.City.dayPhases.length;
+            window.City.dayPhaseTimer = 0;
+        }
+
         window.SaveManager.save(window.Engine.state);
         window.AudioManager.playHeal();
 
