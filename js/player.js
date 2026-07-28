@@ -443,6 +443,7 @@ class Player extends Entity {
         if (context.defeatedRivalId === 'silver_champion') tryUnlock('champion_silver');
         if (context.defeatedRivalId === 'gold_champion') tryUnlock('champion_gold');
         if (context.awakenedLineage) tryUnlock('lineage_awakened');
+        if (context.defeatedElite) tryUnlock('elite_hunter');
 
         return unlocked;
     }
@@ -461,7 +462,8 @@ const AchievementDB = {
     champion_bronze: { id: 'champion_bronze', name: 'Campeão de Bronze', description: 'Derrote o Campeão da Liga de Bronze.', rarity: 'raro', icon: '🥉' },
     champion_silver: { id: 'champion_silver', name: 'Campeão de Prata', description: 'Derrote o Campeão da Liga de Prata.', rarity: 'épico', icon: '🥈' },
     champion_gold: { id: 'champion_gold', name: 'Campeão de Ouro', description: 'Derrote o Campeão da Liga de Ouro.', rarity: 'lendário', icon: '🥇' },
-    lineage_awakened: { id: 'lineage_awakened', name: 'Sangue Renovado', description: 'Derrote um boss de Ritual e desperte sua Linhagem.', rarity: 'lendário', icon: '🧬' }
+    lineage_awakened: { id: 'lineage_awakened', name: 'Sangue Renovado', description: 'Derrote um boss de Ritual e desperte sua Linhagem.', rarity: 'lendário', icon: '🧬' },
+    elite_hunter: { id: 'elite_hunter', name: 'Caçador de Elites', description: 'Derrote um inimigo Elite no Duelo Rápido.', rarity: 'épico', icon: '⭐' }
 };
 
 window.AchievementDB = AchievementDB;

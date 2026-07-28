@@ -1033,7 +1033,7 @@ class BattleSystem {
             // NESTA MESMA vitória.
             const newAchievements = this.player.checkAchievements({
                 victory: true, hpPercent, gotLegendary: isLegendary, defeatedRivalId,
-                awakenedLineage: !!awakenedLineageId
+                awakenedLineage: !!awakenedLineageId, defeatedElite: !!this.enemy.isElite
             });
 
             // Cura passiva após a batalha (20% do HP max)
