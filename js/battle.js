@@ -444,10 +444,24 @@ class BattleSystem {
             resultMsg = `${this.player.name} se posiciona com cautela, pronto para manter a distância!`;
         }
         else if (actionCode === 'APPROACH') {
+            // Bug de auditoria: a resistência de HOLD (ver enemyState.
+            // holdingDistance) só era conferida do lado do inimigo (a
+            // APPROACH dele já lia playerState.holdingDistance) — o
+            // APPROACH do JOGADOR nunca conferia o mesmo estado do
+            // inimigo, deixando "manter distância" funcionar só a favor
+            // do jogador, nunca contra ele.
             const speed = this.player.getWeaponSpeed();
-            this.applyDistanceChange(-speed.approachSpeed);
-            resultMsg = `${this.player.name} avança em direção ao oponente. (Distância: ${this.distance.toFixed(1)}m)`;
-            if (window.GFX) window.GFX.playAnim(true, 'approach', 700);
+            const resisted = this.enemyState.holdingDistance;
+            let amount = speed.approachSpeed;
+            if (resisted) amount *= 0.5;
+            this.applyDistanceChange(-amount);
+            resultMsg = resisted
+                ? `${this.player.name} tenta avançar, mas ${this.enemy.name} mantém a distância!`
+                : `${this.player.name} avança em direção ao oponente. (Distância: ${this.distance.toFixed(1)}m)`;
+            if (window.GFX) {
+                window.GFX.playAnim(true, 'approach', 700);
+                if (resisted) window.GFX.playAnim(false, 'push', 500);
+            }
         }
         else if (actionCode === 'RETREAT') {
             const speed = this.player.getWeaponSpeed();
@@ -854,6 +868,7 @@ class BattleSystem {
         if (!this.isBattleActive) return;
 
         this.enemyState.isDefending = false;
+        this.enemyState.holdingDistance = false; // Reseta a postura de manter distância — espelha o reset do jogador em executePlayerTurn
         if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
 
         // Contagem regressiva de barreira/esquiva temporárias (usado por
@@ -914,6 +929,13 @@ class BattleSystem {
             }
         } else if (decision.action === 'RUN') {
             this.applyDistanceChange(-speed.approachSpeed * 2);
+            // Bug de auditoria: o RUN do jogador sempre marcava justRan
+            // (vulnerabilidade de esquiva no próximo ataque sofrido, ver
+            // executeAttack), mas o RUN do inimigo nunca marcava o mesmo
+            // estado nele mesmo — um inimigo que corria pra fechar
+            // distância nunca pagava o preço que o jogador paga na mesma
+            // situação.
+            this.enemyState.justRan = true;
             if (window.GFX) window.GFX.playAnim(false, 'run', 700);
         } else if (decision.action === 'RETREAT') {
             const amount = decision.amount !== undefined ? decision.amount : speed.retreatSpeed;
@@ -964,7 +986,14 @@ class BattleSystem {
         } else if (decision.action === 'SWAP_INTERNAL') {
             resultMsg = window.AICombat.trySwapWeapon(this);
         } else if (decision.action === 'HOLD') {
-            // sem efeito mecânico extra além de flavor — controla espaço/aguarda
+            // Bug de auditoria: HOLD do jogador já marca playerState.
+            // holdingDistance (lido pelo APPROACH do inimigo, resistindo a
+            // metade da velocidade), mas o HOLD do inimigo nunca marcava o
+            // mesmo estado nele mesmo — "segurar a distância" só
+            // funcionava a favor do jogador, nunca contra ele. Consumido
+            // no início do PRÓXIMO turno do inimigo (ver reset em
+            // executeEnemyTurn), exatamente como o do jogador.
+            this.enemyState.holdingDistance = true;
         } else if (decision.action === 'DEF') {
             this.enemyState.isDefending = true;
         }
