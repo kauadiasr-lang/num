@@ -33,6 +33,12 @@ class CityEngine {
         this.dayPhaseIndex = 1; // começa de dia
         this.dayPhaseTimer = 0;
         this.dayPhaseDuration = 75; // segundos por fase (~5min o ciclo completo)
+        // Contador de "dias" (incrementado ao entrar em 'dawn' vindo de
+        // 'night', ver _updateDayCycle) — usado pelo Ferreiro/Armeiro pra
+        // saber quando o estoque deve ser sorteado de novo (ver ui.js
+        // openShop): antes o estoque era sorteado TODA VEZ que a loja era
+        // aberta, mesmo revisitando no mesmo dia.
+        this.dayCount = 1;
 
         this.npcs = [];
         this._npcSpawnDone = false;
@@ -412,8 +418,10 @@ class CityEngine {
         if (this.dayPhaseTimer >= this.dayPhaseDuration) {
             this.dayPhaseTimer = 0;
             const enteringNight = this.dayPhases[this.dayPhaseIndex] !== 'night' && this.dayPhases[(this.dayPhaseIndex + 1) % this.dayPhases.length] === 'night';
+            const enteringDawn = this.dayPhases[this.dayPhaseIndex] !== 'dawn' && this.dayPhases[(this.dayPhaseIndex + 1) % this.dayPhases.length] === 'dawn';
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
             if (enteringNight) this._onNightFalls();
+            if (enteringDawn) this.dayCount++; // novo dia — ver openShop (ui.js)
         }
         if (window.GFX) {
             window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];

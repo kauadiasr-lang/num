@@ -1481,19 +1481,32 @@ class UIManager {
         }
         itemsTitleEl.innerText = filterSlots ? title : 'Ferreiro';
 
-        // Gera estoque (sempre novo a cada visita); quando filtrado por
-        // categoria, tenta mais algumas rodadas pra não mostrar uma
-        // prateleira vazia só porque o sorteio não bateu com a categoria certa.
-        let pool = ItemFactory.generateShopInventory(p.level);
-        if (filterSlots) {
-            pool = pool.filter(i => filterSlots.includes(i.slot));
-            let attempts = 0;
-            while (pool.length < 4 && attempts < 4) {
-                pool = pool.concat(ItemFactory.generateShopInventory(p.level).filter(i => filterSlots.includes(i.slot)));
-                attempts++;
+        // Estoque sorteado uma vez por DIA (ver CityEngine.dayCount) — antes
+        // era sorteado de novo TODA VEZ que a loja era aberta, mesmo
+        // revisitando no mesmo dia sem nada ter mudado no mundo. Revisitar
+        // no mesmo dia agora mostra o MESMO estoque (com os itens já
+        // comprados removidos, ver o onclick de compra logo abaixo); só um
+        // dia novo libera um sorteio novo. Quando filtrado por categoria,
+        // tenta mais algumas rodadas pra não cravar uma prateleira vazia só
+        // porque o sorteio não bateu com a categoria certa.
+        this._shopStockCache = this._shopStockCache || {};
+        const currentDay = window.City ? window.City.dayCount : 1;
+        const cachedStock = this._shopStockCache[title];
+        if (cachedStock && cachedStock.day === currentDay) {
+            this.currentShopItems = cachedStock.items;
+        } else {
+            let pool = ItemFactory.generateShopInventory(p.level);
+            if (filterSlots) {
+                pool = pool.filter(i => filterSlots.includes(i.slot));
+                let attempts = 0;
+                while (pool.length < 4 && attempts < 4) {
+                    pool = pool.concat(ItemFactory.generateShopInventory(p.level).filter(i => filterSlots.includes(i.slot)));
+                    attempts++;
+                }
             }
+            this.currentShopItems = pool.slice(0, 8);
+            this._shopStockCache[title] = { day: currentDay, items: this.currentShopItems };
         }
-        this.currentShopItems = pool.slice(0, 8);
 
         const container = document.getElementById('shop-items-container');
         container.innerHTML = '';
