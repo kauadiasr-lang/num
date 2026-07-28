@@ -382,7 +382,15 @@ class CityEngine {
         }
         const wins = p ? (p.wins || 0) : 0;
         let pool = CityEngine.NPC_DIALOGUE.generic;
-        if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
+        // Linhagem despertada (ver lineages.js) muda a APARÊNCIA de verdade
+        // (presas/pele pálida do Vampirismo, aura dourada da Luz — ver
+        // graphics.js _drawFangs/_drawLineageAura), mas nenhum NPC jamais
+        // comentava sobre isso: reputação (wins) e mutação visível ficavam
+        // sem nenhuma diferença nas falas, mesmo a mutação sendo o que
+        // qualquer um cruzando a praça literalmente VERIA primeiro.
+        if (p && p.lineage && CityEngine.NPC_DIALOGUE[p.lineage]) {
+            pool = CityEngine.NPC_DIALOGUE[p.lineage];
+        } else if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
         else if (wins >= 10) pool = CityEngine.NPC_DIALOGUE.famous;
         // Sem fama ainda: cada NPC fala como a profissão que É, não como um
         // figurante genérico (ver NPC_PROFESSIONS/_makeNpc). NPCs mais
@@ -1329,6 +1337,21 @@ class CityEngine {
                 'Por Zeus... é você mesmo? Achei que só existia em histórias.',
                 'Vou contar aos meus netos que troquei uma palavra com uma lenda viva.',
                 'A cidade inteira fala do seu nome. Você é motivo de orgulho pra essa arena.'
+            ],
+            // Reação à Linhagem despertada (ver lineages.js/_talkToNpc) — a
+            // mutação já muda a aparência de verdade (presas/pele pálida,
+            // aura dourada, ver graphics.js), mas nenhum NPC comentava sobre
+            // isso, mesmo sendo o tipo de coisa que qualquer um na praça
+            // notaria antes mesmo de saber o nome do jogador.
+            vampirismo: [
+                'Seus olhos... por que brilham desse jeito vermelho? Fico incomodado perto de você.',
+                'Dizem que criaturas da noite andam por aí. Você... não é uma delas, é?',
+                'Há algo estranho em você — não ofensa, só um frio na espinha.'
+            ],
+            luz: [
+                'Há uma luz em você que não é natural. Os deuses te tocaram?',
+                'Sinto um calor estranho perto de você, como se estivesse perto de algo sagrado.',
+                'As crianças da cidade já falam de um gladiador que brilha como o sol.'
             ]
         };
     }
