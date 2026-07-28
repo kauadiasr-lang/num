@@ -89,6 +89,15 @@ class CityEngine {
         // um seta isso antes do próprio setTimeout e limpa depois.
         this._nightEncounterPending = false;
 
+        // Mercador Viajante (ver _eventRareMerchant/_makeTravelingMerchant):
+        // antes esse evento era só um toast instantâneo de +ouro, sem
+        // NENHUMA presença real no mundo — "um mercador raro passou" mas o
+        // jogador nunca via nem falava com ninguém. Agora ele de fato
+        // aparece como um NPC andando pela praça, com uma loja própria
+        // (ver ui.js openShop('Mercador Viajante')) enquanto durar, e vai
+        // embora sozinho depois de um tempo se ninguém o visitar.
+        this.travelingMerchant = null;
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -286,6 +295,36 @@ class CityEngine {
         };
     }
 
+    // Mercador Viajante — mesma "forma" de objeto NPC que _makeNpc/
+    // _makeVampireWanderer (x/targetX/waitTimer/facing/entity/anim) pra
+    // reaproveitar _updateNpcs/_drawNpc/draw() sem duplicar nada; só marcado
+    // com isTravelingMerchant (pra _talkToNpc abrir a loja especial em vez
+    // de puxar uma fala genérica) e despawnTimer (ver _updateTravelingMerchant).
+    // Manto roxo vistoso o distingue à distância dos NPCs comuns da praça.
+    _makeTravelingMerchant() {
+        const w = window.Engine.width, h = window.Engine.height;
+        const x = Utils.randomFloat(w * 0.15, w * 0.85);
+        const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        return {
+            x, y, targetX: x, targetY: y, pin: null,
+            waitTimer: Utils.randomFloat(1, 3),
+            facing: Utils.chance(50) ? 1 : -1,
+            isTravelingMerchant: true,
+            despawnTimer: Utils.randomFloat(70, 110),
+            entity: {
+                visuals: {
+                    gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+                    skinTone: '#c99a6a', hairStyle: Utils.randomInt(1, 15),
+                    hairColor: '#2a1c10', beardStyle: Utils.chance(60) ? Utils.randomInt(1, 4) : 0,
+                    eyeColor: '#1a1a1a', faceShape: 1
+                },
+                equipment: {},
+                __teamColor: '#7a2a8a'
+            },
+            anim: { type: 'idle', start: performance.now(), duration: 0 }
+        };
+    }
+
     _updateNpcs(dt, list = this.npcs, speed = 45) {
         const h = window.Engine.height;
         for (const npc of list) {
@@ -434,6 +473,17 @@ class CityEngine {
             }, 1200);
             return;
         }
+        // Mercador Viajante (ver _eventRareMerchant/_makeTravelingMerchant):
+        // clicar nele abre a loja especial em vez de puxar uma fala
+        // genérica — reaproveita window.UI.openShop tal como Ferreiro/
+        // Armeiro/Taverna, só com título próprio (também plugado no
+        // desconto de Carisma/vitórias em _shopDiscount de graça).
+        if (npc.isTravelingMerchant) {
+            this._toast('Mercador Viajante: "Chegou bem a tempo — veja o que trouxe de terras distantes!"', 'info');
+            if (window.AudioManager) window.AudioManager.playConfirm();
+            if (window.UI && window.UI.openShop) window.UI.openShop(null, 'Mercador Viajante');
+            return;
+        }
         const wins = p ? (p.wins || 0) : 0;
         let pool = CityEngine.NPC_DIALOGUE.generic;
         let speaker = null; // prefixo "Profissão: " no toast — só faz sentido pro pool de profissão
@@ -561,6 +611,7 @@ class CityEngine {
         this._updateRandomEvents(dt);
         this._updatePromotion(dt);
         this._updateNightAmbush(dt);
+        this._updateTravelingMerchant(dt);
     }
 
     // Conta regressiva da promoção de loja ativa (ver _eventPromotion) — some
@@ -1132,12 +1183,37 @@ class CityEngine {
     // Carisma negocia de verdade aqui: cada ponto acima de 5 aumenta o ganho
     // (até +80% com Carisma bem alto) — o mesmo atributo que dá desconto na
     // loja (ver ui.js _shopDiscount) também rende mais nesse tipo de evento.
+    // Antes esse evento era só um toast instantâneo de "+ouro" sem nenhuma
+    // presença de verdade no mundo — o "mercador raro" nunca existia como
+    // algo visível/clicável. Agora ele de fato aparece na praça (ver
+    // _makeTravelingMerchant) com uma loja própria enquanto durar; se um já
+    // estiver por lá, não sorteia outro em cima, só lembra o jogador.
     _eventRareMerchant(p) {
-        const cha = (p && p.getTotalStat) ? p.getTotalStat('cha') : 5;
-        const chaMult = 1 + Utils.clamp((cha - 5) * 0.04, 0, 0.8);
-        const gain = Math.floor(Utils.randomInt(15, 40) * chaMult);
-        if (p) p.gold += gain;
-        this._toast(`Um mercador raro passou pela praça — você fez um bom negócio (+${gain}g)!`, 'success');
+        if (this.travelingMerchant) {
+            this._toast('O mercador viajante ainda está na praça — vá até ele antes que parta!', 'info');
+            return;
+        }
+        const merchant = this._makeTravelingMerchant();
+        this.travelingMerchant = merchant;
+        this.npcs.push(merchant);
+        this._toast('Um mercador viajante chegou à praça com mercadorias raras de terras distantes!', 'success');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+    }
+
+    // Some sozinho depois de um tempo se ninguém visitar (ver
+    // _eventRareMerchant/_makeTravelingMerchant) — mesmo tratamento
+    // silencioso-mas-avisado que as outras janelas temporárias do jogo
+    // (promoção de loja soma silenciosamente, aqui avisamos porque é uma
+    // oportunidade que o jogador pode ter perdido sem querer).
+    _updateTravelingMerchant(dt) {
+        if (!this.travelingMerchant) return;
+        this.travelingMerchant.despawnTimer -= dt;
+        if (this.travelingMerchant.despawnTimer <= 0) {
+            const idx = this.npcs.indexOf(this.travelingMerchant);
+            if (idx >= 0) this.npcs.splice(idx, 1);
+            this.travelingMerchant = null;
+            this._toast('O mercador viajante partiu da praça rumo à próxima cidade.', 'info');
+        }
     }
 
     // Carisma dá uma chance de convencer o ladrão a devolver parte do

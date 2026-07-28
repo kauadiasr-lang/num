@@ -24,6 +24,11 @@ const SHOP_GREETINGS = {
         '"Um pouco de tudo, pra quem sabe procurar."',
         '"Fama e ouro abrem portas que a espada sozinha não abre."',
         '"Já vendi pra campeões e pra quem nunca voltou da arena. Você decide qual vai ser."'
+    ],
+    'Mercador Viajante': [
+        '"Carrego mercadorias de terras que você nunca ouviu falar. Aproveite enquanto estou aqui."',
+        '"Não fico muito tempo em nenhuma cidade — a estrada me chama de novo em breve."',
+        '"Vi coisas do outro lado do mundo. Algumas até trouxe comigo pra vender."'
     ]
 };
 
@@ -1588,7 +1593,11 @@ class UIManager {
             this.showScreen('screen-shop');
             return;
         }
-        itemsTitleEl.innerText = filterSlots ? title : 'Ferreiro';
+        // Antes esse rótulo caía em 'Ferreiro' fixo sempre que filterSlots
+        // era null — nunca dava pra notar porque nenhuma loja sem filtro
+        // (Mercado geral) e sem consumablesOnly tinha sido aberta de
+        // verdade ainda. O Mercador Viajante (ver city.js) é a primeira.
+        itemsTitleEl.innerText = title;
 
         // Estoque sorteado uma vez por DIA (ver CityEngine.dayCount) — antes
         // era sorteado de novo TODA VEZ que a loja era aberta, mesmo
