@@ -426,6 +426,38 @@ function validateGameData() {
         }
     }
 
+    // RACE_ENEMY_NAMES (ver enemy.js) — pool de nomes/adjetivos culturais por
+    // raça pro Duelo Rápido. Mesma classe de checagem de chave morta dos
+    // registros acima: uma raça digitada errado aqui nunca teria seu pool
+    // escolhido por nenhum inimigo real (o próprio `namePool = ... || fallback`
+    // silenciosamente cai no pool genérico, sem nenhum aviso), e cada
+    // entrada precisa ter names/adjectives não-vazios pro sorteio nunca vir
+    // undefined.
+    if (typeof RACE_ENEMY_NAMES !== 'undefined' && window.RACES) {
+        for (const key in RACE_ENEMY_NAMES) {
+            need(!!window.RACES[key], `RACE_ENEMY_NAMES['${key}']: raça não existe em RACES`);
+            const pool = RACE_ENEMY_NAMES[key];
+            need(Array.isArray(pool.names) && pool.names.length > 0, `RACE_ENEMY_NAMES['${key}']: names ausente ou vazio`);
+            need(Array.isArray(pool.adjectives) && pool.adjectives.length > 0, `RACE_ENEMY_NAMES['${key}']: adjectives ausente ou vazio`);
+        }
+    }
+
+    // WEAPON_RENDERERS (ver graphics.js) — renderizador visual por id de
+    // arma. Mesma checagem: um id de arma digitado errado aqui nunca seria
+    // usado por nenhuma arma real (`WEAPON_RENDERERS[weapon.id] ||
+    // WEAPON_RENDERERS.default` cai silenciosamente no fallback genérico) —
+    // exatamente a classe de bug já corrigida nas armas regionais
+    // w_11-w_14 (ver histórico de iterações), mas nunca com uma checagem
+    // automática de boot que pegasse uma regressão futura.
+    if (typeof WEAPON_RENDERERS !== 'undefined' && typeof ItemDatabase !== 'undefined') {
+        const knownWeaponIds = Object.values(ItemDatabase.weapons || {}).map(w => w.id);
+        for (const key in WEAPON_RENDERERS) {
+            if (key === 'default') continue;
+            need(knownWeaponIds.includes(key), `WEAPON_RENDERERS['${key}']: id de arma não existe em ItemDatabase.weapons`);
+            need(typeof WEAPON_RENDERERS[key] === 'function', `WEAPON_RENDERERS['${key}']: não é uma função de desenho`);
+        }
+    }
+
     if (problems.length > 0) {
         console.warn(`[validateGameData] ${problems.length} problema(s) encontrado(s) nos registros de dados:`);
         problems.forEach(p => console.warn(' - ' + p));
