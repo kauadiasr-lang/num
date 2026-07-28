@@ -547,6 +547,7 @@ class BattleSystem {
                     resultMsg = `<span style="color:#a335ee">${this.player.name} conjurou ${skill.name} causando ${finalDmg} de Dano Mágico!</span>`;
                     window.GFX.spawnText(enemyX, enemyY - 50, `-${finalDmg}`, "#a335ee", true);
                     window.GFX.spawnParticles(enemyX, enemyY, "#a335ee", 40, 6, 5);
+                    window.GFX.playAnim(false, 'hurt', 500);
                     window.Engine.triggerShake(8, 0.2);
                     window.AudioManager.playMagicCast();
                 }
@@ -563,6 +564,7 @@ class BattleSystem {
                         resultMsg = `<span style="color:var(--color-gold)">${this.player.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
                         window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ffcc00", true);
                         window.GFX.spawnParticles(enemyX, enemyY, "#cc0000", 25, 6, 5);
+                        window.GFX.playAnim(false, 'hurt', 500, true);
                         window.Engine.triggerShake(10, 0.25);
                         window.AudioManager.playSwordClash();
                     } else {
@@ -581,6 +583,7 @@ class BattleSystem {
                     resultMsg = `<span style="color:#ff5555">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
                     window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff3333", false);
                     window.GFX.spawnParticles(enemyX, enemyY, "#8b0000", 25, 5, 4);
+                    window.GFX.playAnim(false, 'hurt', 500);
                     window.AudioManager.playSwordClash();
                 }
                 else if (skill.type === 'STUN') {
@@ -597,6 +600,7 @@ class BattleSystem {
                         : `<span style="color:#3388ff">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano.</span>`;
                     window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#3388ff", false);
                     window.GFX.spawnParticles(enemyX, enemyY, "#3388ff", 25, 5, 4);
+                    window.GFX.playAnim(false, 'hurt', 500);
                     window.Engine.triggerShake(6, 0.15);
                     window.AudioManager.playSwordClash();
                 }
@@ -615,6 +619,7 @@ class BattleSystem {
                         window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff0066", true);
                         window.GFX.spawnText(playerX, playerY - 50, `+${healed}`, "#1eff00", false);
                         window.GFX.spawnParticles(enemyX, enemyY, "#aa0044", 30, 6, 5);
+                        window.GFX.playAnim(false, 'hurt', 500, true);
                         window.Engine.triggerShake(10, 0.2);
                         window.AudioManager.playCrit();
                     } else {
@@ -717,6 +722,7 @@ class BattleSystem {
             message = `<span style="color:#a335ee">${this.enemy.name} conjurou ${skill.name} causando ${finalDmg} de Dano Mágico!</span>`;
             window.GFX.spawnText(playerX, playerY - 50, `-${finalDmg}`, "#a335ee", true);
             window.GFX.spawnParticles(playerX, playerY, "#a335ee", 40, 6, 5);
+            window.GFX.playAnim(true, 'hurt', 500, true);
             window.Engine.triggerShake(8, 0.2);
             window.AudioManager.playMagicCast();
             selfEvent = { type: 'landedHit', crit: false };
@@ -730,6 +736,7 @@ class BattleSystem {
                 message = `<span style="color:var(--color-gold)">${this.enemy.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
                 window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ffcc00", true);
                 window.GFX.spawnParticles(playerX, playerY, "#cc0000", 25, 6, 5);
+                window.GFX.playAnim(true, 'hurt', 500, true);
                 window.Engine.triggerShake(10, 0.25);
                 window.AudioManager.playSwordClash();
                 selfEvent = { type: 'landedHit', crit: false };
@@ -747,6 +754,7 @@ class BattleSystem {
             message = `<span style="color:#ff5555">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
             window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ff3333", false);
             window.GFX.spawnParticles(playerX, playerY, "#8b0000", 25, 5, 4);
+            window.GFX.playAnim(true, 'hurt', 500);
             window.AudioManager.playSwordClash();
             selfEvent = { type: 'landedHit', crit: false };
         } else if (skill.type === 'STUN') {
@@ -761,6 +769,7 @@ class BattleSystem {
                 : `<span style="color:#3388ff">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano.</span>`;
             window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#3388ff", false);
             window.GFX.spawnParticles(playerX, playerY, "#3388ff", 25, 5, 4);
+            window.GFX.playAnim(true, 'hurt', 500);
             window.Engine.triggerShake(6, 0.15);
             window.AudioManager.playSwordClash();
             selfEvent = { type: 'landedHit', crit: false };
@@ -777,6 +786,7 @@ class BattleSystem {
                 window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ff0066", true);
                 window.GFX.spawnText(enemyX, enemyY - 50, `+${healed}`, "#1eff00", false);
                 window.GFX.spawnParticles(playerX, playerY, "#aa0044", 30, 6, 5);
+                window.GFX.playAnim(true, 'hurt', 500, true);
                 window.Engine.triggerShake(10, 0.2);
                 window.AudioManager.playCrit();
                 selfEvent = { type: 'landedHit', crit: false };

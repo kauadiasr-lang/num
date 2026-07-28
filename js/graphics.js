@@ -312,11 +312,15 @@ class GraphicsEngine {
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
     // em pontos específicos, sem alterar em nada a lógica/matemática do combate).
     // A duração respeita a configuração de "Velocidade das animações" (padrão 1x).
-    playAnim(isPlayer, type, duration = 650) {
+    playAnim(isPlayer, type, duration = 650, crit = false) {
         const anim = isPlayer ? this.playerAnim : this.enemyAnim;
         anim.type = type;
         anim.start = performance.now();
         anim.duration = duration / (this.animationSpeedMultiplier || 1);
+        // Só relevante pra 'hurt' (ver computePose) — reação física mais forte
+        // num acerto crítico, pra crits serem visualmente distintos de um
+        // acerto normal e não só na cor do número/partícula.
+        anim.crit = crit;
     }
 
     spawnParticles(x, y, color, amount, speed = 5, size = 4) {
@@ -1459,8 +1463,13 @@ class GraphicsEngine {
             }
             case 'hurt': {
                 const k = Math.sin(Math.min(t, 1) * Math.PI);
-                pose.offsetX = -12 * k;
-                pose.torsoLean -= 14 * k;
+                const critMult = anim.crit ? 1.7 : 1;
+                pose.offsetX = -12 * k * critMult;
+                pose.torsoLean -= 14 * k * critMult;
+                // Crítico: compressão rápida (impacto) seguida de leve
+                // expansão, além do recuo — diferencia visualmente um
+                // acerto crítico de um golpe comum além da cor do número.
+                if (anim.crit) pose.torsoScaleY *= 1 - 0.12 * Math.sin(Math.min(t, 1) * Math.PI * 2) * (1 - Math.min(t, 1));
                 break;
             }
             case 'dodge': {
