@@ -41,6 +41,12 @@ class CityEngine {
         this.dayCount = 1;
 
         this.npcs = [];
+        // Vampiros visíveis vagando pela praça à noite (ver _onNightFalls/
+        // _updateNpcs/draw) — antes a noite só tinha NPCs comuns SOMENDO
+        // (ver comentário em draw()) e um encontro de vampiro totalmente
+        // invisível (um toast + timeout em _eventVampireEncounter), então o
+        // jogador nunca via de fato uma criatura da noite andando por aí.
+        this.nightWanderers = [];
         this._npcSpawnDone = false;
         this._smokeTimer = 0;
         this._ambientSoundTimer = 0;
@@ -181,14 +187,43 @@ class CityEngine {
         };
     }
 
-    _updateNpcs(dt) {
+    // Vampiro visível vagando pela praça à noite — mesma "forma" de objeto
+    // NPC (x/targetX/waitTimer/facing/entity/anim) pra reaproveitar
+    // _updateNpcs/_drawNpc sem duplicar lógica de movimento/desenho, só com
+    // visual da Linhagem Vampirismo (ver lineages.js `visual`: pele pálida,
+    // olhos vermelhos, presas) e marcado com isVampireWanderer pra
+    // _talkToNpc saber que um clique nele deve puxar uma batalha, não uma
+    // fala genérica.
+    _makeVampireWanderer() {
+        const w = window.Engine.width, h = window.Engine.height;
+        const x = Utils.randomFloat(w * 0.1, w * 0.9);
+        const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        return {
+            x, y, targetX: x, targetY: y, pin: null,
+            waitTimer: Utils.randomFloat(1, 3),
+            facing: Utils.chance(50) ? 1 : -1,
+            isVampireWanderer: true,
+            entity: {
+                visuals: {
+                    gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+                    skinTone: '#e8dce8', hairStyle: Utils.randomInt(1, 15),
+                    hairColor: '#1a1418', beardStyle: 0, eyeColor: '#c81e2a', faceShape: 1,
+                    hasFangs: true
+                },
+                equipment: {},
+                __teamColor: '#3a1420'
+            },
+            anim: { type: 'idle', start: performance.now(), duration: 0 }
+        };
+    }
+
+    _updateNpcs(dt, list = this.npcs, speed = 45) {
         const h = window.Engine.height;
-        for (const npc of this.npcs) {
+        for (const npc of list) {
             npc.waitTimer -= dt;
             const dx = npc.targetX - npc.x, dy = npc.targetY - npc.y;
             const dist = Math.hypot(dx, dy);
             if (dist > 4) {
-                const speed = 45;
                 npc.x += (dx / dist) * speed * dt;
                 npc.y += (dy / dist) * speed * dt;
                 npc.facing = dx >= 0 ? 1 : -1;
@@ -299,7 +334,9 @@ class CityEngine {
     _npcAtPoint(x, y) {
         const radius = 34 * this._cityScale(window.Engine.height);
         let closest = null, closestDist = radius;
-        for (const npc of this.npcs) {
+        const isNight = window.GFX && window.GFX.arenaTime === 'night';
+        const pool = isNight ? this.nightWanderers : this.npcs;
+        for (const npc of pool) {
             const d = Math.hypot(npc.x - x, npc.y - y);
             if (d <= closestDist) { closest = npc; closestDist = d; }
         }
@@ -312,6 +349,22 @@ class CityEngine {
     // uma observação genérica sobre a vida na praça.
     _talkToNpc(npc) {
         const p = window.Engine.state.player;
+        // Aproximar-se de um vampiro vagando pela noite não puxa uma fala —
+        // puxa a briga (mesmo fluxo de _eventVampireEncounter, só que
+        // iniciado pelo jogador clicando na criatura em vez de um dado
+        // aleatório de fundo).
+        if (npc.isVampireWanderer) {
+            this._toast('A figura pálida sibila e avança contra você...', 'error');
+            if (window.AudioManager) window.AudioManager.playError();
+            setTimeout(() => {
+                if (this._isActive() && window.UI && window.UI.beginBattleWith) {
+                    const arenaMenu = document.getElementById('city-arena-menu');
+                    if (arenaMenu) arenaMenu.classList.add('hidden');
+                    window.UI.beginBattleWith(new Vampire(p ? p.level : 1));
+                }
+            }, 1200);
+            return;
+        }
         const wins = p ? (p.wins || 0) : 0;
         let pool = CityEngine.NPC_DIALOGUE.generic;
         if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
@@ -405,9 +458,13 @@ class CityEngine {
 
         this._updateDayCycle(dt);
         this._updateMovement(dt);
+        const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
         // continuar simulando o passeio de alguém que ninguém vê.
-        if (!window.GFX || window.GFX.arenaTime !== 'night') this._updateNpcs(dt);
+        if (!isNight) this._updateNpcs(dt);
+        // Vampiros vagam mais devagar que a gente comum — reforça a
+        // sensação de algo observando, não só passando por perto.
+        else this._updateNpcs(dt, this.nightWanderers, 28);
         this._updateProximity();
         this._updateAmbientEffects(dt);
         this._updateRandomEvents(dt);
@@ -421,7 +478,10 @@ class CityEngine {
             const enteringDawn = this.dayPhases[this.dayPhaseIndex] !== 'dawn' && this.dayPhases[(this.dayPhaseIndex + 1) % this.dayPhases.length] === 'dawn';
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
             if (enteringNight) this._onNightFalls();
-            if (enteringDawn) this.dayCount++; // novo dia — ver openShop (ui.js)
+            if (enteringDawn) {
+                this.dayCount++; // novo dia — ver openShop (ui.js)
+                this.nightWanderers = []; // vampiros se recolhem com a luz do sol
+            }
         }
         if (window.GFX) {
             window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
@@ -439,6 +499,14 @@ class CityEngine {
     // fadiga aumenta automaticamente — reforça que "dormir" é uma decisão
     // real, não só uma forma de gastar ouro.
     _onNightFalls() {
+        // Vampiros aparecem vagando pela praça vazia — antes a noite só
+        // fazia os NPCs comuns sumirem (ver draw()), deixando a cidade
+        // visualmente morta em vez de "perigosa": nenhuma criatura da noite
+        // era visível, só um encontro invisível por dado (ver
+        // _eventVampireEncounter/_eventNightMonsterAttack).
+        const count = Utils.randomInt(1, 2);
+        for (let i = 0; i < count; i++) this.nightWanderers.push(this._makeVampireWanderer());
+
         const p = window.Engine.state.player;
         if (!p) return;
         p.nightsWithoutSleep = (p.nightsWithoutSleep || 0) + 1;
@@ -967,7 +1035,7 @@ class CityEngine {
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         const drawables = [
             ...this.buildings.map(b => ({ y: this._doorPoint(b).y, draw: () => this._drawBuilding(ctx, w, h, b) })),
-            ...(isNight ? [] : this.npcs.map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) }))),
+            ...(isNight ? this.nightWanderers : this.npcs).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);

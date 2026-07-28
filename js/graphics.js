@@ -319,6 +319,16 @@ class GraphicsEngine {
         return 1 - Math.pow(1 - raw, 3);
     }
 
+    // Linha do horizonte (fração da altura da tela) — MESMA proporção usada
+    // por CityEngine._horizon(h), mas repetida aqui como número mágico
+    // solto (h * 0.62) em 5 lugares diferentes deste arquivo antes desta
+    // extração. Uma única fonte de verdade evita o cenário de alguém
+    // atualizar 4 das 5 ocorrências e deixar o horizonte da arena
+    // dessincronizado do resto.
+    _horizonY(h) {
+        return h * 0.62;
+    }
+
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
     // em pontos específicos, sem alterar em nada a lógica/matemática do combate).
     // A duração respeita a configuração de "Velocidade das animações" (padrão 1x).
@@ -458,7 +468,7 @@ class GraphicsEngine {
     _spawnBiomeAmbient() {
         if (!window.Engine) return;
         const w = window.Engine.width, h = window.Engine.height;
-        const horizon = h * 0.62;
+        const horizon = this._horizonY(h);
         const biome = ARENA_BIOMES[this.arenaBiome];
         if (!biome) return;
 
@@ -485,7 +495,7 @@ class GraphicsEngine {
         if (!window.Engine) return;
         const w = window.Engine.width;
         const h = window.Engine.height;
-        const horizon = h * 0.62;
+        const horizon = this._horizonY(h);
         const x = Utils.randomFloat(w * 0.15, w * 0.85);
         const y = Utils.randomFloat(horizon + 15, h - 15);
         const p = new Particle(x, y, 'rgba(205,182,140,0.3)', 4, Utils.randomFloat(1.5, 3));
@@ -505,7 +515,7 @@ class GraphicsEngine {
             // ultrawide verticais), canvasHeight/2 + 100 pode cair acima do
             // horizonte (h * 0.62) e fazer os lutadores "flutuarem" no céu —
             // por isso o resultado nunca fica mais alto que horizonte + margem.
-            const horizon = canvasHeight * 0.62;
+            const horizon = this._horizonY(canvasHeight);
             const groundY = Math.max(canvasHeight / 2 + 100, horizon + 40);
 
             // Entrada na arena: câmera com leve zoom-in relaxando ao normal,
@@ -567,7 +577,7 @@ class GraphicsEngine {
     drawArenaBackground(ctx, w, h) {
         const pal = this._timePalettes()[this.arenaTime] || this._timePalettes().sunset;
         const biome = ARENA_BIOMES[this.arenaBiome] || ARENA_BIOMES.coliseu;
-        const horizon = h * 0.62;
+        const horizon = this._horizonY(h);
         const t = this._torchClock || 0;
 
         this._drawSky(ctx, w, h, horizon, pal, t);
@@ -1214,7 +1224,7 @@ class GraphicsEngine {
     // coliseu — a praça é um lugar diferente da arena de combate, não o
     // mesmo coliseu por trás (CityEngine desenha a praça/prédios por cima).
     drawCityBackdrop(ctx, w, h) {
-        const horizon = h * 0.62;
+        const horizon = this._horizonY(h);
         const t = this._torchClock || 0;
 
         this._drawSky(ctx, w, h, horizon, null, t, this.cityDayProgress);
