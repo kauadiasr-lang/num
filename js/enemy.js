@@ -297,6 +297,7 @@ class Vampire extends Entity {
         window.AICombat.assignProfile(this, { level: this.level, styleId: Utils.chance(50) ? 'assassino' : 'brutamontes' });
         this.generateStats();
         this.equipStyleWeapon();
+        this.equipArmor();
 
         // Identidade visual de vampiro (mesma paleta descrita em
         // LINEAGES.vampirismo.visual) — pele pálida, olhos vermelhos, presas.
@@ -323,6 +324,28 @@ class Vampire extends Entity {
     // IA/equipamento (só o boss do Ritual, Conde Vampiro, tem IA exclusiva).
     equipStyleWeapon() {
         this.equipStyleWeaponGeneric(20, 20);
+    }
+
+    // Armadura (peitoral) — bug de auditoria: o boss deste mesmo arquétipo
+    // (Conde Vampiro, ver BOSS_DEFS mais abaixo) usa cota de malha
+    // Lendária, deixando claro que um vampiro corpóreo pode perfeitamente
+    // vestir armadura, mas o Vampiro comum do perigo noturno (ver city.js
+    // _eventNightDanger) nunca tinha recebido a mesma migração que Enemy.
+    // equipArmor() já ganhou — o torso dele sempre desenhava "civil" mesmo
+    // graphics.js _drawTorso já lendo equipment[SLOTS.CHEST] de qualquer
+    // entidade genericamente. Mesma curva de raridade "tamed" e mesmo
+    // filtro regional de Enemy.equipArmor() (ver AICombat.pickArmor()).
+    // Fantasma (ver classe Ghost abaixo) fica de fora de propósito: é
+    // incorpóreo/etéreo (ver visuals.hasAura), nunca vestiria armadura
+    // física — Vampiro é um morto-vivo com corpo de verdade.
+    equipArmor() {
+        const rarityChance = Utils.clamp((this.level - 2) * 5, 0, 40);
+        const armorId = window.AICombat.pickArmor();
+        const rarity = Utils.chance(rarityChance) ? RARITY.UNCOMMON : RARITY.COMMON;
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
     }
 
     // Chance pequena e independente do loot normal de itens — checado em
