@@ -68,6 +68,17 @@ class CityEngine {
             { xFrac: 0.38, rowOffset: 125 },
             { xFrac: 0.62, rowOffset: 125 },
         ];
+        // Vegetação (ver _drawVegetation) — a praça nunca teve NENHUMA planta
+        // até agora (só fonte + estátuas), apesar de "vegetação" ser parte
+        // explícita da identidade de Mundo greco-romana. Ciprestes nas bordas
+        // (silhueta clássica mediterrânea) enquadram a cena sem competir com
+        // nenhum prédio; loureiros pequenos ladeiam a fonte central.
+        this.vegetation = [
+            { type: 'cypress', xFrac: 0.025, rowOffset: 55, scale: 1.2 },
+            { type: 'cypress', xFrac: 0.975, rowOffset: 55, scale: 1.2 },
+            { type: 'laurel', xFrac: 0.44, rowOffset: 148 },
+            { type: 'laurel', xFrac: 0.56, rowOffset: 148 },
+        ];
 
         this._interactPromptEl = null;
         this._hintEl = null;
@@ -938,6 +949,7 @@ class CityEngine {
         this._drawPlazaGround(ctx, w, h, horizon);
         this._drawFountain(ctx, w, h);
         this.statues.forEach(s => this._drawStatue(ctx, w, h, s));
+        this.vegetation.forEach(v => this._drawVegetation(ctx, w, h, v));
 
         // Ordena tudo que fica "no chão" (prédios, NPCs, jogador) por Y, pra
         // quem está mais embaixo na tela ser desenhado por cima (profundidade).
@@ -1002,6 +1014,47 @@ class CityEngine {
         ctx.fillRect(x - 10 * scale, y - 6 * scale, 20 * scale, 8 * scale); // pedestal
         ctx.fillRect(x - 5 * scale, y - 46 * scale, 10 * scale, 40 * scale); // corpo
         ctx.beginPath(); ctx.arc(x, y - 50 * scale, 6 * scale, 0, Math.PI * 2); ctx.fill(); // cabeça
+    }
+
+    // Vegetação orientada a dados (ver this.vegetation) — cipreste (silhueta
+    // alta e afunilada, marco registrado da paisagem mediterrânea) ou
+    // loureiro (arbusto baixo e arredondado, planta sagrada de Apolo,
+    // tradicionalmente associada a vitória/coroas de louro — bem a calhar
+    // numa praça de gladiadores).
+    _drawVegetation(ctx, w, h, v) {
+        const scale = this._cityScale(h) * (v.scale || 1);
+        const x = v.xFrac * w, y = this._horizon(h) + v.rowOffset * scale;
+
+        if (v.type === 'cypress') {
+            ctx.fillStyle = '#4a3a26';
+            ctx.fillRect(x - 3 * scale, y - 6 * scale, 6 * scale, 10 * scale); // base do tronco
+            ctx.fillStyle = '#2f4a2a';
+            ctx.beginPath();
+            ctx.moveTo(x, y - 78 * scale);
+            ctx.bezierCurveTo(x - 16 * scale, y - 55 * scale, x - 13 * scale, y - 15 * scale, x - 8 * scale, y - 4 * scale);
+            ctx.lineTo(x + 8 * scale, y - 4 * scale);
+            ctx.bezierCurveTo(x + 13 * scale, y - 15 * scale, x + 16 * scale, y - 55 * scale, x, y - 78 * scale);
+            ctx.closePath();
+            ctx.fill();
+            // Leve realce (luz vindo da esquerda, mesma convenção do resto do jogo)
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.beginPath();
+            ctx.moveTo(x, y - 78 * scale);
+            ctx.bezierCurveTo(x - 12 * scale, y - 50 * scale, x - 10 * scale, y - 15 * scale, x - 6 * scale, y - 4 * scale);
+            ctx.lineTo(x, y - 4 * scale);
+            ctx.closePath();
+            ctx.fill();
+        } else if (v.type === 'laurel') {
+            ctx.fillStyle = '#5a4530';
+            ctx.fillRect(x - 2 * scale, y - 4 * scale, 4 * scale, 6 * scale);
+            ctx.fillStyle = '#5a7a4a';
+            const puffs = [[-8, -10, 8], [8, -10, 8], [0, -18, 9], [-6, -2, 7], [6, -2, 7]];
+            puffs.forEach(([dx, dy, r]) => {
+                ctx.beginPath();
+                ctx.arc(x + dx * scale, y + dy * scale, r * scale, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
     }
 
     // Prédio procedural greco-romano: base + colunas + telhado triangular +
