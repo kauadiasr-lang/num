@@ -2253,6 +2253,18 @@ class UIManager {
                 statsHtml += `<p style="color:#33cc99">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+                // Origem regional (ver items.js `region`/citydatabase.js) —
+                // o tooltip é o único lugar de detalhe usado em TODA parte do
+                // jogo que mostra um item (loja, mochila, ícones de
+                // equipamento na batalha, ver _renderGearIcons), mas nunca
+                // mencionava de qual cidade uma peça regional vinha; só a
+                // loja tinha um selo genérico "🌍 Regional" sem nome nenhum
+                // (ver openShop). Sem cidade correspondente (região
+                // desconhecida/removida), não mostra nada — nunca quebra.
+                const regionCityDef = item.region && window.CityDatabase ? window.CityDatabase[item.region] : null;
+                if (regionCityDef) {
+                    statsHtml += `<p style="color:${regionCityDef.accentColor}">🌍 Item cultural de ${regionCityDef.name}</p>`;
+                }
                 // Encantamento (ver enchantments.js): antes só aparecia na
                 // seção dedicada "Encantamentos" da tela de Inventário — o
                 // tooltip do próprio item (bag/equipamento/loja) nunca
