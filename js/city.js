@@ -27,6 +27,12 @@ class CityEngine {
         this._initialized = false;
         this._hintShown = true;
 
+        // NPC que o jogador clicou pra conversar, mas ainda não chegou perto
+        // o bastante (ver _approachAndTalk/_updatePendingTalk) — antes
+        // clicar num NPC de longe puxava a fala instantaneamente, sem o
+        // personagem sequer se mover até ele.
+        this._pendingTalkNpc = null;
+
         // Ciclo dia/noite: percorre as 4 mesmas paletas já usadas pela
         // arena (dawn/day/sunset/night), sincronizando GFX.arenaTime.
         this.dayPhases = ['dawn', 'day', 'sunset', 'night'];
@@ -112,11 +118,6 @@ class CityEngine {
             { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
             { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
             { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
-            // Estábulo do Mestre de Caravanas (ver Cidades-Hub Regionais,
-            // citydatabase.js/openCaravan em ui.js) — encaixado no meio do
-            // amplo vão livre da fileira da frente (entre Banco e Hall da
-            // Fama), com folga clara dos dois vizinhos.
-            { id: 'caravan', name: 'Estábulo', icon: '🐎', xFrac: 0.35, rowOffset: 165, w: 90, h: 75, wall: '#5a4632', roof: '#3d2c18', row: 'front' },
         ];
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
@@ -225,6 +226,46 @@ class CityEngine {
             this.npcs.push(this._makeNpc({ x: door.x - 95, y: door.y + 50, radius: 28 }));
             this.npcs.push(this._makeNpc({ x: door.x + 95, y: door.y + 50, radius: 28 }));
         }
+
+        // Viajante do Portão (ver Cidades-Hub Regionais) — substitui o antigo
+        // prédio Estábulo: em vez de "entrar" num prédio, o jogador conversa
+        // com uma pessoa de verdade parada no vão da muralha lateral (ver
+        // GraphicsEngine._drawCityWall, MESMO CityEngine.GATE_XFRAC) pra
+        // comprar passagem entre cidades.
+        if (!this._gateTravelerSpawned) {
+            this._gateTravelerSpawned = true;
+            this.npcs.push(this._makeCaravanTraveler());
+        }
+    }
+
+    // NPC fixo no vão do portão da muralha — raio de "pin" bem pequeno, já
+    // que ele deveria estar sempre visível bem ali, não vagando pela praça
+    // inteira como os NPCs comuns.
+    _makeCaravanTraveler() {
+        const w = window.Engine.width, h = window.Engine.height;
+        const gateX = w * CityEngine.GATE_XFRAC;
+        const gateY = this._horizon(h) + 45;
+        const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
+        const hairColors = ['#2a1c10', '#5a3a1a', '#1a1a1a', '#8a5a2b'];
+        return {
+            x: gateX, y: gateY, targetX: gateX, targetY: gateY,
+            pin: { x: gateX, y: gateY, radius: 18 },
+            waitTimer: Utils.randomFloat(1, 4),
+            facing: -1, // de costas pro portão, olhando pra dentro da praça
+            isCaravanTraveler: true,
+            entity: {
+                visuals: {
+                    gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+                    skinTone: skinTones[Utils.randomInt(0, skinTones.length - 1)],
+                    hairStyle: Utils.randomInt(1, 15),
+                    hairColor: hairColors[Utils.randomInt(0, hairColors.length - 1)],
+                    beardStyle: 0, eyeColor: '#1a1a1a', faceShape: 1
+                },
+                equipment: {},
+                __teamColor: '#4a3a2a' // manto de viagem, cor terrosa de estrada
+            },
+            anim: { type: 'idle', start: performance.now(), duration: 0 }
+        };
     }
 
     // Raça de um NPC ambiente novo, ponderada pela demografia da Cidade-Hub
@@ -387,15 +428,24 @@ class CityEngine {
             if (e.target.closest('button')) return; // não interfere com ☰/🎒/prompt
             this._handleClick(e.clientX, e.clientY);
         });
-        // Toque dedicado (evita atraso de "ghost click" em alguns navegadores móveis)
+        // Toque dedicado (evita atraso de "ghost click" em alguns navegadores móveis).
+        // Bug corrigido aqui: o listener era `passive: true`, então não podia
+        // chamar preventDefault() — o navegador então disparava, alguns
+        // instantes depois, um evento "click" sintético de compatibilidade
+        // NO MESMO ponto, acionando o listener de 'click' acima e chamando
+        // _handleClick() (logo _talkToNpc) uma SEGUNDA vez pro mesmo toque —
+        // por isso falar com um NPC no toque repetia a fala. Removendo
+        // `passive` e chamando preventDefault() aqui suprime esse clique
+        // sintético de vez.
         screenEl.addEventListener('touchend', (e) => {
             if (!this._isActive()) return;
             if (e.target.closest('button')) return;
             if (e.changedTouches && e.changedTouches[0]) {
+                e.preventDefault();
                 const t = e.changedTouches[0];
                 this._handleClick(t.clientX, t.clientY);
             }
-        }, { passive: true });
+        }, { passive: false });
 
         // Enquanto parado, o gladiador acompanha o mouse com o olhar (vira
         // pro lado onde o cursor está) — só cosmético, não interfere no
@@ -439,12 +489,14 @@ class CityEngine {
         const x = clientX - rect.left, y = clientY - rect.top;
         this._dismissHint();
 
-        // Clicar num NPC puxa uma fala rápida (ver _talkToNpc) — antes os
-        // NPCs eram puramente decorativos, sem NENHUMA reação a clique,
-        // então clicar neles só fazia o jogador andar até lá em silêncio.
+        // Clicar num NPC manda o jogador andar até perto dele primeiro (ver
+        // _approachAndTalk/_updatePendingTalk) — antes a fala (ver
+        // _talkToNpc) disparava instantaneamente no clique, não importa a
+        // distância, o que não fazia sentido narrativo nenhum (o personagem
+        // "falava" com alguém do outro lado da praça sem se mexer).
         const npc = this._npcAtPoint(x, y);
         if (npc) {
-            this._talkToNpc(npc);
+            this._approachAndTalk(npc);
             return;
         }
 
@@ -477,6 +529,45 @@ class CityEngine {
         return closest;
     }
 
+    // Manda o jogador andar até perto do NPC clicado, sem falar ainda — a
+    // fala de verdade só dispara quando ele chega (ver _updatePendingTalk).
+    // Clicar de novo no MESMO NPC enquanto já está a caminho não reinicia o
+    // trajeto (evita ficar recalculando o caminho a cada clique repetido).
+    _approachAndTalk(npc) {
+        if (this._pendingTalkNpc === npc) return;
+        this._pendingTalkNpc = npc;
+        // Para a uma distância confortável de conversa, do lado de onde o
+        // jogador já está vindo (não em cima do NPC).
+        const approachDist = 42;
+        const dir = (npc.x >= this.player.x) ? -1 : 1;
+        const destX = npc.x + dir * approachDist;
+        this._setPlayerDestination(destX, npc.y);
+    }
+
+    // Chamado a cada frame (ver update()): assim que o jogador termina de
+    // andar até o destino de _approachAndTalk, os dois se encaram e só
+    // ENTÃO a fala de verdade dispara (_talkToNpc). Se o NPC sumiu no meio
+    // do caminho (mercador foi embora, vampiro se recolheu ao amanhecer) ou
+    // o jogador acabou ficando longe demais (obstáculo no meio do trajeto,
+    // ou um clique novo o desviou pra outro lugar), desiste silenciosamente.
+    _updatePendingTalk() {
+        if (!this._pendingTalkNpc) return;
+        const npc = this._pendingTalkNpc;
+        const stillExists = this.npcs.includes(npc) || this.nightWanderers.includes(npc);
+        if (!stillExists) { this._pendingTalkNpc = null; return; }
+
+        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
+        if (!arrived) return;
+
+        this._pendingTalkNpc = null;
+        if (this._distanceTo({ x: npc.x, y: npc.y }) > 70) return; // desviado no meio do caminho, desiste
+
+        // Os dois se encaram antes de qualquer fala.
+        this.player.facing = (npc.x >= this.player.x) ? 1 : -1;
+        npc.facing = (npc.x > this.player.x) ? -1 : 1;
+        this._talkToNpc(npc);
+    }
+
     // Fala rápida de um NPC ambiente — nunca revela mecanismos de jogo
     // diretamente (isso já é papel dos rumores de Linhagem, ver
     // _eventLineageRumor), só reage à fama do jogador (vitórias) ou solta
@@ -504,6 +595,17 @@ class CityEngine {
         // genérica — reaproveita window.UI.openShop tal como Ferreiro/
         // Armeiro/Taverna, só com título próprio (também plugado no
         // desconto de Carisma/vitórias em _shopDiscount de graça).
+        // Viajante do Portão (ver _makeCaravanTraveler) — substitui o antigo
+        // prédio Estábulo: conversar com ele abre o menu de viagem entre
+        // Cidades-Hub (ver ui.js openCaravan/CityEngine.travelToCity),
+        // exatamente a mesma tela e lógica de antes, só disparada por um
+        // NPC de verdade parado no portão em vez de "entrar" num prédio.
+        if (npc.isCaravanTraveler) {
+            this._toast('Viajante do Portão: "Pague a passagem e te levo pra qualquer canto que já tenha visitado, gladiador."', 'info');
+            if (window.AudioManager) window.AudioManager.playConfirm();
+            if (window.UI && window.UI.openCaravan) window.UI.openCaravan();
+            return;
+        }
         if (npc.isTravelingMerchant) {
             this._toast('Mercador Viajante: "Chegou bem a tempo — veja o que trouxe de terras distantes!"', 'info');
             if (window.AudioManager) window.AudioManager.playConfirm();
@@ -539,9 +641,9 @@ class CityEngine {
         // lacuna sem exigir nenhum sistema de nome próprio por NPC.
         this._toast(speaker ? `${speaker}: ${line}` : line, 'info');
         if (window.AudioManager) window.AudioManager.playConfirm();
-        // Vira de frente pro jogador por um instante — pequeno detalhe de
-        // vida, sem precisar de nenhum estado de animação novo.
-        npc.facing = (npc.x > this.player.x) ? -1 : 1;
+        // NPC e jogador já se encaram antes de chegar aqui (ver
+        // _updatePendingTalk, que chama _talkToNpc só depois de ajustar os
+        // dois `facing`) — nada a fazer com direção neste método.
     }
 
     get _interactRadius() { return 70; }
@@ -614,9 +716,6 @@ class CityEngine {
             case 'halloffame':
                 window.UI.openHallOfFame();
                 break;
-            case 'caravan':
-                window.UI.openCaravan();
-                break;
             default: break;
         }
     }
@@ -688,6 +787,7 @@ class CityEngine {
 
         this._updateDayCycle(dt);
         this._updateMovement(dt);
+        this._updatePendingTalk();
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
         // continuar simulando o passeio de alguém que ninguém vê.
@@ -1665,6 +1765,12 @@ class CityEngine {
     // proeminente que os cidadãos comuns, mas pequeno o bastante pra caber
     // na escala real dos prédios ao seu redor.
     static get PLAYER_EXTRA_SHRINK() { return 0.4; }
+
+    // Posição (fração da largura) do vão do portão na muralha da cidade —
+    // usado tanto por GraphicsEngine._drawCityWall (desenha a estrutura)
+    // quanto por _makeCaravanTraveler (posiciona o NPC exatamente dentro do
+    // vão), pra nunca dessincronizar visual e posição de interação.
+    static get GATE_XFRAC() { return 0.965; }
 
     // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —
     // nunca revelam mecanismos de jogo, só reagem à fama (vitórias) do

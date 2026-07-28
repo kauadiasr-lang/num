@@ -1315,6 +1315,103 @@ class GraphicsEngine {
 
         this._drawSky(ctx, w, h, horizon, null, t, this.cityDayProgress);
         this._drawMountains(ctx, w, horizon);
+        // Floresta silenciosa fora da muralha (mais ao fundo, entre as
+        // montanhas e a própria muralha) — reaproveita a mesma silhueta de
+        // árvores já usada no bioma "Floresta" da Arena, só numa cor mais
+        // distante/esmaecida. Antes a cidade pulava direto de montanhas
+        // pro chão da praça, sem NENHUMA camada de transição.
+        this._drawTreeline(ctx, w, horizon, 'rgba(24,34,22,0.55)');
+        // Escadaria de pedra subindo das colinas em direção às montanhas,
+        // do lado de fora — sugere que a estrada continua além da cidade.
+        this._drawCityStairway(ctx, w, horizon);
+        // Muralha da cidade com um portão lateral (ver Cidades-Hub
+        // Regionais/CityEngine._makeCaravanTraveler): a camada mais próxima
+        // do jogador, desenhada por último — reforça a transição cidade ->
+        // muralha -> floresta -> montanhas em vez de um corte seco.
+        this._drawCityWall(ctx, w, horizon);
+    }
+
+    // Escadaria externa: uma fileira de degraus de pedra subindo em direção
+    // às montanhas, do lado esquerdo da muralha — puramente decorativa
+    // (camada de fundo, sem colisão), reforça que a estrada continua além
+    // da cidade em vez do vazio abrupto que havia antes.
+    _drawCityStairway(ctx, w, horizon) {
+        const steps = 8;
+        const stepW = w * 0.026, stepH = horizon * 0.028;
+        const startX = w * 0.10;
+        ctx.fillStyle = 'rgba(74,70,62,0.7)';
+        for (let i = 0; i < steps; i++) {
+            const x = startX + i * stepW * 0.85;
+            const y = horizon - 4 - i * stepH;
+            ctx.fillRect(x, y, stepW * 1.6, stepH + 5);
+        }
+        // Corrimão simples de pedra acompanhando a escadaria
+        ctx.strokeStyle = 'rgba(60,56,50,0.6)';
+        ctx.lineWidth = Math.max(2, w * 0.003);
+        ctx.beginPath();
+        ctx.moveTo(startX, horizon - 2);
+        ctx.lineTo(startX + (steps - 1) * stepW * 0.85 + stepW * 1.6, horizon - 4 - (steps - 1) * stepH);
+        ctx.stroke();
+    }
+
+    // Muralha da cidade com um portão lateral aberto (ver CityEngine
+    // `_makeCaravanTraveler` — o Viajante do Portão espera bem nesse vão,
+    // as coordenadas usam o MESMO `gateXFrac`/`_horizonY` que city.js usa
+    // pra posicionar o NPC, então o personagem sempre aparece "dentro" do
+    // vão do portão, nunca flutuando ao lado da estrutura). Substitui a
+    // transição direta cidade->montanhas por cidade->muralha->montanhas.
+    _drawCityWall(ctx, w, horizon) {
+        const wallH = horizon * 0.4;
+        const topY = horizon - wallH;
+        const gateXFrac = CityEngine.GATE_XFRAC || 0.90;
+        const gateX = w * gateXFrac;
+        const gateW = Math.max(50, w * 0.06);
+        const towerW = Math.max(20, w * 0.024);
+        const towerH = wallH + horizon * 0.08;
+
+        ctx.fillStyle = 'rgba(94,88,76,0.92)';
+        ctx.fillRect(0, topY, Math.max(0, gateX - gateW / 2 - towerW), wallH);
+        ctx.fillRect(gateX + gateW / 2 + towerW, topY, Math.max(0, w - (gateX + gateW / 2 + towerW)), wallH);
+
+        // Ameias (merlons) no topo — pula o vão do portão
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        const step = 40;
+        for (let x = 0; x < w; x += step) {
+            if (x > gateX - gateW / 2 - towerW - step && x < gateX + gateW / 2 + towerW) continue;
+            ctx.fillRect(x, topY, step * 0.5, 10);
+        }
+
+        // Torres flanqueando o portão
+        ctx.fillStyle = 'rgba(82,76,64,0.95)';
+        ctx.fillRect(gateX - gateW / 2 - towerW, horizon - towerH, towerW, towerH);
+        ctx.fillRect(gateX + gateW / 2, horizon - towerH, towerW, towerH);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(gateX - gateW / 2 - towerW, horizon - towerH, towerW, 8);
+        ctx.fillRect(gateX + gateW / 2, horizon - towerH, towerW, 8);
+
+        // Vão do portão (arco escuro entre as torres)
+        ctx.fillStyle = 'rgba(18,14,10,0.9)';
+        ctx.beginPath();
+        ctx.moveTo(gateX - gateW / 2, horizon);
+        ctx.lineTo(gateX - gateW / 2, topY + wallH * 0.4);
+        ctx.quadraticCurveTo(gateX, topY - wallH * 0.05, gateX + gateW / 2, topY + wallH * 0.4);
+        ctx.lineTo(gateX + gateW / 2, horizon);
+        ctx.closePath();
+        ctx.fill();
+
+        // Tochas acesas nas duas torres, reaproveitando o desenho já usado
+        // nos prédios da praça (mesmo _drawTorch, só numa escala maior).
+        if (this._drawTorch) {
+            const tClock = this._torchClock || 0;
+            ctx.save();
+            ctx.translate(gateX - gateW / 2 - towerW / 2, horizon - towerH + 14);
+            this._drawTorch(ctx, 0, 0, tClock, 0.9);
+            ctx.restore();
+            ctx.save();
+            ctx.translate(gateX + gateW / 2 + towerW / 2, horizon - towerH + 14);
+            this._drawTorch(ctx, 0, 0, tClock, 0.9);
+            ctx.restore();
+        }
     }
 
     // Duas cadeias de montanhas em profundidade (mais clara/suave ao fundo,

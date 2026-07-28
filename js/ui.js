@@ -618,7 +618,7 @@ class UIManager {
         document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
         document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;
         // Cidade-Hub atual (ver citydatabase.js) — visível o tempo todo no
-        // topo do Hub, não só dentro do menu do Mestre de Caravanas.
+        // topo do Hub, não só dentro do menu do Viajante do Portão.
         if (window.getCurrentCityDef) {
             document.getElementById('hub-city-name').innerText = window.getCurrentCityDef().name;
         }

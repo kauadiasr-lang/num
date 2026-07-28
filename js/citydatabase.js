@@ -7,15 +7,16 @@
  * chances fixas de chuva/tempestade da Cidade (ver city.js _updateWeather),
  * `raceDemographics` pondera a raça sorteada nos inimigos do Duelo Rápido
  * (ver enemy.js Enemy, Utils.weightedPick) e `unlockLevel`/`travelCost`
- * alimentam o Mestre de Caravanas (ver ui.js openCaravan).
+ * alimentam o Viajante do Portão (ver ui.js openCaravan).
  *
  * Nenhum prédio físico muda entre cidades (Ferreiro, Armeiro, Taverna, Banco,
- * Hall da Fama, Casa, Mercado Arcano e o próprio Estábulo continuam existindo
- * em toda cidade — são a infraestrutura civil que qualquer assentamento
- * grande tem); o que muda de verdade ao viajar é: quem mora lá (demografia +
- * NPCs, ver city.js _makeNpc), quem se enfrenta na Arena (raça dos
- * inimigos), o que se compra (region em items.js) e como o céu se comporta
- * (clima/bioma).
+ * Hall da Fama, Casa, Mercado Arcano continuam existindo em toda cidade —
+ * são a infraestrutura civil que qualquer assentamento grande tem, e o
+ * Viajante do Portão — ver city.js _makeCaravanTraveler — está sempre lá
+ * também, parado no vão da muralha); o que muda de verdade ao viajar é:
+ * quem mora lá (demografia + NPCs, ver city.js _makeNpc), quem se enfrenta
+ * na Arena (raça dos inimigos), o que se compra (region em items.js) e como
+ * o céu se comporta (clima/bioma).
  */
 const CityDatabase = {
     porto_helenico: {
@@ -72,7 +73,7 @@ window.getCurrentCityDef = function() {
 };
 
 // Lista de cidades já desbloqueadas pelo nível atual do jogador — usada pelo
-// Mestre de Caravanas (ver ui.js openCaravan). Não existe um array salvo de
+// Viajante do Portão (ver ui.js openCaravan). Não existe um array salvo de
 // "cidades descobertas": o desbloqueio é computado a partir do nível, então
 // não há nenhum campo novo de save a manter compatível.
 window.getUnlockedCities = function(playerLevel) {
