@@ -15,6 +15,14 @@ const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassin
 const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário",
     "Faminto", "Traiçoeiro", "Feroz", "Silencioso", "Amaldiçoado", "Desprezível"];
 
+// Inimigo Elite do Duelo Rápido: um combatente raro, bem mais forte e
+// recompensador que o comum, mas ainda usando a IA comum (AICombat) — não é
+// um boss (esses têm IA própria em bossai.js, ver Conde Vampiro/Anjo
+// Guardião). Existe pra dar ao Duelo Rápido repetido uma chance ocasional de
+// "vale a pena continuar tentando a sorte", igual a um monstro raro de
+// qualquer RPG de loot.
+const ELITE_ENEMY_CHANCE = 8; // % por Duelo Rápido gerado
+
 // Antes deste sistema, Enemy/Rival não tinham NENHUM `visuals` (a classe
 // base Entity não define o campo, só Player) — todo inimigo caía no
 // fallback padrão do GraphicsEngine e ficava visualmente IDÊNTICO a
@@ -61,6 +69,16 @@ class Enemy extends Entity {
         this.level = playerLevel + Utils.randomInt(-1, 1);
         if (this.level < 1) this.level = 1;
 
+        // Elite: raro, mais forte, recompensa maior e nome de destaque (ver
+        // ELITE_ENEMY_CHANCE acima) — sorteado ANTES de generateStats/
+        // equipStyleWeapon/recompensas pra que todos eles já saibam reagir
+        // ao bônus sem precisar de nenhum caso especial fora daqui.
+        this.isElite = Utils.chance(ELITE_ENEMY_CHANCE);
+        if (this.isElite) {
+            this.name = `★ ${this.name}, o Elite`;
+            this.level += 2;
+        }
+
         // Personalidade + estilo de luta (+ raramente um arquétipo raro) via
         // motor de IA — nunca mais um simples multiplicador de dano. Sorteado
         // ANTES da distribuição de atributos, de propósito: assim os pontos
@@ -99,17 +117,19 @@ class Enemy extends Entity {
             this.currentMp = this.derivedStats.maxMp;
         }
 
-        // Recompensa ao ser derrotado
-        this.expValue = Math.floor(20 * Math.pow(1.2, this.level));
-        this.goldValue = Math.floor(Utils.randomInt(10, 30) * (this.level * 0.5 + 1));
+        // Recompensa ao ser derrotado — Elite vale bem mais que o dobro,
+        // pra recompensar de verdade o risco extra de enfrentá-lo.
+        this.expValue = Math.floor(20 * Math.pow(1.2, this.level) * (this.isElite ? 2.2 : 1));
+        this.goldValue = Math.floor(Utils.randomInt(10, 30) * (this.level * 0.5 + 1) * (this.isElite ? 2.2 : 1));
     }
 
     generateStats() {
         // Base + escalonamento; ver Entity.generateStatsFromStyle (player.js)
         // pela distribuição enviesada pelo `statFocus` do estilo já sorteado
         // — um "Mago" tende a nascer com INT alto, um "Brutamontes" com STR
-        // alto, etc, sem deixar de ser aleatório.
-        this.generateStatsFromStyle(35 + (this.level * 5));
+        // alto, etc, sem deixar de ser aleatório. Elite ganha 40 pontos extra
+        // de atributo, além do nível já ter subido +2 na criação.
+        this.generateStatsFromStyle(35 + (this.level * 5) + (this.isElite ? 40 : 0));
     }
 
     // Equipa uma arma coerente com o estilo de luta já atribuído (chamado
@@ -118,14 +138,22 @@ class Enemy extends Entity {
     // compartilhada com Vampire/Ghost; 20% de chance de Encantamento (ver
     // enchantments.js) — antes só o Jogador podia ter arma encantada, mesmo
     // battle.js já lendo encantamento de QUALQUER `entity` genericamente.
+    // Elite tem chance de raridade e de encantamento bem maiores.
     equipStyleWeapon() {
-        this.equipStyleWeaponGeneric(15 + this.level, 20);
+        this.equipStyleWeaponGeneric(15 + this.level + (this.isElite ? 30 : 0), this.isElite ? 45 : 20);
     }
 
-    // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do jogador
+    // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do
+    // jogador. Elite SEMPRE dropa algo, de um nível bem mais alto — o
+    // desafio extra precisa se traduzir num prêmio garantido, não só numa
+    // chance melhor.
     generateLoot(playerLuk) {
-        const dropChance = 30 + (playerLuk * 2);
+        if (this.isElite) {
+            const dropTable = window.ItemFactory.generateShopInventory(this.level + 5);
+            return dropTable[0];
+        }
 
+        const dropChance = 30 + (playerLuk * 2);
         if (Utils.chance(dropChance)) {
             const dropTable = window.ItemFactory.generateShopInventory(this.level + 2);
             return dropTable[0];

@@ -661,6 +661,12 @@ class UIManager {
         // nunca inventamos uma raça falsa "Humano" pra eles aqui.
         const raceName = opponent.race && window.RaceSystem ? window.RaceSystem.get(opponent.race).name : null;
         log.innerHTML = `<p>Você encontrou ${opponent.name} (${opponent.personality}${raceName ? ', ' + raceName : ''})!</p>`;
+        // Inimigo Elite raro do Duelo Rápido (ver enemy.js ELITE_ENEMY_CHANCE)
+        // — muito mais forte e recompensador, merece um aviso claro logo de
+        // cara, não só um nome diferente perdido no HUD.
+        if (opponent.isElite) {
+            log.innerHTML += `<p style="color:var(--color-gold-bright,#ffd700); font-weight:bold;">✦ Um inimigo Elite! Mais forte, mas com recompensa muito maior.</p>`;
+        }
 
         // Reseta botões
         document.querySelectorAll('.btn-action').forEach(btn => btn.disabled = false);
