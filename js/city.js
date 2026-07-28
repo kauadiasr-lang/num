@@ -793,6 +793,16 @@ class CityEngine {
         this.isStorm = false;
         this._spawnNpcsIfNeeded();
 
+        // Troca o MOOD da trilha ambiente pra da nova cidade (ver
+        // audio.js CITY_MUSIC_MOODS) — startAmbientMusic() é um no-op se já
+        // houver uma trilha tocando, então sem parar e recomeçar aqui o
+        // drone da cidade antiga continuaria tocando pra sempre, mesmo
+        // depois de viajar pra uma cidade com identidade sonora diferente.
+        if (window.AudioManager) {
+            window.AudioManager.stopCityAmbience();
+            window.AudioManager.startCityAmbience();
+        }
+
         // Estoque de loja é cacheado por cidade também (ver ui.js openShop
         // `cacheKey`), então não precisa ser limpo aqui — só nunca reutiliza
         // o estoque de outra cidade por engano.

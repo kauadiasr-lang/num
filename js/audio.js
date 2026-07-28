@@ -3,6 +3,41 @@
  * Não requer arquivos externos. Gera sons via matemática pura (osciladores),
  * evitando qualquer dependência de assets binários ou direitos de terceiros.
  */
+
+// Perfis de "mood" da trilha ambiente por Cidade-Hub (ver citydatabase.js) —
+// registry data-driven: uma cidade nova cadastrada no futuro sem entrada
+// aqui simplesmente cai no perfil "default", nunca quebra ou fica muda.
+// "default" é usado pelo Menu Principal/Créditos (sem cidade) e por Porto
+// Helênico, e é EXATAMENTE o pad original (mesmas frequências/escala/timbre
+// de antes desta feature existir) — preserva o som de qualquer save antigo.
+const CITY_MUSIC_MOODS = {
+    default: {
+        baseFreqs: [65.41, 98.00, 130.81], oscType: 'sine', detune: 0.0015, // C2, G2, C3
+        scale: [261.63, 293.66, 329.63, 392.00, 440.00], noteType: 'triangle', // C4 pentatônica maior
+        noteDurationMin: 1.8, noteDurationMax: 2.6, noteGain: 0.09,
+        melodyDelayMin: 2200, melodyDelayMax: 4200
+    },
+    // Fortaleza Orc: fundamental mais grave e textura 'sawtooth' mais áspera
+    // (rústica, vulcânica), escala menor com notas mais curtas e frequentes
+    // — mais tensa/rítmica que o pad padrão, sem chegar na urgência da
+    // trilha de batalha.
+    fortaleza_orc: {
+        baseFreqs: [49.00, 69.30, 98.00], oscType: 'sawtooth', detune: 0.004, // G1, D2, G2
+        scale: [196.00, 233.08, 261.63, 293.66, 349.23], noteType: 'sawtooth', // G3 pentatônica menor
+        noteDurationMin: 1.2, noteDurationMax: 2.0, noteGain: 0.07,
+        melodyDelayMin: 1500, melodyDelayMax: 2800
+    },
+    // Santuário Élfico: uma oitava acima do padrão, escala maior mais aberta
+    // e notas bem mais longas e espaçadas — etéreo e sereno, condizente com
+    // a floresta ancestral élfica em vez da cidade portuária padrão.
+    santuario_elfico: {
+        baseFreqs: [130.81, 196.00, 261.63], oscType: 'sine', detune: 0.001, // C3, G3, C4
+        scale: [392.00, 440.00, 493.88, 587.33, 659.25], noteType: 'sine', // G4 pentatônica maior
+        noteDurationMin: 2.4, noteDurationMax: 3.6, noteGain: 0.075,
+        melodyDelayMin: 2800, melodyDelayMax: 5200
+    }
+};
+
 class AudioEngine {
     constructor() {
         this.context = null;
@@ -117,27 +152,36 @@ class AudioEngine {
         setTimeout(() => this.playTone(Utils.randomInt(90, 140), 'square', 0.3, 0.3), 90);
     }
 
-    // --- Trilha Ambiente (drone procedural em loop, usado no Menu/Créditos) ---
+    // --- Trilha Ambiente (drone procedural em loop, usado no Menu/Créditos e
+    // na Cidade explorável) ---
     // 3 osciladores levemente destonados + um LFO lento na amplitude, criando
     // um "pad" atmosférico contínuo sem precisar de nenhum arquivo de áudio.
-    startAmbientMusic() {
+    // `mood` (ver CITY_MUSIC_MOODS abaixo) parametriza fundamental/escala/
+    // textura pra cada Cidade-Hub soar diferente — sem isso, Porto Helênico,
+    // a vulcânica Fortaleza Orc e o etéreo Santuário Élfico tocavam
+    // exatamente a mesma trilha calma, apesar de já terem identidade visual,
+    // climática, racial e econômica totalmente distintas entre si.
+    // Omitir `mood` (ou passar null) cai no perfil "default", byte-idêntico
+    // ao pad original (Menu Principal/Créditos nunca tiveram cidade e
+    // continuam soando exatamente como antes).
+    startAmbientMusic(mood = null) {
         if (!this.initialized || this._musicNodes) return;
+        mood = mood || CITY_MUSIC_MOODS.default;
 
         const ctx = this.context;
         const master = ctx.createGain();
         master.gain.value = this.masterVolume * this.musicVolume;
         master.connect(ctx.destination);
 
-        // Fundamental + quinta + oitava (C2/G2/C3): intervalos puros e
-        // consonantes. A versão anterior usava E2/A2/B2, com A2-B2 formando
-        // uma segunda maior sustentada na mesma oitava — dissonância batendo
-        // continuamente que soava como um chiado tenso em vez de uma trilha
-        // calma (relatado pelo jogador).
-        const baseFreqs = [65.41, 98.00, 130.81]; // C2, G2, C3
-        const oscillators = baseFreqs.map((freq, i) => {
+        // Fundamental + quinta + oitava (ou variação própria do mood):
+        // intervalos puros e consonantes. A versão anterior usava E2/A2/B2,
+        // com A2-B2 formando uma segunda maior sustentada na mesma oitava —
+        // dissonância batendo continuamente que soava como um chiado tenso
+        // em vez de uma trilha calma (relatado pelo jogador).
+        const oscillators = mood.baseFreqs.map((freq, i) => {
             const osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.value = freq * (1 + (i - 1) * 0.0015); // destonação bem sutil, só pra dar corpo
+            osc.type = mood.oscType;
+            osc.frequency.value = freq * (1 + (i - 1) * mood.detune); // destonação sutil, só pra dar corpo
             const g = ctx.createGain();
             g.gain.value = 0.2;
             osc.connect(g);
@@ -158,15 +202,13 @@ class AudioEngine {
         this._musicNodes = { master, oscillators, lfo, melodyTimer: null };
 
         // Melodia suave e lenta por cima do pad — sem isso a trilha era só um
-        // drone estático; notas espaçadas de uma escala pentatônica maior em
-        // C (consonante com o novo acorde-base), com timing levemente
-        // aleatório pra não soar como um metrônomo.
-        const scale = [261.63, 293.66, 329.63, 392.00, 440.00]; // C4 pentatônica maior
+        // drone estático; notas espaçadas da escala do mood, com timing
+        // levemente aleatório pra não soar como um metrônomo.
         const scheduleNote = () => {
             if (!this._musicNodes) return;
-            const freq = scale[Utils.randomInt(0, scale.length - 1)];
-            this.playTone(freq, 'triangle', Utils.randomFloat(1.8, 2.6), 0.09, null, 'music');
-            this._musicNodes.melodyTimer = setTimeout(scheduleNote, Utils.randomFloat(2200, 4200));
+            const freq = mood.scale[Utils.randomInt(0, mood.scale.length - 1)];
+            this.playTone(freq, mood.noteType, Utils.randomFloat(mood.noteDurationMin, mood.noteDurationMax), mood.noteGain, null, 'music');
+            this._musicNodes.melodyTimer = setTimeout(scheduleNote, Utils.randomFloat(mood.melodyDelayMin, mood.melodyDelayMax));
         };
         this._musicNodes.melodyTimer = setTimeout(scheduleNote, 3000);
     }
@@ -257,8 +299,15 @@ class AudioEngine {
     // --- Ambiência da Cidade explorável ---
     // Reaproveita o mesmo drone atmosférico do Menu Principal como base (a
     // troca de tela já para/retoma isso automaticamente, sem duplicar
-    // osciladores); só soma texturas curtas ocasionais por cima.
-    startCityAmbience() { this.startAmbientMusic(); }
+    // osciladores); só soma texturas curtas ocasionais por cima. O MOOD do
+    // drone, porém, muda pela Cidade-Hub atual (ver CITY_MUSIC_MOODS) — sem
+    // cidade carregada (ou cidade sem mood próprio cadastrado, como Porto
+    // Helênico) cai no perfil "default", preservando o som original.
+    startCityAmbience() {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const mood = (cityId && CITY_MUSIC_MOODS[cityId]) || CITY_MUSIC_MOODS.default;
+        this.startAmbientMusic(mood);
+    }
     stopCityAmbience() { this.stopAmbientMusic(); }
 
     // Textura sonora aleatória da praça: martelo da forja, murmúrio distante
