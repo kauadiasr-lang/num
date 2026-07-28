@@ -234,6 +234,11 @@ class GraphicsEngine {
         // 1.0 no instante do raio, decaindo rápido até 0. Desenhado como um
         // véu branco translúcido por cima de tudo, só na Cidade.
         this._lightningFlash = 0;
+        // Estrelas cadentes: raras, só à noite (Arena ou Cidade) — antes o
+        // céu noturno só tinha estrelas fixas piscando, sem NENHUM evento
+        // ocasional pra recompensar quem observa o céu por mais tempo.
+        this._shootingStars = [];
+        this._shootingStarTimer = Utils.randomFloat(15, 40);
         this._initArenaAmbience();
     }
 
@@ -420,6 +425,26 @@ class GraphicsEngine {
 
     update(dt) {
         if (this._lightningFlash > 0) this._lightningFlash = Math.max(0, this._lightningFlash - dt * 2.5);
+
+        // Estrelas cadentes (ver constructor) — só sorteia uma nova enquanto
+        // é noite; fora disso, o temporizador só reseta com um intervalo
+        // curto pra tentar de novo assim que a noite cair, sem acumular
+        // atraso.
+        this._shootingStarTimer -= dt;
+        if (this._shootingStarTimer <= 0) {
+            if (this.arenaTime === 'night') {
+                this._shootingStarTimer = Utils.randomFloat(20, 45);
+                this._shootingStars.push({
+                    x0: Utils.randomFloat(0.15, 0.75), y0: Utils.randomFloat(0.05, 0.22),
+                    dx: Utils.randomFloat(220, 340), dy: Utils.randomFloat(90, 160),
+                    life: 1.0
+                });
+            } else {
+                this._shootingStarTimer = Utils.randomFloat(5, 15);
+            }
+        }
+        this._shootingStars.forEach(s => s.life -= dt * 1.3);
+        this._shootingStars = this._shootingStars.filter(s => s.life > 0);
 
         this.particles.forEach(p => p.update(dt));
         this.particles = this.particles.filter(p => p.life > 0);
@@ -1093,6 +1118,25 @@ class GraphicsEngine {
                 ctx.fillRect(s.x * w, s.y * horizon * 0.85, 2, 2);
             });
             ctx.globalAlpha = 1;
+
+            // Estrelas cadentes (ver update()/constructor) — um risco breve
+            // com rastro esmaecendo, cruzando o céu na diagonal.
+            this._shootingStars.forEach(s => {
+                const progress = 1 - s.life;
+                const headX = s.x0 * w + progress * s.dx;
+                const headY = s.y0 * horizon + progress * s.dy;
+                const tailX = headX - (s.dx / 8);
+                const tailY = headY - (s.dy / 8);
+                const grad = ctx.createLinearGradient(headX, headY, tailX, tailY);
+                grad.addColorStop(0, `rgba(255,255,255,${starAlpha * s.life})`);
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(headX, headY);
+                ctx.lineTo(tailX, tailY);
+                ctx.stroke();
+            });
         }
 
         const narrow = w < 560;
