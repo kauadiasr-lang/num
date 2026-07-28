@@ -1368,6 +1368,11 @@ class UIManager {
                 slotEl.style.borderColor = item.rarity.color;
                 slotEl.style.color = item.rarity.color;
                 slotEl.classList.add('filled');
+                // Brilho na cor do elemento (ver enchantments.js) — mesmo
+                // sinal visual usado na mochila (renderBag), pra um item
+                // encantado continuar reconhecível mesmo já equipado.
+                slotEl.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
+                    ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
 
                 // Hover e Clique para desequipar
                 this.attachTooltip(slotEl, item);
@@ -1412,6 +1417,9 @@ class UIManager {
                 itemSlot.innerText = this._itemIcon(item);
                 itemSlot.style.borderColor = isConsumable ? '#33cc99' : item.rarity.color;
                 itemSlot.style.color = isConsumable ? '#33cc99' : item.rarity.color;
+                // Brilho na cor do elemento (ver enchantments.js/renderEquipment)
+                itemSlot.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
+                    ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
 
                 this.attachTooltip(itemSlot, item);
 
@@ -1990,6 +1998,15 @@ class UIManager {
                 statsHtml += `<p style="color:#33cc99">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+                // Encantamento (ver enchantments.js): antes só aparecia na
+                // seção dedicada "Encantamentos" da tela de Inventário — o
+                // tooltip do próprio item (bag/equipamento/loja) nunca
+                // mencionava nada, então uma arma flamejante e uma comum
+                // pareciam idênticas em qualquer outro lugar do jogo.
+                if (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId]) {
+                    const ench = window.ENCHANTMENTS[item.enchantmentId];
+                    statsHtml += `<p style="color:${ench.color}">✨ Encantamento: ${ench.name} — ${ench.description}</p>`;
+                }
                 if (item.damage) statsHtml += `<p>Dano Base: ${item.damage}</p>`;
                 if (item.defense) statsHtml += `<p>Defesa Base: ${item.defense}</p>`;
                 for (let stat in item.statBonuses) {
