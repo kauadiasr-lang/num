@@ -33,7 +33,12 @@ const CityDatabase = {
         // do gradiente]. Porto Helênico preserva EXATAMENTE os valores
         // originais de antes deste campo existir (mesma cor de mármore de
         // sempre), garantindo que o visual da cidade padrão não mude nada.
-        groundColors: ['#8a8070', '#5a5448']
+        groundColors: ['#8a8070', '#5a5448'],
+        // Tipo de planta por slot de vegetação (ver city.js _drawVegetation)
+        // — 'edge' são as 2 plantas nas bordas da tela, 'center' são as 2
+        // ladeando a fonte. Porto Helênico preserva cipreste/loureiro, os
+        // mesmos valores de antes deste campo existir.
+        vegetationTypes: { edge: 'cypress', center: 'laurel' }
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -49,7 +54,10 @@ const CityDatabase = {
         // (metade da tela explorável) usava a MESMA cor de mármore grego de
         // Porto Helênico em toda cidade, apesar da própria descrição da
         // Fortaleza falar de "rocha vulcânica" (ver city.js _drawPlazaGround).
-        groundColors: ['#5a4a42', '#332a24']
+        groundColors: ['#5a4a42', '#332a24'],
+        // Árvore morta + arbusto em brasa, não cipreste/loureiro mediterrâneo
+        // — mesmo motivo do campo acima (ver city.js _drawVegetation).
+        vegetationTypes: { edge: 'deadTree', center: 'emberBush' }
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -63,7 +71,10 @@ const CityDatabase = {
         accentColor: '#2a6a4a',
         // Piso esverdeado/terroso (raízes e musgo), não mármore — mesmo
         // motivo do campo acima (ver Fortaleza Orc).
-        groundColors: ['#5a6a48', '#3a4530']
+        groundColors: ['#5a6a48', '#3a4530'],
+        // Arco de raiz ancestral + samambaia luminescente, não cipreste/
+        // loureiro — mesmo motivo do campo acima.
+        vegetationTypes: { edge: 'ancientRoot', center: 'glowFern' }
     }
 };
 window.CityDatabase = CityDatabase;

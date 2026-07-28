@@ -132,14 +132,19 @@ class CityEngine {
         ];
         // Vegetação (ver _drawVegetation) — a praça nunca teve NENHUMA planta
         // até agora (só fonte + estátuas), apesar de "vegetação" ser parte
-        // explícita da identidade de Mundo greco-romana. Ciprestes nas bordas
-        // (silhueta clássica mediterrânea) enquadram a cena sem competir com
-        // nenhum prédio; loureiros pequenos ladeiam a fonte central.
+        // explícita da identidade de Mundo greco-romana. Posições fixas por
+        // "slot" (edge = bordas da tela, center = ladeando a fonte); o TIPO
+        // de planta em cada slot é lido de CityDatabase.vegetationTypes (ver
+        // citydatabase.js) e resolvido a cada frame em _drawVegetation, não
+        // fixado aqui — assim viajar de cidade troca a vegetação sem precisar
+        // reconstruir a praça inteira, do mesmo jeito que groundColors já
+        // funciona pra cor do piso. Porto Helênico usa cipreste/loureiro
+        // (silhueta clássica mediterrânea + planta sagrada de Apolo).
         this.vegetation = [
-            { type: 'cypress', xFrac: 0.025, rowOffset: 55, scale: 1.2 },
-            { type: 'cypress', xFrac: 0.975, rowOffset: 55, scale: 1.2 },
-            { type: 'laurel', xFrac: 0.44, rowOffset: 148 },
-            { type: 'laurel', xFrac: 0.56, rowOffset: 148 },
+            { slot: 'edge', xFrac: 0.025, rowOffset: 55, scale: 1.2 },
+            { slot: 'edge', xFrac: 0.975, rowOffset: 55, scale: 1.2 },
+            { slot: 'center', xFrac: 0.44, rowOffset: 148 },
+            { slot: 'center', xFrac: 0.56, rowOffset: 148 },
         ];
 
         this._interactPromptEl = null;
@@ -1643,16 +1648,26 @@ class CityEngine {
         ctx.beginPath(); ctx.arc(x, y - 50 * scale, 6 * scale, 0, Math.PI * 2); ctx.fill(); // cabeça
     }
 
-    // Vegetação orientada a dados (ver this.vegetation) — cipreste (silhueta
-    // alta e afunilada, marco registrado da paisagem mediterrânea) ou
+    // Vegetação orientada a dados (ver this.vegetation + CityDatabase
+    // .vegetationTypes) — cada slot ('edge'/'center') resolve um tipo de
+    // planta diferente por cidade: Porto Helênico usa cipreste (silhueta
+    // alta e afunilada, marco registrado da paisagem mediterrânea) e
     // loureiro (arbusto baixo e arredondado, planta sagrada de Apolo,
-    // tradicionalmente associada a vitória/coroas de louro — bem a calhar
-    // numa praça de gladiadores).
+    // tradicionalmente associada a vitória/coroas de louro); Fortaleza Orc
+    // usa árvore morta (nada sobrevive direito sobre rocha vulcânica) e
+    // arbusto em brasa; Santuário Élfico usa arco de raiz ancestral e samambaia
+    // luminescente. Antes as 4 plantas eram fixas em cipreste/loureiro pra
+    // TODA cidade, então a Fortaleza Orc e o Santuário Élfico mostravam a
+    // mesma vegetação mediterrânea de Porto Helênico apesar de suas
+    // descrições falarem de rocha vulcânica / raízes ancestrais.
     _drawVegetation(ctx, w, h, v) {
         const scale = this._cityScale(h) * (v.scale || 1);
         const x = v.xFrac * w, y = this._horizon(h) + v.rowOffset * scale;
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const vegTypes = (cityDef && cityDef.vegetationTypes) || { edge: 'cypress', center: 'laurel' };
+        const type = vegTypes[v.slot] || (v.slot === 'edge' ? 'cypress' : 'laurel');
 
-        if (v.type === 'cypress') {
+        if (type === 'cypress') {
             ctx.fillStyle = '#4a3a26';
             ctx.fillRect(x - 3 * scale, y - 6 * scale, 6 * scale, 10 * scale); // base do tronco
             ctx.fillStyle = '#2f4a2a';
@@ -1671,7 +1686,7 @@ class CityEngine {
             ctx.lineTo(x, y - 4 * scale);
             ctx.closePath();
             ctx.fill();
-        } else if (v.type === 'laurel') {
+        } else if (type === 'laurel') {
             ctx.fillStyle = '#5a4530';
             ctx.fillRect(x - 2 * scale, y - 4 * scale, 4 * scale, 6 * scale);
             ctx.fillStyle = '#5a7a4a';
@@ -1680,6 +1695,79 @@ class CityEngine {
                 ctx.beginPath();
                 ctx.arc(x + dx * scale, y + dy * scale, r * scale, 0, Math.PI * 2);
                 ctx.fill();
+            });
+        } else if (type === 'deadTree') {
+            // Árvore morta e retorcida (Fortaleza Orc) — tronco e galhos nus
+            // de silhueta angular, nada de folha: só rocha vulcânica por perto.
+            ctx.strokeStyle = '#2a221c';
+            ctx.lineWidth = 4 * scale;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(x, y - 2 * scale);
+            ctx.lineTo(x - 2 * scale, y - 48 * scale);
+            ctx.stroke();
+            const branches = [
+                [-2, -48, -16, -66], [-2, -48, 10, -60],
+                [-2, -34, -14, -44], [-2, -34, 12, -40],
+                [-2, -20, -12, -26]
+            ];
+            ctx.lineWidth = 2.2 * scale;
+            branches.forEach(([sx, sy, ex, ey]) => {
+                ctx.beginPath();
+                ctx.moveTo(x + sx * scale, y + sy * scale);
+                ctx.lineTo(x + ex * scale, y + ey * scale);
+                ctx.stroke();
+            });
+        } else if (type === 'emberBush') {
+            // Arbusto em brasa (Fortaleza Orc) — folhagem baixa com brilho
+            // avermelhado por dentro, como se ainda guardasse calor vulcânico.
+            ctx.fillStyle = '#3a241c';
+            ctx.fillRect(x - 2 * scale, y - 3 * scale, 4 * scale, 5 * scale);
+            ctx.fillStyle = '#5a3226';
+            const puffs = [[-7, -8, 7], [7, -8, 7], [0, -14, 8], [0, -3, 6]];
+            puffs.forEach(([dx, dy, r]) => {
+                ctx.beginPath();
+                ctx.arc(x + dx * scale, y + dy * scale, r * scale, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.fillStyle = 'rgba(230,110,40,0.55)';
+            ctx.beginPath();
+            ctx.arc(x, y - 9 * scale, 3.5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (type === 'ancientRoot') {
+            // Arco de raiz ancestral (Santuário Élfico) — grossa, musgosa,
+            // saindo do chão e voltando a mergulhar nele como um portal natural.
+            ctx.strokeStyle = '#4a3a20';
+            ctx.lineWidth = 9 * scale;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(x - 20 * scale, y - 2 * scale);
+            ctx.quadraticCurveTo(x, y - 62 * scale, x + 20 * scale, y - 2 * scale);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(110,140,80,0.5)'; // musgo por cima da raiz
+            ctx.beginPath();
+            ctx.arc(x - 12 * scale, y - 20 * scale, 6 * scale, 0, Math.PI * 2);
+            ctx.arc(x + 6 * scale, y - 44 * scale, 5 * scale, 0, Math.PI * 2);
+            ctx.arc(x + 15 * scale, y - 12 * scale, 5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (type === 'glowFern') {
+            // Samambaia luminescente (Santuário Élfico) — flora mágica da
+            // floresta élfica, folhas com brilho esverdeado suave.
+            ctx.fillStyle = '#3a4a2a';
+            ctx.fillRect(x - 2 * scale, y - 3 * scale, 4 * scale, 5 * scale);
+            const fronds = [[-10, -6, -1], [10, -6, 1], [-6, -16, -1], [6, -16, 1], [0, -22, 0]];
+            ctx.strokeStyle = '#6a9a5a';
+            ctx.lineWidth = 2 * scale;
+            fronds.forEach(([ex, ey, dir]) => {
+                ctx.beginPath();
+                ctx.moveTo(x, y - 2 * scale);
+                ctx.quadraticCurveTo(x + dir * 6 * scale, y + (ey * 0.5) * scale, x + ex * scale, y + ey * scale);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(140,230,150,0.6)';
+                ctx.beginPath();
+                ctx.arc(x + ex * scale, y + ey * scale, 3 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#6a9a5a';
             });
         }
     }
