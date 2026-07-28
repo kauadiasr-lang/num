@@ -15,6 +15,25 @@ const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassin
 const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário",
     "Faminto", "Traiçoeiro", "Feroz", "Silencioso", "Amaldiçoado", "Desprezível"];
 
+// Pools de nome por raça (ver races.js/citydatabase.js) — sem isso, um Orc da
+// Fortaleza de Gorkhal e um Elfo do Santuário Élfico recebiam exatamente os
+// mesmos nomes genéricos de "Saqueador"/"Bandido" que qualquer humano de
+// Porto Helênico, quebrando a identidade regional que a demografia de
+// `raceDemographics` já cria estatisticamente. Só cobre Orc e Elfo (as
+// raças com cidade-natal dedicada); qualquer raça sem entrada aqui cai no
+// pool genérico de ENEMY_NAMES/ENEMY_ADJECTIVES, preservando o
+// comportamento original pra todo o resto.
+const RACE_ENEMY_NAMES = {
+    orc: {
+        names: ["Guerreiro de Gorkhal", "Brutamontes Vulcânico", "Carniceiro da Fortaleza", "Chefe de Guerra Orc", "Fera de Ferro Enferrujado"],
+        adjectives: ["Sanguinário", "Implacável", "Cicatrizado", "Feroz", "Brutal", "Selvagem"]
+    },
+    elfo: {
+        names: ["Guardião de Sylvaneth", "Arqueiro da Fronteira", "Sentinela das Raízes", "Caçador Élfico", "Lâmina da Floresta Viva"],
+        adjectives: ["Silencioso", "Veloz", "Traiçoeiro", "Etéreo", "Implacável"]
+    }
+};
+
 // Inimigo Elite do Duelo Rápido: um combatente raro, bem mais forte e
 // recompensador que o comum, mas ainda usando a IA comum (AICombat) — não é
 // um boss (esses têm IA própria em bossai.js, ver Conde Vampiro/Anjo
@@ -63,7 +82,19 @@ function randomFighterVisuals(styleId) {
 
 class Enemy extends Entity {
     constructor(playerLevel) {
-        const name = `${ENEMY_NAMES[Utils.randomInt(0, ENEMY_NAMES.length - 1)]} ${ENEMY_ADJECTIVES[Utils.randomInt(0, ENEMY_ADJECTIVES.length - 1)]}`;
+        // Raça sorteada ANTES do nome (ver RACE_ENEMY_NAMES acima) pra que o
+        // pool de nomes já reflita a identidade regional — mesma demografia
+        // ponderada por Cidade-Hub usada mais abaixo pra atribuir `this.race`,
+        // só que precisa ser calculada aqui em cima porque `super(name)` tem
+        // que rodar antes de qualquer atribuição em `this`.
+        const cityDefForName = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const demographicsForName = (cityDefForName && cityDefForName.raceDemographics) ? cityDefForName.raceDemographics : null;
+        const raceIdsForName = window.RACES ? Object.keys(window.RACES) : ['humano'];
+        const pickedRace = (demographicsForName && window.Utils.weightedPick)
+            ? (Utils.weightedPick(demographicsForName) || 'humano')
+            : raceIdsForName[Utils.randomInt(0, raceIdsForName.length - 1)];
+        const namePool = RACE_ENEMY_NAMES[pickedRace] || { names: ENEMY_NAMES, adjectives: ENEMY_ADJECTIVES };
+        const name = `${namePool.names[Utils.randomInt(0, namePool.names.length - 1)]} ${namePool.adjectives[Utils.randomInt(0, namePool.adjectives.length - 1)]}`;
         super(name);
 
         this.level = playerLevel + Utils.randomInt(-1, 1);
@@ -102,15 +133,9 @@ class Enemy extends Entity {
         // uniforme entre todas as raças. Sem cidade definida (ou demografia
         // ausente), cai no sorteio uniforme original entre todas as raças
         // cadastradas, preservando o comportamento de antes do sistema de
-        // cidades existir.
-        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        const demographics = (cityDef && cityDef.raceDemographics) ? cityDef.raceDemographics : null;
-        if (demographics && window.Utils.weightedPick) {
-            this.race = Utils.weightedPick(demographics) || 'humano';
-        } else {
-            const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
-            this.race = raceIds[Utils.randomInt(0, raceIds.length - 1)];
-        }
+        // cidades existir. Já sorteada acima (`pickedRace`) pra poder
+        // escolher o pool de nome regional antes do `super(name)`.
+        this.race = pickedRace;
 
         // Distribui pontos de atributo com base no nível gerado, enviesados
         // pelo estilo de luta já sorteado.
