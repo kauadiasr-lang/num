@@ -1710,12 +1710,17 @@ class UIManager {
         if (cachedStock && cachedStock.day === currentDay) {
             this.currentShopItems = cachedStock.items;
         } else {
-            let pool = ItemFactory.generateShopInventory(p.level, cityId);
+            // Mercador Viajante vende de QUALQUER região (ver
+            // ItemFactory.generateShopInventory `includeAllRegions`) — só
+            // ele ignora o filtro por cidade atual, condizente com a
+            // própria fala dele ("terras distantes").
+            const includeAllRegions = title === 'Mercador Viajante';
+            let pool = ItemFactory.generateShopInventory(p.level, cityId, includeAllRegions);
             if (filterSlots) {
                 pool = pool.filter(i => filterSlots.includes(i.slot));
                 let attempts = 0;
                 while (pool.length < 4 && attempts < 4) {
-                    pool = pool.concat(ItemFactory.generateShopInventory(p.level, cityId).filter(i => filterSlots.includes(i.slot)));
+                    pool = pool.concat(ItemFactory.generateShopInventory(p.level, cityId, includeAllRegions).filter(i => filterSlots.includes(i.slot)));
                     attempts++;
                 }
             }

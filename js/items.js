@@ -216,10 +216,18 @@ window.ItemFactory = {
     // veem os itens neutros — exatamente os mesmos que existiam antes desta
     // feature, já que TODO item cadastrado antes das Cidades-Hub Regionais
     // não tem `region`: nenhum comportamento de loot pré-existente muda.
-    generateShopInventory(playerLevel, cityId = null) {
+    // `includeAllRegions`: usado pelo Mercador Viajante (ver ui.js openShop/
+    // city.js _eventRareMerchant) — sua própria fala já diz que traz
+    // mercadoria "de terras distantes", mas sem essa flag ele reusaria o
+    // MESMO filtro regional do Ferreiro/Armeiro locais e nunca venderia
+    // nada de fora da cidade atual, contradizendo a própria flavor text.
+    // Com a flag, TODO item entra no sorteio (regional de qualquer cidade
+    // + neutro), dando ao Mercador Viajante uma razão mecânica real de
+    // existir: é a única forma de comprar item de outra região sem viajar.
+    generateShopInventory(playerLevel, cityId = null, includeAllRegions = false) {
         const shopInventory = [];
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
-        const availableInCity = (template) => !template.region || template.region === cityId;
+        const availableInCity = (template) => includeAllRegions || !template.region || template.region === cityId;
 
         // Gera 8 itens de equipamento aleatórios entre as categorias disponíveis
         for (let i = 0; i < 8; i++) {
