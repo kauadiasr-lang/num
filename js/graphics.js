@@ -230,7 +230,16 @@ class GraphicsEngine {
         this.cityDayProgress = 0.5;
         this._dustTimer = 0;
         this._birdTimer = 6;
+        // Flash de relâmpago (ver CityEngine._updateWeather, tempestade) —
+        // 1.0 no instante do raio, decaindo rápido até 0. Desenhado como um
+        // véu branco translúcido por cima de tudo, só na Cidade.
+        this._lightningFlash = 0;
         this._initArenaAmbience();
+    }
+
+    // Chamado por CityEngine quando uma tempestade dispara um raio.
+    triggerLightningFlash() {
+        this._lightningFlash = 1.0;
     }
 
     _initArenaAmbience() {
@@ -410,6 +419,8 @@ class GraphicsEngine {
     }
 
     update(dt) {
+        if (this._lightningFlash > 0) this._lightningFlash = Math.max(0, this._lightningFlash - dt * 2.5);
+
         this.particles.forEach(p => p.update(dt));
         this.particles = this.particles.filter(p => p.life > 0);
 
@@ -569,6 +580,14 @@ class GraphicsEngine {
         this.bursts.forEach(b => b.draw(ctx));
         this.particles.forEach(p => p.draw(ctx));
         this.floatingTexts.forEach(t => t.draw(ctx));
+
+        // Flash de relâmpago (tempestade na Cidade, ver
+        // CityEngine._updateWeather/triggerLightningFlash) — só fica > 0
+        // enquanto a Cidade está ativa, então nunca aparece na Arena.
+        if (this._lightningFlash > 0) {
+            ctx.fillStyle = `rgba(255,255,255,${this._lightningFlash * 0.55})`;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
     }
 
     // ======================================================================

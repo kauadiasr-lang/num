@@ -108,6 +108,15 @@ class AudioEngine {
         this.playTone(Utils.randomInt(70, 90), 'sine', 0.08, 0.15);
     }
 
+    // Trovão de uma tempestade (ver city.js _updateWeather/isStorm) — estrondo
+    // grave e longo seguido de um estalo mais agudo logo depois, imitando o
+    // som chegando com um pequeno atraso do "raio" visual (ver graphics.js
+    // triggerLightningFlash).
+    playThunder() {
+        this.playTone(Utils.randomInt(45, 70), 'sawtooth', 1.3, 0.55, 25);
+        setTimeout(() => this.playTone(Utils.randomInt(90, 140), 'square', 0.3, 0.3), 90);
+    }
+
     // --- Trilha Ambiente (drone procedural em loop, usado no Menu/Créditos) ---
     // 3 osciladores levemente destonados + um LFO lento na amplitude, criando
     // um "pad" atmosférico contínuo sem precisar de nenhum arquivo de áudio.

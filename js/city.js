@@ -61,6 +61,11 @@ class CityEngine {
         this.weather = 'clear';
         this._weatherTimer = Utils.randomFloat(45, 90);
         this._rainSpawnTimer = 0;
+        // Tempestade: variante rara da chuva com raios (flash de tela) e
+        // trovão — antes a chuva era sempre igual, sem NENHUMA variação de
+        // intensidade, mesmo "clima" prometendo mais que só chuva/sol.
+        this.isStorm = false;
+        this._lightningTimer = 0;
 
         // Eventos aleatórios enquanto explora a cidade (mercadores, ladrões,
         // duelistas, mensageiros, nobres, promoções, artistas, pregoeiros) —
@@ -945,9 +950,17 @@ class CityEngine {
             if (this.weather === 'clear') {
                 this.weather = Utils.chance(35) ? 'rain' : 'clear';
                 this._weatherTimer = this.weather === 'rain' ? Utils.randomFloat(30, 55) : Utils.randomFloat(45, 90);
-                if (this.weather === 'rain') this._toast('Nuvens escuras cobrem a praça — começa a chover.', 'info');
+                if (this.weather === 'rain') {
+                    // Tempestade: ~30% das chuvas vêm com raios e trovão —
+                    // uma variante rara e mais intensa, não só chuva igual
+                    // toda vez.
+                    this.isStorm = Utils.chance(30);
+                    this._lightningTimer = Utils.randomFloat(6, 14);
+                    this._toast(this.isStorm ? 'O céu escurece de vez — uma tempestade se aproxima!' : 'Nuvens escuras cobrem a praça — começa a chover.', 'info');
+                }
             } else {
                 this.weather = 'clear';
+                this.isStorm = false;
                 this._weatherTimer = Utils.randomFloat(45, 90);
                 this._toast('A chuva passa e o sol volta a espiar entre as nuvens.', 'info');
             }
@@ -959,6 +972,15 @@ class CityEngine {
                 this._rainSpawnTimer = 0.02;
                 const w = window.Engine.width;
                 window.GFX.spawnRainDrop(Utils.randomFloat(0, w), -10);
+            }
+        }
+
+        if (this.weather === 'rain' && this.isStorm) {
+            this._lightningTimer -= dt;
+            if (this._lightningTimer <= 0) {
+                this._lightningTimer = Utils.randomFloat(8, 20);
+                if (window.GFX) window.GFX.triggerLightningFlash();
+                if (window.AudioManager) window.AudioManager.playThunder();
             }
         }
     }
