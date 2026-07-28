@@ -1018,8 +1018,18 @@ class CityEngine {
 
     _eventMessenger(p) {
         const exp = Utils.randomInt(5, 15);
+        const levelBefore = p ? p.level : 0;
         if (p && p.gainExp) p.gainExp(exp);
         this._toast(`Um mensageiro trouxe notícias de terras distantes (+${exp} exp).`, 'success');
+        // Subir de nível fora de batalha (único jeito hoje: este evento) só
+        // tinha o mesmo console.log esquecido em player.js.levelUp() como
+        // aviso — o jogador nunca via NADA além do toast genérico de EXP,
+        // diferente de subir de nível numa batalha (que já mostra banner +
+        // fanfarra, ver ui.js showBattleResults).
+        if (p && p.level > levelBefore) {
+            this._toast(`Você subiu para o nível ${p.level}! (+3 Atributos, +1 Talento)`, 'success');
+            if (window.AudioManager) window.AudioManager.playLevelUp();
+        }
     }
 
     _eventNoble() {
