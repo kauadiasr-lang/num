@@ -191,6 +191,7 @@ class UIManager {
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
             // só espiando o save mais recente), volta pro menu e descarta o
@@ -616,6 +617,11 @@ class UIManager {
         document.getElementById('hub-player-exp').innerText = p.exp;
         document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
         document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;
+        // Cidade-Hub atual (ver citydatabase.js) — visível o tempo todo no
+        // topo do Hub, não só dentro do menu do Mestre de Caravanas.
+        if (window.getCurrentCityDef) {
+            document.getElementById('hub-city-name').innerText = window.getCurrentCityDef().name;
+        }
     }
 
     // --- BATALHA ---
@@ -1607,23 +1613,33 @@ class UIManager {
         // dia novo libera um sorteio novo. Quando filtrado por categoria,
         // tenta mais algumas rodadas pra não cravar uma prateleira vazia só
         // porque o sorteio não bateu com a categoria certa.
+        // Cidade-Hub atual (ver citydatabase.js) — Ferreiro/Armeiro (e
+        // qualquer outra loja que passe por aqui) só sorteiam itens neutros
+        // + itens culturais da cidade onde o jogador está agora (ver
+        // ItemFactory.generateShopInventory `region`). A chave do cache
+        // inclui a cidade: viajar e voltar no mesmo dia não deveria mostrar
+        // o estoque cru da OUTRA cidade, e revisitar a mesma loja sem viajar
+        // continua mostrando o mesmo estoque do dia (comportamento já
+        // existente, preservado).
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         this._shopStockCache = this._shopStockCache || {};
         const currentDay = window.City ? window.City.dayCount : 1;
-        const cachedStock = this._shopStockCache[title];
+        const cacheKey = `${title}::${cityId}`;
+        const cachedStock = this._shopStockCache[cacheKey];
         if (cachedStock && cachedStock.day === currentDay) {
             this.currentShopItems = cachedStock.items;
         } else {
-            let pool = ItemFactory.generateShopInventory(p.level);
+            let pool = ItemFactory.generateShopInventory(p.level, cityId);
             if (filterSlots) {
                 pool = pool.filter(i => filterSlots.includes(i.slot));
                 let attempts = 0;
                 while (pool.length < 4 && attempts < 4) {
-                    pool = pool.concat(ItemFactory.generateShopInventory(p.level).filter(i => filterSlots.includes(i.slot)));
+                    pool = pool.concat(ItemFactory.generateShopInventory(p.level, cityId).filter(i => filterSlots.includes(i.slot)));
                     attempts++;
                 }
             }
             this.currentShopItems = pool.slice(0, 8);
-            this._shopStockCache[title] = { day: currentDay, items: this.currentShopItems };
+            this._shopStockCache[cacheKey] = { day: currentDay, items: this.currentShopItems };
         }
 
         const container = document.getElementById('shop-items-container');
@@ -1637,11 +1653,15 @@ class UIManager {
             const statsText = item.damage ? `Dano: ${item.damage}` : `Def: ${item.defense}`;
             const price = Math.max(1, Math.round(item.value * (1 - discount)));
             const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
+            // Item cultural regional (ver items.js `region`/citydatabase.js) —
+            // um selo curto deixa claro que essa peça é exclusiva daqui, não
+            // um item comum que "por acaso" só aparece nesta loja hoje.
+            const regionBadge = item.region ? `<span style="font-size:0.7rem; color:#c9a227;">🌍 Regional</span>` : '';
 
             card.innerHTML = `
                 <div>
                     <h4 style="color: ${item.rarity.color}">${this._itemIcon(item)} ${item.name}</h4>
-                    <p style="font-size: 0.8rem; color: #aaa;">${statsText}</p>
+                    <p style="font-size: 0.8rem; color: #aaa;">${statsText} ${regionBadge}</p>
                 </div>
                 <button class="btn btn-small">${priceLabel}</button>
             `;
@@ -1922,6 +1942,77 @@ class UIManager {
         }
 
         this.showScreen('screen-house');
+    }
+
+    // --- MESTRE DE CARAVANAS (Cidades-Hub Regionais) ---
+    // Lista todas as cidades do registro (ver citydatabase.js): a atual
+    // aparece marcada, as ainda não desbloqueadas aparecem cinzentas com o
+    // requisito de nível, e as demais mostram um botão de viagem com o
+    // preço real da passagem.
+    openCaravan() {
+        const p = window.Engine.state.player;
+        const currentId = window.getCurrentCityId();
+        const currentDef = window.CityDatabase[currentId];
+        document.getElementById('caravan-current-city').innerText = currentDef.name;
+
+        const container = document.getElementById('caravan-container');
+        const cities = Object.values(window.CityDatabase);
+        container.innerHTML = cities.map(city => {
+            const isCurrent = city.id === currentId;
+            const isLocked = p.level < city.unlockLevel;
+            const classes = ['caravan-card'];
+            if (isCurrent) classes.push('caravan-card-current');
+            if (isLocked) classes.push('caravan-card-locked');
+
+            let actionHtml;
+            if (isCurrent) {
+                actionHtml = `<span class="highlight-gold">Você está aqui</span>`;
+            } else if (isLocked) {
+                actionHtml = `<span>🔒 Requer nível ${city.unlockLevel}</span>`;
+            } else {
+                actionHtml = `<button class="btn btn-small" data-city-id="${city.id}">Viajar (${city.travelCost}g)</button>`;
+            }
+
+            return `
+                <div class="${classes.join(' ')}" style="--caravan-accent:${city.accentColor}">
+                    <div class="caravan-card-info">
+                        <h4>${city.name}</h4>
+                        <p>${city.description}</p>
+                    </div>
+                    ${actionHtml}
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('button[data-city-id]').forEach(btn => {
+            btn.onclick = () => this.travelToCity(btn.dataset.cityId);
+        });
+
+        this.showScreen('screen-caravan');
+    }
+
+    // Valida ouro (feedback amigável antes de tentar) e delega a troca de
+    // cidade de verdade pra CityEngine.travelToCity, que é quem realmente
+    // cobra o ouro, persiste no save e recarrega NPCs/clima/estoque — nunca
+    // duplica essa lógica aqui.
+    travelToCity(cityId) {
+        const p = window.Engine.state.player;
+        const dest = window.CityDatabase[cityId];
+        if (!dest) return;
+        if (p.gold < dest.travelCost) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente para a passagem!', 'error');
+            return;
+        }
+        const success = window.City.travelToCity(cityId);
+        if (success) {
+            window.AudioManager.playConfirm();
+            this.updateHubStats();
+            this.showScreen('screen-hub');
+        } else {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Não foi possível viajar agora.', 'error');
+        }
     }
 
     // --- HALL DA FAMA ---

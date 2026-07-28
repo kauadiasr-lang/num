@@ -73,6 +73,14 @@ class Equipment {
         // gladiador, só a peça, e pode ser trocado livremente a qualquer momento.
         this.enchantmentId = null;
 
+        // Região de origem (ver citydatabase.js) — null significa item
+        // "neutro", vendido em qualquer cidade (todo item cadastrado antes
+        // das Cidades-Hub Regionais nunca teve esse campo, então continua
+        // neutro automaticamente). Só itens culturais novos (Lâmina Élfica,
+        // Armadura Pesada Orc etc) usam isso pra restringir onde aparecem no
+        // estoque do Ferreiro/Armeiro (ver ItemFactory.generateShopInventory).
+        this.region = baseTemplate.region || null;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
@@ -123,7 +131,22 @@ const ItemDatabase = {
         bow: { id: 'w_09', name: "Arco Curto", slot: SLOTS.RANGED, damage: 9, weight: 1.8, value: 95, durability: 80, stats: { acc: 3 },
             minRange: 0, maxRange: 10, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.5, maxAmmo: 8 },
         crossbow: { id: 'w_10', name: "Besta de Aço", slot: SLOTS.RANGED, damage: 12, weight: 3.2, value: 110, durability: 90, stats: { acc: 2 }, armorPierce: 0.15,
-            minRange: 0, maxRange: 10, atkSpeed: 0.7, approachSpeed: 1.0, retreatSpeed: 2.0, maxAmmo: 5 }
+            minRange: 0, maxRange: 10, atkSpeed: 0.7, approachSpeed: 1.0, retreatSpeed: 2.0, maxAmmo: 5 },
+
+        // --- Armas regionais (Cidades-Hub Regionais) ---
+        // `region` restringe onde aparecem no estoque diário do Ferreiro/
+        // Armeiro (ver ItemFactory.generateShopInventory) — nunca aparecem
+        // fora da cidade indicada, mas continuam 100% equipáveis por
+        // qualquer personagem depois de compradas (raça do dono é
+        // irrelevante pro item em si, igual acontece com qualquer arma).
+        orcwaraxe: { id: 'w_11', name: "Machado de Guerra Orc", slot: SLOTS.MAIN_HAND, damage: 16, weight: 7.0, value: 140, durability: 110, stats: { str: 5 }, armorPierce: 0.20, region: 'fortaleza_orc',
+            minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
+        dwarvenhammer: { id: 'w_12', name: "Martelo Rúnico Anão", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 170, durability: 160, stats: { str: 2, def: 1 }, armorPierce: 0.25, region: 'fortaleza_orc',
+            minRange: 0, maxRange: 2, atkSpeed: 0.65, approachSpeed: 1.3, retreatSpeed: 1.3 },
+        elvenblade: { id: 'w_13', name: "Lâmina Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.2, value: 150, durability: 100, stats: { agi: 3, acc: 1 }, critBonus: 18, region: 'santuario_elfico',
+            minRange: 0, maxRange: 3, atkSpeed: 1.5, approachSpeed: 2.4, retreatSpeed: 2.4 },
+        elvenlongbow: { id: 'w_14', name: "Arco Élfico Longo", slot: SLOTS.RANGED, damage: 11, weight: 1.5, value: 160, durability: 90, stats: { agi: 2, acc: 3 }, region: 'santuario_elfico',
+            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
@@ -136,18 +159,27 @@ const ItemDatabase = {
         leatherleggings: { id: 'a_08', name: "Calças de Couro", slot: SLOTS.LEGS, defense: 2, weight: 1.5, value: 30, durability: 70, stats: { agi: 1 } },
         irongreaves: { id: 'a_09', name: "Grevas de Ferro", slot: SLOTS.LEGS, defense: 5, weight: 3.0, value: 80, durability: 130, stats: { str: 1 } },
         leatherboots: { id: 'a_10', name: "Botas de Couro", slot: SLOTS.FEET, defense: 1, weight: 1.0, value: 20, durability: 60, stats: { agi: 2 } },
-        ironboots: { id: 'a_11', name: "Botas de Ferro", slot: SLOTS.FEET, defense: 3, weight: 2.0, value: 60, durability: 110, stats: { str: 1 } }
+        ironboots: { id: 'a_11', name: "Botas de Ferro", slot: SLOTS.FEET, defense: 3, weight: 2.0, value: 60, durability: 110, stats: { str: 1 } },
+
+        // --- Armaduras regionais (Cidades-Hub Regionais) ---
+        orcheavyarmor: { id: 'a_12', name: "Armadura Pesada Orc", slot: SLOTS.CHEST, defense: 18, weight: 10.0, value: 190, durability: 220, stats: { str: 3 }, region: 'fortaleza_orc' },
+        elvencloak: { id: 'a_13', name: "Manto Élfico", slot: SLOTS.CHEST, defense: 6, weight: 1.2, value: 140, durability: 90, stats: { agi: 2, int: 1 }, region: 'santuario_elfico' }
     },
     shields: {
         woodenshield: { id: 's_01', name: "Escudo de Madeira", slot: SLOTS.OFF_HAND, defense: 3, weight: 3.0, value: 45, durability: 90, blockChance: 10 },
         ironshield: { id: 's_02', name: "Escudo de Ferro", slot: SLOTS.OFF_HAND, defense: 6, weight: 5.0, value: 90, durability: 140, stats: { str: 1 }, blockChance: 18 },
-        towershield: { id: 's_03', name: "Escudo Torre", slot: SLOTS.OFF_HAND, defense: 10, weight: 8.0, value: 150, durability: 200, stats: { str: 2 }, blockChance: 28 }
+        towershield: { id: 's_03', name: "Escudo Torre", slot: SLOTS.OFF_HAND, defense: 10, weight: 8.0, value: 150, durability: 200, stats: { str: 2 }, blockChance: 28 },
+        orcreinforcedshield: { id: 's_04', name: "Escudo Reforçado Orc", slot: SLOTS.OFF_HAND, defense: 9, weight: 6.5, value: 130, durability: 170, stats: { str: 2 }, blockChance: 22, region: 'fortaleza_orc' }
     },
     trinkets: {
         amuletvigor: { id: 't_01', name: "Amuleto do Vigor", slot: SLOTS.AMULET, weight: 0.2, value: 80, durability: 999, hpBonus: 20 },
         amuletwisdom: { id: 't_02', name: "Amuleto da Sabedoria", slot: SLOTS.AMULET, weight: 0.2, value: 80, durability: 999, stats: { int: 1 }, mpBonus: 15 },
         ringprecision: { id: 't_03', name: "Anel da Precisão", slot: SLOTS.RING, weight: 0.1, value: 70, durability: 999, stats: { acc: 2 } },
-        ringfortune: { id: 't_04', name: "Anel da Fortuna", slot: SLOTS.RING, weight: 0.1, value: 70, durability: 999, stats: { luk: 2 } }
+        ringfortune: { id: 't_04', name: "Anel da Fortuna", slot: SLOTS.RING, weight: 0.1, value: 70, durability: 999, stats: { luk: 2 } },
+
+        // --- Amuletos/anéis regionais (Cidades-Hub Regionais) ---
+        trolltusk: { id: 't_05', name: "Presa de Troll", slot: SLOTS.AMULET, weight: 0.3, value: 150, durability: 999, hpBonus: 35, region: 'fortaleza_orc' },
+        livingforestring: { id: 't_06', name: "Anel da Floresta Viva", slot: SLOTS.RING, weight: 0.1, value: 150, durability: 999, stats: { int: 2 }, mpBonus: 20, region: 'santuario_elfico' }
     },
     consumables: {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },
@@ -176,15 +208,24 @@ window.ItemFactory = {
         return new Consumable(template);
     },
 
-    // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do jogador
-    generateShopInventory(playerLevel) {
+    // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do
+    // jogador. `cityId` (ver citydatabase.js) filtra o catálogo de cada
+    // categoria pra só considerar itens neutros (sem `region`, disponíveis
+    // em qualquer cidade) + itens culturais da cidade atual. Chamadores que
+    // não passam `cityId` (ex: geração de loot de inimigo em enemy.js) só
+    // veem os itens neutros — exatamente os mesmos que existiam antes desta
+    // feature, já que TODO item cadastrado antes das Cidades-Hub Regionais
+    // não tem `region`: nenhum comportamento de loot pré-existente muda.
+    generateShopInventory(playerLevel, cityId = null) {
         const shopInventory = [];
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
+        const availableInCity = (template) => !template.region || template.region === cityId;
 
         // Gera 8 itens de equipamento aleatórios entre as categorias disponíveis
         for (let i = 0; i < 8; i++) {
             const category = categories[Utils.randomInt(0, categories.length - 1)];
-            const pool = Object.keys(ItemDatabase[category]);
+            const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
+            if (pool.length === 0) continue; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)
             const randomId = pool[Utils.randomInt(0, pool.length - 1)];
 
             // Probabilidade de raridade baseada no nível do jogador

@@ -180,6 +180,7 @@
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
                         <p>Nível <span id="hub-player-level">1</span></p>
+                        <p class="city-location">📍 <span id="hub-city-name">Porto Helênico</span></p>
                     </div>
                     <div class="player-resources">
                         <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
@@ -539,6 +540,19 @@
                 </div>
             </div>
 
+            <!-- TELA: MESTRE DE CARAVANAS -->
+            <div id="screen-caravan" class="screen">
+                <div class="panel caravan-panel">
+                    <button class="btn-close" id="btn-close-caravan">X</button>
+                    <div class="panel-watermark">🐎</div>
+                    <h2 class="panel-title">Mestre de Caravanas</h2>
+                    <p class="caravan-sub">Você está em <span id="caravan-current-city" class="highlight-gold">Porto Helênico</span>. Escolha um destino — a passagem é cobrada em ouro na hora.</p>
+                    <div id="caravan-container" class="caravan-list">
+                        <!-- Cidades disponíveis, preenchido via JS -->
+                    </div>
+                </div>
+            </div>
+
             <!-- TELA: HALL DA FAMA -->
             <div id="screen-halloffame" class="screen">
                 <div class="panel halloffame-panel">
@@ -608,6 +622,7 @@
     <script src="js/skills.js"></script>
     <script src="js/lineages.js"></script>
     <script src="js/races.js"></script>
+    <script src="js/citydatabase.js"></script>
     <script src="js/skilltrees.js"></script>
     <script src="js/rituals.js"></script>
     <script src="js/player.js"></script>

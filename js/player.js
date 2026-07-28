@@ -327,6 +327,11 @@ class Player extends Entity {
         // nunca tiveram esse campo.
         this.race = 'humano';
 
+        // Cidade-Hub atual (ver citydatabase.js/city.js CityEngine.travelToCity)
+        // — 'porto_helenico' é o padrão neutro pra saves antigos, que nunca
+        // tiveram esse campo (mesmo padrão de compatibilidade de `race`).
+        this.currentCityId = window.DEFAULT_CITY_ID || 'porto_helenico';
+
         // --- Linhagem (Mutação) — ver lineages.js/skilltrees.js/rituals.js ---
         // Sistema TOTALMENTE separado de Encantamentos (que ficam só nos
         // itens, ver enchantments.js). Uma única linhagem por personagem,

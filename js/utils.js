@@ -37,6 +37,23 @@ class GameUtils {
         return (1 - amt) * start + amt * end;
     }
 
+    // Sorteia uma chave de `weights` ({chave: peso}) proporcionalmente ao seu
+    // peso — usado pela demografia racial das Cidades-Hub (ver
+    // CityDatabase/enemy.js), mas genérico o bastante para qualquer sorteio
+    // ponderado futuro. Pesos <= 0 nunca são sorteados. Sem nenhuma entrada
+    // com peso > 0, retorna null (quem chama decide o fallback).
+    static weightedPick(weights) {
+        const entries = Object.entries(weights).filter(([, w]) => w > 0);
+        const total = entries.reduce((sum, [, w]) => sum + w, 0);
+        if (total <= 0) return null;
+        let roll = Math.random() * total;
+        for (const [key, w] of entries) {
+            if (roll < w) return key;
+            roll -= w;
+        }
+        return entries[entries.length - 1][0];
+    }
+
     // Gera um ID único para itens gerados proceduralmente
     static generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

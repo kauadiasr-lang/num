@@ -95,8 +95,22 @@ class Enemy extends Entity {
         // tenha o campo, então bastava atribuir um aqui pros inimigos do
         // Duelo Rápido também terem identidade racial de verdade (não só
         // visual), sem precisar mudar nenhuma fórmula de combate.
-        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
-        this.race = raceIds[Utils.randomInt(0, raceIds.length - 1)];
+        //
+        // Demografia por Cidade-Hub (ver citydatabase.js `raceDemographics`):
+        // a vasta maioria dos oponentes na Fortaleza Orc deve ser Orc, no
+        // Santuário Élfico deve ser Elfo, etc — sorteio ponderado em vez de
+        // uniforme entre todas as raças. Sem cidade definida (ou demografia
+        // ausente), cai no sorteio uniforme original entre todas as raças
+        // cadastradas, preservando o comportamento de antes do sistema de
+        // cidades existir.
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const demographics = (cityDef && cityDef.raceDemographics) ? cityDef.raceDemographics : null;
+        if (demographics && window.Utils.weightedPick) {
+            this.race = Utils.weightedPick(demographics) || 'humano';
+        } else {
+            const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
+            this.race = raceIds[Utils.randomInt(0, raceIds.length - 1)];
+        }
 
         // Distribui pontos de atributo com base no nível gerado, enviesados
         // pelo estilo de luta já sorteado.

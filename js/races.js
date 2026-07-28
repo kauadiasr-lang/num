@@ -59,6 +59,42 @@ const RACES = {
         statMods: { def: 2, str: 1, acc: -1 },
         accent: '#8a6a2a', // bronze hoplita
         passive: { statKey: 'defenseBonusPercent', value: 6, label: 'Falange Tebana: +6% de Defesa.' }
+    },
+
+    // --- Raças de Alta Fantasia (Cidades-Hub Regionais) ---
+    // Nativas das novas cidades-hub (ver citydatabase.js `raceDemographics`),
+    // mas jogáveis por qualquer personagem desde a Criação — igual às 4
+    // raças gregas acima, sem nenhuma restrição de origem/cidade. Cada
+    // `passive.statKey` é reaproveitado de um campo já 100% genérico em
+    // Entity.calculateDerivedStats/battle.js (nunca hardcoded pro jogador),
+    // já que raça também é sorteada em inimigos procedurais (ver enemy.js
+    // Enemy.race) — um statKey preso só ao lado do jogador (como
+    // hpRegenPerTurn/healPowerBonusPercent, ligados à mensagem de Linhagem
+    // em battle.js) criaria um passivo mudo sempre que um inimigo dessa
+    // raça nascesse.
+    orc: {
+        id: 'orc', name: 'Orc',
+        tagline: 'Força bruta forjada nas fornalhas de Gorkhal — poucos sobrevivem para contar a história.',
+        description: 'Vindos das muralhas de rocha vulcânica da Fortaleza Orc, os orcs medem valor por cicatrizes e vitórias. Fracos de espírito não duram uma estação lá.',
+        statMods: { str: 3, def: 1, int: -2 },
+        accent: '#3a5a1a', // verde-oliva escuro, couro/rocha vulcânica
+        passive: { statKey: 'drainOnCritPercent', value: 12, label: 'Fúria Sanguinária: acertos críticos roubam +12% do dano como HP.' }
+    },
+    elfo: {
+        id: 'elfo', name: 'Elfo',
+        tagline: 'Séculos de vida entre raízes ancestrais afiam os sentidos além do que qualquer mortal alcança.',
+        description: 'Nascidos sob o dossel eterno do Santuário Élfico, movem-se com uma graça quase sobrenatural e enxergam falhas na guarda alheia que ninguém mais percebe — mas carregam pouco da força bruta dos povos guerreiros.',
+        statMods: { agi: 2, int: 2, str: -2 },
+        accent: '#4a8a3a', // verde floresta vívido
+        passive: { statKey: 'critChanceLowHpBonus', value: 15, label: 'Precisão Élfica: +15% de chance de crítico com HP abaixo de 30%.' }
+    },
+    anao: {
+        id: 'anao', name: 'Anão',
+        tagline: 'Feito da mesma pedra dos salões que escavou — nada abala um Anão de pé firme.',
+        description: 'Clãs de mineradores e ferreiros das montanhas próximas à Fortaleza Orc, os anões trazem pra arena uma resistência quase teimosa e uma paciência forjada em décadas sob a rocha.',
+        statMods: { def: 3, str: 1, agi: -2 },
+        accent: '#8a3a1a', // cobre/ferrugem, forja anã
+        passive: { statKey: 'bleedResistPercent', value: 30, label: 'Pele de Pedra: 30% de resistência a sangramento.' }
     }
 };
 window.RACES = RACES;

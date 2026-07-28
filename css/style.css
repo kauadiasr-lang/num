@@ -467,6 +467,9 @@ html, body {
    ficam sobre os cantos superiores do Hub; reserva-se espaço nos dois
    lados pra não cobrir nome/nível nem ouro/exp/fadiga. */
 #screen-hub .hud-top { padding-left: 60px; padding-right: 60px; }
+/* Nome da Cidade-Hub atual (ver Cidades-Hub Regionais) — discreto, abaixo do
+   nível, sem competir visualmente com nome/nível do jogador. */
+.city-location { font-size: 0.8rem; color: var(--color-marble-dark); margin-top: 2px; }
 .hub-menu {
     display: flex; flex-direction: column; gap: 12px; width: 360px; max-width: 90vw;
     max-height: 80vh; overflow-y: auto; padding: 4px;
@@ -1014,6 +1017,21 @@ html, body {
 .halloffame-entry .highlight-gold { font-weight: bold; }
 .healer-message { margin-top: 15px; min-height: 24px; color: #6fcf5a; font-weight: bold; }
 .healer-promo-note { margin-top: 8px; font-size: 0.85rem; color: var(--color-gold-bright, #ffd700); font-weight: bold; }
+
+/* --- Mestre de Caravanas (Cidades-Hub Regionais) --- */
+.caravan-panel { width: 92%; max-width: 700px; position: relative; max-height: 90vh; overflow-y: auto; text-align: center; }
+.caravan-sub { color: var(--color-marble-dark); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; }
+.caravan-list { display: flex; flex-direction: column; gap: 12px; }
+.caravan-card {
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze); border-radius: 6px;
+    padding: 14px 16px; text-align: left; border-left: 5px solid var(--caravan-accent, var(--color-bronze));
+}
+.caravan-card-info h4 { margin: 0 0 4px 0; }
+.caravan-card-info p { margin: 0; font-size: 0.85rem; color: var(--color-marble-dark); }
+.caravan-card-locked { opacity: 0.55; }
+.caravan-card-current { border-left-color: var(--color-gold-bright); }
+.caravan-card .btn { flex-shrink: 0; white-space: nowrap; }
 
 /* Conquistas */
 .achievements-panel { width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; position: relative; }

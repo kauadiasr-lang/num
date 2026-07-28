@@ -303,8 +303,17 @@ class GraphicsEngine {
 
         // Sorteia o bioma da arena (identidade própria de solo/vegetação/
         // fundo/props) e pré-renderiza o solo detalhado uma única vez para
-        // esta luta — ver ARENA_BIOMES e _buildArenaGroundTexture.
-        const biomeIds = Object.keys(ARENA_BIOMES);
+        // esta luta — ver ARENA_BIOMES e _buildArenaGroundTexture. Restrito
+        // exclusivamente aos biomas vinculados à Cidade-Hub atual (ver
+        // citydatabase.js `arenaBiomes`) — lutar na Fortaleza Orc nunca deve
+        // sortear a Clareira da Floresta do Santuário Élfico, por exemplo.
+        // Sem o sistema de cidades carregado (ou uma cidade sem a lista
+        // definida), cai no comportamento original: qualquer bioma vale.
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const allowedBiomes = (cityDef && cityDef.arenaBiomes && cityDef.arenaBiomes.length)
+            ? cityDef.arenaBiomes.filter(id => ARENA_BIOMES[id])
+            : Object.keys(ARENA_BIOMES);
+        const biomeIds = allowedBiomes.length ? allowedBiomes : Object.keys(ARENA_BIOMES);
         this.arenaBiome = biomeIds[Utils.randomInt(0, biomeIds.length - 1)];
         this._buildArenaGroundTexture();
 

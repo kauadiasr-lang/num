@@ -112,6 +112,11 @@ class CityEngine {
             { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
             { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
             { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
+            // Estábulo do Mestre de Caravanas (ver Cidades-Hub Regionais,
+            // citydatabase.js/openCaravan em ui.js) — encaixado no meio do
+            // amplo vão livre da fileira da frente (entre Banco e Hall da
+            // Fama), com folga clara dos dois vizinhos.
+            { id: 'caravan', name: 'Estábulo', icon: '🐎', xFrac: 0.35, rowOffset: 165, w: 90, h: 75, wall: '#5a4632', roof: '#3d2c18', row: 'front' },
         ];
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
@@ -222,6 +227,19 @@ class CityEngine {
         }
     }
 
+    // Raça de um NPC ambiente novo, ponderada pela demografia da Cidade-Hub
+    // atual (ver citydatabase.js `raceDemographics`, Utils.weightedPick — o
+    // mesmo mecanismo já usado pelos inimigos procedurais em enemy.js). Sem
+    // cidade definida (ou demografia ausente), sorteia uniformemente entre
+    // todas as raças cadastradas.
+    _pickNpcRace() {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const demographics = (cityDef && cityDef.raceDemographics) ? cityDef.raceDemographics : null;
+        if (demographics) return Utils.weightedPick(demographics) || 'humano';
+        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
+        return raceIds[Utils.randomInt(0, raceIds.length - 1)];
+    }
+
     _makeNpc(pin = null) {
         const w = window.Engine.width, h = window.Engine.height;
         const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
@@ -259,7 +277,15 @@ class CityEngine {
                     beardStyle: 0, eyeColor: '#1a1a1a', faceShape: 1
                 },
                 equipment: {},
-                __teamColor: tunicColors[Utils.randomInt(0, tunicColors.length - 1)]
+                __teamColor: tunicColors[Utils.randomInt(0, tunicColors.length - 1)],
+                // Raça (ver races.js `accent`/_drawRaceSash em graphics.js)
+                // ponderada pela demografia da Cidade-Hub atual (ver
+                // citydatabase.js) — puramente cosmética aqui (NPCs de
+                // ambiente não são Entity, não lutam), mas faz a praça
+                // REALMENTE parecer outro povo ao viajar: a Fortaleza Orc
+                // vira uma praça majoritariamente Orc, não só o discurso dos
+                // eventos aleatórios mudando de nome.
+                race: this._pickNpcRace()
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
@@ -588,8 +614,58 @@ class CityEngine {
             case 'halloffame':
                 window.UI.openHallOfFame();
                 break;
+            case 'caravan':
+                window.UI.openCaravan();
+                break;
             default: break;
         }
+    }
+
+    // --- Cidades-Hub Regionais: viagem entre cidades (ver ui.js openCaravan,
+    // citydatabase.js) ---
+    // Única função autorizada a de fato trocar de cidade: cobra o preço em
+    // ouro, atualiza a cidade persistida no save, e recarrega tudo que
+    // depende da cidade atual (NPCs, clima, estoque de loja, mercador
+    // viajante) — nenhum outro lugar do código deve setar
+    // `player.currentCityId` diretamente. Retorna `true` em caso de sucesso,
+    // `false` se a viagem não pôde ser feita (validado de novo aqui mesmo
+    // que a UI já valide antes, pra nunca depender só da tela pra manter a
+    // integridade do estado).
+    travelToCity(cityId) {
+        const p = window.Engine.state.player;
+        const dest = window.CityDatabase ? window.CityDatabase[cityId] : null;
+        if (!p || !dest) return false;
+        if (cityId === window.getCurrentCityId()) return false; // já está lá
+        if (p.level < dest.unlockLevel) return false; // ainda não desbloqueada
+        if (p.gold < dest.travelCost) return false; // ouro insuficiente
+
+        p.gold -= dest.travelCost;
+        p.currentCityId = cityId;
+
+        // Recarrega o ambiente da nova cidade: NPCs comuns e "presos"
+        // (espectadores da Arena) somem e renascem já com a demografia
+        // racial certa (ver _makeNpc); vampiros noturnos, mercador viajante
+        // e promoção de loja ativa não fazem sentido "atravessar" a viagem
+        // com o jogador. O clima reseta pro estado neutro — o próprio
+        // _updateWeather já vai sortear de novo usando os modificadores da
+        // cidade nova no timer seguinte.
+        this.npcs = [];
+        this.nightWanderers = [];
+        this._arenaNpcsSpawned = false;
+        this.travelingMerchant = null;
+        this.activePromotion = null;
+        this.weather = 'clear';
+        this._weatherTimer = Utils.randomFloat(45, 90);
+        this.isStorm = false;
+        this._spawnNpcsIfNeeded();
+
+        // Estoque de loja é cacheado por cidade também (ver ui.js openShop
+        // `cacheKey`), então não precisa ser limpo aqui — só nunca reutiliza
+        // o estoque de outra cidade por engano.
+
+        window.SaveManager.save(window.Engine.state);
+        this._toast(`Você chega a ${dest.name}!`, 'success');
+        return true;
     }
 
     // --- Atualização por frame ---
@@ -998,14 +1074,23 @@ class CityEngine {
     _updateWeather(dt) {
         this._weatherTimer -= dt;
         if (this._weatherTimer <= 0) {
+            // Modificadores climáticos por Cidade-Hub (ver citydatabase.js
+            // `weather.rainChance/stormChance`) — o Santuário Élfico chove
+            // muito mais que Porto Helênico, a Fortaleza Orc é mais seca mas
+            // com tempestades mais violentas quando chove. Sem cidade
+            // definida (ou campo ausente), cai nos valores originais fixos
+            // (35%/30%), preservando o comportamento de antes do sistema de
+            // cidades existir.
+            const cityWeather = (window.getCurrentCityDef ? window.getCurrentCityDef() : null);
+            const rainChance = (cityWeather && cityWeather.weather && typeof cityWeather.weather.rainChance === 'number') ? cityWeather.weather.rainChance : 35;
+            const stormChance = (cityWeather && cityWeather.weather && typeof cityWeather.weather.stormChance === 'number') ? cityWeather.weather.stormChance : 30;
             if (this.weather === 'clear') {
-                this.weather = Utils.chance(35) ? 'rain' : 'clear';
+                this.weather = Utils.chance(rainChance) ? 'rain' : 'clear';
                 this._weatherTimer = this.weather === 'rain' ? Utils.randomFloat(30, 55) : Utils.randomFloat(45, 90);
                 if (this.weather === 'rain') {
-                    // Tempestade: ~30% das chuvas vêm com raios e trovão —
-                    // uma variante rara e mais intensa, não só chuva igual
-                    // toda vez.
-                    this.isStorm = Utils.chance(30);
+                    // Tempestade: variante rara e mais intensa da chuva, com
+                    // raios e trovão — chance própria por cidade (ver acima).
+                    this.isStorm = Utils.chance(stormChance);
                     this._lightningTimer = Utils.randomFloat(6, 14);
                     this._toast(this.isStorm ? 'O céu escurece de vez — uma tempestade se aproxima!' : 'Nuvens escuras cobrem a praça — começa a chover.', 'info');
                 }
