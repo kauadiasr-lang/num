@@ -656,7 +656,13 @@ class CityEngine {
         // antigos que por algum motivo não tenham `profession` (não deveria
         // acontecer, mas evita quebrar) caem de volta no pool genérico.
         else if (npc.profession && CityEngine.NPC_PROFESSIONS[npc.profession]) {
-            pool = CityEngine.NPC_PROFESSIONS[npc.profession].lines;
+            // Versão regional da fala de profissão (ver
+            // NPC_PROFESSIONS_REGIONAL acima) — mesmo `name` de exibição,
+            // conteúdo próprio da cultura local quando existir; sem entrada
+            // pra essa cidade/profissão, cai no pool genérico de sempre.
+            const regionalProfessions = CityEngine.NPC_PROFESSIONS_REGIONAL[cityId];
+            const regionalLines = regionalProfessions && regionalProfessions[npc.profession];
+            pool = regionalLines || CityEngine.NPC_PROFESSIONS[npc.profession].lines;
             speaker = CityEngine.NPC_PROFESSIONS[npc.profession].name;
         }
 
@@ -2018,6 +2024,73 @@ class CityEngine {
                 'Muitos gladiadores gastam tudo antes do pôr do sol. Os sábios guardam.',
                 'Nossos cofres são mais seguros que qualquer bolso na rua à noite.'
             ] }
+        };
+    }
+
+    // Falas de profissão por Cidade-Hub (ver NPC_PROFESSIONS acima e
+    // NPC_DIALOGUE.fortaleza_orc/santuario_elfico) — o comentário sobre a
+    // CIDADE em si já tinha versão regional (35% de chance, ver
+    // _talkToNpc), mas a fala de PROFISSÃO — a que domina a maior parte das
+    // conversas antes do jogador ganhar fama — continuava 100% grega
+    // (deuses, bronze, templo, Coliseu) mesmo com o jogador andando pela
+    // Fortaleza Orc ou pelo Santuário Élfico. Mesmas 8 profissões de
+    // NPC_PROFESSIONS, mesmo `name` de exibição, só o conteúdo muda; cidades
+    // sem entrada aqui (Porto Helênico, saves antigos, cidade desconhecida)
+    // caem no pool genérico normalmente via _talkToNpc.
+    static get NPC_PROFESSIONS_REGIONAL() {
+        return {
+            fortaleza_orc: {
+                mercador: ['Ferro, couro cru, pedra vulcânica polida — só não me traga papo de forasteiro fraco.',
+                    'Aqui não se regateia — o preço é o preço, e quem reclama demais leva menos na próxima.',
+                    'Trago sal e carne curada da última caravana. O resto essa terra dá conta sozinha.'],
+                sacerdote: ['Os espíritos da fornalha só respeitam quem já sangrou por Gorkhal.',
+                    'Queimei osso e gordura essa manhã. As chamas disseram que a arena vai ser violenta hoje.',
+                    'Não rezamos por paz aqui — rezamos por força pra aguentar o que vem.'],
+                soldado: ['Se a muralha cair, cai comigo em cima dela. Não conheço outro jeito de guardar um portão.',
+                    'Treinei com machado antes de aprender a andar direito. Aqui é assim com todo mundo.',
+                    'Forasteiro fraco que passa por aquele portão vira história rápido. Vi acontecer mais de uma vez.'],
+                artesao: ['Forjo sobre rocha ainda morna da última erupção — dizem que dá um fio melhor no aço.',
+                    'Não faço nada bonito. Faço o que aguenta um machado de guerra sem lascar.',
+                    'Minhas mãos já não sentem o calor da forja. Depois de anos, isso vira parte de você.'],
+                campones: ['A terra aqui é dura e cinzenta, mas o que cresce nela cresce forte, que nem nós.',
+                    'Perdi metade da plantação pra fumaça da montanha esse ano. Já é o de sempre.',
+                    'Prefiro cavar pedra a ir pra arena, mas ninguém em Gorkhal escapa de escolher um lado.'],
+                poeta: ['Aqui ninguém quer verso bonito — quer história de cicatriz e de sangue derramado.',
+                    'Canto sobre chefes de guerra que morreram de pé. É o único tipo de fim que respeitamos.',
+                    'Um poema fraco aqui vira piada rápido. Aprendi a escrever mais grosso.'],
+                veterano: ['Enfrentei um campeão orc antes de você nascer. A cicatriz ainda dói quando a montanha treme.',
+                    'Ladder nenhuma assusta quem já sobreviveu a um inverno inteiro em Gorkhal.',
+                    'Todo jovem forte quer provar valor rápido. Os que duram são os que aprendem a esperar.'],
+                banqueiro: ['Ouro não segura golpe de machado, mas ajuda a comprar um melhor.',
+                    'Guardamos metal em cofre de pedra vulcânica — nem fogo nem ladrão passam fácil por ali.',
+                    'Aqui quem gasta rápido demais vira motivo de piada na próxima fogueira.']
+            },
+            santuario_elfico: {
+                mercador: ['Seiva de árvore-mãe, fios de teia élfica, ervas que só crescem sob a chuva daqui.',
+                    'Não apresso negócio — as coisas boas de Sylvaneth levam tempo pra amadurecer.',
+                    'Troco raramente com forasteiros, mas reconheço quem trata a floresta com respeito.'],
+                sacerdote: ['As raízes ancestrais ouvem mais do que falam. Aprenda a fazer o mesmo.',
+                    'Fizemos oferenda à árvore-mãe esta manhã, sob a chuva de sempre.',
+                    'Não pedimos favor aos espíritos da mata — só pedimos que continuem a nos tolerar.'],
+                soldado: ['Guardamos a fronteira sem fazer barulho. A floresta já faz barulho o bastante.',
+                    'Um arco élfico bem cuidado dura mais que o soldado que o carrega.',
+                    'Vigiamos de cima, entre os galhos. Forasteiro nenhum atravessa sem que a gente saiba.'],
+                artesao: ['Cada arco que faço leva uma estação inteira — não apresso o que precisa de tempo.',
+                    'Trabalho a madeira que a própria floresta oferece, nunca a que eu derrubo.',
+                    'Meus mestres viveram séculos aperfeiçoando isso. Ainda tenho muito o que aprender.'],
+                campones: ['Colhemos o que a mata nos empresta, nunca mais que isso.',
+                    'A chuva atrasa a colheita, mas também é ela que faz tudo crescer tão bem aqui.',
+                    'Vivemos devagar, do jeito da floresta. Forasteiro acha isso estranho no começo.'],
+                poeta: ['Nossos versos levam gerações pra serem terminados. Um humano acharia isso loucura.',
+                    'Componho sobre o silêncio da mata à noite — é mais eloquente que qualquer palavra.',
+                    'A pressa da arena não combina com a paciência que aprendemos entre as raízes.'],
+                veterano: ['Vivi o bastante pra ver três chefes de guerra orc caírem. Nenhum durou o que dura uma árvore.',
+                    'Não corro pra Ladder nenhuma. Quem tem séculos pela frente aprende a não ter pressa.',
+                    'Enfrentei perigos antes de qualquer campeão nascer. A paciência venceu onde a força falharia.'],
+                banqueiro: ['Guardamos riqueza como guardamos sementes — pouca pressa, muita paciência.',
+                    'O ouro forasteiro nos interessa menos que um bom acordo de longo prazo.',
+                    'Aqui ninguém enriquece da noite pro dia. Nem a floresta cresce assim.']
+            }
         };
     }
 
