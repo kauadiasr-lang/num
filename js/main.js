@@ -458,6 +458,67 @@ function validateGameData() {
         }
     }
 
+    // AI_FIGHTING_STYLES (ver ai_data.js) — nunca tinha nenhuma checagem,
+    // apesar de ser o registry mais arriscado de todos: um id inexistente
+    // em `weaponPool` não fica só "silenciosamente ignorado" como as outras
+    // chaves mortas acima — AICombat.pickWeaponFromStyle (ai.js) faz
+    // `ItemDatabase.weapons[id].region` direto em cima de CADA entrada de
+    // weaponPool sem checar undefined antes, então um id inválido ali
+    // derruba a escolha de arma (e por consequência a criação do
+    // combatente inteiro) com uma exceção real, não um bug cosmético.
+    // Mesma checagem pro skillPool contra SkillDatabase, pela mesma razão
+    // de segurança de dados.
+    if (typeof AI_FIGHTING_STYLES !== 'undefined') {
+        // weaponPool guarda a CHAVE de ItemDatabase.weapons (ex: 'shortsword'),
+        // não o campo `.id` interno (ex: 'w_01', usado por WEAPON_RENDERERS) —
+        // é exatamente essa chave que AICombat.pickWeaponFromStyle usa pra
+        // indexar ItemDatabase.weapons[id] diretamente.
+        const knownWeaponIds2 = typeof ItemDatabase !== 'undefined' ? Object.keys(ItemDatabase.weapons || {}) : null;
+        const knownSkillIds = typeof SkillDatabase !== 'undefined' ? Object.keys(SkillDatabase) : null;
+        for (const key in AI_FIGHTING_STYLES) {
+            const s = AI_FIGHTING_STYLES[key];
+            need(s.id === key, `AI_FIGHTING_STYLES['${key}']: id ('${s.id}') não bate com a chave do registro`);
+            need(Array.isArray(s.weaponPool) && s.weaponPool.length > 0, `AI_FIGHTING_STYLES['${key}']: weaponPool ausente ou vazio`);
+            if (knownWeaponIds2 && Array.isArray(s.weaponPool)) {
+                s.weaponPool.forEach(w => need(knownWeaponIds2.includes(w), `AI_FIGHTING_STYLES['${key}']: weaponPool referencia arma inexistente '${w}' (risco real de exceção em pickWeaponFromStyle)`));
+            }
+            need(Array.isArray(s.skillPool) && s.skillPool.length > 0, `AI_FIGHTING_STYLES['${key}']: skillPool ausente ou vazio`);
+            if (knownSkillIds && Array.isArray(s.skillPool)) {
+                s.skillPool.forEach(sk => need(knownSkillIds.includes(sk), `AI_FIGHTING_STYLES['${key}']: skillPool referencia habilidade inexistente '${sk}'`));
+            }
+            need(typeof s.statFocus === 'object' && s.statFocus, `AI_FIGHTING_STYLES['${key}']: statFocus ausente`);
+        }
+    }
+
+    // AI_COMBOS (ver ai_data.js) — mesma classe de checagem de chave morta
+    // (uma entrada com um id de estilo que não existe mais em
+    // AI_FIGHTING_STYLES nunca seria sorteada por _maybeStartCombo em
+    // ai.js) e confere que cada passo no formato 'SKILL:<id>' referencia
+    // uma habilidade real — um typo aqui faria a IA "tentar" usar uma
+    // habilidade que não existe no meio do combo, silenciosamente falhando
+    // aquele passo específico.
+    if (typeof AI_COMBOS !== 'undefined') {
+        const knownStyleIds = typeof AI_FIGHTING_STYLES !== 'undefined' ? Object.keys(AI_FIGHTING_STYLES) : null;
+        const knownSkillIds2 = typeof SkillDatabase !== 'undefined' ? Object.keys(SkillDatabase) : null;
+        for (const key in AI_COMBOS) {
+            if (knownStyleIds) need(knownStyleIds.includes(key), `AI_COMBOS['${key}']: estilo não existe em AI_FIGHTING_STYLES`);
+            const comboSet = AI_COMBOS[key];
+            need(Array.isArray(comboSet) && comboSet.length > 0, `AI_COMBOS['${key}']: comboSet ausente ou vazio`);
+            (comboSet || []).forEach((combo, idx) => {
+                need(Array.isArray(combo.steps) && combo.steps.length > 0, `AI_COMBOS['${key}'][${idx}]: steps ausente ou vazio`);
+                need(Array.isArray(combo.flavor) && combo.flavor.length > 0, `AI_COMBOS['${key}'][${idx}]: flavor ausente ou vazio`);
+                if (knownSkillIds2 && Array.isArray(combo.steps)) {
+                    combo.steps.forEach(step => {
+                        if (typeof step === 'string' && step.startsWith('SKILL:')) {
+                            const skillId = step.slice('SKILL:'.length);
+                            need(knownSkillIds2.includes(skillId), `AI_COMBOS['${key}'][${idx}]: passo referencia habilidade inexistente '${skillId}'`);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
     if (problems.length > 0) {
         console.warn(`[validateGameData] ${problems.length} problema(s) encontrado(s) nos registros de dados:`);
         problems.forEach(p => console.warn(' - ' + p));
