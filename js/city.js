@@ -527,13 +527,24 @@ class CityEngine {
         this._setPlayerDestination(x, clampedY);
     }
 
+    // NPCs comuns somem à noite (ver draw()), mas o Viajante do Portão
+    // (isCaravanTraveler, ver _makeCaravanTraveler) é a ÚNICA forma de
+    // viajar entre Cidades-Hub — ele nunca deveria desaparecer junto com o
+    // resto da praça, senão a mecânica inteira de viagem fica travada
+    // sempre que a noite cai, sem nenhum aviso ao jogador (o portão de uma
+    // cidade de verdade não fecha só porque escureceu). Reaproveitado tanto
+    // pra detecção de clique (_npcAtPoint) quanto pro desenho (draw()).
+    _nightVisibleNpcs() {
+        return this.nightWanderers.concat(this.npcs.filter(n => n.isCaravanTraveler));
+    }
+
     // NPC mais próximo do clique, dentro de um raio pequeno (não deveria
     // "roubar" cliques destinados a andar pelo chão logo ao lado dele).
     _npcAtPoint(x, y) {
         const radius = 34 * this._cityScale(window.Engine.height);
         let closest = null, closestDist = radius;
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
-        const pool = isNight ? this.nightWanderers : this.npcs;
+        const pool = isNight ? this._nightVisibleNpcs() : this.npcs;
         for (const npc of pool) {
             const d = Math.hypot(npc.x - x, npc.y - y);
             if (d <= closestDist) { closest = npc; closestDist = d; }
@@ -1585,11 +1596,13 @@ class CityEngine {
         // quem está mais embaixo na tela ser desenhado por cima (profundidade).
         // NPCs comuns somem à noite — as ruas ficam vazias (e perigosas, ver
         // _onNightFalls/_eventNightDanger), reforçando que sair à noite é
-        // uma escolha arriscada, não só estética.
+        // uma escolha arriscada, não só estética. O Viajante do Portão fica
+        // de fora dessa regra (ver _nightVisibleNpcs) — viajar entre
+        // Cidades-Hub é mecânica central, não devia travar toda noite.
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         const drawables = [
             ...this.buildings.map(b => ({ y: this._doorPoint(b).y, draw: () => this._drawBuilding(ctx, w, h, b) })),
-            ...(isNight ? this.nightWanderers : this.npcs).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
+            ...(isNight ? this._nightVisibleNpcs() : this.npcs).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);
