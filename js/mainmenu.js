@@ -157,7 +157,13 @@ class MainMenuManager {
         ctx.translate(canvas.width / 2, canvas.height - 6);
         ctx.scale(0.5, 0.5);
         const idleAnim = { type: 'idle', start: 0, duration: 0 };
-        const previewEntity = { visuals: playerData.visuals || {}, equipment: playerData.equipment || {} };
+        // `race` (ver graphics.js _drawRaceSash) faltava aqui do mesmo jeito
+        // que faltava no preview da Criação de Personagem (ui.js
+        // startCreatorPreviewLoop) — a faixa cultural da raça nunca aparecia
+        // nem na miniatura do slot de save, mesmo salvando `player.race` há
+        // várias iterações. Sem esse campo (save bem antigo), o próprio
+        // _drawRaceSash já cai de volta em "não desenha nada", igual Humano.
+        const previewEntity = { race: playerData.race, visuals: playerData.visuals || {}, equipment: playerData.equipment || {} };
         try {
             window.GFX.drawGladiator(ctx, 0, 0, previewEntity, true, idleAnim, null);
         } catch (e) { /* miniatura é cosmética — nunca impede a listagem de slots */ }
