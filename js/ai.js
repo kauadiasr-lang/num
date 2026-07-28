@@ -95,11 +95,28 @@ const AICombat = {
 
     // Escolhe um id de arma dentro do pool do estilo (com uma pequena chance de
     // fugir do pool, para manter surpresa mesmo dentro do mesmo estilo).
+    //
+    // Filtro regional (ver citydatabase.js/items.js `region`): bug de
+    // auditoria encontrado — a Loja já filtra o estoque pela cidade atual
+    // (ver ItemFactory.generateShopInventory), mas a IA sorteava arma pra
+    // QUALQUER combatente (Duelo Rápido, Rival, Vampiro, Fantasma) entre
+    // TODAS as armas cadastradas, região nenhuma incluída. Um Orc na
+    // Fortaleza Orc podia nascer empunhando a Lâmina Élfica (exclusiva do
+    // Santuário Élfico), e vice-versa — quebrando a identidade cultural que
+    // os itens regionais foram criados pra reforçar. Sem cidade carregada
+    // (ou cidade sem `region` cadastrada), cai no comportamento original:
+    // qualquer arma vale.
     pickWeaponFromStyle(styleId) {
         const style = AI_FIGHTING_STYLES[styleId] || AI_FIGHTING_STYLES.espadachim;
-        const allWeapons = Object.keys(ItemDatabase.weapons);
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const availableInCity = (id) => {
+            const t = ItemDatabase.weapons[id];
+            return !t.region || t.region === cityId;
+        };
+        const allWeapons = Object.keys(ItemDatabase.weapons).filter(availableInCity);
         if (Utils.chance(10)) return allWeapons[Utils.randomInt(0, allWeapons.length - 1)];
-        const pool = style.weaponPool.length > 0 ? style.weaponPool : allWeapons;
+        const stylePool = style.weaponPool.filter(availableInCity);
+        const pool = stylePool.length > 0 ? stylePool : allWeapons;
         return pool[Utils.randomInt(0, pool.length - 1)];
     },
 
@@ -108,11 +125,16 @@ const AICombat = {
     // IA mas nunca era lida em lugar nenhum, então Gladiadores e Guardiões
     // (os dois únicos estilos com preferShield: true, ambos com shield_bash
     // no skillPool) nunca carregavam escudo de verdade, nem visual nem
-    // mecanicamente (sem o blockChance do item).
+    // mecanicamente (sem o blockChance do item). Mesmo filtro regional do
+    // pickWeaponFromStyle acima, pelo mesmo motivo (ver Escudo Reforçado Orc).
     pickShieldFromStyle(styleId) {
         const style = AI_FIGHTING_STYLES[styleId];
         if (!style || !style.preferShield) return null;
-        const shieldKeys = Object.keys(ItemDatabase.shields);
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const shieldKeys = Object.keys(ItemDatabase.shields).filter(id => {
+            const t = ItemDatabase.shields[id];
+            return !t.region || t.region === cityId;
+        });
         return shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
     },
 
