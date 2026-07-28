@@ -1557,6 +1557,14 @@ class CityEngine {
                 'Já vi campeões subirem e caírem. A Ladder não perdoa quem hesita.',
                 'Enfrentei um dos campeões faz anos. Ainda sinto a cicatriz quando chove.',
                 'Todo gladiador novo acha que vai chegar ao topo rápido. Poucos chegam.'
+            ] },
+            // Banqueiro — a única profissão que comenta sobre o Banco (ver
+            // ui.js openBank/_applyBankInterest), reagindo a outro sistema
+            // real do mundo em vez de só flavor genérico de ofício.
+            banqueiro: { name: 'Banqueiro', lines: [
+                'Guarde seu ouro conosco — o que não é gasto hoje, rende amanhã.',
+                'Muitos gladiadores gastam tudo antes do pôr do sol. Os sábios guardam.',
+                'Nossos cofres são mais seguros que qualquer bolso na rua à noite.'
             ] }
         };
     }
