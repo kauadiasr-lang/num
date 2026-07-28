@@ -601,7 +601,13 @@ class UIManager {
             ctx.save();
             ctx.translate(canvas.width / 2, 0);
             ctx.scale(0.85, 0.85);
+            // `race` (ver graphics.js _drawRaceSash) nunca era passado pro
+            // preview — a faixa/baldric com a cor cultural da raça (accent,
+            // ver races.js) aparecia certinho na Arena, mas o jogador nunca
+            // via nem uma prévia dela durante a própria Criação de
+            // Personagem, mesmo já escolhendo a raça bem ali no mesmo menu.
             const previewEntity = {
+                race: this.creationData.race,
                 visuals: this.creationData.visuals,
                 equipment: { [SLOTS.MAIN_HAND]: this._previewSword }
             };
