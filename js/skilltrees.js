@@ -22,6 +22,25 @@ const MUTATION_STAT_KEYS = [
 ];
 window.MUTATION_STAT_KEYS = MUTATION_STAT_KEYS;
 
+// Registra uma definição de habilidade ativa de Mutação no MESMO banco
+// usado pelas habilidades comuns (window.SkillDB) — assim ela aparece
+// automaticamente no menu de Habilidade já existente em batalha, sem
+// precisar de nenhuma tela nova. Extraído pra função própria (ver
+// registerAllMutationSkillDefs no fim do arquivo) pra nunca duplicar essa
+// lógica entre o registro incondicional no boot e o registro pontual
+// dentro de unlockNode.
+function registerMutationSkillDef(d) {
+    if (!window.SkillDB[d.id]) {
+        window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
+        // Marca como exclusiva de Linhagem — ui.js openSkillTree() (Mercado
+        // Arcano, o menu de habilidades COMUM) filtra por essa flag, senão
+        // a habilidade "vazava" pra lá depois de desbloqueada pela árvore
+        // de Mutação, confundindo as duas árvores (que devem ficar
+        // completamente separadas).
+        window.SkillDB[d.id].isMutationSkill = true;
+    }
+}
+
 const SKILL_TREES = {
     vampirismo: {
         id: 'vampirismo', name: 'Árvore do Vampirismo',
@@ -178,18 +197,12 @@ window.SkillTreeSystem = {
             // Registra a habilidade ativa no MESMO banco usado pelas
             // habilidades comuns (window.SkillDB) — assim ela aparece
             // automaticamente no menu de Habilidade já existente em
-            // batalha, sem precisar de nenhuma tela nova.
-            const d = node.skillDef;
-            if (!window.SkillDB[d.id]) {
-                window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
-                // Marca como exclusiva de Linhagem — ui.js openSkillTree()
-                // (Mercado Arcano, o menu de habilidades COMUM) filtra por
-                // essa flag, senão a habilidade "vazava" pra lá depois de
-                // desbloqueada pela árvore de Mutação, confundindo as duas
-                // árvores (que devem ficar completamente separadas).
-                window.SkillDB[d.id].isMutationSkill = true;
-            }
-            if (!player.learnedSkills.includes(d.id)) player.learnedSkills.push(d.id);
+            // batalha, sem precisar de nenhuma tela nova. A própria
+            // definição já é registrada incondicionalmente no boot (ver
+            // registerAllMutationSkillDefs() no fim do arquivo), então
+            // esta chamada aqui é só uma segunda garantia idempotente.
+            registerMutationSkillDef(node.skillDef);
+            if (!player.learnedSkills.includes(node.skillDef.id)) player.learnedSkills.push(node.skillDef.id);
         }
 
         player.calculateDerivedStats();
@@ -234,3 +247,31 @@ window.SkillTreeSystem = {
         };
     }
 };
+
+// Registra TODAS as habilidades ativas de Mutação em window.SkillDB
+// incondicionalmente no carregamento do script — mesmo padrão de
+// bossai.js registerBossSkills() (registro no boot, independente de
+// histórico de sessão).
+//
+// Bug de auditoria: antes, a ÚNICA forma de uma dessas habilidades entrar
+// em SkillDB era unlockNode() rodar de verdade, no momento exato do
+// desbloqueio. Como window.SkillDB é reconstruído do zero a cada load da
+// página (ver skills.js, só as ~9 habilidades comuns), um jogador que já
+// tinha desbloqueado uma habilidade de Mutação (ex: Presas Longas) e desse
+// F5/recarregasse a página perdia a entrada em SkillDB, mas
+// `player.learnedSkills` (persistido no save) continuava listando o id —
+// o menu de habilidades de batalha (ui.js openBattleSkillMenu) e a
+// execução de habilidade (battle.js) leem `window.SkillDB[skillId]` sem
+// checar undefined, então travavam com TypeError na primeira vez que o
+// jogador abrisse o menu de batalha depois do reload. Registrar todas
+// incondicionalmente no boot, como qualquer habilidade comum, resolve de
+// vez — independe de quando/se o nó já foi desbloqueado nesta sessão.
+(function registerAllMutationSkillDefs() {
+    for (const treeId in SKILL_TREES) {
+        SKILL_TREES[treeId].nodes.forEach(node => {
+            if (node.type === 'active' && node.skillDef) {
+                registerMutationSkillDef(node.skillDef);
+            }
+        });
+    }
+})();
