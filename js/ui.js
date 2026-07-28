@@ -622,7 +622,11 @@ class UIManager {
 
         // Limpa log anterior
         const log = document.getElementById('battle-log');
-        log.innerHTML = `<p>Você encontrou ${opponent.name} (${opponent.personality})!</p>`;
+        // Raça (ver races.js) só existe pros inimigos procedurais do Duelo
+        // Rápido (Enemy) — Vampiro/Fantasma/Rivais nunca setam `.race`, então
+        // nunca inventamos uma raça falsa "Humano" pra eles aqui.
+        const raceName = opponent.race && window.RaceSystem ? window.RaceSystem.get(opponent.race).name : null;
+        log.innerHTML = `<p>Você encontrou ${opponent.name} (${opponent.personality}${raceName ? ', ' + raceName : ''})!</p>`;
 
         // Reseta botões
         document.querySelectorAll('.btn-action').forEach(btn => btn.disabled = false);

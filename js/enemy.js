@@ -71,6 +71,15 @@ class Enemy extends Entity {
         // baixíssimo, por puro azar da rolagem uniforme.
         window.AICombat.assignProfile(this, { level: this.level });
 
+        // Raça (ver races.js) — antes só o Jogador tinha `.race` (escolhida
+        // na Criação de Personagem); Entity.getTotalStat já soma o
+        // modificador racial de forma genérica pra qualquer entidade que
+        // tenha o campo, então bastava atribuir um aqui pros inimigos do
+        // Duelo Rápido também terem identidade racial de verdade (não só
+        // visual), sem precisar mudar nenhuma fórmula de combate.
+        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
+        this.race = raceIds[Utils.randomInt(0, raceIds.length - 1)];
+
         // Distribui pontos de atributo com base no nível gerado, enviesados
         // pelo estilo de luta já sorteado.
         this.generateStats();
