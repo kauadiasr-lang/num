@@ -739,7 +739,9 @@ class UIManager {
         // Animação de Barras (Player)
         const pHP = (b.player.currentHp / b.player.derivedStats.maxHp) * 100;
         const pMP = (b.player.currentMp / b.player.derivedStats.maxMp) * 100;
-        document.getElementById('player-hp-bar').style.width = `${pHP}%`;
+        const playerHpBar = document.getElementById('player-hp-bar');
+        playerHpBar.style.width = `${pHP}%`;
+        playerHpBar.classList.toggle('critical', pHP > 0 && pHP <= 25);
         document.getElementById('player-mp-bar').style.width = `${pMP}%`;
         document.getElementById('player-hp-text').innerText = `${b.player.currentHp}/${b.player.derivedStats.maxHp}`;
         document.getElementById('player-mp-text').innerText = `${b.player.currentMp}/${b.player.derivedStats.maxMp}`;
@@ -759,7 +761,9 @@ class UIManager {
 
         // Animação de Barras (Enemy)
         const eHP = (b.enemy.currentHp / b.enemy.derivedStats.maxHp) * 100;
-        document.getElementById('enemy-hp-bar').style.width = `${eHP}%`;
+        const enemyHpBar = document.getElementById('enemy-hp-bar');
+        enemyHpBar.style.width = `${eHP}%`;
+        enemyHpBar.classList.toggle('critical', eHP > 0 && eHP <= 25);
         document.getElementById('enemy-hp-text').innerText = `${b.enemy.currentHp}/${b.enemy.derivedStats.maxHp}`;
 
         this.updateDistanceDisplay();
