@@ -1360,6 +1360,13 @@ class GraphicsEngine {
     // pra posicionar o NPC, então o personagem sempre aparece "dentro" do
     // vão do portão, nunca flutuando ao lado da estrutura). Substitui a
     // transição direta cidade->montanhas por cidade->muralha->montanhas.
+    // Cores da muralha lidas da Cidade-Hub atual (ver citydatabase.js
+    // `wallColors`) — mesmo motivo do groundColors/vegetationTypes/
+    // statueColor/fountainColors: antes sempre a MESMA pedra cinza pra TODA
+    // cidade, então o Santuário Élfico (erguido "entre raízes ancestrais")
+    // mostrava a mesma muralha de pedra bruta da Fortaleza Orc/Porto
+    // Helênico. Fallback pras cores originais sem cidade carregada/cidade
+    // sem o campo (save antigo).
     _drawCityWall(ctx, w, horizon) {
         // Baixa o bastante pra não tapar a vista das montanhas/floresta ao
         // fundo (era alta demais, "tampando a beleza da passagem" — feedback
@@ -1372,8 +1379,10 @@ class GraphicsEngine {
         const gateW = Math.max(50, w * 0.06);
         const towerW = Math.max(20, w * 0.024);
         const towerH = wallH + horizon * 0.05;
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const wallColors = (cityDef && cityDef.wallColors) || { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' };
 
-        ctx.fillStyle = 'rgba(94,88,76,0.92)';
+        ctx.fillStyle = wallColors.base;
         ctx.fillRect(0, topY, Math.max(0, gateX - gateW / 2 - towerW), wallH);
         ctx.fillRect(gateX + gateW / 2 + towerW, topY, Math.max(0, w - (gateX + gateW / 2 + towerW)), wallH);
 
@@ -1386,7 +1395,7 @@ class GraphicsEngine {
         }
 
         // Torres flanqueando o portão
-        ctx.fillStyle = 'rgba(82,76,64,0.95)';
+        ctx.fillStyle = wallColors.tower;
         ctx.fillRect(gateX - gateW / 2 - towerW, horizon - towerH, towerW, towerH);
         ctx.fillRect(gateX + gateW / 2, horizon - towerH, towerW, towerH);
         ctx.fillStyle = 'rgba(0,0,0,0.25)';

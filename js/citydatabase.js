@@ -44,7 +44,10 @@ const CityDatabase = {
         statueColor: '#c9c2b0',
         // Cores da fonte central da praça (ver city.js _drawFountain) —
         // Porto Helênico preserva a fonte de água azul original.
-        fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' }
+        fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' },
+        // Cores da muralha/torres (ver graphics.js _drawCityWall) — Porto
+        // Helênico preserva a pedra cinza original de antes deste campo existir.
+        wallColors: { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' }
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -70,7 +73,10 @@ const CityDatabase = {
         // Braseiro de pedra vulcânica com brasas vivas no centro, não uma
         // fonte de água azul serena — mesmo motivo do campo acima (ver
         // city.js _drawFountain).
-        fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' }
+        fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' },
+        // Muralha de rocha vulcânica escura, mais bruta que a pedra cinza
+        // padrão — mesmo motivo do campo acima (ver graphics.js _drawCityWall).
+        wallColors: { base: 'rgba(58,46,40,0.92)', tower: 'rgba(48,38,32,0.95)' }
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -94,7 +100,11 @@ const CityDatabase = {
         // Nascente natural com brilho mágico esverdeado, não uma fonte de
         // pedra/água azul comum — mesmo motivo do campo acima (ver city.js
         // _drawFountain).
-        fountainColors: { rim: '#4a5a3a', basin: '#2a5a52', jet: 'rgba(180,255,210,0.65)', spout: '#3a2a18' }
+        fountainColors: { rim: '#4a5a3a', basin: '#2a5a52', jet: 'rgba(180,255,210,0.65)', spout: '#3a2a18' },
+        // Muralha viva de madeira/raiz entrelaçada com musgo, não pedra
+        // cinza comum — mesmo motivo do campo acima (ver graphics.js
+        // _drawCityWall).
+        wallColors: { base: 'rgba(74,90,56,0.9)', tower: 'rgba(60,74,44,0.92)' }
     }
 };
 window.CityDatabase = CityDatabase;

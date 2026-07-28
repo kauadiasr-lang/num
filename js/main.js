@@ -348,6 +348,14 @@ function validateGameData() {
                 need(typeof fc.jet === 'string' && fc.jet.length > 0, `CityDatabase['${key}']: fountainColors.jet ausente ou vazio`);
                 need(hexRe.test(fc.spout), `CityDatabase['${key}']: fountainColors.spout precisa ser uma cor hex válida`);
             }
+            // wallColors (ver graphics.js _drawCityWall) — desenhado com
+            // ctx.fillStyle usando rgba() translúcido (a muralha precisa
+            // deixar passar um pouco do céu/montanhas atrás), então só
+            // confere strings não-vazias em vez de hex estrito.
+            if (c.wallColors !== undefined) {
+                need(typeof c.wallColors.base === 'string' && c.wallColors.base.length > 0, `CityDatabase['${key}']: wallColors.base ausente ou vazio`);
+                need(typeof c.wallColors.tower === 'string' && c.wallColors.tower.length > 0, `CityDatabase['${key}']: wallColors.tower ausente ou vazio`);
+            }
         }
     }
 
