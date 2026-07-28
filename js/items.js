@@ -224,17 +224,26 @@ window.ItemFactory = {
     // Com a flag, TODO item entra no sorteio (regional de qualquer cidade
     // + neutro), dando ao Mercador Viajante uma razão mecânica real de
     // existir: é a única forma de comprar item de outra região sem viajar.
-    generateShopInventory(playerLevel, cityId = null, includeAllRegions = false) {
-        const shopInventory = [];
+    // Sorteia categoria+id de equipamento respeitando o filtro regional —
+    // extraído do corpo de generateShopInventory pra ser reaproveitado
+    // também por generateGuaranteedItem (ver abaixo), sem duplicar a lógica
+    // de categoria/pool/filtro por cidade.
+    _pickRandomEquipmentId(cityId, includeAllRegions) {
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
         const availableInCity = (template) => includeAllRegions || !template.region || template.region === cityId;
+        const category = categories[Utils.randomInt(0, categories.length - 1)];
+        const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
+        if (pool.length === 0) return null; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)
+        return { category, id: pool[Utils.randomInt(0, pool.length - 1)] };
+    },
+
+    generateShopInventory(playerLevel, cityId = null, includeAllRegions = false) {
+        const shopInventory = [];
 
         // Gera 8 itens de equipamento aleatórios entre as categorias disponíveis
         for (let i = 0; i < 8; i++) {
-            const category = categories[Utils.randomInt(0, categories.length - 1)];
-            const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
-            if (pool.length === 0) continue; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)
-            const randomId = pool[Utils.randomInt(0, pool.length - 1)];
+            const picked = this._pickRandomEquipmentId(cityId, includeAllRegions);
+            if (!picked) continue;
 
             // Probabilidade de raridade baseada no nível do jogador — curva
             // dura no início de propósito (ver pedido do jogador: lutadores
@@ -246,16 +255,49 @@ window.ItemFactory = {
             // começa a aparecer a partir do nível 3 (0% em 1-2) e Raro só a
             // partir do nível 6, ambos crescendo gradualmente depois e com
             // teto pra nunca virar garantido.
+            //
+            // Épico/Lendário (ver bug de auditoria: RARITY tem 5 tiers desde
+            // sempre, mas esta era a ÚNICA função que gera equipamento de
+            // verdade no jogo — todo loot/estoque do jogo inteiro NUNCA
+            // conseguia produzir nada acima de Raro, deixando a conquista
+            // 'legendary_finder' matematicamente impossível de obter em
+            // qualquer partida normal, e fazendo o loot "garantido e
+            // lendário" de boss/Campeão da Ladder (ver enemy.js) cair sempre
+            // no fallback comum). Só aparecem em níveis bem altos e com teto
+            // bem mais raro que os tiers anteriores, mantendo a mesma
+            // filosofia "raro de verdade, nunca garantido" das faixas de
+            // baixo nível.
             let rarity = RARITY.COMMON;
             const uncommonChance = Utils.clamp((playerLevel - 2) * 3, 0, 35);
             const rareChance = Utils.clamp((playerLevel - 5) * 2, 0, 20);
+            const epicChance = Utils.clamp((playerLevel - 10) * 1.5, 0, 8);
+            const legendaryChance = Utils.clamp((playerLevel - 15) * 0.5, 0, 2);
             if (Utils.chance(uncommonChance)) rarity = RARITY.UNCOMMON;
             if (Utils.chance(rareChance)) rarity = RARITY.RARE;
+            if (Utils.chance(epicChance)) rarity = RARITY.EPIC;
+            if (Utils.chance(legendaryChance)) rarity = RARITY.LEGENDARY;
 
-            const item = this.createEquipment(randomId, category, rarity);
+            const item = this.createEquipment(picked.id, picked.category, rarity);
             shopInventory.push(item);
         }
         return shopInventory;
+    },
+
+    // Gera um único item de raridade GARANTIDA (não sorteada) — usado pelo
+    // loot "garantido e lendário" de boss (ver enemy.js createBoss) e pelo
+    // loot "sempre de alta raridade" de Campeão da Ladder (ver enemy.js
+    // Rival.generateLoot). Antes, os dois dependiam de sortear um pool
+    // comum via generateShopInventory e TORCER que algum item aleatório do
+    // pool batesse com a raridade prometida (EPIC/LEGENDARY) — como
+    // generateShopInventory nunca produzia nada acima de Raro (ver comentário
+    // acima), a promessa nunca se cumpria de verdade, e ambos caíam
+    // silenciosamente no fallback `pool[0]`, contrariando o próprio texto
+    // "garantida"/"sempre". Reaproveita _pickRandomEquipmentId pra nunca
+    // duplicar o filtro de categoria/região.
+    generateGuaranteedItem(cityId, rarityObj, includeAllRegions = false) {
+        const picked = this._pickRandomEquipmentId(cityId, includeAllRegions);
+        if (!picked) return null;
+        return this.createEquipment(picked.id, picked.category, rarityObj);
     },
 
     // Estoque fixo de consumíveis sempre disponível no Mercado (Boticário)

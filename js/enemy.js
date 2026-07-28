@@ -470,11 +470,17 @@ function createBoss(bossId, playerLevel) {
     boss.goldValue = Math.floor(150 + boss.level * 12);
 
     // Recompensa de loot garantida e lendária, além do desbloqueio da Linhagem
+    //
+    // Bug de auditoria: buscar um item RARITY.LEGENDARY dentro de um pool de
+    // generateShopInventory nunca encontrava nada de verdade (essa função
+    // nunca produzia nada acima de Raro, ver items.js), então o fallback
+    // `pool[0]` era executado SEMPRE — um boss de Linhagem podia deixar
+    // loot Comum, contrariando o próprio comentário "garantida e lendária".
+    // generateGuaranteedItem (ver items.js) cria o item já na raridade certa
+    // direto, sem depender de sorte num pool que nunca alcançava esse tier.
     boss.generateLoot = function (playerLuk) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-        const pool = window.ItemFactory.generateShopInventory(boss.level + 4, cityId);
-        const legendary = pool.find(i => i.rarity && i.rarity.id === RARITY.LEGENDARY.id);
-        return legendary || pool[0];
+        return window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
     };
 
     return boss;
@@ -614,14 +620,25 @@ class Rival extends Entity {
     }
 
     // Campeões sempre deixam loot de alta raridade; rivais comuns têm chance normal
+    //
+    // Bug de auditoria: pra Campeões, `minRarityId = RARITY.EPIC.id` (4)
+    // filtrado contra um pool de generateShopInventory cujo teto real nunca
+    // passava de RARE (3, ver items.js) — `goodItems` ficava SEMPRE vazio,
+    // e o fallback `pool[0]` (um item comum/incomum qualquer) rodava toda
+    // vez, contrariando o próprio comentário "sempre deixam loot de alta
+    // raridade". Campeões agora usam generateGuaranteedItem (ver items.js)
+    // pra criar o item já em EPIC de verdade, sem depender de sorte num
+    // pool que nunca alcançava esse tier.
     generateLoot(playerLuk) {
         const dropChance = this.isChampion ? 100 : 40 + playerLuk;
         if (!Utils.chance(dropChance)) return null;
 
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-        const minRarityId = this.isChampion ? RARITY.EPIC.id : RARITY.UNCOMMON.id;
+        if (this.isChampion) {
+            return window.ItemFactory.generateGuaranteedItem(cityId, RARITY.EPIC);
+        }
         const pool = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
-        const goodItems = pool.filter(i => i.rarity.id >= minRarityId);
+        const goodItems = pool.filter(i => i.rarity.id >= RARITY.UNCOMMON.id);
         return goodItems.length > 0 ? goodItems[0] : pool[0];
     }
 }
