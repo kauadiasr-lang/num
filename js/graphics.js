@@ -1659,6 +1659,17 @@ class GraphicsEngine {
 
     drawGladiator(ctx, x, y, entity, isPlayer, anim, battleState) {
         const pose = this.computePose(anim, battleState && battleState.isDefending);
+        // Fadiga (só o Player tem esse campo, ver player.js addFatigue — já
+        // reduz dano/esquiva em -8% por estágio, mas até agora era 100%
+        // invisível no modelo: o número "Fadiga: X/3" no HUD era a única
+        // pista). Curva levemente a postura pra frente/baixo proporcional
+        // aos 0-3 estágios acumulados, discreto o bastante pra não brigar
+        // com nenhuma pose de animação em curso.
+        if (entity.fatigue) {
+            const droop = entity.fatigue * 2.5;
+            pose.offsetY += droop;
+            pose.torsoLean += droop * 0.6;
+        }
         const dir = isPlayer ? 1 : -1;
 
         // Sombra com gradiente suave (em vez de uma elipse chapada de opacidade
