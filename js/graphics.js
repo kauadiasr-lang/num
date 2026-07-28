@@ -1361,13 +1361,17 @@ class GraphicsEngine {
     // vão do portão, nunca flutuando ao lado da estrutura). Substitui a
     // transição direta cidade->montanhas por cidade->muralha->montanhas.
     _drawCityWall(ctx, w, horizon) {
-        const wallH = horizon * 0.4;
+        // Baixa o bastante pra não tapar a vista das montanhas/floresta ao
+        // fundo (era alta demais, "tampando a beleza da passagem" — feedback
+        // direto do usuário) — ainda clara o bastante pra ler como uma
+        // muralha de verdade separando a praça do resto do mundo.
+        const wallH = horizon * 0.18;
         const topY = horizon - wallH;
         const gateXFrac = CityEngine.GATE_XFRAC || 0.90;
         const gateX = w * gateXFrac;
         const gateW = Math.max(50, w * 0.06);
         const towerW = Math.max(20, w * 0.024);
-        const towerH = wallH + horizon * 0.08;
+        const towerH = wallH + horizon * 0.05;
 
         ctx.fillStyle = 'rgba(94,88,76,0.92)';
         ctx.fillRect(0, topY, Math.max(0, gateX - gateW / 2 - towerW), wallH);
