@@ -428,6 +428,20 @@ class Rival extends Entity {
         // resto (cores, cabelo, rosto) é preenchido aleatoriamente por cima.
         this.visuals = Object.assign(randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null), def.visuals || {});
 
+        // Aura sutil por liga nos Campeões (reaproveita o mesmo hook de
+        // graphics.js _drawLineageAura já usado pela Linhagem do jogador e
+        // pelo Elite do Duelo Rápido) — só um glow calmo, sem partícula
+        // (nunca setamos `visuals.particle`), pra nunca ser confundido com
+        // o brilho errático do Elite nem com as motes ascendentes da
+        // Linhagem Luz. Antes um Campeão da Ladder (o clímax de cada liga,
+        // já com recompensas/loot/IA de fases exclusivas) não tinha NENHUMA
+        // distinção visual além do próprio equipamento.
+        if (this.isChampion) {
+            const leagueAuraColors = { bronze: 'rgba(205,127,50,0.35)', silver: 'rgba(200,208,216,0.4)', gold: 'rgba(240,185,35,0.4)' };
+            this.visuals.hasAura = true;
+            this.visuals.auraColor = leagueAuraColors[this.league] || leagueAuraColors.gold;
+        }
+
         // Raça (ver races.js) — o Duelo Rápido (Enemy, acima) já sorteia uma
         // raça por combatente desde a iteração 6, mas Rivais nomeados da
         // Ladder ficaram de fora só por nunca terem recebido o campo. Como
