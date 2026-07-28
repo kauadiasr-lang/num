@@ -673,6 +673,19 @@ html, body {
     padding: 1px 5px; cursor: help; white-space: nowrap;
 }
 
+/* Ícones de equipamento (arma/escudo/armadura) no HUD de batalha — ver
+   ui.js updateBattleBars/_renderGearIcons. Antes o jogador podia VER a cor
+   da armadura do inimigo no torso (ver graphics.js _drawTorso) mas não
+   tinha nenhuma forma de saber que item era esse; reaproveita o mesmo
+   tooltip já usado no Inventário/Loja (attachTooltip). */
+.gear-icons {
+    display: flex; justify-content: center; gap: 6px; margin-top: 4px; min-height: 18px;
+}
+.gear-icon {
+    font-size: 0.95rem; cursor: help; opacity: 0.9; transition: opacity 0.15s, transform 0.15s;
+}
+.gear-icon:hover { opacity: 1; transform: scale(1.2); }
+
 /* Log e Ações */
 .battle-log {
     flex: 1 1 auto; min-height: 60px; max-height: 150px;

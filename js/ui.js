@@ -843,7 +843,40 @@ class UIManager {
         document.getElementById('player-status-icons').innerHTML = this._buildStatusIconsHtml(b.playerState);
         document.getElementById('enemy-status-icons').innerHTML = this._buildStatusIconsHtml(b.enemyState);
 
+        // Ícones de equipamento (ver _renderGearIcons) — desde que os
+        // inimigos comuns passaram a equipar armadura de verdade (ver
+        // Enemy.equipArmor), o jogador já consegue VER a cor do torso
+        // mudar, mas não tinha nenhuma forma de saber QUAL item é esse.
+        // Refeito a cada atualização (não só uma vez no início da luta)
+        // porque tanto o jogador (botão de troca de arma) quanto a IA
+        // (arquétipo raro "O Inconstante", ver ai.js swapWeapon) podem
+        // trocar de arma no meio do combate.
+        this._renderGearIcons('player-gear-icons', b.player);
+        this._renderGearIcons('enemy-gear-icons', b.enemy);
+
         this.updateDistanceDisplay();
+    }
+
+    // Ícones com tooltip (reaproveita attachTooltip/_itemIcon, já usados no
+    // Inventário/Loja) pras peças de equipamento visualmente relevantes de
+    // qualquer combatente — arma corpo a corpo, arma de longo alcance,
+    // escudo e peitoral. Vampiro/Fantasma/Rivais também passam por aqui
+    // (mesma leitura genérica de `entity.equipment` já usada em toda a IA),
+    // não só o Duelo Rápido comum.
+    _renderGearIcons(containerId, entity) {
+        const container = document.getElementById(containerId);
+        if (!container || !entity || !entity.equipment) return;
+        container.innerHTML = '';
+        [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.OFF_HAND, SLOTS.CHEST].forEach(slot => {
+            const item = entity.equipment[slot];
+            if (!item) return;
+            const span = document.createElement('span');
+            span.className = 'gear-icon';
+            span.innerText = this._itemIcon(item);
+            span.style.color = item.rarity ? item.rarity.color : '#fff';
+            this.attachTooltip(span, item);
+            container.appendChild(span);
+        });
     }
 
     // Traduz o estado de batalha (bleedTurns/stunned/shieldTurns/
