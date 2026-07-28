@@ -70,7 +70,7 @@ class SettingsManager {
                 if (window.GFX) window.GFX.reduceEffects = v;
                 break;
             case 'screenShake':
-                if (window.GFX) window.GFX.screenShakeEnabled = v;
+                if (window.Engine) window.Engine.screenShakeEnabled = v;
                 break;
             // 'language' e 'fullscreen' não têm estado contínuo pra aplicar aqui
         }

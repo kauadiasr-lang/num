@@ -18,6 +18,10 @@ class GameEngine {
         // Estado do Screen Shake
         this.shakeTimer = 0;
         this.shakeMagnitude = 0;
+        // Alguns jogadores têm sensibilidade a esse tipo de efeito (enjoo/
+        // desconforto) — precisa poder ser desligado (ver settings.js
+        // 'screenShake', tela de Configurações).
+        this.screenShakeEnabled = true;
 
         // Estado Global do Jogo
         this.state = {
@@ -106,6 +110,7 @@ class GameEngine {
 
     // Ativa o tremor de câmera (Screen Shake)
     triggerShake(magnitude = 10, duration = 0.2) {
+        if (!this.screenShakeEnabled) return;
         const reduce = window.GFX && window.GFX.reduceEffects;
         this.shakeMagnitude = reduce ? magnitude * 0.4 : magnitude;
         this.shakeTimer = duration;
