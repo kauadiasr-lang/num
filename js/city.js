@@ -168,10 +168,16 @@ class CityEngine {
             x = Utils.randomFloat(w * 0.1, w * 0.9);
             y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
         }
+        const professionIds = Object.keys(CityEngine.NPC_PROFESSIONS);
         return {
             x, y, targetX: x, targetY: y, pin,
             waitTimer: Utils.randomFloat(1, 4),
             facing: Utils.chance(50) ? 1 : -1,
+            // Profissão (ver NPC_PROFESSIONS/_talkToNpc) — antes todo NPC
+            // ambiente tinha as MESMAS falas genéricas, sem nenhuma identidade
+            // além da roupa/aparência sorteada; agora cada um "é" alguém (um
+            // mercador, um sacerdote, um soldado...) com falas próprias.
+            profession: professionIds[Utils.randomInt(0, professionIds.length - 1)],
             entity: {
                 visuals: {
                     gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
@@ -369,6 +375,13 @@ class CityEngine {
         let pool = CityEngine.NPC_DIALOGUE.generic;
         if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
         else if (wins >= 10) pool = CityEngine.NPC_DIALOGUE.famous;
+        // Sem fama ainda: cada NPC fala como a profissão que É, não como um
+        // figurante genérico (ver NPC_PROFESSIONS/_makeNpc). NPCs mais
+        // antigos que por algum motivo não tenham `profession` (não deveria
+        // acontecer, mas evita quebrar) caem de volta no pool genérico.
+        else if (npc.profession && CityEngine.NPC_PROFESSIONS[npc.profession]) {
+            pool = CityEngine.NPC_PROFESSIONS[npc.profession].lines;
+        }
 
         const line = pool[Utils.randomInt(0, pool.length - 1)];
         this._toast(line, 'info');
@@ -1280,6 +1293,45 @@ class CityEngine {
                 'Vou contar aos meus netos que troquei uma palavra com uma lenda viva.',
                 'A cidade inteira fala do seu nome. Você é motivo de orgulho pra essa arena.'
             ]
+        };
+    }
+
+    // Profissões dos NPCs ambiente (ver _makeNpc/_talkToNpc) — cada uma com
+    // falas próprias, usadas enquanto o jogador ainda não tem fama (wins <
+    // 10, ver NPC_DIALOGUE.famous/legendary acima, que continuam universais
+    // porque são sobre a fama do JOGADOR, não sobre quem fala).
+    static get NPC_PROFESSIONS() {
+        return {
+            mercador: { name: 'Mercador', lines: [
+                'Especiarias do Oriente, tecidos finos... tudo pelo melhor preço da praça!',
+                'Já fechei negócio com metade dos gladiadores que passam por aqui.',
+                'Compro e vendo de tudo — só não aceito moeda de outra cidade.'
+            ] },
+            sacerdote: { name: 'Sacerdote', lines: [
+                'Que os deuses guiem sua lâmina e perdoem seus excessos, gladiador.',
+                'Fiz uma oferenda esta manhã. Os presságios para a arena são... incertos.',
+                'O templo sempre tem as portas abertas, mesmo para quem vive pela espada.'
+            ] },
+            soldado: { name: 'Soldado', lines: [
+                'Se fosse mais jovem, estaria na arena com você. Ou contra você.',
+                'Guarda a postura. Vi muitos morrerem por baixar a guarda cedo demais.',
+                'A cidade dorme tranquila enquanto homens como nós ficam de vigia.'
+            ] },
+            artesao: { name: 'Artesão', lines: [
+                'Cada peça que sai da minha oficina carrega meu nome — e meu orgulho.',
+                'Se seu equipamento está gasto, conheço quem possa consertar direito.',
+                'Passei a manhã inteira polindo bronze. As mãos já nem sentem mais.'
+            ] },
+            campones: { name: 'Camponês', lines: [
+                'Vim vender o que sobrou da colheita antes que estrague no calor.',
+                'A cidade grande me assusta um pouco, mas a arena... isso é outro mundo.',
+                'Prefiro a terra e o gado a essa multidão toda gritando por sangue.'
+            ] },
+            poeta: { name: 'Poeta', lines: [
+                'Estou compondo versos sobre os duelos da arena. Você seria um bom tema.',
+                'A glória é passageira, mas um bom poema... esse pode ser eterno.',
+                'Ouça bem: a plateia esquece o vencedor de ontem mais rápido do que imagina.'
+            ] }
         };
     }
 
