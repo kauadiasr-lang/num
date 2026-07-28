@@ -285,6 +285,10 @@ html, body {
     font-style: italic; font-size: 0.78rem; color: var(--color-marble-dark);
     margin: -0.4rem 0 0.6rem; text-align: center;
 }
+.race-passive {
+    font-style: normal; font-weight: bold; font-size: 0.75rem;
+    color: var(--color-gold, #c9a24b);
+}
 
 /* Reparo de equipamento no Ferreiro/Armeiro (ver ui.js openShop/repairAllEquipment) */
 #shop-repair-section {

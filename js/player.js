@@ -149,6 +149,16 @@ class Entity {
             if (mutation.dodgeBonusPercent) dodgeChance += mutation.dodgeBonusPercent;
         }
 
+        // Traço único de raça (ver races.js `passive`) — mesmo formato dos
+        // passivos de linhagem acima (statKey/value), então generaliza pra
+        // qualquer chave de derivedStats sem precisar de mais nenhum caso
+        // especial aqui ou em battle.js. Só Player tem `this.race` (Enemy/
+        // Rival nunca definem esse campo), então nunca afeta inimigos.
+        const racePassive = (this.race && window.RACES && window.RACES[this.race] && window.RACES[this.race].passive) ? window.RACES[this.race].passive : null;
+        const raceBonus = (key) => (racePassive && racePassive.statKey === key) ? racePassive.value : 0;
+        if (raceBonus('defenseBonusPercent')) defenseRating *= (1 + raceBonus('defenseBonusPercent') / 100);
+        if (raceBonus('dodgeBonusPercent')) dodgeChance += raceBonus('dodgeBonusPercent');
+
         this.derivedStats.maxHp = maxHp;
         this.derivedStats.maxMp = maxMp;
         this.derivedStats.physicalDamage = physicalDamage;
@@ -163,14 +173,14 @@ class Entity {
         // Estatísticas derivadas da Linhagem (0 se não houver mutação ativa)
         // — expostas de forma genérica pra battle.js consumir sem precisar
         // saber qual linhagem específica está ativa.
-        this.derivedStats.lifestealPercent = mutation ? mutation.lifestealPercent : 0;
-        this.derivedStats.hpRegenPerTurn = mutation ? mutation.hpRegenPerTurn : 0;
-        this.derivedStats.lowHpDamageBonusPercent = mutation ? mutation.lowHpDamageBonusPercent : 0;
-        this.derivedStats.bleedResistPercent = mutation ? mutation.bleedResistPercent : 0;
-        this.derivedStats.drainOnCritPercent = mutation ? mutation.drainOnCritPercent : 0;
-        this.derivedStats.healPowerBonusPercent = mutation ? mutation.healPowerBonusPercent : 0;
-        this.derivedStats.negativeEffectResistPercent = mutation ? mutation.negativeEffectResistPercent : 0;
-        this.derivedStats.critChanceLowHpBonus = mutation ? mutation.critChanceLowHpBonus : 0;
+        this.derivedStats.lifestealPercent = (mutation ? mutation.lifestealPercent : 0) + raceBonus('lifestealPercent');
+        this.derivedStats.hpRegenPerTurn = (mutation ? mutation.hpRegenPerTurn : 0) + raceBonus('hpRegenPerTurn');
+        this.derivedStats.lowHpDamageBonusPercent = (mutation ? mutation.lowHpDamageBonusPercent : 0) + raceBonus('lowHpDamageBonusPercent');
+        this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + raceBonus('bleedResistPercent');
+        this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + raceBonus('drainOnCritPercent');
+        this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + raceBonus('healPowerBonusPercent');
+        this.derivedStats.negativeEffectResistPercent = (mutation ? mutation.negativeEffectResistPercent : 0) + raceBonus('negativeEffectResistPercent');
+        this.derivedStats.critChanceLowHpBonus = (mutation ? mutation.critChanceLowHpBonus : 0) + raceBonus('critChanceLowHpBonus');
         this.derivedStats.mutationSpecials = mutation ? mutation.specials : [];
 
         // Se HP/MP atual for 0 (nova entidade) ou maior que o novo máximo, ajusta.

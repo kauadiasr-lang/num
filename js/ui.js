@@ -383,7 +383,12 @@ class UIManager {
     _updateRaceTagline() {
         const race = window.RaceSystem ? window.RaceSystem.get(this.creationData.race) : null;
         const el = document.getElementById('race-tagline');
-        if (el) el.innerText = race ? race.tagline : '';
+        if (!el) return;
+        if (!race) { el.innerHTML = ''; return; }
+        // `passive` (ver races.js) é o traço único de combate da raça — some
+        // logo abaixo da tagline pra deixar claro que não é só estética.
+        const passiveHtml = race.passive ? `<br><span class="race-passive">✦ ${race.passive.label}</span>` : '';
+        el.innerHTML = `${race.tagline}${passiveHtml}`;
     }
 
     // Chamado ao trocar de gênero: se o cabelo/barba selecionado for
