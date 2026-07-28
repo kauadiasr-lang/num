@@ -1780,8 +1780,13 @@ class UIManager {
             const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
             // Item cultural regional (ver items.js `region`/citydatabase.js) —
             // um selo curto deixa claro que essa peça é exclusiva daqui, não
-            // um item comum que "por acaso" só aparece nesta loja hoje.
-            const regionBadge = item.region ? `<span style="font-size:0.7rem; color:#c9a227;">🌍 Regional</span>` : '';
+            // um item comum que "por acaso" só aparece nesta loja hoje. Antes
+            // dizia só "Regional" sem nome nenhum — o tooltip do mesmo item
+            // (ver attachTooltip) já foi corrigido pra nomear a cidade de
+            // origem, então o selo do card ficava com MENOS informação que
+            // o próprio hover do card logo abaixo.
+            const regionCityDefForBadge = item.region && window.CityDatabase ? window.CityDatabase[item.region] : null;
+            const regionBadge = regionCityDefForBadge ? `<span style="font-size:0.7rem; color:${regionCityDefForBadge.accentColor};">🌍 ${regionCityDefForBadge.name}</span>` : '';
 
             card.innerHTML = `
                 <div>
