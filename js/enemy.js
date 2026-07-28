@@ -139,6 +139,12 @@ class Enemy extends Entity {
         let rarity = RARITY.COMMON;
         if (Utils.chance(15 + this.level)) rarity = RARITY.UNCOMMON;
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        // Encantamentos (ver enchantments.js) — só o Jogador podia encantar
+        // arma até agora; battle.js._getWeaponEnchantment já lê o
+        // encantamento de QUALQUER `entity` de forma genérica, mas nenhum
+        // inimigo do Duelo Rápido jamais recebia um, então o VFX/efeito
+        // elemental nunca aparecia do lado oposto da batalha.
+        Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], 20);
         // Estilos "tank" (Gladiador/Guardião, preferShield: true) carregam
         // escudo de verdade — visual e mecanicamente (blockChance do item).
         const shieldId = window.AICombat.pickShieldFromStyle(styleId);
@@ -157,6 +163,19 @@ class Enemy extends Entity {
             return dropTable[0];
         }
         return null;
+    }
+
+    // Compartilhado por Enemy e Rival (ver equipGear abaixo) — sorteia um
+    // encantamento elemental aleatório (fogo/gelo/eletricidade/etc, ver
+    // enchantments.js) pra arma equipada, com `chancePercent`% de chance.
+    // No-op se o item não aceitar encantamento de arma.
+    static maybeEnchantWeapon(weapon, chancePercent) {
+        if (!weapon || !window.EnchantmentSystem || !window.ENCHANTMENTS) return;
+        if (!Utils.chance(chancePercent)) return;
+        const weaponEnchants = Object.keys(window.ENCHANTMENTS).filter(id => window.ENCHANTMENTS[id].appliesTo.includes('weapon'));
+        if (weaponEnchants.length === 0) return;
+        const enchantId = weaponEnchants[Utils.randomInt(0, weaponEnchants.length - 1)];
+        window.EnchantmentSystem.apply(weapon, enchantId);
     }
 }
 
@@ -481,6 +500,10 @@ class Rival extends Entity {
         const armorId = armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        // Campeões carregam arma encantada com mais frequência que rivais
+        // comuns — reforça que enfrentar um Campeão é diferente (ver
+        // Enemy.maybeEnchantWeapon acima, compartilhado com o Duelo Rápido).
+        Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], this.isChampion ? 35 : 18);
 
         // Escudo por preferência de ESTILO (gladiador/guardião), igual a
         // Enemy/Vampire — antes só Campeões ganhavam escudo, deixando
