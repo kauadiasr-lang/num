@@ -1322,6 +1322,21 @@ class UIManager {
         const p = window.Engine.state.player;
         p.calculateDerivedStats(); // Garante atualização
 
+        // Raça + passiva de combate — antes só aparecia na tela de Criação de
+        // Personagem (_updateRaceTagline) e nunca mais depois disso; o
+        // jogador escolhia uma raça pela passiva (ex: Elfo/critChanceLowHpBonus,
+        // Anão/bleedResistPercent) e não tinha nenhum lugar pra conferir de
+        // novo o que ela fazia depois de fechar aquela tela uma vez. Saves
+        // antigos sem `race` (de antes das Cidades-Hub Regionais) caem no
+        // fallback padrão 'humano', igual ao resto do jogo.
+        const raceLineEl = document.getElementById('inv-race-line');
+        if (raceLineEl) {
+            const race = window.RaceSystem ? window.RaceSystem.get(p.race || 'humano') : null;
+            raceLineEl.innerHTML = race
+                ? `${race.name}${race.passive ? ` · <span class="race-passive">✦ ${race.passive.label}</span>` : ''}`
+                : '';
+        }
+
         document.getElementById('inv-stat-points').innerText = p.statPoints || 0;
 
         const respecCost = this._respecCost(p);
