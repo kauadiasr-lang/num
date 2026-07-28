@@ -356,6 +356,11 @@ function validateGameData() {
                 need(typeof c.wallColors.base === 'string' && c.wallColors.base.length > 0, `CityDatabase['${key}']: wallColors.base ausente ou vazio`);
                 need(typeof c.wallColors.tower === 'string' && c.wallColors.tower.length > 0, `CityDatabase['${key}']: wallColors.tower ausente ou vazio`);
             }
+            // treelineColor (ver graphics.js drawCityBackdrop/_drawTreeline)
+            // — mesma classe de campo visual translúcido que wallColors.
+            if (c.treelineColor !== undefined) {
+                need(typeof c.treelineColor === 'string' && c.treelineColor.length > 0, `CityDatabase['${key}']: treelineColor ausente ou vazio`);
+            }
         }
     }
 

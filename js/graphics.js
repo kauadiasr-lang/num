@@ -1319,8 +1319,17 @@ class GraphicsEngine {
         // montanhas e a própria muralha) — reaproveita a mesma silhueta de
         // árvores já usada no bioma "Floresta" da Arena, só numa cor mais
         // distante/esmaecida. Antes a cidade pulava direto de montanhas
-        // pro chão da praça, sem NENHUMA camada de transição.
-        this._drawTreeline(ctx, w, horizon, 'rgba(24,34,22,0.55)');
+        // pro chão da praça, sem NENHUMA camada de transição. Cor lida da
+        // Cidade-Hub atual (ver citydatabase.js `treelineColor`) — mesmo
+        // motivo do groundColors/wallColors: antes SEMPRE a mesma cor de
+        // floresta densa, mesmo pra Fortaleza Orc (erguida sobre rocha
+        // vulcânica, deveria ter vegetação escassa/ressecada ao fundo, não a
+        // mesma mata cerrada do Santuário Élfico). _drawTreeline já aceita
+        // `color` genericamente (reaproveitado do sistema de biomas da
+        // Arena), então só a origem do valor muda aqui.
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const treelineColor = (cityDef && cityDef.treelineColor) || 'rgba(24,34,22,0.55)';
+        this._drawTreeline(ctx, w, horizon, treelineColor);
         // Escadaria de pedra subindo das colinas em direção às montanhas,
         // do lado de fora — sugere que a estrada continua além da cidade.
         this._drawCityStairway(ctx, w, horizon);

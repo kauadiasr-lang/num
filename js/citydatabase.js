@@ -47,7 +47,11 @@ const CityDatabase = {
         fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' },
         // Cores da muralha/torres (ver graphics.js _drawCityWall) — Porto
         // Helênico preserva a pedra cinza original de antes deste campo existir.
-        wallColors: { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' }
+        wallColors: { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' },
+        // Cor da floresta silenciosa fora da muralha (ver graphics.js
+        // drawCityBackdrop/_drawTreeline) — Porto Helênico preserva a cor
+        // original de antes deste campo existir.
+        treelineColor: 'rgba(24,34,22,0.55)'
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -76,7 +80,11 @@ const CityDatabase = {
         fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' },
         // Muralha de rocha vulcânica escura, mais bruta que a pedra cinza
         // padrão — mesmo motivo do campo acima (ver graphics.js _drawCityWall).
-        wallColors: { base: 'rgba(58,46,40,0.92)', tower: 'rgba(48,38,32,0.95)' }
+        wallColors: { base: 'rgba(58,46,40,0.92)', tower: 'rgba(48,38,32,0.95)' },
+        // Vegetação escassa e ressecada fora da muralha, não a mesma mata
+        // cerrada do Santuário Élfico — condizente com a própria descrição
+        // da Fortaleza ("rocha vulcânica"), ver graphics.js _drawTreeline.
+        treelineColor: 'rgba(48,38,26,0.35)'
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -104,7 +112,11 @@ const CityDatabase = {
         // Muralha viva de madeira/raiz entrelaçada com musgo, não pedra
         // cinza comum — mesmo motivo do campo acima (ver graphics.js
         // _drawCityWall).
-        wallColors: { base: 'rgba(74,90,56,0.9)', tower: 'rgba(60,74,44,0.92)' }
+        wallColors: { base: 'rgba(74,90,56,0.9)', tower: 'rgba(60,74,44,0.92)' },
+        // Floresta densa e vívida fora da muralha, mais rica que a mata
+        // padrão — condizente com a própria descrição do Santuário ("entre
+        // raízes ancestrais"), ver graphics.js _drawTreeline.
+        treelineColor: 'rgba(20,50,26,0.7)'
     }
 };
 window.CityDatabase = CityDatabase;
