@@ -865,6 +865,20 @@ html, body {
 }
 .shop-item-card:hover { border-color: var(--color-gold); transform: translateY(-2px); }
 
+/* Legenda de raridade (ver RARITY em items.js, gerada dinamicamente por
+   ui.js _buildRarityLegend) — antes a cor de cada item (borda + nome) era a
+   única pista de raridade, sem nenhum lugar explicando o que cada cor
+   significa. Fica mais importante agora que Raro só aparece a partir do
+   nível 6 (ver balanceamento de raridade por nível): o jogador precisa
+   conseguir notar quando finalmente encontrou algo acima de Comum. */
+.shop-rarity-legend {
+    display: flex; flex-wrap: wrap; gap: 10px 16px;
+    margin: 4px 0 10px; padding: 6px 10px;
+    background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.8rem;
+}
+.rarity-legend-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.rarity-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
 @media (max-width: 900px) {
     .inv-layout { grid-template-columns: 1fr; }
     .shop-grid { grid-template-columns: 1fr; }

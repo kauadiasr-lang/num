@@ -1529,10 +1529,23 @@ class UIManager {
     // `filterSlots` (array de SLOTS ou null) diferencia Ferreiro (armas) de
     // Armeiro (armaduras/escudos/acessórios) — mesma tela e lógica de compra,
     // só filtra o que é mostrado. `title` troca o cabeçalho do painel.
+    // Legenda de raridade (ver RARITY em items.js) — construída dinamicamente
+    // a partir do próprio registry, então uma futura raridade nova (ex:
+    // "Mítico") aparece na legenda automaticamente, sem precisar tocar
+    // nesta função. Cacheada no primeiro uso (o HTML nunca muda em runtime).
+    _buildRarityLegend() {
+        if (this._rarityLegendHtml) return this._rarityLegendHtml;
+        this._rarityLegendHtml = Object.values(RARITY).map(r =>
+            `<span class="rarity-legend-item"><span class="rarity-legend-dot" style="background:${r.color}"></span>${r.name}</span>`
+        ).join('');
+        return this._rarityLegendHtml;
+    }
+
     openShop(filterSlots = null, title = 'Mercado', consumablesOnly = false) {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
         document.getElementById('shop-panel-title').innerText = title;
+        document.getElementById('shop-rarity-legend').innerHTML = this._buildRarityLegend();
         this._currentShopFilter = filterSlots;
         this._currentShopTitle = title;
         this._currentShopConsumablesOnly = consumablesOnly;
