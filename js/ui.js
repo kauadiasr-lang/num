@@ -32,6 +32,42 @@ const SHOP_GREETINGS = {
     ]
 };
 
+// Falas de comerciante ESPECÍFICAS da Cidade-Hub atual (ver
+// citydatabase.js) — só Ferreiro/Armeiro, as duas lojas de ofício mais
+// ligadas à cultura local (a Taverna/Mercado geral seguem universais de
+// propósito). Antes desta mudança, o Ferreiro da Fortaleza Orc dizia
+// exatamente as mesmas falas do Ferreiro de Porto Helênico — nenhuma loja
+// em nenhuma cidade nova refletia onde o jogador estava, apesar de NPCs de
+// rua, clima, raças e itens já serem por cidade há várias iterações.
+// Cidade sem entrada aqui (ou sistema de cidades ausente) usa só o pool
+// genérico de SHOP_GREETINGS, comportamento idêntico ao original.
+const SHOP_GREETINGS_REGIONAL = {
+    fortaleza_orc: {
+        Ferreiro: [
+            '"Forjo com o mesmo fogo que corre nas veias da montanha. Não espere delicadeza."',
+            '"Aço orc não quebra fácil. Nem quem o carrega, se quiser sobreviver aqui."',
+            '"Já vi forasteiro rir da minha bigorna. Parou de rir depois da primeira luta."'
+        ],
+        Armeiro: [
+            '"Couro grosso, metal mais grosso ainda. Aqui ninguém sobrevive com armadura fina."',
+            '"Peso não é problema pra quem tem força pra carregar. É problema pra quem não tem."',
+            '"Já vesti chefes de guerra pra batalhas que ninguém mais lembra o nome."'
+        ]
+    },
+    santuario_elfico: {
+        Ferreiro: [
+            '"Cada lâmina daqui carrega um pouco da paciência da floresta em sua forja."',
+            '"Não forjamos pela pressa. Uma peça bem-feita dura mais que quem a encomendou."',
+            '"O metal que vem de fora nunca canta como o nosso. Ouça com atenção, e vai entender."'
+        ],
+        Armeiro: [
+            '"Leveza não é fraqueza — é o que deixa a mão livre pra reagir a tempo."',
+            '"Tecemos proteção como quem tece uma tapeçaria: com tempo, não com pressa."',
+            '"Forasteiros estranham o quanto nossa armadura pesa pouco. Nós preferimos assim."'
+        ]
+    }
+};
+
 /**
  * Gerenciador de Interface de Usuário
  */
@@ -1579,10 +1615,16 @@ class UIManager {
         // Fala do comerciante: dá a sensação de um lugar com gente de
         // verdade, não só um menu de compras. Sorteada uma vez por visita
         // (não a cada refresh de estoque após uma compra), pra não ficar
-        // trocando de frase toda hora que o jogador compra algo.
-        if (!this._shopGreetingCache || this._shopGreetingCache.title !== title) {
-            const lines = SHOP_GREETINGS[title] || SHOP_GREETINGS.Mercado;
-            this._shopGreetingCache = { title, text: lines[Utils.randomInt(0, lines.length - 1)] };
+        // trocando de frase toda hora que o jogador compra algo. Cache
+        // agora inclui a cidade atual (ver SHOP_GREETINGS_REGIONAL) — sem
+        // isso, viajar de cidade e reabrir a mesma loja (mesmo `title`)
+        // manteria a fala cacheada da cidade ANTERIOR, escondendo a fala
+        // regional nova por engano.
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        if (!this._shopGreetingCache || this._shopGreetingCache.title !== title || this._shopGreetingCache.cityId !== cityId) {
+            const regionalPool = (SHOP_GREETINGS_REGIONAL[cityId] || {})[title];
+            const lines = (regionalPool && Utils.chance(35)) ? regionalPool : (SHOP_GREETINGS[title] || SHOP_GREETINGS.Mercado);
+            this._shopGreetingCache = { title, cityId, text: lines[Utils.randomInt(0, lines.length - 1)] };
         }
         document.getElementById('shop-merchant-greeting').innerText = this._shopGreetingCache.text;
 
@@ -1659,8 +1701,8 @@ class UIManager {
         // inclui a cidade: viajar e voltar no mesmo dia não deveria mostrar
         // o estoque cru da OUTRA cidade, e revisitar a mesma loja sem viajar
         // continua mostrando o mesmo estoque do dia (comportamento já
-        // existente, preservado).
-        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        // existente, preservado). `cityId` já foi calculado mais acima,
+        // pra escolha da fala do comerciante (ver SHOP_GREETINGS_REGIONAL).
         this._shopStockCache = this._shopStockCache || {};
         const currentDay = window.City ? window.City.dayCount : 1;
         const cacheKey = `${title}::${cityId}`;
