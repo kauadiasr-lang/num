@@ -2182,6 +2182,16 @@ class GraphicsEngine {
             if (chest.id === 'a_03') { torsoColor = '#8891a0'; metallic = true; }
             else if (chest.id === 'a_02') { torsoColor = '#6b7280'; metallic = true; }
             else if (chest.id === 'a_01') { torsoColor = '#8a5a2b'; }
+            // Armaduras regionais (ver items.js a_12/a_13, Cidades-Hub
+            // Regionais) — antes caíam no fallback genérico de defesa
+            // (def > 8 ? metálico cinza : couro bronze), então a Armadura
+            // Pesada Orc virava o MESMO cinza polido de uma Armadura de
+            // Placas grega, e o Manto Élfico (uma peça de TECIDO, não couro)
+            // virava o mesmo marrom-couro de uma Armadura de Couro comum.
+            // Cor própria: ferro escuro/bruto pro orc, verde-floresta do
+            // Santuário (mesmo tom de RACES.elfo.accent) pro manto élfico.
+            else if (chest.id === 'a_12') { torsoColor = '#4a4844'; metallic = true; }
+            else if (chest.id === 'a_13') { torsoColor = '#3a5a34'; }
             else {
                 const def = chest.defense || 0;
                 torsoColor = def > 8 ? '#8891a0' : '#8a5a2b';
