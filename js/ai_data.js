@@ -211,7 +211,12 @@ const AI_TAUNT_LINES = {
 // atributos rolavam de forma totalmente desconectada um do outro).
 const AI_FIGHTING_STYLES = {
     espadachim: { id: 'espadachim', name: 'Espadachim', preferredRangeBand: 'melee_short',
-        weaponPool: ['shortsword', 'longsword', 'rapier'], preferShield: false,
+        // 'elvenblade' (Lâmina Élfica, ver items.js) somada ao pool — ágil e
+        // precisa, cabe bem no perfil de Espadachim; só aparece de verdade
+        // pra combatentes gerados no Santuário Élfico (ver AICombat.
+        // pickWeaponFromStyle, que filtra o pool pela cidade atual), dando
+        // ao estilo uma "cara élfica" nítida lá, sem afetar outras cidades.
+        weaponPool: ['shortsword', 'longsword', 'rapier', 'elvenblade'], preferShield: false,
         skillPool: ['heavy_strike', 'bleeding_cut'],
         actionBias: { ATK: 1.0, SKILL: 0.8, DEF: 0.6, APPROACH: 0.7, RETREAT: 0.4, HOLD: 0.3 },
         statFocus: { str: 3, agi: 2, acc: 2, def: 1, int: 1, luk: 1, cha: 1 } },
@@ -223,13 +228,20 @@ const AI_FIGHTING_STYLES = {
         statFocus: { str: 3, def: 2, acc: 2, agi: 1, int: 1, luk: 1, cha: 1 } },
 
     arqueiro: { id: 'arqueiro', name: 'Arqueiro', preferredRangeBand: 'ranged',
-        weaponPool: ['bow', 'crossbow'], preferShield: false,
+        // 'elvenlongbow' (Arco Élfico Longo) só aparece de fato pra
+        // combatentes do Santuário Élfico (mesmo filtro regional acima).
+        weaponPool: ['bow', 'crossbow', 'elvenlongbow'], preferShield: false,
         skillPool: ['heavy_strike', 'bleeding_cut'],
         actionBias: { ATK: 0.9, SKILL: 0.5, DEF: 0.3, APPROACH: 0.1, RETREAT: 0.9, HOLD: 0.7 },
         statFocus: { agi: 3, acc: 3, luk: 2, str: 1, int: 1, def: 1, cha: 1 } },
 
     brutamontes: { id: 'brutamontes', name: 'Brutamontes', preferredRangeBand: 'melee_short',
-        weaponPool: ['warhammer', 'rustyaxe'], preferShield: false,
+        // 'orcwaraxe' (Machado de Guerra Orc) e 'dwarvenhammer' (Martelo
+        // Rúnico Anão) somados ao pool — ambos exclusivos da Fortaleza Orc
+        // (mesmo filtro regional acima), dando ao Brutamontes gerado lá uma
+        // identidade visual/mecânica marcadamente Orc/Anã em vez das armas
+        // genéricas universais.
+        weaponPool: ['warhammer', 'rustyaxe', 'orcwaraxe', 'dwarvenhammer'], preferShield: false,
         skillPool: ['fury', 'heavy_strike'],
         actionBias: { ATK: 1.0, SKILL: 0.6, DEF: 0.2, APPROACH: 0.9, RETREAT: 0.1, HOLD: 0.1 },
         statFocus: { str: 4, def: 1, agi: 1, acc: 1, int: 1, luk: 1, cha: 1 } },
