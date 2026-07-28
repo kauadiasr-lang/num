@@ -100,6 +100,14 @@ class AudioEngine {
         setTimeout(() => this.playTone(1000, 'sine', 0.15, 0.3, 1300), 80);
     }
 
+    // Passo ao andar pela Cidade (ver city.js _updateMovement) — um "thud"
+    // grave e curto, com leve variação de tom a cada passo pra não soar
+    // igual um metrônomo. O jogador andava pela praça inteira sem NENHUM
+    // som próprio de movimento, só o drone ambiente contínuo de fundo.
+    playFootstep() {
+        this.playTone(Utils.randomInt(70, 90), 'sine', 0.08, 0.15);
+    }
+
     // --- Trilha Ambiente (drone procedural em loop, usado no Menu/Créditos) ---
     // 3 osciladores levemente destonados + um LFO lento na amplitude, criando
     // um "pad" atmosférico contínuo sem precisar de nenhum arquivo de áudio.

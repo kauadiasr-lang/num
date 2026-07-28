@@ -51,6 +51,7 @@ class CityEngine {
         this._smokeTimer = 0;
         this._ambientSoundTimer = 0;
         this._nearBuilding = null;
+        this._footstepTimer = 0; // ver _updateMovement — som de passo ao andar
 
         // Clima da praça (ver _updateWeather) — antes a cidade só variava
         // por dia/noite; o céu nunca ficava nublado nem chovia, mesmo tendo
@@ -593,6 +594,20 @@ class CityEngine {
         }
 
         this.player.moving = vx !== 0 || vy !== 0;
+
+        // Som de passo — só toca enquanto anda de verdade, num intervalo
+        // fixo (independente de FPS, por isso o `dt`). A praça inteira era
+        // silenciosa durante o movimento, com ou sem som ambiente ligado.
+        if (this.player.moving) {
+            this._footstepTimer -= dt;
+            if (this._footstepTimer <= 0) {
+                this._footstepTimer = 0.32;
+                if (window.AudioManager) window.AudioManager.playFootstep();
+            }
+        } else {
+            this._footstepTimer = 0;
+        }
+
         if (vx !== 0) {
             this.player.facing = vx > 0 ? 1 : -1;
         } else if (!this.player.moving && this._mouseX != null) {
