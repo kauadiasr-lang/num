@@ -642,6 +642,20 @@ class CityEngine {
         p.gold -= dest.travelCost;
         p.currentCityId = cityId;
 
+        // Registro de cidades visitadas (ver conquista 'world_explorer' em
+        // player.js) — saves antigos nunca tiveram esse campo, então
+        // inicializa defensivamente igual ao resto dos campos novos deste
+        // sistema (mesmo padrão de `p.fatigue || 0` usado em todo o jogo).
+        if (!p.visitedCityIds) p.visitedCityIds = [window.DEFAULT_CITY_ID];
+        if (!p.visitedCityIds.includes(cityId)) p.visitedCityIds.push(cityId);
+        const visitedAll = Object.keys(window.CityDatabase).every(id => p.visitedCityIds.includes(id));
+        if (visitedAll) {
+            const unlocked = p.checkAchievements({ visitedAllCities: true });
+            if (unlocked.length > 0) {
+                setTimeout(() => this._toast(`🏆 Conquista desbloqueada: ${unlocked[0].name}!`, 'success'), 1600);
+            }
+        }
+
         // Recarrega o ambiente da nova cidade: NPCs comuns e "presos"
         // (espectadores da Arena) somem e renascem já com a demografia
         // racial certa (ver _makeNpc); vampiros noturnos, mercador viajante

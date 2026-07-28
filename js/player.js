@@ -331,6 +331,10 @@ class Player extends Entity {
         // — 'porto_helenico' é o padrão neutro pra saves antigos, que nunca
         // tiveram esse campo (mesmo padrão de compatibilidade de `race`).
         this.currentCityId = window.DEFAULT_CITY_ID || 'porto_helenico';
+        // Cidades já visitadas (ver conquista 'world_explorer' abaixo e
+        // CityEngine.travelToCity) — começa só com a cidade inicial, já que
+        // o personagem sempre nasce lá.
+        this.visitedCityIds = [window.DEFAULT_CITY_ID || 'porto_helenico'];
 
         // --- Linhagem (Mutação) — ver lineages.js/skilltrees.js/rituals.js ---
         // Sistema TOTALMENTE separado de Encantamentos (que ficam só nos
@@ -449,6 +453,7 @@ class Player extends Entity {
         if (context.defeatedRivalId === 'gold_champion') tryUnlock('champion_gold');
         if (context.awakenedLineage) tryUnlock('lineage_awakened');
         if (context.defeatedElite) tryUnlock('elite_hunter');
+        if (context.visitedAllCities) tryUnlock('world_explorer');
 
         return unlocked;
     }
@@ -468,7 +473,12 @@ const AchievementDB = {
     champion_silver: { id: 'champion_silver', name: 'Campeão de Prata', description: 'Derrote o Campeão da Liga de Prata.', rarity: 'épico', icon: '🥈' },
     champion_gold: { id: 'champion_gold', name: 'Campeão de Ouro', description: 'Derrote o Campeão da Liga de Ouro.', rarity: 'lendário', icon: '🥇' },
     lineage_awakened: { id: 'lineage_awakened', name: 'Sangue Renovado', description: 'Derrote um boss de Ritual e desperte sua Linhagem.', rarity: 'lendário', icon: '🧬' },
-    elite_hunter: { id: 'elite_hunter', name: 'Caçador de Elites', description: 'Derrote um inimigo Elite no Duelo Rápido.', rarity: 'épico', icon: '⭐' }
+    elite_hunter: { id: 'elite_hunter', name: 'Caçador de Elites', description: 'Derrote um inimigo Elite no Duelo Rápido.', rarity: 'épico', icon: '⭐' },
+    // Cidades-Hub Regionais (ver citydatabase.js/city.js travelToCity) — a
+    // única conquista que não é checada em checkAchievements(context) vindo
+    // de uma batalha, e sim diretamente de travelToCity, já que viajar não
+    // acontece em combate nenhum.
+    world_explorer: { id: 'world_explorer', name: 'Explorador do Mundo', description: 'Visite todas as Cidades-Hub conhecidas.', rarity: 'épico', icon: '🗺️', goal: Object.keys(window.CityDatabase || {}).length || 1, progress: p => (p.visitedCityIds || []).length }
 };
 
 window.AchievementDB = AchievementDB;
