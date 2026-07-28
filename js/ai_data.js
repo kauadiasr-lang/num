@@ -125,6 +125,80 @@ const AI_PERSONALITIES = {
         weaponSwapTendency: 0.35, emotionVolatility: 0.50, tauntChance: 0.05 },
 };
 
+// Falas de provocação (ver ai.js, ação TAUNT) — antes TODA personalidade
+// usava a MESMA frase genérica ("${nome} provoca você, confiante na
+// vitória!"), mesmo tauntChance já variando bastante de perfil pra perfil
+// (Sádico 50%, Covarde 0%, Executor 2%...). Um Berserker e um Calculista
+// provocando com a frase idêntica desperdiçava toda aquela diferenciação de
+// personalidade bem no momento mais "de personagem" da IA. `{name}` é
+// substituído pelo nome do inimigo em ai.js.
+const AI_TAUNT_LINES = {
+    berserker: [
+        '{name} ruge, batendo a arma no peito: "VENHA! Sinta minha fúria!"',
+        '{name} ri descontroladamente, sedento por mais sangue.'
+    ],
+    duelista: [
+        '{name} faz uma reverência irônica: "Vamos ver do que você é feito."',
+        '{name} gira a arma com estilo: "Um duelo de verdade, finalmente!"'
+    ],
+    tatico: [
+        '{name} observa com frieza: "Já vi seu próximo movimento três antes."',
+        '{name} sorri, calculista: "Você está exatamente onde eu queria."'
+    ],
+    cacador: [
+        '{name} estreita os olhos: "Não há como fugir de mim, presa."',
+        '{name} circula devagar: "Sinto o cheiro do seu medo."'
+    ],
+    covarde: [
+        '{name} grita mais alto do que precisa: "N-não me subestime!"',
+        '{name} recua um passo, mas ainda assim provoca: "Fique longe, ou vai se arrepender!"'
+    ],
+    impulsivo: [
+        '{name} avança sem pensar: "Chega de conversa, LUTA!"',
+        '{name} bate os punhos, ansioso: "Vamos logo com isso!"'
+    ],
+    calculista: [
+        '{name} analisa sua postura: "Sua guarda tem uma falha. Eu já a encontrei."',
+        '{name} comenta, indiferente: "Isso será rápido."'
+    ],
+    veterano: [
+        '{name} suspira: "Já enfrentei cem como você. Nenhum me impressionou."',
+        '{name} ajusta a arma com calma: "Aprenda com um profissional, garoto(a)."'
+    ],
+    sadico: [
+        '{name} lambe os lábios: "Adoro quando eles ainda têm esperança."',
+        '{name} ri baixinho: "Vou fazer isso durar bastante."'
+    ],
+    protetor: [
+        '{name} se posiciona firme: "Não vou deixar você passar."',
+        '{name} ergue o escudo: "Tudo o que você tem é isso?"'
+    ],
+    honrado: [
+        '{name} inclina a cabeça, respeitoso: "Que vença o mais digno."',
+        '{name} declara com firmeza: "Lutarei com honra até o fim."'
+    ],
+    executor: [
+        '{name} não demonstra emoção alguma: "Isso é só trabalho."',
+        '{name} encara sem piscar: "Nada pessoal."'
+    ],
+    mercenario: [
+        '{name} dá de ombros: "Nada pessoal, só estou sendo pago pra isso."',
+        '{name} verifica a arma com tédio: "Vamos acabar logo, tenho outro contrato."'
+    ],
+    gladiador_experiente: [
+        '{name} acena para a plateia imaginária: "Assista e aprenda!"',
+        '{name} faz uma pose exagerada: "A multidão vai adorar isso!"'
+    ],
+    fanatico: [
+        '{name} grita aos céus: "Os deuses guiam minha lâmina contra você!"',
+        '{name} sorri com os olhos vidrados: "Sua morte será uma oferenda gloriosa!"'
+    ],
+    sobrevivente: [
+        '{name} murmura, cansado: "Só mais um obstáculo entre mim e amanhã."',
+        '{name} aperta os punhos: "Já sobrevivi a coisa pior que você."'
+    ]
+};
+
 // --- ESTILOS DE LUTA (8 arquétipos de combate) ---
 // preferredRangeBand é só uma etiqueta descritiva (o alcance de verdade vem da
 // arma equipada); weaponPool guia a escolha de arma; skillPool restringe quais
@@ -280,6 +354,7 @@ const AI_EMOTIONS = {
 };
 
 window.AI_PERSONALITIES = AI_PERSONALITIES;
+window.AI_TAUNT_LINES = AI_TAUNT_LINES;
 window.AI_FIGHTING_STYLES = AI_FIGHTING_STYLES;
 window.AI_RARE_ARCHETYPES = AI_RARE_ARCHETYPES;
 window.RARE_ARCHETYPE_CHANCE = RARE_ARCHETYPE_CHANCE;

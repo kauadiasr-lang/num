@@ -588,8 +588,13 @@ const AICombat = {
         add('SWAP', null, swapScore, null);
 
         // Provocar (flavor puro, reaproveita DEF/HOLD com mensagem diferente e leve ganho de moral)
+        // — cada personalidade tem sua própria frase (ver AI_TAUNT_LINES em
+        // ai_data.js); antes TODAS usavam o mesmo texto genérico, desperdiçando
+        // a diferenciação de tom que tauntChance já sugeria por perfil.
         if (Utils.chance(p.tauntChance * 100) && ctx.risk < 0.4) {
-            add('TAUNT', null, 0.35, `${enemy.name} provoca você, confiante na vitória!`);
+            const lines = (window.AI_TAUNT_LINES && window.AI_TAUNT_LINES[p.id]) || ['{name} provoca você, confiante na vitória!'];
+            const line = lines[Utils.randomInt(0, lines.length - 1)].replace('{name}', enemy.name);
+            add('TAUNT', null, 0.35, line);
         }
 
         return list;
