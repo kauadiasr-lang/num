@@ -1294,7 +1294,7 @@ class UIManager {
                         this.openInventory(); // Refresh
                     } else {
                         window.AudioManager.playError();
-                        alert("Mochila Cheia! Libere espaço antes de desequipar.");
+                        if (window.MainMenu) window.MainMenu.showToast('Mochila cheia! Libere espaço antes de desequipar.', 'error');
                     }
                 };
             } else {
@@ -1544,10 +1544,10 @@ class UIManager {
                     this.openShop(this._currentShopFilter, this._currentShopTitle); // Refresh, mantendo a categoria (Ferreiro/Armeiro)
                 } else if (p.gold < price) {
                     window.AudioManager.playError();
-                    alert("Ouro insuficiente!");
+                    if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
                 } else {
                     window.AudioManager.playError();
-                    alert("Inventário Cheio!");
+                    if (window.MainMenu) window.MainMenu.showToast('Inventário cheio!', 'error');
                 }
             };
 
@@ -1589,10 +1589,10 @@ class UIManager {
                     document.getElementById('shop-player-gold').innerText = p.gold;
                 } else if (p.gold < price) {
                     window.AudioManager.playError();
-                    alert("Ouro insuficiente!");
+                    if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
                 } else {
                     window.AudioManager.playError();
-                    alert("Inventário Cheio!");
+                    if (window.MainMenu) window.MainMenu.showToast('Inventário cheio!', 'error');
                 }
             };
 
@@ -1740,7 +1740,7 @@ class UIManager {
         const p = window.Engine.state.player;
         const amount = Math.floor(Number(document.getElementById('bank-amount').value));
         if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
-        if (amount > p.gold) { window.AudioManager.playError(); alert('Você não tem ouro suficiente na mão!'); return; }
+        if (amount > p.gold) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro suficiente na mão!', 'error'); return; }
         p.gold -= amount;
         p.bankGold = (p.bankGold || 0) + amount;
         window.SaveManager.save(window.Engine.state);
@@ -1753,7 +1753,7 @@ class UIManager {
         const p = window.Engine.state.player;
         const amount = Math.floor(Number(document.getElementById('bank-amount').value));
         if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
-        if (amount > (p.bankGold || 0)) { window.AudioManager.playError(); alert('Você não tem ouro suficiente guardado!'); return; }
+        if (amount > (p.bankGold || 0)) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro suficiente guardado!', 'error'); return; }
         p.bankGold -= amount;
         p.gold += amount;
         window.SaveManager.save(window.Engine.state);
