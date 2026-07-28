@@ -253,6 +253,15 @@ class CityEngine {
         const x = clientX - rect.left, y = clientY - rect.top;
         this._dismissHint();
 
+        // Clicar num NPC puxa uma fala rápida (ver _talkToNpc) — antes os
+        // NPCs eram puramente decorativos, sem NENHUMA reação a clique,
+        // então clicar neles só fazia o jogador andar até lá em silêncio.
+        const npc = this._npcAtPoint(x, y);
+        if (npc) {
+            this._talkToNpc(npc);
+            return;
+        }
+
         // Clicar direto num prédio entra nele na hora, sem precisar andar até
         // lá primeiro — só cliques no chão (fora de qualquer estrutura) fazem
         // o jogador caminhar. Continua dando pra "passear de verdade" com
@@ -266,6 +275,37 @@ class CityEngine {
 
         const clampedY = Utils.clamp(y, this._horizon(window.Engine.height) + 10, this._plazaBottom(window.Engine.height) + 20);
         this._setPlayerDestination(x, clampedY);
+    }
+
+    // NPC mais próximo do clique, dentro de um raio pequeno (não deveria
+    // "roubar" cliques destinados a andar pelo chão logo ao lado dele).
+    _npcAtPoint(x, y) {
+        const radius = 34 * this._cityScale(window.Engine.height);
+        let closest = null, closestDist = radius;
+        for (const npc of this.npcs) {
+            const d = Math.hypot(npc.x - x, npc.y - y);
+            if (d <= closestDist) { closest = npc; closestDist = d; }
+        }
+        return closest;
+    }
+
+    // Fala rápida de um NPC ambiente — nunca revela mecanismos de jogo
+    // diretamente (isso já é papel dos rumores de Linhagem, ver
+    // _eventLineageRumor), só reage à fama do jogador (vitórias) ou solta
+    // uma observação genérica sobre a vida na praça.
+    _talkToNpc(npc) {
+        const p = window.Engine.state.player;
+        const wins = p ? (p.wins || 0) : 0;
+        let pool = CityEngine.NPC_DIALOGUE.generic;
+        if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
+        else if (wins >= 10) pool = CityEngine.NPC_DIALOGUE.famous;
+
+        const line = pool[Utils.randomInt(0, pool.length - 1)];
+        this._toast(line, 'info');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+        // Vira de frente pro jogador por um instante — pequeno detalhe de
+        // vida, sem precisar de nenhum estado de animação novo.
+        npc.facing = (npc.x > this.player.x) ? -1 : 1;
     }
 
     get _interactRadius() { return 70; }
@@ -1084,6 +1124,35 @@ class CityEngine {
     // proeminente que os cidadãos comuns, mas pequeno o bastante pra caber
     // na escala real dos prédios ao seu redor.
     static get PLAYER_EXTRA_SHRINK() { return 0.4; }
+
+    // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —
+    // nunca revelam mecanismos de jogo, só reagem à fama (vitórias) do
+    // jogador ou soltam uma observação genérica sobre a praça/arena.
+    // Orientado a dados: adicionar mais falas é só engordar os arrays.
+    static get NPC_DIALOGUE() {
+        return {
+            generic: [
+                'Que os deuses te sorriam hoje, gladiador.',
+                'Cuidado por onde anda — dizem que roubaram uma bolsa perto da forja essa semana.',
+                'Vi um novo lote de armas no Ferreiro, se estiver com ouro sobrando.',
+                'A plateia estava selvagem no último duelo. Você viu?',
+                'Não sei como aguentam lutar por diversão. Eu prefiro vender pão.',
+                'Já ouviu falar do Coliseu? Dizem que nem os deuses perdem uma luta lá.',
+                'Bons ventos hoje. Bom presságio pra quem vai à arena.'
+            ],
+            famous: [
+                'Ora, se não é você! Já ouvi seu nome em mais de uma taverna.',
+                'Meus filhos falam de suas vitórias como se fossem lendas antigas.',
+                'Um gladiador de verdade! Dá sorte só de cruzar seu caminho.',
+                'Vim de longe só pra ver a arena — e olha quem encontro na praça.'
+            ],
+            legendary: [
+                'Por Zeus... é você mesmo? Achei que só existia em histórias.',
+                'Vou contar aos meus netos que troquei uma palavra com uma lenda viva.',
+                'A cidade inteira fala do seu nome. Você é motivo de orgulho pra essa arena.'
+            ]
+        };
+    }
 
     _drawNpc(ctx, npc) {
         if (window.GFX && window.GFX.drawGladiator) {
