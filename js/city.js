@@ -1851,12 +1851,20 @@ class CityEngine {
             fortaleza_orc: [
                 'Rocha vulcânica sob os pés, ferro enferrujado na mão — é assim que se cresce em Gorkhal.',
                 'Não é fácil viver aqui, mas quem sobrevive vira forte de verdade, não só no nome.',
-                'Já vi forasteiro fraco entrar por aquele portão. Poucos voltam a sair pelo mesmo.'
+                'Já vi forasteiro fraco entrar por aquele portão. Poucos voltam a sair pelo mesmo.',
+                'O chão treme de vez em quando, lá pelas fornalhas. Ninguém mais nem repara.',
+                'Cicatriz é currículo por aqui — quem não tem nenhuma ainda não provou nada.',
+                'Bebemos o que dá pra beber e lutamos pelo que sobra. É assim desde sempre.',
+                'Um chefe de guerra fraco não dura uma estação. Os nossos duram porque sangram junto com a tropa.'
             ],
             santuario_elfico: [
                 'A chuva quase nunca para por aqui — a floresta bebe antes de nós, e não reclamamos.',
                 'Nascemos entre raízes que já eram velhas antes dos nossos avós nascerem.',
-                'Sylvaneth guarda seus segredos bem — poucos forasteiros veem além da fronteira da mata.'
+                'Sylvaneth guarda seus segredos bem — poucos forasteiros veem além da fronteira da mata.',
+                'O silêncio da mata à noite não é vazio — é só um jeito de ouvir mais longe.',
+                'Vivemos tanto que aprendemos a não ter pressa com nada, nem com a guerra.',
+                'Dizem que forasteiros acham nosso povo frio. Só somos pacientes com o que importa.',
+                'A chuva lava as pegadas de quem não deveria ter passado por aqui.'
             ]
         };
     }
