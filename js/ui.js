@@ -319,6 +319,35 @@ class UIManager {
             const btn = e.target.closest && e.target.closest('button');
             if (btn && !btn.disabled && window.AudioManager.initialized) window.AudioManager.playUIClick();
         }, true);
+
+        // --- Acessibilidade: Esc fecha o painel/menu/modal aberto ---
+        // Antes só clique/toque no X fechava qualquer coisa — nenhuma tecla
+        // fazia isso. Reaproveita o MESMO botão de fechar que cada tela já
+        // tem (inclusive o caso especial de Conquistas vindo do Menu
+        // Principal), então nenhuma lógica de fechamento é duplicada.
+        // Prioridade: modal de confirmação > sub-menus de batalha (perde
+        // pra qualquer coisa em `.hidden` que não seja essas 3) > painel de
+        // tela cheia atual.
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmCancel = document.getElementById('confirm-modal-cancel');
+            if (confirmModal && !confirmModal.classList.contains('hidden') &&
+                confirmCancel && !confirmCancel.classList.contains('hidden')) {
+                confirmCancel.click();
+                return;
+            }
+            const battleMenuIds = ['battle-skills-menu', 'battle-items-menu', 'battle-move-menu'];
+            for (const id of battleMenuIds) {
+                const el = document.getElementById(id);
+                if (el && !el.classList.contains('hidden')) {
+                    el.classList.add('hidden');
+                    return;
+                }
+            }
+            const closeBtn = document.querySelector('.screen.active .btn-close');
+            if (closeBtn) closeBtn.click();
+        });
     }
 
     // --- Identidade Visual (Cabelo/Barba) ---
