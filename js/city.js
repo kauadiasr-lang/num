@@ -690,6 +690,11 @@ class CityEngine {
             if (this._footstepTimer <= 0) {
                 this._footstepTimer = 0.32;
                 if (window.AudioManager) window.AudioManager.playFootstep();
+                // Poeira nos pés a cada passo (mesmo instante do som) — o
+                // chão de pedra/mármore da praça (ver _drawPlazaGround) nunca
+                // reagia em nada ao jogador andar por cima, mesmo a Arena de
+                // combate já tendo poeira ambiente própria (drawArenaBackground).
+                if (window.GFX) window.GFX.spawnParticles(this.player.x, this.player.y + 4, '#9a8a70', 2, 0.6, 2);
             }
         } else {
             this._footstepTimer = 0;
