@@ -97,13 +97,26 @@ const BOSS_AI = {
             const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 10 };
             const ready = id => boss.isSkillReady(id);
 
-            // Corrigido: antes isso disparava Raio Sagrado incondicionalmente
-            // fora de alcance, ignorando o próprio cooldown da habilidade —
-            // um jogador que só mantivesse distância forçava o boss a lançar
-            // o feixe TODO turno, sem nunca respeitar o intervalo de 3 turnos
-            // que o resto da IA (inclusive o caso "em alcance" logo abaixo)
-            // já respeitava.
-            if (!battle.isInRange(range)) {
+            // Bug de auditoria: Anjo Guardião usa lança (spear: minRange 2,
+            // maxRange 5), mas essa árvore só tratava "longe demais" — nunca
+            // "perto demais". Um jogador que avançasse até distância 0-1
+            // prendia o boss pra sempre: !isInRange(range) ficava true (por
+            // estar ABAIXO do mínimo, não acima do máximo), então ela só
+            // tentava Raio Sagrado (cooldown de 3 turnos) ou "avançar" (sem
+            // efeito real, já que aproximar de quem já está colado não muda
+            // nada) — nunca reabria distância pra usar cura/barreira/ataque/
+            // julgamento final, todos só alcançáveis no branch "em alcance"
+            // abaixo. Agora espelha o gate de duas vias já usado pela IA
+            // comum (ver ai.js, decideAction): recua quando perto demais,
+            // só cai no caso "longe demais" quando realmente está acima do
+            // alcance máximo.
+            if (battle.distance < range.min) {
+                const speed = boss.getWeaponSpeed();
+                const needed = range.min - battle.distance;
+                const amount = Math.min(speed.retreatSpeed, Math.max(needed, 0.5));
+                return { action: 'RETREAT', amount, message: `${boss.name} recua, reabrindo espaço para lutar com sua lança.` };
+            }
+            if (battle.distance > range.max) {
                 if (ready('anjo_raio_sagrado')) {
                     return { action: 'SKILL', param: 'anjo_raio_sagrado', message: `${boss.name} pune à distância com luz pura!` };
                 }
