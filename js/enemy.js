@@ -569,10 +569,22 @@ class Rival extends Entity {
 
     // Equipa arma (coerente com o estilo de luta atribuído) e armadura,
     // correspondentes à raridade da liga do rival
+    //
+    // Bug de auditoria: `equipArmor()` do Enemy comum foi migrado pra usar
+    // `AICombat.pickArmor()` (filtra por slot CHEST e por região, ver
+    // comentário lá em cima) precisamente pra imitar o que Rival.equipGear
+    // já fazia — mas o próprio Rival nunca foi migrado junto, e continuava
+    // sorteando de QUALQUER categoria de `ItemDatabase.armors` sem filtro
+    // nenhum. Isso deixava dois problemas exclusivos dos Rivais nomeados da
+    // Ladder (justamente os inimigos de maior destaque do jogo): 1) um item
+    // de outro slot (ex: "Botas de Couro") podia ser equipado visualmente
+    // no peitoral; 2) um Rival da Fortaleza Orc podia nascer de Manto
+    // Élfico, quebrando a identidade regional. `pickArmor()` já resolve os
+    // dois de uma vez, então basta reusar a mesma função.
     equipGear(rarity) {
-        const armorKeys = Object.keys(ItemDatabase.armors);
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
-        const armorId = armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
+        const armorId = window.AICombat.pickArmor();
         this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
         // Campeões carregam arma encantada com mais frequência que rivais
@@ -587,7 +599,15 @@ class Rival extends Entity {
         // (ver AI_FIGHTING_STYLES.preferShield em ai_data.js).
         const shieldId = window.AICombat.pickShieldFromStyle(this.aiStyle.id);
         if (this.isChampion || shieldId) {
-            const shieldKeys = Object.keys(ItemDatabase.shields);
+            // Mesmo filtro regional do pickShieldFromStyle, aplicado aqui
+            // também pro fallback forçado de Campeão (que ignora
+            // preferShield) — sem isso um Campeão sem preferência de escudo
+            // ainda podia herdar um Escudo Reforçado Orc estando no
+            // Santuário Élfico.
+            const shieldKeys = Object.keys(ItemDatabase.shields).filter(id => {
+                const t = ItemDatabase.shields[id];
+                return !t.region || t.region === cityId;
+            });
             const finalShieldId = shieldId || shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
             this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(finalShieldId, 'shields', rarity);
         }
