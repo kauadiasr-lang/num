@@ -1585,10 +1585,18 @@ class CityEngine {
         drawables.forEach(d => d.draw());
     }
 
+    // Cor do piso lida da Cidade-Hub atual (ver citydatabase.js
+    // `groundColors`) — antes fixa em tom de mármore grego pra TODA cidade,
+    // então a Fortaleza Orc (descrita como erguida "sobre rocha vulcânica")
+    // e o Santuário Élfico (erguido "entre raízes ancestrais") mostravam a
+    // mesma praça de mármore de Porto Helênico. Fallback pro mármore
+    // original sem cidade carregada/cidade sem o campo (save antigo).
     _drawPlazaGround(ctx, w, h, horizon) {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const colors = (cityDef && cityDef.groundColors) || ['#8a8070', '#5a5448'];
         const grad = ctx.createLinearGradient(0, horizon, 0, h);
-        grad.addColorStop(0, '#8a8070');
-        grad.addColorStop(1, '#5a5448');
+        grad.addColorStop(0, colors[0]);
+        grad.addColorStop(1, colors[1]);
         ctx.fillStyle = grad;
         ctx.fillRect(0, horizon, w, h - horizon);
 

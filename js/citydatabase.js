@@ -28,7 +28,12 @@ const CityDatabase = {
         arenaBiomes: ['coliseu', 'areia', 'ruinas', 'templo', 'castelo'],
         weather: { rainChance: 35, stormChance: 30 }, // valores originais da Cidade, preservados como padrão
         raceDemographics: { humano: 55, espartano: 15, ateniense: 15, cretense: 8, tebano: 7 },
-        accentColor: '#c9a227' // dourado/mármore
+        accentColor: '#c9a227', // dourado/mármore
+        // Cor do piso da praça (ver city.js _drawPlazaGround) — [topo, base
+        // do gradiente]. Porto Helênico preserva EXATAMENTE os valores
+        // originais de antes deste campo existir (mesma cor de mármore de
+        // sempre), garantindo que o visual da cidade padrão não mude nada.
+        groundColors: ['#8a8070', '#5a5448']
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -39,7 +44,12 @@ const CityDatabase = {
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         weather: { rainChance: 15, stormChance: 45 }, // clima seco a maior parte do tempo, mas tempestades bem mais violentas quando chega a chover
         raceDemographics: { orc: 78, anao: 10, humano: 8, espartano: 4 },
-        accentColor: '#6b3a2a'
+        accentColor: '#6b3a2a',
+        // Piso de rocha vulcânica escura, não mármore — a praça inteira
+        // (metade da tela explorável) usava a MESMA cor de mármore grego de
+        // Porto Helênico em toda cidade, apesar da própria descrição da
+        // Fortaleza falar de "rocha vulcânica" (ver city.js _drawPlazaGround).
+        groundColors: ['#5a4a42', '#332a24']
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -50,7 +60,10 @@ const CityDatabase = {
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         weather: { rainChance: 65, stormChance: 20 }, // chove muito mais que nas outras cidades (identidade climática pedida)
         raceDemographics: { elfo: 70, humano: 10, ateniense: 10, cretense: 10 },
-        accentColor: '#2a6a4a'
+        accentColor: '#2a6a4a',
+        // Piso esverdeado/terroso (raízes e musgo), não mármore — mesmo
+        // motivo do campo acima (ver Fortaleza Orc).
+        groundColors: ['#5a6a48', '#3a4530']
     }
 };
 window.CityDatabase = CityDatabase;
