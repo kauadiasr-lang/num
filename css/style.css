@@ -1256,6 +1256,11 @@ html, body {
     padding: 6px 10px; border-radius: 4px; cursor: pointer;
 }
 .setting-checkbox { width: 20px; height: 20px; accent-color: var(--color-gold); cursor: pointer; }
+.settings-section-header {
+    color: var(--color-gold); margin: 14px 0 4px; padding-top: 8px;
+    border-top: 1px solid rgba(212,175,55,0.25); font-size: 0.95rem;
+}
+.setting-static { color: var(--color-marble-dark); font-family: monospace; font-size: 0.85rem; }
 
 /* --- Créditos --- */
 .credits-panel { width: 90%; max-width: 700px; height: 80vh; position: relative; overflow: hidden; }

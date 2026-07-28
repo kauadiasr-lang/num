@@ -312,6 +312,18 @@ class MainMenuManager {
 
         container.appendChild(row('Tremor de Câmera', `<input type="checkbox" data-key="screenShake" class="setting-checkbox" ${S.get('screenShake') ? 'checked' : ''}>`));
 
+        // Referência rápida de controles de teclado — nunca documentados em
+        // lugar nenhum da interface antes (WASD/setas e Esc funcionavam
+        // desde as primeiras iterações, mas só quem lesse o código-fonte
+        // saberia que existem).
+        const controlsHeader = document.createElement('h4');
+        controlsHeader.className = 'settings-section-header';
+        controlsHeader.innerText = 'Controles';
+        container.appendChild(controlsHeader);
+        container.appendChild(row('Mover na Cidade', '<span class="setting-static">WASD ou Setas</span>'));
+        container.appendChild(row('Interagir com Prédio Próximo', '<span class="setting-static">E</span>'));
+        container.appendChild(row('Fechar Janela/Menu', '<span class="setting-static">Esc</span>'));
+
         // Liga os eventos de todos os controles gerados
         container.querySelectorAll('[data-key]').forEach(el => {
             const key = el.dataset.key;
