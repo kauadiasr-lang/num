@@ -1415,7 +1415,11 @@ class UIManager {
     // o atributo que antes só existia como número, sem nenhuma mecânica
     // própria (ver auditoria) — pra que negociar de verdade valha a pena
     // independente de fama.
-    _shopDiscount(p) {
+    // `shopName` (opcional) casa com o nome da loja anunciada por
+    // CityEngine._eventPromotion ('Ferreiro'/'Armeiro'/'Taverna') — quando
+    // bate, soma o desconto temporário real da promoção em cima dos
+    // descontos permanentes de fama/Carisma.
+    _shopDiscount(p, shopName = null) {
         if (!p) return 0;
         let discount = 0;
         if (p.wins >= 25) discount = 0.20;
@@ -1423,7 +1427,13 @@ class UIManager {
 
         const cha = p.getTotalStat ? p.getTotalStat('cha') : 5;
         const chaDiscount = Utils.clamp((cha - 5) * 0.006, 0, 0.12); // até +12% com Carisma bem alto
-        return Utils.clamp(discount + chaDiscount, 0, 0.35);
+        discount = Utils.clamp(discount + chaDiscount, 0, 0.35);
+
+        const promo = window.City && window.City.activePromotion;
+        if (promo && shopName && promo.shopName === shopName) {
+            discount = Utils.clamp(discount + promo.discountPercent / 100, 0, 0.6);
+        }
+        return discount;
     }
 
     // Soma quanto de durabilidade falta em todo o equipamento do jogador e
@@ -1548,7 +1558,7 @@ class UIManager {
         const container = document.getElementById('shop-items-container');
         container.innerHTML = '';
 
-        const discount = this._shopDiscount(p);
+        const discount = this._shopDiscount(p, title);
         this.currentShopItems.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
@@ -1596,7 +1606,7 @@ class UIManager {
         const container = document.getElementById('shop-consumables-container');
         container.innerHTML = '';
 
-        const discount = this._shopDiscount(p);
+        const discount = this._shopDiscount(p, this._currentShopTitle);
         ItemFactory.getConsumableStock().forEach(item => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
@@ -1701,13 +1711,28 @@ class UIManager {
     // repintura da tela. O jogador nunca chegava a ver a confirmação. Agora
     // a mensagem só é limpa ao ABRIR a tela (ver openHealer), não a cada
     // refresh de fadiga/custo/botão.
+    // Custo real cobrado pelo Curandeiro (Taverna) — extraído pra ser
+    // reaproveitado entre updateHealerScreen (preview) e healFatigue
+    // (cobrança de verdade), sempre com o MESMO desconto de promoção (ver
+    // CityEngine._eventPromotion/ui.js _shopDiscount), pra nunca mostrar um
+    // preço e cobrar outro.
+    _healerCost(p) {
+        const fatigue = p.fatigue || 0;
+        const discount = this._shopDiscount(p, 'Taverna');
+        return Math.round(fatigue * 30 * (1 - discount));
+    }
+
     updateHealerScreen() {
         const p = window.Engine.state.player;
         const fatigue = p.fatigue || 0;
-        const cost = fatigue * 30;
+        const cost = this._healerCost(p);
 
         document.getElementById('healer-fatigue-level').innerText = fatigue;
         document.getElementById('healer-cost').innerText = cost;
+
+        const promo = window.City && window.City.activePromotion;
+        const promoNote = document.getElementById('healer-promo-note');
+        if (promoNote) promoNote.classList.toggle('hidden', !(promo && promo.shopName === 'Taverna'));
 
         // O botão continua habilitado mesmo com fadiga 0 (custo 0 nesse
         // caso): dormir também zera as noites em claro (ver
@@ -1721,7 +1746,7 @@ class UIManager {
     healFatigue() {
         const p = window.Engine.state.player;
         const fatigue = p.fatigue || 0;
-        const cost = fatigue * 30;
+        const cost = this._healerCost(p);
 
         if (p.gold < cost) {
             window.AudioManager.playError();

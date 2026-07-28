@@ -1013,6 +1013,7 @@ html, body {
 }
 .halloffame-entry .highlight-gold { font-weight: bold; }
 .healer-message { margin-top: 15px; min-height: 24px; color: #6fcf5a; font-weight: bold; }
+.healer-promo-note { margin-top: 8px; font-size: 0.85rem; color: var(--color-gold-bright, #ffd700); font-weight: bold; }
 
 /* Conquistas */
 .achievements-panel { width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; position: relative; }

@@ -68,6 +68,14 @@ class CityEngine {
         // caso do duelista, uma batalha de verdade) de vez em quando.
         this._eventTimer = Utils.randomFloat(35, 60);
 
+        // Promoção temporária de loja (ver _eventPromotion): antes esse
+        // evento só mostrava o toast "preços especiais só por hoje" sem
+        // NENHUM desconto real acontecer em lugar nenhum — o jogador ia até
+        // o Ferreiro/Armeiro/Taverna e via os mesmos preços de sempre.
+        // `activePromotion` guarda qual loja e por quanto tempo o desconto
+        // real dura (ver ui.js _shopDiscount).
+        this.activePromotion = null;
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -506,6 +514,16 @@ class CityEngine {
         this._updateAmbientEffects(dt);
         this._updateWeather(dt);
         this._updateRandomEvents(dt);
+        this._updatePromotion(dt);
+    }
+
+    // Conta regressiva da promoção de loja ativa (ver _eventPromotion) — some
+    // sozinha quando o tempo acaba, sem precisar de nenhum toast de aviso
+    // (o mesmo tratamento silencioso que o clima já recebe em _updateWeather).
+    _updatePromotion(dt) {
+        if (!this.activePromotion) return;
+        this.activePromotion.timer -= dt;
+        if (this.activePromotion.timer <= 0) this.activePromotion = null;
     }
 
     _updateDayCycle(dt) {
@@ -1062,10 +1080,22 @@ class CityEngine {
         this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
     }
 
+    // Bug de auditoria corrigido: este evento anunciava "preços especiais só
+    // por hoje" mas nunca aplicava NENHUM desconto real em lugar nenhum — o
+    // jogador ia até a loja anunciada e via os mesmos preços de sempre. Só
+    // Ferreiro/Armeiro/Taverna têm um preço em ouro de verdade pra descontar
+    // (o Mercado Arcano abre a árvore de Talentos comuns, que custa Pontos
+    // de Talento, nunca ouro — por isso saiu do sorteio). O desconto real é
+    // lido em ui.js `_shopDiscount` (loja) e `updateHealerScreen`/
+    // `healFatigue` (Taverna/Curandeiro).
     _eventPromotion() {
-        const shops = ['Ferreiro', 'Armeiro', 'Taverna', 'Mercado Arcano'];
+        const shops = [
+            { name: 'Ferreiro' }, { name: 'Armeiro' }, { name: 'Taverna' }
+        ];
         const shop = shops[Utils.randomInt(0, shops.length - 1)];
-        this._toast(`Promoção no ${shop}: preços especiais só por hoje!`, 'info');
+        const discountPercent = Utils.randomInt(15, 30);
+        this.activePromotion = { shopName: shop.name, discountPercent, timer: Utils.randomFloat(90, 160) };
+        this._toast(`Promoção no ${shop.name}: -${discountPercent}% em tudo, só por hoje!`, 'info');
     }
 
     _eventPerformer() {
