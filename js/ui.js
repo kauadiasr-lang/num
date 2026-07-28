@@ -771,7 +771,35 @@ class UIManager {
         enemyHpBar.classList.toggle('critical', eHP > 0 && eHP <= 25);
         document.getElementById('enemy-hp-text').innerText = `${b.enemy.currentHp}/${b.enemy.derivedStats.maxHp}`;
 
+        // Ícones de status ativos (sangramento/queimadura/veneno, atordoado,
+        // barreira, evasão) — os estados já existiam em playerState/
+        // enemyState (ver battle.js) mas nunca tinham feedback visual algum;
+        // o jogador só descobria um sangramento ativo lendo o log de texto.
+        document.getElementById('player-status-icons').innerHTML = this._buildStatusIconsHtml(b.playerState);
+        document.getElementById('enemy-status-icons').innerHTML = this._buildStatusIconsHtml(b.enemyState);
+
         this.updateDistanceDisplay();
+    }
+
+    // Traduz o estado de batalha (bleedTurns/stunned/shieldTurns/
+    // evasionTurns) em ícones com tooltip — puramente informativo, não lê
+    // nem altera nenhuma lógica de combate.
+    _buildStatusIconsHtml(state) {
+        if (!state) return '';
+        const icons = [];
+        if (state.bleedTurns > 0) {
+            icons.push(`<span class="status-icon" title="Sangramento contínuo: ${state.bleedDamage} de dano por ${state.bleedTurns} turno(s)">🩸${state.bleedTurns}</span>`);
+        }
+        if (state.stunned) {
+            icons.push(`<span class="status-icon" title="Atordoado: perde a próxima ação">💫</span>`);
+        }
+        if (state.shieldTurns > 0) {
+            icons.push(`<span class="status-icon" title="Barreira: reduz ${state.shieldPercent}% do dano recebido por ${state.shieldTurns} turno(s)">🛡️${state.shieldTurns}</span>`);
+        }
+        if (state.evasionTurns > 0) {
+            icons.push(`<span class="status-icon" title="Evasão: +${state.evasionBonus}% de esquiva por ${state.evasionTurns} turno(s)">💨${state.evasionTurns}</span>`);
+        }
+        return icons.join('');
     }
 
     // Atualiza a barra de distância, a zona de alcance da arma do jogador e o

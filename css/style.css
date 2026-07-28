@@ -653,6 +653,16 @@ html, body {
 .bar-text { font-size: 0.9rem; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .ammo-text { color: var(--color-gold-bright, #ffd700); font-weight: bold; }
 
+/* Ícones de efeito ativo (sangramento/atordoado/barreira/evasão) na batalha
+   — ver ui.js updateBattleBars/_buildStatusIconsHtml */
+.status-icons {
+    display: flex; justify-content: center; gap: 6px; margin-top: 4px; min-height: 20px;
+}
+.status-icon {
+    font-size: 0.85rem; background: rgba(0,0,0,0.35); border-radius: 4px;
+    padding: 1px 5px; cursor: help; white-space: nowrap;
+}
+
 /* Log e Ações */
 .battle-log {
     flex: 1 1 auto; min-height: 60px; max-height: 150px;
