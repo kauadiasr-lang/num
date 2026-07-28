@@ -55,7 +55,14 @@ const SkillDatabase = {
     // progressão, complementando as habilidades de dano/cura mais caras acima.
     'blink_strike': new Skill('blink_strike', 'Lampejo de Investida', SKILL_TYPES.TELEPORT_ENEMY, 3, 1.0, 'Magia básica: teleporta você instantaneamente para o corpo a corpo do inimigo.', 1, { cooldown: 2 }),
     'blink_retreat': new Skill('blink_retreat', 'Lampejo de Fuga', SKILL_TYPES.TELEPORT_FAR, 3, 1.0, 'Magia básica: teleporta você instantaneamente para o ponto mais distante do inimigo.', 1, { cooldown: 2 }),
-    'ammo_recall': new Skill('ammo_recall', 'Recolher Munição', SKILL_TYPES.AMMO_RECALL, 4, 1.0, 'Magia básica: recupera magicamente toda a munição da sua arma de longo alcance equipada.', 1, { cooldown: 3 })
+    'ammo_recall': new Skill('ammo_recall', 'Recolher Munição', SKILL_TYPES.AMMO_RECALL, 4, 1.0, 'Magia básica: recupera magicamente toda a munição da sua arma de longo alcance equipada.', 1, { cooldown: 3 }),
+
+    // Habilidades de alto nível: antes vampiric_strike (Nv.7) era a última
+    // habilidade comum a ser desbloqueada — qualquer jogador acima disso
+    // (rotina até no nível 10, ver AchievementDB.legend) acumulava Pontos de
+    // Talento sem NENHUMA opção nova de combate pra gastar, só o respec.
+    'execution_blow': new Skill('execution_blow', 'Golpe Final', SKILL_TYPES.PHYSICAL, 24, 2.6, 'Um golpe devastador com 260% do Dano Físico. Usa o alcance da sua arma.', 9, { cooldown: 4 }),
+    'arcane_storm': new Skill('arcane_storm', 'Tempestade Arcana', SKILL_TYPES.MAGIC, 32, 2.8, 'Magia elemental de longo alcance (9m), causando 280% do Dano Mágico (Inteligência).', 11, { cooldown: 4, range: 9 })
 };
 
 window.SkillDB = SkillDatabase;
