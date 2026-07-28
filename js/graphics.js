@@ -271,11 +271,21 @@ class GraphicsEngine {
         this._birdTimer = Utils.randomFloat(2, 5);
     }
 
-    // Chamado a cada nova batalha: sorteia o horário do céu (atmosfera "dinâmica")
-    // e reseta as animações dos combatentes para o estado neutro.
+    // Chamado a cada nova batalha: sincroniza o horário do céu com o horário
+    // ATUAL da cidade e reseta as animações dos combatentes para o estado
+    // neutro.
     resetForNewBattle() {
-        const times = ['dawn', 'day', 'sunset', 'night'];
-        this.arenaTime = times[Utils.randomInt(0, times.length - 1)];
+        // Antes sorteava um horário totalmente aleatório a cada luta —
+        // uma batalha podia começar de dia mesmo com a cidade em plena
+        // noite (ou vice-versa), quebrando a continuidade do ciclo
+        // dia/noite que o jogador acabou de viver na praça (ruas vazias,
+        // perigo noturno...) e que devia continuar valendo na arena.
+        if (window.City && window.City._initialized && window.City.dayPhases) {
+            this.arenaTime = window.City.dayPhases[window.City.dayPhaseIndex];
+        } else {
+            const times = ['dawn', 'day', 'sunset', 'night'];
+            this.arenaTime = times[Utils.randomInt(0, times.length - 1)];
+        }
 
         // Sorteia o bioma da arena (identidade própria de solo/vegetação/
         // fundo/props) e pré-renderiza o solo detalhado uma única vez para
