@@ -61,13 +61,26 @@ const BOSS_AI = {
             const boss = battle.enemy;
             const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
             const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 2 };
+            const ready = id => boss.isSkillReady(id);
 
-            // Gate físico: fora de alcance, sempre avança (o Conde nunca recua)
+            // Gate físico: fora do alcance da adaga (minRange 0, maxRange 1),
+            // sempre avança (o Conde nunca recua) — EXCETO que, antes disso,
+            // dá chance ao Enxame de Morcegos. Bug de auditoria: essa
+            // habilidade tem seu próprio `range: 10` e o tooltip promete
+            // explicitamente "ataca de qualquer distância", mas o gate de
+            // alcance melee sempre disparava APPROACH primeiro sempre que o
+            // jogador ficasse a mais de 1m — nenhum código abaixo (onde a
+            // skill é normalmente escolhida) era alcançado, então a
+            // habilidade nunca podia ser usada exatamente na situação em que
+            // seu próprio texto promete funcionar.
+            const enxameSkill = window.SkillDB && window.SkillDB.conde_enxame_morcegos;
             if (!battle.isInRange(range)) {
+                if (enxameSkill && ready('conde_enxame_morcegos') && battle.isInRange({ min: 0, max: enxameSkill.range })) {
+                    return { action: 'SKILL', param: 'conde_enxame_morcegos', message: `${boss.name} invoca um enxame de morcegos sanguinários à distância!` };
+                }
                 return { action: 'APPROACH', message: `${boss.name} avança com fome insaciável!` };
             }
 
-            const ready = id => boss.isSkillReady(id);
             const enraged = hpFrac <= 0.5; // Fase 2: mais selvagem e imprevisível
 
             if (enraged && ready('conde_garra_final') && Utils.chance(45)) {
