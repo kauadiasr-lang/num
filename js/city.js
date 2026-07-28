@@ -1532,6 +1532,15 @@ class CityEngine {
                 'Estou compondo versos sobre os duelos da arena. Você seria um bom tema.',
                 'A glória é passageira, mas um bom poema... esse pode ser eterno.',
                 'Ouça bem: a plateia esquece o vencedor de ontem mais rápido do que imagina.'
+            ] },
+            // Veterano da Arena — a única profissão que fala especificamente
+            // sobre a Ladder/Rivais (ver enemy.js RivalDatabase), dando à
+            // praça alguém que reage ao MUNDO do jogo, não só observações
+            // genéricas de ofício.
+            veterano: { name: 'Veterano da Arena', lines: [
+                'Já vi campeões subirem e caírem. A Ladder não perdoa quem hesita.',
+                'Enfrentei um dos campeões faz anos. Ainda sinto a cicatriz quando chove.',
+                'Todo gladiador novo acha que vai chegar ao topo rápido. Poucos chegam.'
             ] }
         };
     }
