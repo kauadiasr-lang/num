@@ -309,6 +309,45 @@ function validateGameData() {
             if (knownRaces && c.raceDemographics) {
                 Object.keys(c.raceDemographics).forEach(r => need(knownRaces.includes(r), `CityDatabase['${key}']: raceDemographics referencia raça inexistente '${r}'`));
             }
+            // groundColors/vegetationTypes (ver city.js _drawPlazaGround/
+            // _drawVegetation) — adicionados numa iteração posterior à
+            // criação desta validação e nunca cobertos aqui: um hex
+            // malformado ou um tipo de vegetação sem renderizador
+            // correspondente nunca quebraria nada visivelmente óbvio (o piso/
+            // planta só ficaria com a cor/forma padrão em silêncio).
+            const hexRe = /^#[0-9a-fA-F]{6}$/;
+            if (c.groundColors !== undefined) {
+                need(Array.isArray(c.groundColors) && c.groundColors.length === 2 && c.groundColors.every(h => hexRe.test(h)),
+                    `CityDatabase['${key}']: groundColors precisa ser um array de 2 cores hex válidas`);
+            }
+            const knownVegetationTypes = ['cypress', 'laurel', 'deadTree', 'emberBush', 'ancientRoot', 'glowFern'];
+            if (c.vegetationTypes !== undefined) {
+                need(typeof c.vegetationTypes.edge === 'string' && typeof c.vegetationTypes.center === 'string',
+                    `CityDatabase['${key}']: vegetationTypes precisa ter 'edge' e 'center' como strings`);
+                ['edge', 'center'].forEach(slot => {
+                    const t = c.vegetationTypes[slot];
+                    if (typeof t === 'string') {
+                        need(knownVegetationTypes.includes(t), `CityDatabase['${key}']: vegetationTypes.${slot} referencia tipo de planta inexistente '${t}'`);
+                    }
+                });
+            }
+        }
+    }
+
+    // NPC_PROFESSIONS_REGIONAL (ver city.js _talkToNpc) — mesma checagem de
+    // chave morta/referência cruzada das outras variantes regionais acima:
+    // toda cidade referenciada precisa existir de verdade em CityDatabase, e
+    // toda profissão aninhada precisa existir de verdade em NPC_PROFESSIONS
+    // (senão a fala regional nunca seria escolhida por nenhum NPC real).
+    if (typeof CityEngine !== 'undefined' && CityEngine.NPC_PROFESSIONS_REGIONAL && window.CityDatabase) {
+        const knownProfessions = CityEngine.NPC_PROFESSIONS ? Object.keys(CityEngine.NPC_PROFESSIONS) : [];
+        for (const cityKey in CityEngine.NPC_PROFESSIONS_REGIONAL) {
+            need(!!window.CityDatabase[cityKey], `NPC_PROFESSIONS_REGIONAL['${cityKey}']: cidade não existe em CityDatabase`);
+            const profs = CityEngine.NPC_PROFESSIONS_REGIONAL[cityKey];
+            for (const profKey in profs) {
+                need(knownProfessions.includes(profKey), `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: profissão não existe em NPC_PROFESSIONS`);
+                need(Array.isArray(profs[profKey]) && profs[profKey].length > 0, `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: linhas ausentes ou vazias`);
+            }
         }
     }
 
