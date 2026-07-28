@@ -1462,6 +1462,7 @@ class GraphicsEngine {
     // outro cenário ganha uma camada de profundidade própria, nunca o mesmo
     // pano de fundo genérico pra tudo.
     _drawBiomeMidground(ctx, w, horizon, biome) {
+        this._buildMidgroundShapeIfNeeded(biome);
         switch (biome.midground) {
             case 'colosseum':
                 this._drawColosseumRing(ctx, w, horizon, 0.62, '#4a4030');
@@ -1505,6 +1506,43 @@ class GraphicsEngine {
         }
     }
 
+    // Sorteia UMA VEZ por luta (não a cada quadro) a forma aleatória do
+    // plano intermediário de biomas com silhueta irregular (muralha
+    // desmoronada das Ruínas, colunas quebradas do Templo). Bug corrigido
+    // aqui: _drawWalls/_drawColumnRow chamavam Utils.randomFloat/chance
+    // DIRETO dentro do desenho, que roda todo quadro — cada um dos ~60
+    // quadros por segundo sorteava um topo/conjunto de colunas quebradas
+    // DIFERENTE, fazendo esses dois cenários "piscarem"/tremularem sem
+    // parar durante o combate. Mesmo princípio já usado pelo solo
+    // pré-renderizado (ver _buildArenaGroundTexture): gerar a aleatoriedade
+    // uma vez, reaproveitar o resultado every frame.
+    _buildMidgroundShapeIfNeeded(biome) {
+        if (this._midgroundShapeBiome === this.arenaBiome) return;
+        this._midgroundShapeBiome = this.arenaBiome;
+
+        if (biome.midground === 'walls' && biome.midgroundBroken) {
+            // Largura de referência bem maior que qualquer tela real —
+            // cobre a cena inteira mesmo depois de um resize/rotação sem
+            // precisar sortear de novo (ver _drawWalls: para de desenhar
+            // segmentos assim que ultrapassa a largura atual).
+            const refW = 2400;
+            const segments = [];
+            let x = 0;
+            while (x < refW) {
+                const seg = Utils.randomFloat(50, 110);
+                segments.push({ xStart: x, xEnd: x + seg, gap: Utils.chance(20), jitter: Utils.randomFloat(-14, 14) });
+                x += seg;
+            }
+            this._brokenWallShape = segments;
+        } else {
+            this._brokenWallShape = null;
+        }
+
+        this._columnShape = (biome.midground === 'columns')
+            ? Array.from({ length: 9 }, () => Utils.chance(30))
+            : null;
+    }
+
     // Muralhas de pedra (Castelo íntegro, ou Ruínas com o topo quebrado
     // irregular em vez da linha reta das ameias).
     _drawWalls(ctx, w, horizon, color, broken) {
@@ -1518,17 +1556,17 @@ class GraphicsEngine {
             const step = 40;
             for (let x = 0; x < w; x += step) ctx.fillRect(x, topY, step * 0.5, 10);
         } else {
-            // Muralha desmoronada: topo irregular, brechas ocasionais
+            // Muralha desmoronada: topo irregular, brechas ocasionais — forma
+            // sorteada uma vez por luta (ver _buildMidgroundShapeIfNeeded),
+            // não mais a cada quadro.
+            const shape = this._brokenWallShape || [];
             ctx.beginPath();
             ctx.moveTo(0, horizon);
-            let x = 0;
-            while (x < w) {
-                const seg = Utils.randomFloat(50, 110);
-                const gap = Utils.chance(20);
-                const yTop = gap ? horizon - wallH * 0.25 : topY + Utils.randomFloat(-14, 14);
-                ctx.lineTo(x, yTop);
-                x += seg;
-                ctx.lineTo(x, yTop);
+            for (const seg of shape) {
+                if (seg.xStart > w) break;
+                const yTop = seg.gap ? (horizon - wallH * 0.25) : (topY + seg.jitter);
+                ctx.lineTo(seg.xStart, yTop);
+                ctx.lineTo(Math.min(seg.xEnd, w), yTop);
             }
             ctx.lineTo(w, horizon);
             ctx.closePath();
@@ -1536,13 +1574,16 @@ class GraphicsEngine {
         }
     }
 
-    // Fileira de colunas de pedra (Templo) — algumas já quebradas pela metade.
+    // Fileira de colunas de pedra (Templo) — algumas já quebradas pela
+    // metade. Quais colunas estão quebradas é sorteado uma vez por luta
+    // (ver _buildMidgroundShapeIfNeeded), não mais a cada quadro.
     _drawColumnRow(ctx, w, horizon, color) {
         ctx.fillStyle = color;
         const count = 9;
+        const shape = this._columnShape || Array.from({ length: count }, () => false);
         for (let i = 0; i < count; i++) {
             const x = (i / count) * w + w / (count * 2);
-            const broken = Utils.chance(30);
+            const broken = shape[i];
             const colH = horizon * (broken ? 0.22 : 0.42);
             ctx.fillRect(x - 8, horizon - colH, 16, colH);
             if (!broken) ctx.fillRect(x - 12, horizon - colH - 6, 24, 8); // capitel
