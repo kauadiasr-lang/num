@@ -105,53 +105,21 @@ class Enemy extends Entity {
     }
 
     generateStats() {
-        const totalPoints = 35 + (this.level * 5); // Base + escalonamento
-
-        // Distribuição procedural enviesada pelo `statFocus` do estilo de
-        // luta já sorteado (ver ai_data.js) — um "Mago" tende a nascer com
-        // INT alto, um "Brutamontes" com STR alto, etc, sem deixar de ser
-        // aleatório (ainda pode variar bastante rodada a rodada). Sem
-        // `statFocus` (estilo desconhecido), cai de volta pro sorteio
-        // uniforme entre todos os atributos.
-        const statsArray = Object.keys(this.baseStats);
-        const focus = this.aiStyle && this.aiStyle.statFocus;
-        const weightedPool = [];
-        statsArray.forEach(stat => {
-            const weight = focus ? (focus[stat] || 1) : 1;
-            for (let w = 0; w < weight; w++) weightedPool.push(stat);
-        });
-
-        for (let i = 0; i < totalPoints; i++) {
-            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
-            this.baseStats[randomStat]++;
-        }
-
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        // Base + escalonamento; ver Entity.generateStatsFromStyle (player.js)
+        // pela distribuição enviesada pelo `statFocus` do estilo já sorteado
+        // — um "Mago" tende a nascer com INT alto, um "Brutamontes" com STR
+        // alto, etc, sem deixar de ser aleatório.
+        this.generateStatsFromStyle(35 + (this.level * 5));
     }
 
     // Equipa uma arma coerente com o estilo de luta já atribuído (chamado
     // depois de assignProfile, já que a escolha depende do estilo sorteado).
+    // Ver Entity.equipStyleWeaponGeneric (player.js) pela lógica
+    // compartilhada com Vampire/Ghost; 20% de chance de Encantamento (ver
+    // enchantments.js) — antes só o Jogador podia ter arma encantada, mesmo
+    // battle.js já lendo encantamento de QUALQUER `entity` genericamente.
     equipStyleWeapon() {
-        const styleId = this.aiStyle ? this.aiStyle.id : 'espadachim';
-        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
-        let rarity = RARITY.COMMON;
-        if (Utils.chance(15 + this.level)) rarity = RARITY.UNCOMMON;
-        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
-        // Encantamentos (ver enchantments.js) — só o Jogador podia encantar
-        // arma até agora; battle.js._getWeaponEnchantment já lê o
-        // encantamento de QUALQUER `entity` de forma genérica, mas nenhum
-        // inimigo do Duelo Rápido jamais recebia um, então o VFX/efeito
-        // elemental nunca aparecia do lado oposto da batalha.
-        Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], 20);
-        // Estilos "tank" (Gladiador/Guardião, preferShield: true) carregam
-        // escudo de verdade — visual e mecanicamente (blockChance do item).
-        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
-        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        this.equipStyleWeaponGeneric(15 + this.level, 20);
     }
 
     // Chance de dropar um item ao ser derrotado, influenciada pela Sorte do jogador
@@ -219,33 +187,16 @@ class Vampire extends Entity {
     }
 
     generateStats() {
-        const totalPoints = 40 + (this.level * 5);
-        const statsArray = Object.keys(this.baseStats);
-        const focus = this.aiStyle && this.aiStyle.statFocus;
-        const weightedPool = [];
-        statsArray.forEach(stat => {
-            const weight = focus ? (focus[stat] || 1) : 1;
-            for (let w = 0; w < weight; w++) weightedPool.push(stat);
-        });
-        for (let i = 0; i < totalPoints; i++) {
-            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
-            this.baseStats[randomStat]++;
-        }
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        this.generateStatsFromStyle(40 + (this.level * 5));
     }
 
+    // Ver Entity.equipStyleWeaponGeneric (player.js) pela lógica
+    // compartilhada com Enemy/Ghost. 20% de chance de Encantamento — igual
+    // ao Duelo Rápido comum (Enemy), fechando uma lacuna: Vampire nunca
+    // tinha essa chance antes, mesmo sendo um combatente comum pra fins de
+    // IA/equipamento (só o boss do Ritual, Conde Vampiro, tem IA exclusiva).
     equipStyleWeapon() {
-        const styleId = this.aiStyle ? this.aiStyle.id : 'assassino';
-        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
-        const rarity = Utils.chance(20) ? RARITY.UNCOMMON : RARITY.COMMON;
-        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
-        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
-        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        this.equipStyleWeaponGeneric(20, 20);
     }
 
     // Chance pequena e independente do loot normal de itens — checado em
@@ -307,33 +258,14 @@ class Ghost extends Entity {
     }
 
     generateStats() {
-        const totalPoints = 38 + (this.level * 5);
-        const statsArray = Object.keys(this.baseStats);
-        const focus = this.aiStyle && this.aiStyle.statFocus;
-        const weightedPool = [];
-        statsArray.forEach(stat => {
-            const weight = focus ? (focus[stat] || 1) : 1;
-            for (let w = 0; w < weight; w++) weightedPool.push(stat);
-        });
-        for (let i = 0; i < totalPoints; i++) {
-            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
-            this.baseStats[randomStat]++;
-        }
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        this.generateStatsFromStyle(38 + (this.level * 5));
     }
 
+    // Ver Entity.equipStyleWeaponGeneric (player.js) pela lógica
+    // compartilhada com Enemy/Vampire. 20% de chance de Encantamento,
+    // igual ao resto do Duelo Rápido — Ghost nunca tinha essa chance antes.
     equipStyleWeapon() {
-        const styleId = this.aiStyle ? this.aiStyle.id : 'assassino';
-        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
-        const rarity = Utils.chance(15) ? RARITY.UNCOMMON : RARITY.COMMON;
-        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
-        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
-        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
-        this.calculateDerivedStats();
-        this.currentHp = this.derivedStats.maxHp;
-        this.currentMp = this.derivedStats.maxMp;
+        this.equipStyleWeaponGeneric(15, 20);
     }
 
     generateLoot(playerLuk) {

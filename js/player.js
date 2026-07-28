@@ -228,6 +228,50 @@ class Entity {
         }
         return UNARMED_SPEED;
     }
+
+    // Distribuição procedural de atributos enviesada pelo estilo de luta já
+    // sorteado (ver ai_data.js `statFocus`) — antes copiada e colada quase
+    // idêntica em Enemy/Vampire/Ghost (enemy.js), cada um só variando a
+    // fórmula de `totalPoints` por nível. Sem `statFocus` (estilo
+    // desconhecido), cai de volta pro sorteio uniforme entre todos os atributos.
+    generateStatsFromStyle(totalPoints) {
+        const statsArray = Object.keys(this.baseStats);
+        const focus = this.aiStyle && this.aiStyle.statFocus;
+        const weightedPool = [];
+        statsArray.forEach(stat => {
+            const weight = focus ? (focus[stat] || 1) : 1;
+            for (let w = 0; w < weight; w++) weightedPool.push(stat);
+        });
+        for (let i = 0; i < totalPoints; i++) {
+            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
+            this.baseStats[randomStat]++;
+        }
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
+
+    // Equipa arma (+ escudo, se o estilo preferir um) coerentes com o estilo
+    // de luta já sorteado — antes copiada e colada quase idêntica em Enemy/
+    // Vampire/Ghost, cada um só variando `rarityChancePercent`. Só o Duelo
+    // Rápido comum (Enemy) tinha chance de a arma sair encantada (ver
+    // Enemy.maybeEnchantWeapon) simplesmente porque Vampire/Ghost tinham sua
+    // própria cópia colada dessa função, sem a chamada; `enchantChancePercent`
+    // (0 por padrão) deixa qualquer subclasse optar por essa chance também.
+    equipStyleWeaponGeneric(rarityChancePercent, enchantChancePercent = 0) {
+        const styleId = this.aiStyle ? this.aiStyle.id : 'espadachim';
+        const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
+        const rarity = Utils.chance(rarityChancePercent) ? RARITY.UNCOMMON : RARITY.COMMON;
+        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        if (enchantChancePercent > 0 && typeof Enemy !== 'undefined') {
+            Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], enchantChancePercent);
+        }
+        const shieldId = window.AICombat.pickShieldFromStyle(styleId);
+        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
+        this.calculateDerivedStats();
+        this.currentHp = this.derivedStats.maxHp;
+        this.currentMp = this.derivedStats.maxMp;
+    }
 }
 
 class Player extends Entity {
