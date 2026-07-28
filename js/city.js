@@ -1625,23 +1625,32 @@ class CityEngine {
         }
     }
 
+    // Cores da fonte lidas da Cidade-Hub atual (ver citydatabase.js
+    // `fountainColors`) — mesmo motivo do groundColors/vegetationTypes/
+    // statueColor: antes era sempre a MESMA fonte de água azul mediterrânea
+    // pra TODA cidade, então a Fortaleza Orc (rocha vulcânica) mostrava a
+    // mesma fonte serena de Porto Helênico, e o Santuário Élfico não tinha
+    // nada de mágico/natural na própria fonte da praça. Fallback pras cores
+    // originais sem cidade carregada/cidade sem o campo (save antigo).
     _drawFountain(ctx, w, h) {
         const scale = this._cityScale(h);
         const x = this.fountain.xFrac * w, y = this._horizon(h) + this.fountain.rowOffset * scale;
         const r = this.fountain.r * scale;
-        ctx.fillStyle = '#8891a0';
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const colors = (cityDef && cityDef.fountainColors) || { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' };
+        ctx.fillStyle = colors.rim;
         ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#3a6a8a';
+        ctx.fillStyle = colors.basin;
         ctx.beginPath(); ctx.ellipse(x, y, r * 0.78, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
-        // Jato de água central (anima com o tempo)
+        // Jato central (anima com o tempo)
         const t = performance.now() * 0.003;
-        ctx.strokeStyle = 'rgba(200,225,255,0.7)';
+        ctx.strokeStyle = colors.jet;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(x, y - r * 0.2);
         ctx.lineTo(x, y - r * 0.2 - 22 - Math.sin(t) * 3);
         ctx.stroke();
-        ctx.fillStyle = '#6b7280';
+        ctx.fillStyle = colors.spout;
         ctx.fillRect(x - 4, y - r * 0.2 - 30, 8, 10);
     }
 

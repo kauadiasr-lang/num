@@ -337,6 +337,17 @@ function validateGameData() {
                     }
                 });
             }
+            // fountainColors (ver city.js _drawFountain) — rim/basin/spout
+            // precisam ser hex válido; jet é desenhado com ctx.strokeStyle
+            // e usa rgba() com transparência (o jato precisa ser translúcido
+            // pra sensação de água/brasa/luz), então só confere string não-vazia.
+            if (c.fountainColors !== undefined) {
+                const fc = c.fountainColors;
+                need(hexRe.test(fc.rim), `CityDatabase['${key}']: fountainColors.rim precisa ser uma cor hex válida`);
+                need(hexRe.test(fc.basin), `CityDatabase['${key}']: fountainColors.basin precisa ser uma cor hex válida`);
+                need(typeof fc.jet === 'string' && fc.jet.length > 0, `CityDatabase['${key}']: fountainColors.jet ausente ou vazio`);
+                need(hexRe.test(fc.spout), `CityDatabase['${key}']: fountainColors.spout precisa ser uma cor hex válida`);
+            }
         }
     }
 

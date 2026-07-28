@@ -41,7 +41,10 @@ const CityDatabase = {
         vegetationTypes: { edge: 'cypress', center: 'laurel' },
         // Cor das estátuas da praça (ver city.js _drawStatue) — Porto
         // Helênico preserva o mármore original de antes deste campo existir.
-        statueColor: '#c9c2b0'
+        statueColor: '#c9c2b0',
+        // Cores da fonte central da praça (ver city.js _drawFountain) —
+        // Porto Helênico preserva a fonte de água azul original.
+        fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' }
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -63,7 +66,11 @@ const CityDatabase = {
         vegetationTypes: { edge: 'deadTree', center: 'emberBush' },
         // Estátuas de rocha vulcânica escura entalhada, não mármore — mesmo
         // motivo do campo acima (ver city.js _drawStatue).
-        statueColor: '#4a453e'
+        statueColor: '#4a453e',
+        // Braseiro de pedra vulcânica com brasas vivas no centro, não uma
+        // fonte de água azul serena — mesmo motivo do campo acima (ver
+        // city.js _drawFountain).
+        fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' }
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -83,7 +90,11 @@ const CityDatabase = {
         vegetationTypes: { edge: 'ancientRoot', center: 'glowFern' },
         // Estátuas de pedra antiga tomada por musgo, não mármore — mesmo
         // motivo do campo acima (ver city.js _drawStatue).
-        statueColor: '#6a7a5a'
+        statueColor: '#6a7a5a',
+        // Nascente natural com brilho mágico esverdeado, não uma fonte de
+        // pedra/água azul comum — mesmo motivo do campo acima (ver city.js
+        // _drawFountain).
+        fountainColors: { rim: '#4a5a3a', basin: '#2a5a52', jet: 'rgba(180,255,210,0.65)', spout: '#3a2a18' }
     }
 };
 window.CityDatabase = CityDatabase;
