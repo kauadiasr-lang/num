@@ -19,6 +19,7 @@ class SettingsManager {
             showFloatingDamage: true,
             animationSpeed: 1.0,       // 0.5 - 2.0
             reduceEffects: false,
+            screenShake: true,         // tremor de câmera no impacto (ver graphics.js _triggerScreenShake)
         };
         const saved = window.SaveManager.loadSettings();
         this.values = Object.assign({}, this.defaults, saved || {});
@@ -67,6 +68,9 @@ class SettingsManager {
                 break;
             case 'reduceEffects':
                 if (window.GFX) window.GFX.reduceEffects = v;
+                break;
+            case 'screenShake':
+                if (window.GFX) window.GFX.screenShakeEnabled = v;
                 break;
             // 'language' e 'fullscreen' não têm estado contínuo pra aplicar aqui
         }

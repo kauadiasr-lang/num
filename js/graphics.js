@@ -239,10 +239,15 @@ class GraphicsEngine {
         this._shakeStart = 0;
         this._shakeDuration = 0;
         this._shakeMag = 0;
+        // Alguns jogadores têm sensibilidade a esse tipo de efeito (enjoo/
+        // desconforto) — precisa poder ser desligado (ver settings.js
+        // 'screenShake', tela de Configurações).
+        this.screenShakeEnabled = true;
         this._initArenaAmbience();
     }
 
     _triggerScreenShake(magnitude, duration) {
+        if (!this.screenShakeEnabled) return;
         this._shakeStart = performance.now();
         this._shakeDuration = duration;
         this._shakeMag = this.reduceEffects ? magnitude * 0.5 : magnitude;

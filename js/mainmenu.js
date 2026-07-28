@@ -310,6 +310,8 @@ class MainMenuManager {
 
         container.appendChild(row('Reduzir Efeitos Visuais', `<input type="checkbox" data-key="reduceEffects" class="setting-checkbox" ${S.get('reduceEffects') ? 'checked' : ''}>`));
 
+        container.appendChild(row('Tremor de Câmera', `<input type="checkbox" data-key="screenShake" class="setting-checkbox" ${S.get('screenShake') ? 'checked' : ''}>`));
+
         // Liga os eventos de todos os controles gerados
         container.querySelectorAll('[data-key]').forEach(el => {
             const key = el.dataset.key;
