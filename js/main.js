@@ -392,10 +392,37 @@ function validateGameData() {
         }
     }
 
-    // SHOP_GREETINGS_REGIONAL (ver ui.js) — mesma checagem de chave morta.
+    // SHOP_GREETINGS_REGIONAL (ver ui.js) — mesma checagem de chave morta, e
+    // também confere que cada loja aninhada existe de verdade em
+    // SHOP_GREETINGS (senão a fala regional nunca seria escolhida por
+    // nenhuma loja real).
     if (typeof SHOP_GREETINGS_REGIONAL !== 'undefined' && window.CityDatabase) {
+        const knownShops = typeof SHOP_GREETINGS !== 'undefined' ? Object.keys(SHOP_GREETINGS) : [];
         for (const key in SHOP_GREETINGS_REGIONAL) {
             need(!!window.CityDatabase[key], `SHOP_GREETINGS_REGIONAL['${key}']: cidade não existe em CityDatabase`);
+            for (const shopKey in SHOP_GREETINGS_REGIONAL[key]) {
+                need(knownShops.includes(shopKey), `SHOP_GREETINGS_REGIONAL['${key}']['${shopKey}']: loja não existe em SHOP_GREETINGS`);
+                need(Array.isArray(SHOP_GREETINGS_REGIONAL[key][shopKey]) && SHOP_GREETINGS_REGIONAL[key][shopKey].length > 0,
+                    `SHOP_GREETINGS_REGIONAL['${key}']['${shopKey}']: linhas ausentes ou vazias`);
+            }
+        }
+    }
+
+    // NPC_DIALOGUE (ver city.js _talkToNpc) — o PRIMEIRO registry de
+    // variante regional criado (antes de CITY_MUSIC_MOODS/
+    // SHOP_GREETINGS_REGIONAL/NPC_PROFESSIONS_REGIONAL, todos já validados
+    // acima), mas nunca tinha ganhado a mesma checagem de chave morta —
+    // uma assimetria na própria cobertura do validador, não no jogo em si.
+    // 'generic'/'famous'/'legendary' são pools base (não cidades);
+    // 'vampirismo'/'luz' são chaves de Linhagem (ver lineages.js), também
+    // não são cidades — só as demais chaves precisam existir em CityDatabase.
+    if (typeof CityEngine !== 'undefined' && CityEngine.NPC_DIALOGUE && window.CityDatabase) {
+        const nonCityDialogueKeys = ['generic', 'famous', 'legendary', 'vampirismo', 'luz'];
+        for (const key in CityEngine.NPC_DIALOGUE) {
+            if (nonCityDialogueKeys.includes(key)) continue;
+            need(!!window.CityDatabase[key], `NPC_DIALOGUE['${key}']: cidade não existe em CityDatabase`);
+            need(Array.isArray(CityEngine.NPC_DIALOGUE[key]) && CityEngine.NPC_DIALOGUE[key].length > 0,
+                `NPC_DIALOGUE['${key}']: linhas ausentes ou vazias`);
         }
     }
 
