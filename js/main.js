@@ -290,10 +290,48 @@ function validateGameData() {
     }
 
     if (window.RivalDatabase && Array.isArray(window.RivalDatabase.leagues)) {
+        // Referências cruzadas contra os MESMOS registros de IA já
+        // validados acima pra AI_FIGHTING_STYLES/AI_COMBOS (personalityId/
+        // styleId/unlockSkill) — bug de auditoria: a Ladder de Rivais
+        // curada consome exatamente esses três registros (ver
+        // AICombat.assignProfile em Rival, e Rival.phases em battle.js/
+        // bossai.js pro sistema de fases de Campeão), mas nunca tinha
+        // ganhado a mesma checagem de referência cruzada. Hoje todo id
+        // aqui resolve certo (nenhum problema real encontrado), mas um
+        // typo futuro em qualquer um deles passaria despercebido: ai.js
+        // AICombat.assignProfile já mascara personalityId/styleId
+        // inválidos caindo em fallback silencioso (nunca explode), e um
+        // unlockSkill inexistente simplesmente nunca apareceria no menu de
+        // habilidades quando a fase do Campeão mudasse — os dois tipos de
+        // bug "silencioso" que os validadores de registry deste projeto
+        // existem justamente pra pegar.
+        const knownPersonalityIds = typeof AI_PERSONALITIES !== 'undefined' ? Object.keys(AI_PERSONALITIES) : null;
+        const knownStyleIds = typeof AI_FIGHTING_STYLES !== 'undefined' ? Object.keys(AI_FIGHTING_STYLES) : null;
+        const knownSkillIds3 = typeof SkillDatabase !== 'undefined' ? Object.keys(SkillDatabase) : null;
+        const knownRaceIds = window.RACES ? Object.keys(window.RACES) : null;
         window.RivalDatabase.leagues.forEach(league => {
             need(!!league.id && !!league.name && Array.isArray(league.rivals), `RivalDatabase: liga malformada (${JSON.stringify(league.id)})`);
             (league.rivals || []).forEach(rival => {
                 need(!!rival.id && !!rival.name && typeof rival.level === 'number', `RivalDatabase['${league.id}']: rival malformado (${JSON.stringify(rival.id)})`);
+                if (knownPersonalityIds && rival.personalityId) {
+                    need(knownPersonalityIds.includes(rival.personalityId), `RivalDatabase['${league.id}']['${rival.id}']: personalityId '${rival.personalityId}' não existe em AI_PERSONALITIES`);
+                }
+                if (knownStyleIds && rival.styleId) {
+                    need(knownStyleIds.includes(rival.styleId), `RivalDatabase['${league.id}']['${rival.id}']: styleId '${rival.styleId}' não existe em AI_FIGHTING_STYLES`);
+                }
+                if (knownRaceIds && rival.race) {
+                    need(knownRaceIds.includes(rival.race), `RivalDatabase['${league.id}']['${rival.id}']: race '${rival.race}' não existe em RACES`);
+                }
+                if (Array.isArray(rival.phases)) {
+                    rival.phases.forEach((phase, idx) => {
+                        if (knownPersonalityIds && phase.personalityId) {
+                            need(knownPersonalityIds.includes(phase.personalityId), `RivalDatabase['${league.id}']['${rival.id}'].phases[${idx}]: personalityId '${phase.personalityId}' não existe em AI_PERSONALITIES`);
+                        }
+                        if (knownSkillIds3 && phase.unlockSkill) {
+                            need(knownSkillIds3.includes(phase.unlockSkill), `RivalDatabase['${league.id}']['${rival.id}'].phases[${idx}]: unlockSkill '${phase.unlockSkill}' não existe em SkillDatabase`);
+                        }
+                    });
+                }
             });
         });
     }
