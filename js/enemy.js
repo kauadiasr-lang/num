@@ -437,6 +437,15 @@ class Rival extends Entity {
         // resto (cores, cabelo, rosto) é preenchido aleatoriamente por cima.
         this.visuals = Object.assign(randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null), def.visuals || {});
 
+        // Raça (ver races.js) — o Duelo Rápido (Enemy, acima) já sorteia uma
+        // raça por combatente desde a iteração 6, mas Rivais nomeados da
+        // Ladder ficaram de fora só por nunca terem recebido o campo. Como
+        // os outros campos de identidade (personalityId/styleId/visuals),
+        // `def.race` deixa um rival específico ser curado; sem isso, sorteia
+        // como qualquer outro inimigo.
+        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
+        this.race = def.race || raceIds[Utils.randomInt(0, raceIds.length - 1)];
+
         this.equipGear(def.gearRarity);
 
         this.calculateDerivedStats();
