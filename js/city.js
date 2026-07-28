@@ -1645,10 +1645,17 @@ class CityEngine {
         ctx.fillRect(x - 4, y - r * 0.2 - 30, 8, 10);
     }
 
+    // Cor da estátua lida da Cidade-Hub atual (ver citydatabase.js
+    // `statueColor`) — mesmo motivo do groundColors/vegetationTypes: antes
+    // fixa em mármore grego pra TODA cidade, então a Fortaleza Orc e o
+    // Santuário Élfico mostravam as MESMAS estátuas de mármore de Porto
+    // Helênico. Fallback pro mármore original sem cidade carregada/cidade
+    // sem o campo (save antigo).
     _drawStatue(ctx, w, h, s) {
         const scale = this._cityScale(h);
         const x = s.xFrac * w, y = this._horizon(h) + s.rowOffset * scale;
-        ctx.fillStyle = '#c9c2b0';
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        ctx.fillStyle = (cityDef && cityDef.statueColor) || '#c9c2b0';
         ctx.fillRect(x - 10 * scale, y - 6 * scale, 20 * scale, 8 * scale); // pedestal
         ctx.fillRect(x - 5 * scale, y - 46 * scale, 10 * scale, 40 * scale); // corpo
         ctx.beginPath(); ctx.arc(x, y - 50 * scale, 6 * scale, 0, Math.PI * 2); ctx.fill(); // cabeça

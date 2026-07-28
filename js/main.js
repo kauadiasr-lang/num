@@ -320,6 +320,12 @@ function validateGameData() {
                 need(Array.isArray(c.groundColors) && c.groundColors.length === 2 && c.groundColors.every(h => hexRe.test(h)),
                     `CityDatabase['${key}']: groundColors precisa ser um array de 2 cores hex válidas`);
             }
+            // statueColor (ver city.js _drawStatue) — mesma classe de campo
+            // visual por cidade que groundColors, adicionado numa iteração
+            // ainda mais recente.
+            if (c.statueColor !== undefined) {
+                need(hexRe.test(c.statueColor), `CityDatabase['${key}']: statueColor precisa ser uma cor hex válida`);
+            }
             const knownVegetationTypes = ['cypress', 'laurel', 'deadTree', 'emberBush', 'ancientRoot', 'glowFern'];
             if (c.vegetationTypes !== undefined) {
                 need(typeof c.vegetationTypes.edge === 'string' && typeof c.vegetationTypes.center === 'string',

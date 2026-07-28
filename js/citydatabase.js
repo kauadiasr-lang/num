@@ -38,7 +38,10 @@ const CityDatabase = {
         // — 'edge' são as 2 plantas nas bordas da tela, 'center' são as 2
         // ladeando a fonte. Porto Helênico preserva cipreste/loureiro, os
         // mesmos valores de antes deste campo existir.
-        vegetationTypes: { edge: 'cypress', center: 'laurel' }
+        vegetationTypes: { edge: 'cypress', center: 'laurel' },
+        // Cor das estátuas da praça (ver city.js _drawStatue) — Porto
+        // Helênico preserva o mármore original de antes deste campo existir.
+        statueColor: '#c9c2b0'
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -57,7 +60,10 @@ const CityDatabase = {
         groundColors: ['#5a4a42', '#332a24'],
         // Árvore morta + arbusto em brasa, não cipreste/loureiro mediterrâneo
         // — mesmo motivo do campo acima (ver city.js _drawVegetation).
-        vegetationTypes: { edge: 'deadTree', center: 'emberBush' }
+        vegetationTypes: { edge: 'deadTree', center: 'emberBush' },
+        // Estátuas de rocha vulcânica escura entalhada, não mármore — mesmo
+        // motivo do campo acima (ver city.js _drawStatue).
+        statueColor: '#4a453e'
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -74,7 +80,10 @@ const CityDatabase = {
         groundColors: ['#5a6a48', '#3a4530'],
         // Arco de raiz ancestral + samambaia luminescente, não cipreste/
         // loureiro — mesmo motivo do campo acima.
-        vegetationTypes: { edge: 'ancientRoot', center: 'glowFern' }
+        vegetationTypes: { edge: 'ancientRoot', center: 'glowFern' },
+        // Estátuas de pedra antiga tomada por musgo, não mármore — mesmo
+        // motivo do campo acima (ver city.js _drawStatue).
+        statueColor: '#6a7a5a'
     }
 };
 window.CityDatabase = CityDatabase;
