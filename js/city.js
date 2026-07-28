@@ -52,6 +52,15 @@ class CityEngine {
         this._ambientSoundTimer = 0;
         this._nearBuilding = null;
 
+        // Clima da praça (ver _updateWeather) — antes a cidade só variava
+        // por dia/noite; o céu nunca ficava nublado nem chovia, mesmo tendo
+        // biomas de arena com neve/areia/vento (ver ARENA_BIOMES em
+        // graphics.js). "Clima" está listada nas subáreas obrigatórias de
+        // Mundo e faltava por completo na Cidade.
+        this.weather = 'clear';
+        this._weatherTimer = Utils.randomFloat(45, 90);
+        this._rainSpawnTimer = 0;
+
         // Eventos aleatórios enquanto explora a cidade (mercadores, ladrões,
         // duelistas, mensageiros, nobres, promoções, artistas, pregoeiros) —
         // um temporizador simples, sem fila/histórico: só um toast (e, no
@@ -480,6 +489,7 @@ class CityEngine {
         else this._updateNpcs(dt, this.nightWanderers, 28);
         this._updateProximity();
         this._updateAmbientEffects(dt);
+        this._updateWeather(dt);
         this._updateRandomEvents(dt);
     }
 
@@ -786,6 +796,33 @@ class CityEngine {
         if (this._ambientSoundTimer <= 0 && window.AudioManager) {
             this._ambientSoundTimer = Utils.randomFloat(3, 7);
             window.AudioManager.playCityAmbientOneshot();
+        }
+    }
+
+    // Clima da praça: alterna entre 'clear' e 'rain' em ciclos temporizados
+    // independentes do dia/noite. Enquanto chove, pinga chuva (ver
+    // GraphicsEngine.spawnRainDrop) espalhada pelo topo da tela.
+    _updateWeather(dt) {
+        this._weatherTimer -= dt;
+        if (this._weatherTimer <= 0) {
+            if (this.weather === 'clear') {
+                this.weather = Utils.chance(35) ? 'rain' : 'clear';
+                this._weatherTimer = this.weather === 'rain' ? Utils.randomFloat(30, 55) : Utils.randomFloat(45, 90);
+                if (this.weather === 'rain') this._toast('Nuvens escuras cobrem a praça — começa a chover.', 'info');
+            } else {
+                this.weather = 'clear';
+                this._weatherTimer = Utils.randomFloat(45, 90);
+                this._toast('A chuva passa e o sol volta a espiar entre as nuvens.', 'info');
+            }
+        }
+
+        if (this.weather === 'rain' && window.GFX) {
+            this._rainSpawnTimer -= dt;
+            if (this._rainSpawnTimer <= 0) {
+                this._rainSpawnTimer = 0.02;
+                const w = window.Engine.width;
+                window.GFX.spawnRainDrop(Utils.randomFloat(0, w), -10);
+            }
         }
     }
 

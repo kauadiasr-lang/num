@@ -395,6 +395,20 @@ class GraphicsEngine {
         this.floatingTexts.push(new FloatingText(x + offsetX, y, text, color, isCrit));
     }
 
+    // Pingo de chuva (ver CityEngine._updateWeather, clima da praça) — não
+    // reaproveita spawnParticles porque um pingo precisa cair reto e rápido
+    // (vy alto, vx quase nulo), diferente de faísca/poeira/sangue que se
+    // espalham em qualquer direção. Respeita "reduzir efeitos" na cidade
+    // igual já acontece em spawnParticles.
+    spawnRainDrop(x, y) {
+        if (this.reduceEffects && Utils.chance(50)) return;
+        const p = new Particle(x, y, 'rgba(120,150,185,0.85)', 0, 3);
+        p.vx = Utils.randomFloat(0.3, 0.7);
+        p.vy = Utils.randomFloat(9, 13);
+        p.decay = 0.012;
+        this.particles.push(p);
+    }
+
     // Flash de impacto crítico (anel dourado expansivo)
     spawnCritBurst(x, y, color = '#ffcc00') {
         this.bursts.push(new ImpactBurst(x, y, color));
