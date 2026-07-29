@@ -2468,22 +2468,16 @@ class GraphicsEngine {
         ctx.save();
         ctx.translate(0, headY);
         ctx.scale(faceWidth, 1);
-        this._traceHeadSilhouette(ctx, headR);
+        ctx.beginPath();
+        ctx.arc(0, 0, headR, 0, Math.PI * 2);
         ctx.fillStyle = skin;
         ctx.fill();
         // Sombra sutil no lado de trás do rosto — mesmo truque de luz vindo
         // da esquerda usado no torso, evita a cabeça parecer um disco chapado.
-        // Recortada (clip) na MESMA silhueta de mandíbula, senão a sombra
-        // (um arco à parte) vazaria por fora do contorno agora que a cabeça
-        // não é mais um círculo perfeito.
-        ctx.save();
-        this._traceHeadSilhouette(ctx, headR);
-        ctx.clip();
         ctx.fillStyle = 'rgba(0,0,0,0.10)';
         ctx.beginPath();
         ctx.arc(headR * 0.35, 0, headR * 0.85, -Math.PI * 0.5, Math.PI * 0.5);
         ctx.fill();
-        ctx.restore();
         ctx.restore();
 
         this._drawEar(ctx, v, headY, headR);
@@ -2522,30 +2516,6 @@ class GraphicsEngine {
         this._drawFacialHair(ctx, v, headY);
         this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
-    }
-
-    // 3/20 do bloco de reconstrução visual: contorno da cabeça deixa de ser
-    // um círculo perfeito ("bolinha com cor de pele com espada", a queixa
-    // literal do pedido do usuário) e vira uma silhueta de crânio de perfil
-    // — testa inclinada, bochecha mais larga na altura dos olhos,
-    // mandíbula afinando até um queixo definido projetado pra frente (+X,
-    // mesmo lado do nariz/olho/boca), e a nuca arredondada abaulando pra
-    // trás (-X, mesmo lado da orelha). Chamada duas vezes em _drawHead (uma
-    // pro preenchimento, outra como clip da sombra), por isso é um método
-    // à parte em vez de inline — traça o path, não preenche nem tracejar
-    // (quem chama decide fill/clip).
-    _traceHeadSilhouette(ctx, headR) {
-        ctx.beginPath();
-        ctx.moveTo(-headR * 0.1, -headR);
-        ctx.bezierCurveTo(headR * 0.3, -headR * 0.98, headR * 0.55, -headR * 0.75, headR * 0.55, -headR * 0.75);
-        ctx.bezierCurveTo(headR * 0.85, -headR * 0.45, headR * 0.95, -headR * 0.1, headR * 0.95, -headR * 0.05);
-        ctx.bezierCurveTo(headR * 0.95, headR * 0.2, headR * 0.82, headR * 0.4, headR * 0.7, headR * 0.55);
-        ctx.bezierCurveTo(headR * 0.6, headR * 0.7, headR * 0.5, headR * 0.85, headR * 0.32, headR * 0.95);
-        ctx.bezierCurveTo(headR * 0.05, headR * 1.02, -headR * 0.3, headR * 0.95, -headR * 0.15, headR * 0.85);
-        ctx.bezierCurveTo(-headR * 0.35, headR * 0.75, -headR * 0.75, headR * 0.5, -headR * 0.88, headR * 0.25);
-        ctx.bezierCurveTo(-headR * 1.0, 0, -headR * 0.95, -headR * 0.4, -headR * 0.75, -headR * 0.55);
-        ctx.bezierCurveTo(-headR * 0.6, -headR * 0.85, -headR * 0.35, -headR * 1.0, -headR * 0.1, -headR);
-        ctx.closePath();
     }
 
     // 2/20 do bloco de reconstrução visual: orelha visível no lado de trás
