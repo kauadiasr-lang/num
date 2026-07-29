@@ -2237,57 +2237,106 @@ class GraphicsEngine {
         ctx.restore();
     }
 
+    // Migração p/ pipeline de sprites: a COXA/CANELA (só a forma afunilada,
+    // sem bota nem adereço) é bakeada uma vez por (arquétipo, gênero) — a cor
+    // da perna é uma constante fixa no jogo inteiro, então a única coisa que
+    // muda o formato é a métrica de corpo. O sway (balanço ao andar/idle)
+    // continua aplicado por fora via ctx.rotate a cada frame, exatamente como
+    // antes — só o CONTEÚDO do bitmap é bakeado, nunca a rotação.
+    _bakeLegShapeSprite(m, legLen) {
+        const legColor = '#4a3826';
+        const hipW = m.ankle * 1.7, ankleW = m.ankle;
+        const halfW = Math.max(hipW, ankleW) / 2 + 2;
+        const pad = 2;
+        const w = halfW * 2;
+        const h = legLen + pad;
+        const anchorX = halfW, anchorY = legLen;
+        const key = `legshape:${hipW.toFixed(1)}|${ankleW.toFixed(1)}|${legLen}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+                bctx.fillStyle = legColor;
+                this._drawTaperedLimb(bctx, 0, -legLen, 0, hipW, ankleW);
+            }),
+            anchorX, anchorY
+        };
+    }
+
+    // Botas + adereço de perna por arquétipo (Bárbaro: peles; Assassino:
+    // correias) — no código original já eram desenhados em espaço NÃO
+    // rotacionado (fora do rotate de sway de cada perna), então bakear os
+    // dois em conjunto, sem nenhuma rotação, reproduz exatamente o mesmo
+    // resultado visual.
+    _legDecorSpriteKey(entity, m) {
+        const boots = entity.equipment && entity.equipment[SLOTS.FEET];
+        const archId = (entity.visuals && entity.visuals.archetype) || '';
+        const bootColor = boots ? (boots.rarity ? boots.rarity.color : '#8a5a2b') : '';
+        return `legdecor:${archId}|${bootColor}|${m.ankle.toFixed(1)}`;
+    }
+
+    _bakeLegDecorSprite(entity, m, legLen) {
+        const boots = entity.equipment && entity.equipment[SLOTS.FEET];
+        const hipW = m.ankle * 1.7, ankleW = m.ankle;
+        const bw = ankleW + 6;
+        const halfW = 8 + Math.max(hipW, bw) / 2 + 2;
+        const w = halfW * 2;
+        const h = legLen + 2;
+        const anchorX = halfW, anchorY = legLen;
+        const key = this._legDecorSpriteKey(entity, m);
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+                const archId = entity.visuals && entity.visuals.archetype;
+                if (archId === 'barbaro') {
+                    const arch = this._archetype(entity);
+                    bctx.fillStyle = arch.accent;
+                    bctx.fillRect(-8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
+                    bctx.fillRect(8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
+                } else if (archId === 'assassino') {
+                    bctx.strokeStyle = this._archetype(entity).accent;
+                    bctx.lineWidth = 2.5;
+                    bctx.beginPath(); bctx.moveTo(-8 - hipW / 2, -legLen * 0.62); bctx.lineTo(-8 + hipW / 2, -legLen * 0.68); bctx.stroke();
+                    bctx.beginPath(); bctx.moveTo(8 - hipW / 2, -legLen * 0.62); bctx.lineTo(8 + hipW / 2, -legLen * 0.68); bctx.stroke();
+                }
+                if (boots) {
+                    const bootColor = boots.rarity ? boots.rarity.color : '#8a5a2b';
+                    bctx.fillStyle = '#2c2318';
+                    bctx.fillRect(-8 - bw / 2, -16, bw, 16);
+                    bctx.fillRect(8 - bw / 2, -16, bw, 16);
+                    bctx.strokeStyle = bootColor;
+                    bctx.lineWidth = 2;
+                    bctx.strokeRect(-8 - bw / 2, -16, bw, 16);
+                    bctx.strokeRect(8 - bw / 2, -16, bw, 16);
+                    bctx.fillStyle = 'rgba(0,0,0,0.35)';
+                    bctx.fillRect(-8 - bw / 2, -3, bw, 3);
+                    bctx.fillRect(8 - bw / 2, -3, bw, 3);
+                }
+            }),
+            anchorX, anchorY
+        };
+    }
+
     _drawLegs(ctx, entity, pose) {
         const legLen = this._legLen();
-        const boots = entity.equipment && entity.equipment[SLOTS.FEET];
         const m = this._bodyMetrics(entity);
-        const legColor = '#4a3826';
         const sway = pose.legSway * 0.15;
-        const hipW = m.ankle * 1.7, ankleW = m.ankle;
 
-        ctx.fillStyle = legColor;
+        const legSprite = this._bakeLegShapeSprite(m, legLen);
+
         ctx.save();
         ctx.translate(-8, 0);
         ctx.rotate(sway * Math.PI / 180);
-        this._drawTaperedLimb(ctx, 0, -legLen, 0, hipW, ankleW);
+        ctx.drawImage(legSprite.canvas, -legSprite.anchorX, -legSprite.anchorY);
         ctx.restore();
 
         ctx.save();
         ctx.translate(8, 0);
         ctx.rotate(-sway * Math.PI / 180);
-        this._drawTaperedLimb(ctx, 0, -legLen, 0, hipW, ankleW);
+        ctx.drawImage(legSprite.canvas, -legSprite.anchorX, -legSprite.anchorY);
         ctx.restore();
 
-        // Arquétipo: tiras/enfaixamento nas pernas (Bárbaro: peles no topo da
-        // coxa; Assassino: correias de utilidade na coxa) — puramente estético.
-        const archId = entity.visuals && entity.visuals.archetype;
-        if (archId === 'barbaro') {
-            const arch = this._archetype(entity);
-            ctx.fillStyle = arch.accent;
-            ctx.fillRect(-8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
-            ctx.fillRect(8 - hipW / 2 - 1, -legLen + 2, hipW + 2, 7);
-        } else if (archId === 'assassino') {
-            ctx.strokeStyle = this._archetype(entity).accent;
-            ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.moveTo(-8 - hipW / 2, -legLen * 0.62); ctx.lineTo(-8 + hipW / 2, -legLen * 0.68); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(8 - hipW / 2, -legLen * 0.62); ctx.lineTo(8 + hipW / 2, -legLen * 0.68); ctx.stroke();
-        }
-
-        if (boots) {
-            const bootColor = boots.rarity ? boots.rarity.color : '#8a5a2b';
-            const bw = ankleW + 6;
-            ctx.fillStyle = '#2c2318';
-            ctx.fillRect(-8 - bw / 2, -16, bw, 16);
-            ctx.fillRect(8 - bw / 2, -16, bw, 16);
-            ctx.strokeStyle = bootColor;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-8 - bw / 2, -16, bw, 16);
-            ctx.strokeRect(8 - bw / 2, -16, bw, 16);
-            // Sola e cadarço/fivela simples pra não ficarem blocos lisos
-            ctx.fillStyle = 'rgba(0,0,0,0.35)';
-            ctx.fillRect(-8 - bw / 2, -3, bw, 3);
-            ctx.fillRect(8 - bw / 2, -3, bw, 3);
-        }
+        const decorSprite = this._bakeLegDecorSprite(entity, m, legLen);
+        ctx.drawImage(decorSprite.canvas, -decorSprite.anchorX, -decorSprite.anchorY);
     }
 
     // Caminho do torso afunilado (ombros largos -> cintura estreita) — usado
@@ -2497,12 +2546,49 @@ class GraphicsEngine {
 
     _headAnchorY() { return -this._legLen() - this._torsoH() - this._headR() + 6; }
 
-    _drawHead(ctx, entity, pose) {
+    // Migração p/ pipeline de sprites: a única variação da cabeça entre
+    // frames é a expressão da boca (ver _drawMouth), que só olha
+    // `pose.animType` — reduzido aqui a um dos 4 "buckets" de expressão que
+    // ela já reconhece, pra não gerar uma sprite nova por tipo de animação
+    // à toa (attack/run/charge sempre desenham a MESMA boca aberta).
+    _headExpressionBucket(pose) {
+        const type = pose && pose.animType;
+        if (type === 'attack' || type === 'run' || type === 'charge') return 'open';
+        if (type === 'hurt') return 'hurt';
+        if (type === 'victory') return 'victory';
+        return 'neutral';
+    }
+
+    _headSpriteKey(entity, pose, helmet) {
+        const v = entity.visuals || {};
+        const helmetSig = helmet ? `${helmet.id}|${helmet.rarity ? helmet.rarity.color : ''}` : '';
+        return `head:${JSON.stringify(v)}|${this._headExpressionBucket(pose)}|${helmetSig}`;
+    }
+
+    // Cabeça (pescoço, cabelo, rosto, orelha, sobrancelha, olhos, boca,
+    // cicatriz, presas, barba, adereço de arquétipo, capacete) — tudo
+    // determinado por entity+visuals+equipamento+expressão (nunca por
+    // posição/rotação de pose), então é bakeado inteiro UMA VEZ por
+    // combinação visual, igual ao torso/pernas.
+    _bakeHeadSprite(entity, pose) {
+        const helmet = entity.equipment && entity.equipment[SLOTS.HEAD];
+        const key = this._headSpriteKey(entity, pose, helmet);
+        const w = 140, h = 120; // cobre com folga espetos/tranças longas e o pescoço
+        const anchorX = 70, anchorY = 190;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+                this._paintHead(bctx, entity, pose, helmet);
+            }),
+            anchorX, anchorY
+        };
+    }
+
+    _paintHead(ctx, entity, pose, helmet) {
         const v = entity.visuals || {};
         const skin = v.skinTone || '#ffcc99';
         const headR = this._headR();
         const headY = this._headAnchorY();
-        const helmet = entity.equipment && entity.equipment[SLOTS.HEAD];
         const archId = v.archetype;
 
         // Pescoço
@@ -2564,6 +2650,11 @@ class GraphicsEngine {
         this._drawFacialHair(ctx, v, headY);
         this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
+    }
+
+    _drawHead(ctx, entity, pose) {
+        const sprite = this._bakeHeadSprite(entity, pose);
+        ctx.drawImage(sprite.canvas, -sprite.anchorX, -sprite.anchorY);
     }
 
     // 2/20 do bloco de reconstrução visual: orelha visível no lado de trás
@@ -2986,6 +3077,32 @@ class GraphicsEngine {
         ctx.fill();
     }
 
+    // Migração p/ pipeline de sprites: a forma do braço (membro afunilado +
+    // braçadeira de luva) não muda de frame a frame — só o ÂNGULO em que é
+    // desenhada muda (guarda/golpe), e ângulo continua aplicado por fora via
+    // ctx.rotate, exatamente como torso/pernas/cabeça. Bakear por ângulo
+    // seria inviável (weaponAngle varia continuamente durante o golpe), mas
+    // bakear só a FORMA do braço (independente do ângulo) funciona igual aos
+    // outros membros.
+    _bakeArmLimbSprite(armLen, m, armColor, gloveColor, withGlove, gloveRectStart, gloveRectLen) {
+        const halfW = Math.max(m.armShoulder, m.armWrist) / 2 + 2;
+        const w = halfW * 2, h = armLen + 2;
+        const anchorX = halfW, anchorY = 1;
+        const key = `armlimb:${armColor}|${withGlove ? (gloveColor || '') : 'noglove'}|${m.armShoulder.toFixed(1)}|${m.armWrist.toFixed(1)}|${armLen.toFixed(1)}|${gloveRectStart}|${gloveRectLen}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+                bctx.fillStyle = armColor;
+                this._drawTaperedLimb(bctx, 0, 0, armLen, m.armShoulder, m.armWrist);
+                if (withGlove && gloveColor) {
+                    bctx.strokeStyle = gloveColor; bctx.lineWidth = 1.5;
+                    bctx.strokeRect(-m.armWrist / 2, gloveRectStart, m.armWrist, gloveRectLen);
+                }
+            }),
+            anchorX, anchorY
+        };
+    }
+
     // Braço de trás: escudo (se houver) — desenhado antes da cabeça pra ficar atrás do corpo
     _drawBackArm(ctx, entity, pose) {
         const shoulderY = -this._legLen() - this._torsoH() + 10;
@@ -2996,16 +3113,13 @@ class GraphicsEngine {
         const m = this._bodyMetrics(entity);
         const shield = entity.equipment && entity.equipment[SLOTS.OFF_HAND];
         const angle = pose.guard ? -110 : -75;
+        const backArmLen = this._armLen() * 0.7;
 
+        const armSprite = this._bakeArmLimbSprite(backArmLen, m, armColor, gloveColor, true, this._armLen() * 0.5, this._armLen() * 0.2);
         ctx.save();
         ctx.translate(-m.shoulder / 2 + 3, shoulderY);
         ctx.rotate(angle * Math.PI / 180);
-        ctx.fillStyle = armColor;
-        this._drawTaperedLimb(ctx, 0, 0, this._armLen() * 0.7, m.armShoulder, m.armWrist);
-        if (gloveColor) {
-            ctx.strokeStyle = gloveColor; ctx.lineWidth = 1.5;
-            ctx.strokeRect(-m.armWrist / 2, this._armLen() * 0.5, m.armWrist, this._armLen() * 0.2);
-        }
+        ctx.drawImage(armSprite.canvas, -armSprite.anchorX, -armSprite.anchorY);
         ctx.restore();
 
         if (shield) {
@@ -3047,6 +3161,9 @@ class GraphicsEngine {
         const armLen = this._armLen();
         const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
 
+        const armSpritePlain = this._bakeArmLimbSprite(armLen, m, armColor, gloveColor, false, 0, 0);
+        const armSpriteWithGlove = this._bakeArmLimbSprite(armLen, m, armColor, gloveColor, true, armLen * 0.72, armLen * 0.22);
+
         // Rastro de movimento (afterimage) durante o swing de ataque — 2 cópias
         // fracas do braço/arma num ângulo levemente anterior, sem precisar
         // rastrear histórico de quadros anteriores.
@@ -3056,8 +3173,7 @@ class GraphicsEngine {
                 ctx.globalAlpha = 0.14 + i * 0.08;
                 ctx.translate(m.shoulder / 2 - 3, shoulderY);
                 ctx.rotate((pose.weaponAngle - back) * Math.PI / 180);
-                ctx.fillStyle = armColor;
-                this._drawTaperedLimb(ctx, 0, 0, armLen, m.armShoulder, m.armWrist);
+                ctx.drawImage(armSpritePlain.canvas, -armSpritePlain.anchorX, -armSpritePlain.anchorY);
                 ctx.translate(0, armLen);
                 this._drawWeapon(ctx, activeWeapon);
                 ctx.restore();
@@ -3068,12 +3184,7 @@ class GraphicsEngine {
         ctx.save();
         ctx.translate(m.shoulder / 2 - 3, shoulderY);
         ctx.rotate(pose.weaponAngle * Math.PI / 180);
-        ctx.fillStyle = armColor;
-        this._drawTaperedLimb(ctx, 0, 0, armLen, m.armShoulder, m.armWrist);
-        if (gloveColor) {
-            ctx.strokeStyle = gloveColor; ctx.lineWidth = 1.5;
-            ctx.strokeRect(-m.armWrist / 2, armLen * 0.72, m.armWrist, armLen * 0.22);
-        }
+        ctx.drawImage(armSpriteWithGlove.canvas, -armSpriteWithGlove.anchorX, -armSpriteWithGlove.anchorY);
         ctx.translate(0, armLen);
         // Punho fechado no pulso — antes a arma saía direto da manga, sem
         // NENHUMA mão entre os dois (ver _drawHand). Desenhado ANTES da
