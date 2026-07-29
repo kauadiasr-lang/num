@@ -1715,11 +1715,24 @@ class GraphicsEngine {
 
     _drawCrowd(ctx, w, horizon, baseColor) {
         const t = this._torchClock || 0;
+        // Bug de auditoria (visual): "efeitos repetitivos"/"cores sem
+        // identidade" — os ~66 pontos da plateia eram todos preenchidos com
+        // a MESMA cor sólida (baseColor), então o Coliseu lotado lia como um
+        // padrão mecânico de pontos idênticos em vez de uma multidão de
+        // pessoas. Nenhuma torcida real veste uma cor uniforme. Deriva uma
+        // pequena variação de brilho por espectador a partir do `seed` que
+        // cada um já tem desde _initArenaAmbience (determinístico — mesma
+        // pessoa sempre com o mesmo tom, sem Math.random() por frame),
+        // então a torcida ganha textura de indivíduos sem precisar de uma
+        // paleta configurada à mão por bioma.
+        const m = baseColor.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
+        const baseR = m ? parseFloat(m[1]) : 200, baseG = m ? parseFloat(m[2]) : 200, baseB = m ? parseFloat(m[3]) : 200;
         this.crowd.forEach(p => {
             const rowY = horizon - 40 - p.tier * 17;
             const bob = Math.sin(t * 2.5 + p.seed) * 2;
             const px = p.baseX * w;
-            ctx.fillStyle = baseColor;
+            const varMul = 0.72 + ((p.seed * 37) % 1) * 0.56; // ~0.72–1.28
+            ctx.fillStyle = `rgb(${Math.min(255, baseR * varMul) | 0},${Math.min(255, baseG * varMul) | 0},${Math.min(255, baseB * varMul) | 0})`;
             ctx.globalAlpha = 0.75;
             ctx.beginPath();
             ctx.arc(px, rowY + bob, 3.5, 0, Math.PI * 2);
