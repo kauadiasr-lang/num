@@ -33,6 +33,17 @@
                         <span class="game-logo-main">ARENA</span>
                         <span class="game-logo-sub">OF BLADES</span>
                     </h1>
+                    <!-- Lore de abertura — primeiro texto narrativo que o jogo
+                         mostra, antes de qualquer personagem existir. -->
+                    <p class="mainmenu-lore">
+                        Séculos depois da queda dos grandes impérios, as antigas cidades-arena
+                        ainda erguem seus portões ao amanhecer. Gladiadores de todo canto do mundo
+                        conhecido — humanos e espartanos, atenienses e tebanos, orcs vindos da
+                        Fortaleza de Gorkhal, elfos do Santuário de Sylvaneth, anões das montanhas —
+                        cruzam a areia em busca de glória, ouro e um nome que sobreviva à própria morte.
+                        Mas sob a luz das tochas, algo mais antigo espreita: rumores de sangue que
+                        nunca envelhece, e de uma luz que se recusa a se apagar.
+                    </p>
                     <nav class="mainmenu-buttons">
                         <button id="btn-mm-continue" class="btn-mainmenu" disabled>
                             <span class="mm-icon">▶</span> Continuar
@@ -42,6 +53,9 @@
                         </button>
                         <button id="btn-mm-loadgame" class="btn-mainmenu">
                             <span class="mm-icon">▶</span> Carregar Jogo
+                        </button>
+                        <button id="btn-mm-guide" class="btn-mainmenu">
+                            <span class="mm-icon">▶</span> Guia do Jogo
                         </button>
                         <button id="btn-mm-settings" class="btn-mainmenu">
                             <span class="mm-icon">▶</span> Configurações
@@ -176,6 +190,7 @@
                      em Swords and Sandals) — fica junto do botão de menu, no topo. -->
                 <button id="btn-hub-inventory" class="btn-hub-menu btn-hub-inventory" title="Inventário &amp; Status">🎒</button>
                 <button id="btn-hub-mutations" class="btn-hub-menu btn-hub-mutations" title="Mutações">🩸</button>
+                <button id="btn-hub-guide" class="btn-hub-menu btn-hub-guide" title="Guia do Jogo">📖</button>
                 <div class="hud-top">
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
@@ -271,6 +286,19 @@
                             <div id="mutations-bosses" class="mutations-bosses-list"></div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- TELA: GUIA DO JOGO — referência estática (não depende de save/
+                 personagem carregado), acessível tanto do Menu Principal
+                 quanto do Hub da cidade. Conteúdo construído por js/guide.js
+                 a partir dos dados reais do jogo (nunca hardcoded aqui). -->
+            <div id="screen-guide" class="screen">
+                <div class="panel guide-panel">
+                    <button class="btn-close" id="btn-close-guide">X</button>
+                    <h2 class="panel-title">Guia do Jogo</h2>
+                    <nav id="guide-tabs" class="guide-tabs"></nav>
+                    <div id="guide-content" class="guide-content"></div>
                 </div>
             </div>
 
@@ -640,6 +668,7 @@
     <script src="js/battle.js"></script>
     <script src="js/graphics.js"></script>
     <script src="js/city.js"></script>
+    <script src="js/guide.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/mainmenu.js"></script>
     <script src="js/main.js"></script>

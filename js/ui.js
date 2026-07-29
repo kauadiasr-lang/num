@@ -213,6 +213,11 @@ class UIManager {
         document.getElementById('btn-hub-inventory').addEventListener('click', () => this.openInventory());
         document.getElementById('btn-hub-mutations').addEventListener('click', () => this.openMutations());
         document.getElementById('btn-close-mutations').addEventListener('click', () => this.showScreen('screen-hub'));
+
+        // --- Guia do Jogo — referência estática, sem depender de save/personagem,
+        //     acessível tanto do Hub quanto do Menu Principal (ver mainmenu.js) ---
+        document.getElementById('btn-hub-guide').addEventListener('click', () => window.GuideSystem.open('hub'));
+        document.getElementById('btn-close-guide').addEventListener('click', () => window.GuideSystem.close());
         document.getElementById('btn-bank-deposit').addEventListener('click', () => this.bankDeposit());
         document.getElementById('btn-bank-withdraw').addEventListener('click', () => this.bankWithdraw());
         document.getElementById('btn-respec-stats').addEventListener('click', () => this.respecStats());

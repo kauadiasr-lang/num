@@ -1211,6 +1211,63 @@ html, body {
     border: 1px solid var(--color-gold); color: var(--color-gold); font-size: 0.85rem;
 }
 
+/* ==========================================================================
+   Guia do Jogo — referência estática, acessível do Menu Principal e do Hub,
+   sem depender de personagem/save carregado.
+   ========================================================================== */
+.guide-panel { width: 94%; max-width: 980px; max-height: 90vh; overflow-y: auto; position: relative; }
+.guide-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--color-bronze-dark);
+}
+.guide-tab-btn {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--color-bronze-dark); color: var(--color-marble-dark);
+    padding: 7px 14px; border-radius: 5px; font-size: 0.82rem; cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, transform 0.1s;
+}
+.guide-tab-btn:hover { border-color: var(--color-gold); color: var(--color-text); transform: translateY(-1px); }
+.guide-tab-btn.active { border-color: var(--color-gold); color: var(--color-gold); background: rgba(212,175,55,0.12); }
+
+.guide-content { text-align: left; }
+.guide-section-title { color: var(--color-gold); margin-bottom: 4px; }
+.guide-section-intro { color: var(--color-marble-dark); font-size: 0.88rem; margin-bottom: 14px; font-style: italic; }
+.guide-block { margin-bottom: 20px; }
+.guide-block h4 { color: var(--color-gold-bright); font-size: 0.95rem; margin-bottom: 6px; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 4px; }
+.guide-block p { font-size: 0.85rem; color: var(--color-text); margin-bottom: 6px; line-height: 1.5; }
+
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.guide-card {
+    background: linear-gradient(160deg, rgba(43,36,29,0.9), rgba(22,17,11,0.9));
+    border: 1px solid var(--color-bronze-dark); border-radius: 8px; padding: 12px 14px;
+    border-left: 4px solid var(--guide-accent, var(--color-bronze));
+}
+.guide-card h4 { color: var(--color-gold); font-size: 0.92rem; margin-bottom: 4px; border: none; padding: 0; }
+.guide-card .guide-card-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-marble-dark); margin-bottom: 6px; }
+.guide-card p { font-size: 0.82rem; color: var(--color-marble-dark); margin: 3px 0; }
+.guide-card .guide-card-flavor { font-style: italic; color: var(--color-text); opacity: 0.9; margin-top: 6px; }
+.guide-card.locked { opacity: 0.55; filter: grayscale(60%); }
+
+.guide-table-wrap { overflow-x: auto; margin-bottom: 6px; }
+.guide-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.guide-table th, .guide-table td { padding: 6px 8px; border-bottom: 1px solid rgba(212,175,55,0.15); text-align: left; }
+.guide-table th { color: var(--color-gold); font-weight: bold; white-space: nowrap; }
+.guide-table td { color: var(--color-text); }
+.guide-table tr:hover td { background: rgba(212,175,55,0.06); }
+
+.guide-tree-tier { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.guide-tree-node {
+    width: 150px; padding: 8px; border-radius: 6px; font-size: 0.76rem;
+    background: rgba(0,0,0,0.3); border: 2px solid var(--color-bronze-dark);
+}
+.guide-tree-node.active-node { border-color: #6bb2ff; }
+.guide-tree-node.capstone { border-color: var(--color-gold); box-shadow: 0 0 8px rgba(212,175,55,0.3); }
+.guide-tree-node h5 { color: var(--color-gold); font-size: 0.8rem; margin-bottom: 3px; }
+.guide-tree-node .node-type { font-size: 0.66rem; text-transform: uppercase; color: #6bb2ff; margin-bottom: 3px; }
+.guide-tree-node p { font-size: 0.72rem; color: var(--color-marble-dark); margin: 0; }
+
+.guide-weakness-tag { color: #ff6666; }
+.guide-locked-note { text-align: center; color: var(--color-marble-dark); font-style: italic; padding: 10px; }
+
 /* Encantamentos (Inventário) */
 .enchant-container { display: flex; flex-direction: column; gap: 8px; }
 .enchant-row {
@@ -1304,6 +1361,14 @@ html, body {
 
 .mainmenu-version { color: var(--color-marble-dark); font-size: 0.8rem; opacity: 0.7; }
 
+.mainmenu-lore {
+    max-width: 620px; text-align: center; font-style: italic;
+    color: var(--color-marble-dark); line-height: 1.6; font-size: 0.92rem;
+    padding: 0 1rem;
+}
+@media (max-width: 600px) { .mainmenu-lore { font-size: 0.82rem; } }
+@media (max-height: 700px) { .mainmenu-lore { display: none; } }
+
 @media (max-width: 600px) {
     .game-logo-main { font-size: 2.6rem; letter-spacing: 6px; }
     .game-logo-sub { font-size: 1.4rem; letter-spacing: 8px; }
@@ -1333,6 +1398,8 @@ html, body {
 .btn-hub-inventory { left: auto; right: 10px; }
 /* Botão de Mutações, logo abaixo do Inventário (mesmo canto) */
 .btn-hub-mutations { left: auto; right: 10px; top: 54px; }
+/* Botão do Guia do Jogo, logo abaixo de Mutações (mesmo canto) */
+.btn-hub-guide { left: auto; right: 10px; top: 98px; }
 
 /* --- Slots de Save --- */
 .saveslots-panel { width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; }

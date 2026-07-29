@@ -527,6 +527,7 @@ class MainMenuManager {
         document.getElementById('btn-mm-newgame').addEventListener('click', () => this.openSaveSlots());
         document.getElementById('btn-mm-loadgame').addEventListener('click', () => this.openSaveSlots());
         document.getElementById('btn-mm-settings').addEventListener('click', () => this.openSettings());
+        document.getElementById('btn-mm-guide').addEventListener('click', () => window.GuideSystem.open('mainmenu'));
         document.getElementById('btn-mm-achievements').addEventListener('click', () => this.openAchievementsFromMenu());
         document.getElementById('btn-mm-credits').addEventListener('click', () => this.openCredits());
         document.getElementById('btn-mm-quit').addEventListener('click', () => this.quitGame());
