@@ -1853,11 +1853,19 @@ class CityEngine {
         ctx.fillStyle = wallGrad;
         ctx.fillRect(left, top, bw, bh);
 
-        // Colunas de mármore
+        // Colunas de mármore — antes cor sólida única; um gradiente
+        // horizontal por coluna (mais escuro nas bordas, brilho claro no
+        // meio) sugere o arredondado do fuste recebendo luz, em vez de uma
+        // tira plana de cor. Precisa ser recriado por coluna (a posição X
+        // muda), mas colCount é sempre pequeno (3-5), custo desprezível.
         const colCount = Math.max(3, Math.floor(bw / 32));
-        ctx.fillStyle = 'rgba(230,224,208,0.9)';
         for (let i = 0; i < colCount; i++) {
             const cx = left + (bw / (colCount - 1)) * i;
+            const colGrad = ctx.createLinearGradient(cx - 4, 0, cx + 4, 0);
+            colGrad.addColorStop(0, 'rgba(188,180,158,0.9)');
+            colGrad.addColorStop(0.5, 'rgba(248,243,228,0.95)');
+            colGrad.addColorStop(1, 'rgba(188,180,158,0.9)');
+            ctx.fillStyle = colGrad;
             ctx.fillRect(cx - 4, top + 6, 8, bh - 12);
         }
 
