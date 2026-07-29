@@ -779,6 +779,37 @@ html, body {
     font-size: 1.3rem;
     line-height: 1.8;
 }
+
+/* Bug de auditoria (visual): "menus sem personalidade" — a tela de
+   resultado usava o MESMO .panel genérico (moldura dourada, brilho
+   dourado contínuo) tanto pra Vitória Gloriosa quanto pra Derrota
+   Esmagadora; só o texto do título mudava de cor. Nenhum jogo de
+   referência trata os dois desfechos com a mesma moldura triunfante.
+   .results-panel.victory/.defeat sobrescrevem a cor da borda/moldura e
+   trocam a animação de brilho (ver panelGlow em .panel) por uma versão
+   dourada mais intensa (vitória) ou vermelha/esmaecida, pulsando pra
+   BAIXO em vez de pra cima (derrota, transmite algo se apagando). Classe
+   é alternada em showBattleResults (ui.js), sem duplicar nenhum CSS do
+   .panel base — só a cor/brilho da moldura mudam. */
+.results-panel.victory {
+    border-color: var(--color-gold);
+    outline-color: var(--color-gold);
+    animation: panelEnter 0.4s ease-out, panelGlowVictory 3s ease-in-out 0.4s infinite;
+}
+.results-panel.defeat {
+    border-color: #4a2020;
+    outline-color: #6b2626;
+    animation: panelEnter 0.4s ease-out, panelGlowDefeat 4s ease-in-out 0.4s infinite;
+}
+.results-panel.defeat::before, .results-panel.defeat::after { border-color: #6b6b6b; }
+@keyframes panelGlowVictory {
+    0%, 100% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.55), 0 0 20px rgba(212,175,55,0.4); }
+    50% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.55), 0 0 36px rgba(255,215,90,0.65); }
+}
+@keyframes panelGlowDefeat {
+    0%, 100% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.6), 0 0 14px rgba(139,0,0,0.32); }
+    50% { box-shadow: var(--shadow-deep), inset 0 0 40px rgba(0,0,0,0.6), 0 0 6px rgba(139,0,0,0.14); }
+}
 .result-loot {
     min-height: 50px;
     margin-bottom: 20px;

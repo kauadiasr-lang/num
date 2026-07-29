@@ -1070,6 +1070,13 @@ class UIManager {
         lootContainer.innerHTML = ''; // Limpa loot anterior
         achievementsContainer.innerHTML = '';
 
+        // Moldura/brilho do painel reagem ao desfecho (ver .results-panel.victory/
+        // .defeat em style.css) — antes vitória e derrota usavam a mesma
+        // moldura dourada triunfante, só o texto do título mudava.
+        const resultsPanel = document.getElementById('results-panel');
+        resultsPanel.classList.toggle('victory', isVictory);
+        resultsPanel.classList.toggle('defeat', !isVictory);
+
         if (isVictory) {
             title.innerText = "Vitória Gloriosa!";
             title.style.color = "var(--color-gold)";
