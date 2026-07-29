@@ -2314,6 +2314,24 @@ class UIManager {
     // um sistema de sprites novo só pra isso.
     _itemIcon(item) {
         if (item.category === 'consumable') return '🧪';
+        // Bug de auditoria (visual): "ícones inconsistentes" — toda arma
+        // corpo-a-corpo (adaga, machado, martelo, lança, rapieira, chicote,
+        // espada) caía no MESMO ícone genérico só por compartilhar o slot
+        // MAIN_HAND, mesmo já existindo uma identidade visual própria por
+        // TIPO de arma em combate (ver WEAPON_RENDERERS, graphics.js — cada
+        // uma com sua silhueta/animação). Mapa por `item.id` (mais
+        // específico que slot) cobre os tipos com formato claro o
+        // suficiente pra ter ícone Unicode próprio; o resto continua no
+        // ícone genérico do slot, como antes.
+        const weaponIcons = {
+            w_02: '🪓', w_11: '🪓', // machados (comum e Orc)
+            w_03: '🗡️', // adaga
+            w_04: '🔨', w_12: '🔨', // martelos (guerra e Anão)
+            w_05: '🔱', // lança
+            w_06: '🤺', // rapieira
+            w_08: '〰️' // chicote
+        };
+        if (item.id && weaponIcons[item.id]) return weaponIcons[item.id];
         const icons = {
             [SLOTS.MAIN_HAND]: '⚔️', [SLOTS.RANGED]: '🏹', [SLOTS.OFF_HAND]: '🛡️',
             [SLOTS.HEAD]: '🪖', [SLOTS.CHEST]: '👕', [SLOTS.HANDS]: '🧤',
