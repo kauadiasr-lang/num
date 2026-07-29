@@ -289,7 +289,7 @@ class Vampire extends Entity {
         this.lineage = 'vampirismo'; // usado por LineageSystem.getWeaknessMultiplier em battle.js (jogadores da Linhagem Luz causam +25% de dano nele)
 
         this.level = playerLevel + Utils.randomInt(0, 2); // vampiros são um desafio um degrau acima do normal
-        if (this.level < 2) this.level = 2;
+        if (this.level < 5) this.level = 5; // pedido do usuário: vampiro nunca abaixo do nível 5, mesmo contra jogador iniciante
 
         // Estilo sorteado ANTES dos atributos, pelo mesmo motivo do Enemy
         // comum: permite que generateStats enviese os pontos pelo statFocus
@@ -356,7 +356,7 @@ class Vampire extends Entity {
 
     generateLoot(playerLuk) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-        const dropChance = 25 + (playerLuk * 2);
+        const dropChance = 80; // pedido do usuário: taxa de drop de item do vampiro fixa em 80%
         if (Utils.chance(dropChance)) {
             const dropTable = window.ItemFactory.generateShopInventory(this.level + 2, cityId);
             return dropTable[0];
