@@ -2665,11 +2665,28 @@ class GraphicsEngine {
 
         switch (style) {
             case 1: // Sayajin Espetado
+                // Bug de auditoria (visual, reportado pelo usuário): os
+                // espetos saíam direto do couro cabeludo, sem NENHUMA base —
+                // em resolução real (não só no zoom de verificação) o vão
+                // entre um espeto e outro mostrava pele nua, como se o
+                // personagem fosse careca por baixo dos picos. A mesma base
+                // (_drawBaseCap) que já cobre bem os outros estilos cheios
+                // (Longo Liso, Rabo de Cavalo) resolve, desenhada ANTES dos
+                // espetos pra ficar por baixo.
                 if (backLayer) return;
+                this._drawBaseCap(ctx, headY, headR);
                 this._drawSpikes(ctx, headY, headR, 7, 16);
                 break;
             case 2: // Sayajin Longo
+                // Mesmo bug da Espetado (vão de pele nua embaixo dos
+                // espetos) + as mechas longas (_drawFlowTail) saíam soltas,
+                // sem se conectar a nenhuma massa de cabelo — pareciam duas
+                // tiras finas penduradas do nada em vez de cabelo comprido
+                // de verdade. A base une visualmente o topo (espetos) com as
+                // mechas na lateral/nuca, exatamente como já funciona no
+                // Longo Liso (estilo 9, mesma combinação base+mecha).
                 if (backLayer) { this._drawFlowTail(ctx, headY, headR, -1, 46); this._drawFlowTail(ctx, headY, headR, 1, 46); return; }
+                this._drawBaseCap(ctx, headY, headR);
                 this._drawSpikes(ctx, headY, headR, 5, 20);
                 break;
             case 3: // Moicano
