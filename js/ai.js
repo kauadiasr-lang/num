@@ -565,7 +565,20 @@ const AICombat = {
         };
 
         // ATK
-        let atkScore = style.actionBias.ATK * (0.4 + p.aggression) * (em.ATK || 1);
+        // Bug de auditoria: essa pontuação nunca conferia a própria munição
+        // do inimigo (ver o gate equivalente já aplicado na EXECUÇÃO real
+        // do ATK/CHARGE em battle.js). Um estilo à distância (Arqueiro:
+        // weaponPool bow/crossbow/elvenlongbow, actionBias.ATK alto) que
+        // esvaziasse a munição continuava recebendo pontuação de ATK
+        // normal — _pickWeighted reescolhia ATK turno após turno, e
+        // battle.js só imprimia "sem munição", sem gastar o turno em nada
+        // (nem gerar dano, nem chamar onSelfEvent, então nem o
+        // autocorretivo de missStreak/troca de arma nunca disparava a
+        // partir desse caminho). Zerar aqui deixa o resto da lista de
+        // candidatos (SKILL/APPROACH/SWAP/etc) assumir o turno de verdade.
+        const activeWeapon = enemy.getActiveWeapon ? enemy.getActiveWeapon() : null;
+        const outOfAmmo = !!(activeWeapon && activeWeapon.maxAmmo && activeWeapon.ammo <= 0);
+        let atkScore = outOfAmmo ? 0 : style.actionBias.ATK * (0.4 + p.aggression) * (em.ATK || 1);
         if (rare && rare.id === 'so_habilidades') atkScore *= 0.05;
         if (ctx.risk > 0.6) atkScore *= (1 - p.resilience * 0.6);
         if (ctx.repeatedPattern === 'DEF') atkScore *= 1.6; // jogador vive se defendendo: pressiona mais
