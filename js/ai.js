@@ -631,8 +631,16 @@ const AICombat = {
         add('APPROACH', null, approachScore, `${enemy.name} avança, recusando-se a perder distância.`);
 
         // ITEM
+        // Bug de auditoria (relatado pelo usuário — "spam de poção"): a cura
+        // (25% do HP máximo, ver executeEnemyItem em battle.js) raramente
+        // tirava o inimigo da faixa "abaixo de 60%" num só uso, então sem
+        // nenhum intervalo mínimo o inimigo ficava reconsiderando ITEM como
+        // a ação de maior pontuação turno após turno até as cargas
+        // acabarem, em vez de misturar com ataques/defesa de verdade.
+        // itemCooldown (setado em executeEnemyItem, decrementado no início
+        // de cada turno do inimigo) exige 2 turnos de intervalo real.
         const hpPercent = enemy.currentHp / enemy.derivedStats.maxHp;
-        if ((enemy.aiState.itemCharges || 0) > 0 && hpPercent < 0.6) {
+        if ((enemy.aiState.itemCharges || 0) > 0 && hpPercent < 0.6 && (enemy.aiState.itemCooldown || 0) <= 0) {
             let itemScore = p.itemUsage * (1 - hpPercent) * 2 * (em.ITEM || 1);
             add('ITEM', null, itemScore, `${enemy.name} usa um item de cura!`);
         }

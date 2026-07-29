@@ -874,6 +874,7 @@ class BattleSystem {
     // a personalidade gosta de usar itens).
     executeEnemyItem() {
         this.enemy.aiState.itemCharges = Math.max(0, (this.enemy.aiState.itemCharges || 0) - 1);
+        this.enemy.aiState.itemCooldown = 2; // exige 2 turnos próprios de combate real antes da próxima cura (ver ai.js)
         const healAmount = Math.floor(this.enemy.derivedStats.maxHp * 0.25);
         this.enemy.currentHp = Utils.clamp(this.enemy.currentHp + healAmount, 0, this.enemy.derivedStats.maxHp);
         const enemyX = window.GFX.getEntityX(false, window.innerWidth);
@@ -894,6 +895,15 @@ class BattleSystem {
         this.enemyState.isDefending = false;
         this.enemyState.holdingDistance = false; // Reseta a postura de manter distância — espelha o reset do jogador em executePlayerTurn
         if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
+        // Bug de auditoria (relatado pelo usuário): inimigos usavam item de
+        // cura em turnos seguidos ("spam de poção") sempre que HP e cargas
+        // permitiam — a cura de 25% do HP máximo raramente tirava o inimigo
+        // da faixa "abaixo de 60%" num só uso, então ITEM continuava sendo a
+        // ação de maior pontuação turno após turno até as cargas acabarem.
+        // Cooldown de 2 turnos próprios entre usos força pelo menos uma
+        // ação de combate real entre curas, sem reduzir o total de cargas
+        // disponíveis (ver ai.js/executeEnemyItem).
+        if (this.enemy.aiState && this.enemy.aiState.itemCooldown > 0) this.enemy.aiState.itemCooldown--;
 
         // Contagem regressiva de barreira/esquiva temporárias (usado por
         // bosses com habilidades próprias de escudo, ex: Anjo Guardião)
