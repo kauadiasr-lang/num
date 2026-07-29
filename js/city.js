@@ -1861,8 +1861,14 @@ class CityEngine {
             ctx.fillRect(cx - 4, top + 6, 8, bh - 12);
         }
 
-        // Telhado triangular (pediment)
-        ctx.fillStyle = b.roof;
+        // Telhado triangular (pediment) — mesmo tratamento de gradiente já
+        // aplicado à parede acima (checklist "iluminação incoerente"): o
+        // cume (mais alto, pega mais luz de cima) sai clareado, a beirada
+        // (mais perto da sombra da parede) fica na cor original de b.roof.
+        const roofGrad = ctx.createLinearGradient(0, top - bh * 0.3, 0, top);
+        roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.3));
+        roofGrad.addColorStop(1, b.roof);
+        ctx.fillStyle = roofGrad;
         ctx.beginPath();
         ctx.moveTo(left - 10, top);
         ctx.lineTo(door.x, top - bh * 0.3);
