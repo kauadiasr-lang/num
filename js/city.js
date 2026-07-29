@@ -1807,6 +1807,18 @@ class CityEngine {
         }
     }
 
+    // Clareia uma cor hex (#rrggbb) em direção ao branco por `percent`
+    // (0-1) — usado pro topo iluminado da fachada dos prédios (ver
+    // _drawBuilding). Cada `wall` na lista de prédios já é hex puro, então
+    // não precisa de suporte a rgba() aqui (diferente do _hazeTint das
+    // montanhas em graphics.js).
+    _lightenHex(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const mix = c => Math.min(255, Math.round(c + (255 - c) * percent));
+        const r = mix((num >> 16) & 0xff), g = mix((num >> 8) & 0xff), b = mix(num & 0xff);
+        return `rgb(${r},${g},${b})`;
+    }
+
     // Prédio procedural greco-romano: base + colunas + telhado triangular +
     // porta + tochas nas laterais. As dimensões já vêm escaladas de
     // _buildingRect (telas baixas encolhem os prédios pra sempre caberem
@@ -1829,8 +1841,16 @@ class CityEngine {
         ctx.ellipse(door.x, door.y + 4, bw * 0.55, 10, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Corpo do prédio
-        ctx.fillStyle = b.wall;
+        // Corpo do prédio — antes era um retângulo de cor sólida única
+        // (checklist "iluminação incoerente"/"profundidade insuficiente");
+        // um gradiente vertical sutil (mais claro no topo, como se pegasse
+        // sol; a própria cor da parede na base, perto da sombra no chão)
+        // dá volume à fachada sem precisar de uma segunda cor configurada
+        // por prédio — deriva da MESMA `b.wall` já usada em toda cidade.
+        const wallGrad = ctx.createLinearGradient(0, top, 0, top + bh);
+        wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.22));
+        wallGrad.addColorStop(1, b.wall);
+        ctx.fillStyle = wallGrad;
         ctx.fillRect(left, top, bw, bh);
 
         // Colunas de mármore
