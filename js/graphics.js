@@ -2915,7 +2915,21 @@ class GraphicsEngine {
 
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(0, -4, 12, 8);
-        ctx.fillStyle = '#c7ccd1';
+
+        // Bug de auditoria (visual): toda lâmina de metal usava a MESMA cor
+        // sólida chapada ('#c7ccd1'), sem nenhum brilho — armas sem impacto
+        // visual nenhum, ao contrário de torso/membros que já ganharam
+        // sombreamento direcional. Como quase todos os renderizadores em
+        // WEAPON_RENDERERS só preenchem/traçam formas usando o fillStyle já
+        // ambiente definido aqui (em vez de setar o próprio), trocar esse
+        // preenchimento sólido por um gradiente metálico dá brilho de lâmina
+        // de verdade pra TODAS as armas registradas de uma vez, sem precisar
+        // editar cada uma das ~15 funções individualmente.
+        const bladeShine = ctx.createLinearGradient(0, -7, 0, 7);
+        bladeShine.addColorStop(0, '#f2f5f7');
+        bladeShine.addColorStop(0.35, '#c7ccd1');
+        bladeShine.addColorStop(1, '#7d838a');
+        ctx.fillStyle = bladeShine;
 
         // Registry orientado a dados (id -> função de desenho), em vez de um
         // switch grande: uma arma nova só precisa registrar sua própria
