@@ -222,10 +222,22 @@ class BattleSystem {
         // atacante por uma % do dano causado, com bônus extra em críticos.
         // Totalmente separado do LIFESTEAL de habilidades específicas (que
         // já tem seu próprio roubo de vida embutido), soma-se por cima.
+        // Bug de auditoria: esse bloco inteiro só rodava dentro de
+        // `if (attacker.derivedStats.lifestealPercent)`, mas a passiva
+        // racial do Orco ("Fúria Sanguinária: acertos críticos roubam +12%
+        // do dano como HP", races.js) alimenta SÓ drainOnCritPercent, nunca
+        // lifestealPercent (esse só vem da árvore de Vampirismo). Um Orco
+        // que não tivesse TAMBÉM despertado a Linhagem Vampirismo (a
+        // esmagadora maioria) tinha lifestealPercent sempre 0 — o gate
+        // nunca abria, e a passiva prometida na criação de personagem e na
+        // ficha nunca surtia efeito em nenhuma batalha. Agora calcula o
+        // percentual combinado primeiro e só depois decide se há algo a
+        // curar, então drainOnCritPercent funciona sozinho, sem depender
+        // de lifestealPercent também ser diferente de zero.
         let lifestealHealed = 0;
-        if (attacker.derivedStats.lifestealPercent) {
-            let lsPercent = attacker.derivedStats.lifestealPercent;
-            if (isCrit && attacker.derivedStats.drainOnCritPercent) lsPercent += attacker.derivedStats.drainOnCritPercent;
+        let lsPercent = attacker.derivedStats.lifestealPercent || 0;
+        if (isCrit && attacker.derivedStats.drainOnCritPercent) lsPercent += attacker.derivedStats.drainOnCritPercent;
+        if (lsPercent > 0) {
             lifestealHealed = Math.floor(mitigatedDamage * (lsPercent / 100));
             if (lifestealHealed > 0) {
                 attacker.currentHp = Utils.clamp(attacker.currentHp + lifestealHealed, 0, attacker.derivedStats.maxHp);
