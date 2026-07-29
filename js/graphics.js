@@ -2729,11 +2729,23 @@ class GraphicsEngine {
                 }
                 break;
             case 8: // Afro
-                if (backLayer) return;
+                // Bug de auditoria (visual, achado ao investigar o relato do
+                // usuário sobre cabelos feios): este círculo maciço (raio
+                // MAIOR que a própria cabeça) era desenhado na camada da
+                // FRENTE, depois do rosto já pintado — cobria o rosto
+                // inteiro (olhos, nariz, boca, tudo), como se o personagem
+                // não tivesse rosto nenhum, só uma bola escura. Precisa ir
+                // na camada de TRÁS (mesmo mecanismo já usado por rabo de
+                // cavalo/coque): desenhado ANTES do preenchimento da cabeça,
+                // então a cabeça (cor de pele, raio menor) cobre o miolo do
+                // círculo por cima, sobrando só o "halo" poroso ao redor —
+                // exatamente a silhueta de um afro de verdade — e o rosto
+                // (desenhado depois, na camada da frente) fica visível.
+                if (!backLayer) return;
                 ctx.beginPath();
                 ctx.arc(0, headY - 2, headR + 6, 0, Math.PI * 2);
                 ctx.fill();
-                break;
+                return;
             case 9: // Longo Liso
                 if (backLayer) { this._drawFlowTail(ctx, headY, headR, -1, 40); this._drawFlowTail(ctx, headY, headR, 1, 40); return; }
                 this._drawBaseCap(ctx, headY, headR);
@@ -2767,7 +2779,11 @@ class GraphicsEngine {
                 ctx.fillRect(-headR + 4, headY - 7, headR * 2 - 8, 6);
                 break;
             case 14: // Cabelo Bagunçado
+                // Mesmo bug dos estilos Sayajin (couro cabeludo aparecendo
+                // entre os tufos em resolução real) — base primeiro, tufos
+                // por cima.
                 if (backLayer) return;
+                this._drawBaseCap(ctx, headY, headR);
                 for (let i = -3; i <= 3; i++) {
                     ctx.beginPath();
                     ctx.moveTo(i * 6, headY - headR + 7);
