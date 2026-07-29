@@ -2507,7 +2507,6 @@ class GraphicsEngine {
         ctx.arc(10, headY, 2, 0, Math.PI * 2);
         ctx.fill();
 
-        this._drawNose(ctx, v, headY);
         this._drawMouth(ctx, v, headY, pose);
         this._drawScar(ctx, v, headY, headR);
         this._drawFangs(ctx, v, headY);
@@ -2540,39 +2539,6 @@ class GraphicsEngine {
         ctx.beginPath();
         ctx.ellipse(ex + 0.6, ey, 1.3, 2.6, -0.15, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.fill();
-    }
-
-    // Bug de auditoria (visual): o rosto de perfil nunca teve nariz — só
-    // sobrancelha, um olho (visão lateral) e boca, direto da testa pro
-    // queixo. Início do bloco de 20 iterações dedicado a reconstruir o
-    // modelo dos personagens (pedido do usuário) — este é o primeiro passo:
-    // um perfil de nariz de verdade, projetando pra fora da silhueta da
-    // cabeça no mesmo lado (+X) onde já ficam sobrancelha/olho/boca, com
-    // aresta e narina discretas pra dar volume em vez de só uma cor plana.
-    // `faceShape` (mesmo campo que já estica a largura da cabeça) também
-    // varia o quanto o nariz projeta — rosto anguloso (3) tem nariz mais
-    // pronunciado, rosto largo (2) mais discreto.
-    _drawNose(ctx, v, headY) {
-        const skin = v.skinTone || '#ffcc99';
-        const proj = v.faceShape === 3 ? 8 : (v.faceShape === 2 ? 5.5 : 7);
-        ctx.beginPath();
-        ctx.moveTo(14, headY - 4);
-        ctx.quadraticCurveTo(14 + proj, headY + 1, 15, headY + 6);
-        ctx.lineTo(12, headY + 5);
-        ctx.closePath();
-        ctx.fillStyle = skin;
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(14, headY - 4);
-        ctx.quadraticCurveTo(14 + proj, headY + 1, 15, headY + 6);
-        ctx.stroke();
-        // Narina discreta na base
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
-        ctx.beginPath();
-        ctx.ellipse(14.5, headY + 4.5, 1.2, 0.7, 0.3, 0, Math.PI * 2);
         ctx.fill();
     }
 
