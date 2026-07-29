@@ -604,6 +604,17 @@ const AICombat = {
         // APPROACH voluntário (perseguição extra quando o jogador kita)
         let approachScore = style.actionBias.APPROACH * (0.2 + p.pursuitDrive * 0.5) * (em.ATK || 1) * 0.5;
         if (this.playerKeepsDistance(mem)) approachScore *= 1.8;
+        // Bug de auditoria: pursuitDrive é descrito em ai_data.js como
+        // "disposição para perseguir um oponente que foge/mantém
+        // distância" — mas só a metade "mantém distância" (acima) era lida
+        // em algum lugar. playerFleesWhenLow (memória já alimentada a cada
+        // turno em recordPlayerAction) nunca tinha nenhum consumidor, então
+        // nenhuma personalidade, por maior que fosse seu pursuitDrive,
+        // jamais pressionava a vantagem contra um jogador que comprovadamente
+        // foge/recua/usa item toda vez que fica fraco — pressiona só quando
+        // o jogador ESTÁ fraco agora, não em qualquer HP.
+        const playerHpPercent = battle.player.derivedStats.maxHp > 0 ? battle.player.currentHp / battle.player.derivedStats.maxHp : 1;
+        if (playerHpPercent <= 0.3 && this.playerFleesWhenLow(mem)) approachScore *= 1.6;
         add('APPROACH', null, approachScore, `${enemy.name} avança, recusando-se a perder distância.`);
 
         // ITEM
