@@ -87,7 +87,13 @@ class Entity {
         const def = this.getTotalStat('def');
         const luk = this.getTotalStat('luk');
 
-        let maxHp = 50 + (str * 10) + (this.level * 5);
+        // Rebalanceamento pedido pelo usuário: batalhas contra inimigos comuns
+        // demoravam demais. HP "padrão" (base + nível) cortado bem mais forte
+        // do que o multiplicador por ponto de Força, que sobe um pouco — quem
+        // não investe em Força sente uma queda grande de vida (batalhas mais
+        // rápidas no caso comum), quem investe pesado continua com bastante
+        // vida (o ponto de Força vale mais agora, não menos).
+        let maxHp = 15 + (str * 11) + (this.level * 3);
         let maxMp = 20 + (int * 8) + (this.level * 3);
 
         // Fórmulas de combate
