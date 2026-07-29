@@ -1462,6 +1462,24 @@ class GraphicsEngine {
     _drawColosseumRing(ctx, w, horizon, heightFrac, color, cutThrough, pal) {
         const bandHeight = horizon * heightFrac * 0.5;
         const y = horizon - bandHeight - (horizon * (heightFrac === 0.62 ? 0.05 : 0));
+
+        // Transição suave do céu pro topo da banda — antes era um corte reto
+        // (cor sólida da arquibancada direto contra o céu), criando uma linha
+        // dura e artificial bem visível em qualquer horário. Um gradiente
+        // fino de transparente até a cor da banda imita a neblina/poeira
+        // atmosférica que suaviza esse tipo de silhueta contra o céu — como
+        // é transparência (não uma cor fixa), funciona automaticamente com
+        // qualquer paleta de horário (dia/entardecer/noite) sem precisar
+        // conhecer a cor exata do céu por trás.
+        const blendH = Math.min(16, bandHeight * 0.3);
+        if (blendH > 0) {
+            const blend = ctx.createLinearGradient(0, y - blendH, 0, y);
+            blend.addColorStop(0, 'rgba(0,0,0,0)');
+            blend.addColorStop(1, color);
+            ctx.fillStyle = blend;
+            ctx.fillRect(0, y - blendH, w, blendH);
+        }
+
         ctx.fillStyle = color;
         ctx.fillRect(0, y, w, bandHeight + 4);
 
@@ -1707,10 +1725,30 @@ class GraphicsEngine {
         const y = horizon - 6;
         const poleW = 8 * sizeMul, poleH = 50 * sizeMul;
         const poleTop = y + 4 - poleH;
+        const flicker = Math.sin(t * 13) * 3 + Math.sin(t * 5.3) * 2;
+        const flameY = poleTop - 8 * sizeMul + flicker * 0.2 * sizeMul;
+
+        // Poça de luz quente ao redor da chama — bug de auditoria (visual):
+        // a tocha "acesa" nunca iluminava nada ao seu redor, parecendo um
+        // adereço decorativo em vez de uma fonte de luz real na cena.
+        // Tremula em conjunto com a própria chama (mesmo flicker) pra não
+        // parecer um brilho estático colado por cima. Poupado em qualidade
+        // baixa (mobile fraco) — puramente atmosférico, não afeta gameplay.
+        if (this.qualityLevel !== 'baixa') {
+            const glowR = (60 + flicker * 1.5) * sizeMul;
+            const glow = ctx.createRadialGradient(x, flameY, 0, x, flameY, glowR);
+            glow.addColorStop(0, 'rgba(255,175,90,0.30)');
+            glow.addColorStop(0.5, 'rgba(255,140,50,0.13)');
+            glow.addColorStop(1, 'rgba(255,140,50,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(x, flameY, glowR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(x - poleW / 2, poleTop, poleW, poleH);
 
-        const flicker = Math.sin(t * 13) * 3 + Math.sin(t * 5.3) * 2;
         ctx.fillStyle = '#ff8a1e';
         ctx.beginPath();
         ctx.ellipse(x, poleTop - 8 * sizeMul + flicker * 0.2 * sizeMul, 9 * sizeMul, (16 + flicker * 0.5) * sizeMul, 0, 0, Math.PI * 2);
