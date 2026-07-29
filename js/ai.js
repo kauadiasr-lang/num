@@ -429,16 +429,20 @@ const AICombat = {
             ai.comboQueue = []; ai.comboFlavor = [];
         }
 
-        // --- Gate físico de alcance (preserva exatamente o comportamento já
-        // testado do sistema de distância/alcance, incluindo a correção do
-        // impasse de recuo forçado) ---
+        // --- Gate físico de alcance mínimo: armas como lança/chicote não
+        // bloqueiam mais o ataque quando o oponente chega perto demais (isso
+        // dava uma vantagem gigantesca pra quem só precisava colar no
+        // lanceiro pra anulá-lo por completo). Agora o ataque nesse sub-
+        // alcance é só mais fraco (ver _weaponRangeMulti em battle.js), e a
+        // IA pondera atacar-com-penalidade contra recuar-para-reposicionar
+        // pelo sistema de utilidade normal, em vez de sempre recuar. O
+        // arquétipo raro "nunca recua" continua travado em HOLD, como antes.
+        let subRange = false;
         if (battle.distance < range.min) {
             if (rare && rare.id === 'nunca_recua') {
                 return { action: 'HOLD', message: `${enemy.name} recusa-se a recuar, mesmo perto demais para lutar!` };
             }
-            const needed = range.min - battle.distance;
-            const amount = Math.min(speed.retreatSpeed, Math.max(needed, 0.5));
-            return { action: 'RETREAT', amount, message: `${enemy.name} recua para reposicionar.` };
+            subRange = true;
         }
         if (battle.distance > range.max) {
             // Perseguidores natos preferem Correr quando a distância a fechar é grande
@@ -463,7 +467,11 @@ const AICombat = {
         }
 
         // --- Início de combo (compromisso com uma sequência pré-planejada) ---
-        if (risk < 0.6 && Utils.chance(p.comboAffinity * 40)) {
+        // Não inicia combo abaixo do alcance mínimo: os combos pré-roteirizados
+        // (ver AI_COMBOS) não conhecem a penalidade de sub-alcance e alguns
+        // começam com APPROACH, o que não faz sentido para quem já está perto
+        // demais — melhor deixar a pontuação de utilidade abaixo decidir.
+        if (!subRange && risk < 0.6 && Utils.chance(p.comboAffinity * 40)) {
             const combo = this._maybeStartCombo(battle);
             if (combo) return combo;
         }
@@ -472,7 +480,7 @@ const AICombat = {
         const repeatedPattern = this.detectRepeatedPattern(mem);
 
         // --- Pontuação de utilidade entre as ações fisicamente possíveis ---
-        const candidates = this._buildCandidates(battle, { risk, repeatedPattern, emotionMods });
+        const candidates = this._buildCandidates(battle, { risk, repeatedPattern, emotionMods, subRange });
         return this._pickWeighted(candidates, enemy);
     },
 
@@ -582,7 +590,11 @@ const AICombat = {
         if (rare && rare.id === 'so_habilidades') atkScore *= 0.05;
         if (ctx.risk > 0.6) atkScore *= (1 - p.resilience * 0.6);
         if (ctx.repeatedPattern === 'DEF') atkScore *= 1.6; // jogador vive se defendendo: pressiona mais
-        add('ATK', null, atkScore, `${enemy.name} ataca!`);
+        // Alvo mais perto que o alcance mínimo da arma: o ataque ainda sai,
+        // mas com 40% menos dano (ver _weaponRangeMulti em battle.js) — vale
+        // proporcionalmente menos frente às outras opções (ex: recuar).
+        if (ctx.subRange) atkScore *= 0.6;
+        add('ATK', null, atkScore, ctx.subRange ? `${enemy.name} ataca mesmo perto demais, sem espaço para o golpe completo!` : `${enemy.name} ataca!`);
 
         // Habilidades
         enemy.aiSkills.forEach(skillId => {
@@ -607,6 +619,10 @@ const AICombat = {
         let retreatScore = style.actionBias.RETREAT * (0.2 + p.retreatDrive) * (em.RETREAT || 1) * (0.4 + ctx.risk);
         if (rare && rare.id === 'nunca_recua') retreatScore = 0;
         if (ctx.repeatedPattern === 'APPROACH' || ctx.repeatedPattern === 'RUN' || ctx.repeatedPattern === 'CHARGE') retreatScore *= 1.4;
+        // Abaixo do alcance mínimo, recuar de fato reposiciona a arma para o
+        // alcance ideal (dano cheio de novo) — vale mais que um recuo
+        // puramente "voluntário" em alcance normal, mas não é mais garantido.
+        if (ctx.subRange) retreatScore = Math.max(retreatScore, style.actionBias.RETREAT * 0.7) * 1.3;
         // Estilos "hitAndRun" (ver ai_data.js, ex: assassino) reforçam MUITO a
         // fuga logo depois de acertar um golpe — bug de auditoria: essa flag
         // existia há tempos mas nunca era lida em lugar nenhum, então
@@ -614,9 +630,10 @@ const AICombat = {
         if (style.hitAndRun && enemy.aiState.hitStreak > 0) retreatScore *= 2.2;
         add('RETREAT', null, retreatScore, `${enemy.name} recua, mantendo distância segura.`);
 
-        // APPROACH voluntário (perseguição extra quando o jogador kita)
-        let approachScore = style.actionBias.APPROACH * (0.2 + p.pursuitDrive * 0.5) * (em.ATK || 1) * 0.5;
-        if (this.playerKeepsDistance(mem)) approachScore *= 1.8;
+        // APPROACH voluntário (perseguição extra quando o jogador kita) — não
+        // faz sentido nenhum abaixo do alcance mínimo (já está perto demais).
+        let approachScore = ctx.subRange ? 0 : style.actionBias.APPROACH * (0.2 + p.pursuitDrive * 0.5) * (em.ATK || 1) * 0.5;
+        if (!ctx.subRange && this.playerKeepsDistance(mem)) approachScore *= 1.8;
         // Bug de auditoria: pursuitDrive é descrito em ai_data.js como
         // "disposição para perseguir um oponente que foge/mantém
         // distância" — mas só a metade "mantém distância" (acima) era lida

@@ -48,6 +48,16 @@ class BattleSystem {
         return this.distance >= range.min && this.distance <= range.max;
     }
 
+    // Multiplicador de dano por alcance: null = fora do alcance máximo (bloqueia
+    // o ataque, como antes); 1 = alcance normal; 0.6 = alvo mais perto do que o
+    // alcance mínimo da arma (ex: lança/chicote) — ainda acerta, mas com 40% a
+    // menos de dano, em vez do bloqueio total que existia antes.
+    _weaponRangeMulti(range) {
+        if (this.distance > range.max) return null;
+        if (this.distance < range.min) return 0.6;
+        return 1;
+    }
+
     // Enchantments (ver enchantments.js) só existem na arma/armadura ATIVA do
     // atacante — nunca no corpo dele. Retorna null se não houver nenhum.
     _getWeaponEnchantment(entity) {
@@ -402,7 +412,8 @@ class BattleSystem {
 
         if (actionCode === 'ATK') {
             const range = this.player.getWeaponRange();
-            if (!this.isInRange(range)) {
+            const rangeMulti = this._weaponRangeMulti(range);
+            if (rangeMulti === null) {
                 resultMsg = `${this.enemy.name} está fora do alcance da sua arma! Aproxime-se primeiro.`;
                 this.isPlayerTurn = true;
                 window.UI.toggleBattleButtons(true);
@@ -426,8 +437,11 @@ class BattleSystem {
                 rangedWeapon.ammo--;
             }
 
-            const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState);
+            const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState, rangeMulti);
             resultMsg = atkResult.message;
+            if (rangeMulti < 1) {
+                resultMsg += ` (alvo muito perto para sua arma — dano reduzido)`;
+            }
             if (rangedWeapon && rangedWeapon.maxAmmo) {
                 resultMsg += ` (Munição: ${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})`;
             }
@@ -496,10 +510,12 @@ class BattleSystem {
             const range = this.player.getWeaponRange();
             const chargeWeapon = this.player.getActiveWeapon();
             const outOfAmmo = chargeWeapon && chargeWeapon.maxAmmo && chargeWeapon.ammo <= 0;
-            if (this.isInRange(range) && !outOfAmmo) {
+            const rangeMulti = this._weaponRangeMulti(range);
+            if (rangeMulti !== null && !outOfAmmo) {
                 if (chargeWeapon && chargeWeapon.maxAmmo) chargeWeapon.ammo--;
-                const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState, 1.2);
+                const atkResult = this.executeAttack(this.player, this.enemy, this.playerState, this.enemyState, 1.2 * rangeMulti);
                 resultMsg = `${this.player.name} investiu contra o oponente! ${atkResult.message}`;
+                if (rangeMulti < 1) resultMsg += ` (alvo muito perto — dano reduzido)`;
                 if (chargeWeapon && chargeWeapon.maxAmmo) resultMsg += ` (Munição: ${chargeWeapon.ammo}/${chargeWeapon.maxAmmo})`;
             } else if (outOfAmmo) {
                 resultMsg = `${this.player.name} investiu, mas está sem munição para ${chargeWeapon.name}!`;
@@ -979,7 +995,8 @@ class BattleSystem {
             this.applyDistanceChange(-speed.approachSpeed * 2);
             if (window.GFX) window.GFX.playAnim(false, 'charge', 700);
             const range = this.enemy.getWeaponRange();
-            if (this.isInRange(range)) {
+            const chargeRangeMulti = this._weaponRangeMulti(range);
+            if (chargeRangeMulti !== null) {
                 // Munição limitada (ver ATK abaixo pelo mesmo motivo) — antes
                 // só o ATK comum do inimigo ganhou essa checagem, deixando o
                 // caminho de CHARGE atirar de graça mesmo sem munição.
@@ -988,8 +1005,9 @@ class BattleSystem {
                     resultMsg = `${this.enemy.name} investiu, mas está sem munição para ${chargeWeapon.name}!`;
                 } else {
                     if (chargeWeapon && chargeWeapon.maxAmmo) chargeWeapon.ammo--;
-                    const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, 1.2);
+                    const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, 1.2 * chargeRangeMulti);
                     resultMsg = `${this.enemy.name} investiu contra você! ${atkResult.message}`;
+                    if (chargeRangeMulti < 1) resultMsg += ` (perto demais para a arma dele — dano reduzido)`;
                     if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
                 }
             } else {
@@ -1008,8 +1026,13 @@ class BattleSystem {
                 resultMsg = `${this.enemy.name} tenta atacar à distância, mas está sem munição para ${rangedWeapon.name}!`;
             } else {
                 if (rangedWeapon && rangedWeapon.maxAmmo) rangedWeapon.ammo--;
-                const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState);
+                // A IA agora pode escolher ATK mesmo abaixo do alcance mínimo da
+                // arma (ver decideAction em ai.js) — nesse caso o ataque sai com
+                // 40% menos dano em vez de simplesmente não acontecer.
+                const enemyRangeMulti = this._weaponRangeMulti(this.enemy.getWeaponRange()) || 1;
+                const atkResult = this.executeAttack(this.enemy, this.player, this.enemyState, this.playerState, enemyRangeMulti);
                 resultMsg = atkResult.message;
+                if (enemyRangeMulti < 1) resultMsg += ` (perto demais para a arma dele — dano reduzido)`;
                 if (rangedWeapon && rangedWeapon.maxAmmo) resultMsg += ` (Munição do inimigo: ${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})`;
                 if (window.AICombat) window.AICombat.onSelfEvent(this, atkResult.hit ? 'landedHit' : 'missed', { crit: atkResult.crit });
             }
