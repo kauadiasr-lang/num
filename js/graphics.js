@@ -1474,7 +1474,16 @@ class GraphicsEngine {
     }
 
     _drawMountainRange(ctx, w, horizon, peakHeight, color, count, phase) {
-        ctx.fillStyle = color;
+        // Antes as montanhas eram uma silhueta de cor sólida única, sem
+        // nenhuma perspectiva atmosférica — cadeias distantes de verdade
+        // sempre clareiam/esmaecem perto da base, onde a neblina/poeira do
+        // ar se acumula. Um gradiente vertical simples (cor própria no
+        // topo, tingida de névoa perto do horizonte) dá profundidade sem
+        // custo extra de desenho.
+        const grad = ctx.createLinearGradient(0, horizon - peakHeight, 0, horizon);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, this._hazeTint(color));
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.moveTo(0, horizon);
         const step = w / count;
@@ -1486,6 +1495,19 @@ class GraphicsEngine {
         ctx.lineTo(w, horizon);
         ctx.closePath();
         ctx.fill();
+    }
+
+    // Clareia uma cor rgba() em direção a um cinza-azulado neutro de
+    // neblina distante, preservando (e reduzindo levemente) seu alfa
+    // original — usado para a base das cadeias de montanha (perspectiva
+    // atmosférica) sem precisar de uma segunda cor configurada à mão.
+    _hazeTint(color) {
+        const m = color.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+        if (!m) return color;
+        const r = parseFloat(m[1]), g = parseFloat(m[2]), b = parseFloat(m[3]);
+        const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+        const mix = c => Math.round(c + (205 - c) * 0.55);
+        return `rgba(${mix(r)},${mix(g)},${mix(b)},${(a * 0.85).toFixed(2)})`;
     }
 
     _drawColosseumRing(ctx, w, horizon, heightFrac, color, cutThrough, pal) {
