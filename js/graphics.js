@@ -1168,6 +1168,18 @@ class GraphicsEngine {
                 halo.addColorStop(0, pal.sun); halo.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.fillStyle = halo;
                 ctx.beginPath(); ctx.arc(sunX, sunY, r * 2.2, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Bug de auditoria (visual): o Sol já ganhava um halo suave
+                // de luz — a Lua, no mesmo trecho de código, ficava só com
+                // um disco liso e crateras discretas, sem nenhum brilho ao
+                // redor. Mesmo princípio do Sol (gradiente radial some no
+                // transparente), com o tom frio de pal.sun da paleta
+                // noturna em vez do tom quente diurno.
+                ctx.globalAlpha = pal.sunAlpha * 0.28;
+                const moonHalo = ctx.createRadialGradient(sunX, sunY, r * 0.7, sunX, sunY, r * 2.6);
+                moonHalo.addColorStop(0, pal.sun); moonHalo.addColorStop(1, 'rgba(232,232,255,0)');
+                ctx.fillStyle = moonHalo;
+                ctx.beginPath(); ctx.arc(sunX, sunY, r * 2.6, 0, Math.PI * 2); ctx.fill();
             }
             ctx.globalAlpha = pal.sunAlpha;
             ctx.fillStyle = pal.sun;
