@@ -1307,7 +1307,24 @@ class GraphicsEngine {
         // assim que entra na tela.
         const edgeFade = Utils.clamp(Math.sin(angle) * 5, 0, 1);
         const pal = this._cityPalettes();
-        ctx.globalAlpha = (isSun ? pal.day.sunAlpha : pal.night.sunAlpha) * edgeFade;
+        const bodyAlpha = (isSun ? pal.day.sunAlpha : pal.night.sunAlpha) * edgeFade;
+
+        // Bug de auditoria (visual): _drawSky (Arena/Menu) já ganhou um halo
+        // suave pro Sol e pra Lua numa iteração anterior — mas esse mesmo
+        // disco de Sol/Lua se repete aqui, no arco dinâmico exclusivo da
+        // Cidade, e continuava totalmente chapado, sem brilho nenhum. Mesmo
+        // tratamento de gradiente radial, reaproveitando a cor de Sol já
+        // definida por horário em _cityPalettes.
+        if (edgeFade > 0.01) {
+            ctx.globalAlpha = bodyAlpha * 0.32;
+            const halo = ctx.createRadialGradient(x, y, r * 0.65, x, y, r * 2.4);
+            const haloColor = isSun ? pal.day.sun : pal.night.sun;
+            halo.addColorStop(0, haloColor); halo.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.globalAlpha = bodyAlpha;
         ctx.fillStyle = isSun ? '#fff2c8' : '#e8e8ff';
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
