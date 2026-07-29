@@ -113,7 +113,7 @@ window.FIGHTER_ARCHETYPES = FIGHTER_ARCHETYPES;
 // de solo, vegetação, silhueta de fundo e props espalhados) — sorteado uma
 // vez por luta (resetForNewBattle), igual ao horário do dia já existente.
 // O solo detalhado de cada bioma é pré-renderizado uma única vez por luta
-// num canvas offscreen (ver _buildArenaGroundTexture) e só é "colado"
+// num canvas offscreen (ver _paintArenaGroundTexture + SpriteCache) e só é "colado"
 // (drawImage) a cada quadro — o mesmo princípio de reaproveitar uma
 // textura/spritesheet em vez de redesenhar dezenas de pedras/rachaduras/
 // tufos de grama a cada frame, o que manteria os 60fps mesmo em qualidade alta.
@@ -222,6 +222,12 @@ class GraphicsEngine {
         // Ambientação da arena (plateia, estrelas) — gerada uma vez e reaproveitada
         this.arenaTime = 'sunset';
         this.arenaBiome = 'coliseu'; // padrão até a primeira batalha sortear um bioma
+        // Nonce da bake do solo (ver _paintArenaGroundTexture/SpriteCache):
+        // incrementado a cada nova batalha, mesmo repetindo o mesmo bioma,
+        // pra continuar sorteando um layout de solo (pedras/rachaduras/props)
+        // diferente a cada luta — só reaproveita o bitmap DENTRO da mesma
+        // batalha (todos os frames usam o mesmo nonce).
+        this._groundBakeNonce = 0;
         this._ambientFx = [];
         // Progresso contínuo (0..1) do ciclo dia/noite da Cidade — usado só
         // pelo céu da Cidade pra o sol/lua se moverem em arco de verdade ao
@@ -303,7 +309,7 @@ class GraphicsEngine {
 
         // Sorteia o bioma da arena (identidade própria de solo/vegetação/
         // fundo/props) e pré-renderiza o solo detalhado uma única vez para
-        // esta luta — ver ARENA_BIOMES e _buildArenaGroundTexture. Restrito
+        // esta luta — ver ARENA_BIOMES e _paintArenaGroundTexture. Restrito
         // exclusivamente aos biomas vinculados à Cidade-Hub atual (ver
         // citydatabase.js `arenaBiomes`) — lutar na Fortaleza Orc nunca deve
         // sortear a Clareira da Floresta do Santuário Élfico, por exemplo.
@@ -315,7 +321,12 @@ class GraphicsEngine {
             : Object.keys(ARENA_BIOMES);
         const biomeIds = allowedBiomes.length ? allowedBiomes : Object.keys(ARENA_BIOMES);
         this.arenaBiome = biomeIds[Utils.randomInt(0, biomeIds.length - 1)];
-        this._buildArenaGroundTexture();
+        // Nonce novo a cada batalha: garante um solo com randomização fresca
+        // (pedras/rachaduras/props em posições novas) mesmo repetindo o
+        // mesmo bioma da luta anterior — dentro da MESMA luta, todo frame usa
+        // esse mesmo nonce e reaproveita o bitmap já bakeado (ver draw()).
+        this._groundBakeNonce++;
+        window.SpriteCache.get(this._groundCacheKey(), 1400, 360, (gctx) => this._paintArenaGroundTexture(gctx));
 
         this.playerAnim = { type: 'idle', start: performance.now(), duration: 0 };
         this.enemyAnim = { type: 'idle', start: performance.now(), duration: 0 };
@@ -668,11 +679,13 @@ class GraphicsEngine {
         }
 
         // Solo: textura rica pré-renderizada (rachaduras, pedras, vegetação,
-        // pegadas, marcas de batalha, props — ver _buildArenaGroundTexture),
-        // colada e esticada pra caber na tela atual (barato: um drawImage só,
+        // pegadas, marcas de batalha, props — ver _paintArenaGroundTexture),
+        // bakeada uma vez por bioma via SpriteCache (js/spritesystem.js) e
+        // colada/esticada pra caber na tela atual (barato: um drawImage só,
         // em vez de redesenhar dezenas de elementos todo quadro).
-        if (!this._groundCanvas || this._groundBiomeBuilt !== this.arenaBiome) this._buildArenaGroundTexture();
-        ctx.drawImage(this._groundCanvas, 0, horizon, w, h - horizon);
+        const groundCanvas = window.SpriteCache.get(this._groundCacheKey(), 1400, 360,
+            (gctx) => this._paintArenaGroundTexture(gctx));
+        ctx.drawImage(groundCanvas, 0, horizon, w, h - horizon);
 
         // Banho de luz do horário por cima do solo (quente de dia, azulado à
         // noite) — dinâmico, não precisa regenerar a textura cara.
@@ -684,21 +697,20 @@ class GraphicsEngine {
     // SOLO: textura pré-renderizada por bioma — o "chão" deixa de ser um
     // gradiente liso e passa a ter variação de cor, rachaduras, pedras,
     // vegetação irregular, folhas secas, pegadas, marcas de batalha, manchas
-    // antigas e poeira, além dos props espalhados do bioma. Desenhado uma
-    // única vez por luta num canvas offscreen (this._groundCanvas, resolução
-    // de referência fixa) e reaproveitado (drawImage) a cada quadro — o
-    // equivalente, em Canvas puro, a usar um spritesheet em vez de redesenhar
-    // dezenas de elementos todo frame.
+    // antigas e poeira, além dos props espalhados do bioma. Bakeada uma
+    // única vez por bioma via SpriteCache (js/spritesystem.js — generaliza
+    // este mesmo padrão de "desenha uma vez, reaproveita sempre" que antes
+    // vivia só aqui, num `this._groundCanvas` ad-hoc) e reaproveitada
+    // (drawImage) a cada quadro — o equivalente, em Canvas puro, a usar um
+    // spritesheet em vez de redesenhar dezenas de elementos todo frame.
     // ======================================================================
-    _buildArenaGroundTexture() {
-        const biome = ARENA_BIOMES[this.arenaBiome] || ARENA_BIOMES.coliseu;
-        this._groundBiomeBuilt = this.arenaBiome;
+    _groundCacheKey() {
+        return `ground:${this.arenaBiome}:${this._groundBakeNonce}`;
+    }
 
+    _paintArenaGroundTexture(ctx) {
+        const biome = ARENA_BIOMES[this.arenaBiome] || ARENA_BIOMES.coliseu;
         const W = 1400, H = 360; // resolução de referência; esticado no draw
-        if (!this._groundCanvas) this._groundCanvas = document.createElement('canvas');
-        const c = this._groundCanvas;
-        c.width = W; c.height = H;
-        const ctx = c.getContext('2d');
 
         // 1) Base: gradiente sutil (mais claro perto do horizonte, mais
         // escuro/próximo embaixo — sugere profundidade mesmo no solo plano)
@@ -1637,7 +1649,7 @@ class GraphicsEngine {
     // quadros por segundo sorteava um topo/conjunto de colunas quebradas
     // DIFERENTE, fazendo esses dois cenários "piscarem"/tremularem sem
     // parar durante o combate. Mesmo princípio já usado pelo solo
-    // pré-renderizado (ver _buildArenaGroundTexture): gerar a aleatoriedade
+    // pré-renderizado (ver _paintArenaGroundTexture): gerar a aleatoriedade
     // uma vez, reaproveitar o resultado every frame.
     _buildMidgroundShapeIfNeeded(biome) {
         if (this._midgroundShapeBiome === this.arenaBiome) return;
@@ -2289,6 +2301,68 @@ class GraphicsEngine {
         ctx.closePath();
     }
 
+    // Migração p/ pipeline de sprites (ver js/spritesystem.js): o torso é a
+    // primeira parte do corpo bakeada num bitmap em vez de redesenhada a
+    // cada frame. Tudo que segue (fill/sombra/borda metálica/assinatura de
+    // arquétipo/faixa de raça/cinto) só depende de entity+arquétipo+raça —
+    // NUNCA da pose do frame atual (torsoLean/torsoScaleY continuam sendo
+    // aplicados de fora, via ctx.rotate/scale, exatamente como antes) — então
+    // é seguro desenhar tudo isso UMA VEZ por combinação visual e reutilizar
+    // o bitmap em todo frame seguinte via drawImage, em vez de reexecutar
+    // dezenas de chamadas de fill/gradiente/stroke por frame.
+    _torsoSpriteKey(entity, m, torsoColor, metallic) {
+        const archId = (entity.visuals && entity.visuals.archetype) || 'veterano';
+        const gender = (entity.visuals && entity.visuals.gender) || 'Masculino';
+        const race = entity.race && window.RACES ? window.RACES[entity.race] : null;
+        const raceAccent = race && race.accent ? race.accent : '';
+        return `torso:${archId}|${gender}|${torsoColor}|${metallic}|${raceAccent}|${m.shoulder.toFixed(1)}|${m.waist.toFixed(1)}`;
+    }
+
+    _bakeTorsoSprite(entity, m, torsoH, torsoColor, metallic) {
+        const pad = 10;
+        const halfW = Math.max(m.shoulder, m.waist) / 2 + 4;
+        const w = halfW * 2 + pad * 2;
+        const h = torsoH + pad * 2;
+        const anchorX = halfW + pad;
+        const anchorY = torsoH + pad;
+        const key = this._torsoSpriteKey(entity, m, torsoColor, metallic);
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+
+                bctx.fillStyle = torsoColor;
+                this._torsoPath(bctx, m, torsoH);
+                bctx.fill();
+
+                // Sombreamento direcional (luz vindo da esquerda) — dá volume ao
+                // torso em vez do preenchimento chapado de antes.
+                const shade = bctx.createLinearGradient(-m.shoulder / 2, 0, m.shoulder / 2, 0);
+                shade.addColorStop(0, 'rgba(255,255,255,0.16)');
+                shade.addColorStop(0.5, 'rgba(255,255,255,0)');
+                shade.addColorStop(1, 'rgba(0,0,0,0.22)');
+                bctx.fillStyle = shade;
+                this._torsoPath(bctx, m, torsoH);
+                bctx.fill();
+
+                if (metallic) {
+                    bctx.strokeStyle = 'rgba(255,255,255,0.35)';
+                    bctx.lineWidth = 1.5;
+                    bctx.beginPath();
+                    bctx.moveTo(-m.shoulder / 2 + 5, -torsoH + 6);
+                    bctx.lineTo(-m.waist / 2 + 4, -6);
+                    bctx.stroke();
+                }
+
+                this._drawArchetypeTorsoSignature(bctx, entity, m, torsoH);
+                this._drawRaceSash(bctx, entity, m, torsoH);
+
+                bctx.fillStyle = '#3a2f22';
+                bctx.fillRect(-m.waist / 2, -12, m.waist, 6);
+            }),
+            anchorX, anchorY
+        };
+    }
+
     _drawTorso(ctx, entity, pose) {
         const legLen = this._legLen();
         const torsoH = this._torsoH();
@@ -2324,34 +2398,9 @@ class GraphicsEngine {
         ctx.rotate(pose.torsoLean * Math.PI / 180 * 0.3);
         ctx.scale(1, pose.torsoScaleY);
 
-        ctx.fillStyle = torsoColor;
-        this._torsoPath(ctx, m, torsoH);
-        ctx.fill();
+        const sprite = this._bakeTorsoSprite(entity, m, torsoH, torsoColor, metallic);
+        ctx.drawImage(sprite.canvas, -sprite.anchorX, -sprite.anchorY);
 
-        // Sombreamento direcional (luz vindo da esquerda) — dá volume ao
-        // torso em vez do preenchimento chapado de antes.
-        const shade = ctx.createLinearGradient(-m.shoulder / 2, 0, m.shoulder / 2, 0);
-        shade.addColorStop(0, 'rgba(255,255,255,0.16)');
-        shade.addColorStop(0.5, 'rgba(255,255,255,0)');
-        shade.addColorStop(1, 'rgba(0,0,0,0.22)');
-        ctx.fillStyle = shade;
-        this._torsoPath(ctx, m, torsoH);
-        ctx.fill();
-
-        if (metallic) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(-m.shoulder / 2 + 5, -torsoH + 6);
-            ctx.lineTo(-m.waist / 2 + 4, -6);
-            ctx.stroke();
-        }
-
-        this._drawArchetypeTorsoSignature(ctx, entity, m, torsoH);
-        this._drawRaceSash(ctx, entity, m, torsoH);
-
-        ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(-m.waist / 2, -12, m.waist, 6);
         ctx.restore();
     }
 
