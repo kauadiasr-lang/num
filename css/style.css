@@ -1378,7 +1378,37 @@ html, body {
 }
 .setting-label { color: var(--color-text); font-weight: bold; min-width: 160px; }
 .setting-control { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; min-width: 140px; }
-.setting-slider { flex: 1; max-width: 160px; accent-color: var(--color-gold); }
+/* Bug de auditoria (visual): "elementos HTML muito simples" — o slider só
+   tinha `accent-color`, então continuava sendo o controle nativo cinza do
+   navegador por baixo, só com o polegar tingido de dourado; a trilha em
+   si nunca combinava com o resto da UI (botões com gradiente, barras com
+   brilho). -webkit-appearance/appearance:none remove o estilo nativo por
+   completo, então a trilha vira um gradiente bronze->dourado (preenchido
+   igual às barras de HP/MP) e o polegar ganha o mesmo brilho dourado já
+   usado no marcador de distância da batalha (.distance-marker acima). */
+.setting-slider {
+    flex: 1; max-width: 160px; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--color-bronze-dark), var(--color-gold));
+    -webkit-appearance: none; appearance: none; outline: none; cursor: pointer;
+}
+.setting-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--color-gold-bright);
+    border: 2px solid var(--color-bronze-dark);
+    box-shadow: 0 0 6px rgba(242,217,138,0.8);
+    cursor: pointer; transition: transform 0.15s;
+}
+.setting-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.setting-slider::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--color-gold-bright);
+    border: 2px solid var(--color-bronze-dark);
+    box-shadow: 0 0 6px rgba(242,217,138,0.8);
+    cursor: pointer; transition: transform 0.15s;
+}
+.setting-slider::-moz-range-thumb:hover { transform: scale(1.15); }
+.setting-slider::-moz-range-track { background: transparent; border: none; }
 .setting-value { min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: var(--color-marble-dark); font-size: 0.85rem; }
 .setting-select {
     background: var(--color-stone); color: var(--color-text); border: 1px solid var(--color-bronze);
