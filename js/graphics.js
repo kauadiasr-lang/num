@@ -2721,7 +2721,12 @@ class GraphicsEngine {
                 this._drawBaseCap(ctx, headY, headR);
                 break;
             case 7: // Cacheado
+                // Bug de auditoria (mesma classe do Sayajin/Bagunçado): só os
+                // 5 cachos da testa existiam, sem nenhuma base por baixo —
+                // em resolução real sobrava couro cabeludo careca nas
+                // laterais/nuca/topo, entre e ao redor dos cachos.
                 if (backLayer) return;
+                this._drawBaseCap(ctx, headY, headR);
                 for (let i = -2; i <= 2; i++) {
                     ctx.beginPath();
                     ctx.arc(i * 8, headY - headR + 5 - Math.abs(i) * 2, 7, 0, Math.PI * 2);
