@@ -116,7 +116,13 @@ class Entity {
                 if (item.defense) defenseRating += Math.floor(item.defense * wear);
                 if (item.hpBonus) maxHp += item.hpBonus;
                 if (item.mpBonus) maxMp += item.mpBonus;
-                if (item.critBonus) critChance += item.critBonus;
+                // Bug de auditoria: critBonus somava de QUALQUER arma
+                // equipada, sem o mesmo filtro de arma ATIVA que já existia
+                // pra damage (ver comentário acima) — trocar pra arco/besta
+                // (activeWeaponSlot = RANGED) mantinha de graça o bônus de
+                // crítico de uma adaga/rapieira/lâmina no MAIN_HAND, mesmo
+                // sem lutar com ela.
+                if (item.critBonus && (!isWeaponSlot || key === this.activeWeaponSlot)) critChance += item.critBonus;
                 if (item.blockChance) blockChance += item.blockChance;
                 if (item.weight) currentLoad += item.weight;
             }
