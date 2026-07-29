@@ -2480,6 +2480,8 @@ class GraphicsEngine {
         ctx.fill();
         ctx.restore();
 
+        this._drawEar(ctx, v, headY, headR);
+
         // Sobrancelha: ângulo varia por arquétipo (Bárbaro/Assassino mais
         // cerrada e agressiva, Cavaleiro/Campeão mais neutra e confiante)
         const browDrop = (archId === 'barbaro' || archId === 'assassino') ? 3 : 0;
@@ -2514,6 +2516,31 @@ class GraphicsEngine {
         this._drawFacialHair(ctx, v, headY);
         this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
+    }
+
+    // 2/20 do bloco de reconstrução visual: orelha visível no lado de trás
+    // da cabeça (o rosto é visto de perfil — o lado da frente já tem
+    // sobrancelha/olho/nariz/boca; o lado de trás nunca teve NENHUM
+    // detalhe, era só a cor de pele lisa da cabeça). Formato em "C" com uma
+    // concha interna mais escura, pra não ser só mais uma elipse chapada.
+    // Desenhada logo após o preenchimento da cabeça — hair (camada da
+    // frente, desenhada por último em _drawHead) cobre naturalmente pra
+    // quem tem cabelo comprido, igual cobriria numa pessoa de verdade.
+    _drawEar(ctx, v, headY, headR) {
+        const skin = v.skinTone || '#ffcc99';
+        const ex = -headR * 0.55, ey = headY + 1;
+        ctx.beginPath();
+        ctx.ellipse(ex, ey, 3, 5, -0.15, 0, Math.PI * 2);
+        ctx.fillStyle = skin;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Concha da orelha (sombra interna) — sem isso é só uma bolha lisa
+        ctx.beginPath();
+        ctx.ellipse(ex + 0.6, ey, 1.3, 2.6, -0.15, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fill();
     }
 
     // Bug de auditoria (visual): o rosto de perfil nunca teve nariz — só
