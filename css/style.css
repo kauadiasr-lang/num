@@ -650,8 +650,25 @@ html, body {
     position: absolute; top: 0; left: 0; right: 0; height: 45%;
     background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent);
 }
-.hp-fill { background: linear-gradient(90deg, #6e0f0f, #d43737); box-shadow: 0 0 8px rgba(212,55,55,0.5); }
+.hp-fill { background: linear-gradient(90deg, #6e0f0f, #d43737); box-shadow: 0 0 8px rgba(212,55,55,0.5); z-index: 2; }
 .mp-fill { background: linear-gradient(90deg, #0d3a70, #3f92e0); box-shadow: 0 0 8px rgba(63,146,224,0.5); }
+/* Bug de auditoria (visual): "barras de vida simples" — a barra de HP só
+   tinha o preenchimento atual, encolhendo direto pro novo valor; um dano
+   grande e vários pequenos pareciam idênticos assim que a barra parava de
+   se mexer, sem nenhuma pista visual de "quanto acabou de perder". A
+   "lasca" (chip) é uma segunda camada clara por trás do preenchimento
+   vermelho (position:absolute, mesmo width%), que ui.js atualiza para o
+   MESMO valor-alvo mas com transition-delay — o vermelho encolhe rápido
+   (sem delay, ver .hp-fill acima) e por ~0.65s a lasca clara ainda ocupa a
+   largura antiga, expondo uma faixa que vai sumindo aos poucos: o "dano
+   recente" fica visível por um instante em vez de sumir instantaneamente. */
+.hp-chip {
+    position: absolute; top: 0; left: 0; height: 100%;
+    background: rgba(255,255,255,0.5);
+    transition: width 0.6s ease-out;
+    transition-delay: 0.25s;
+    z-index: 1;
+}
 /* HP crítico (<=25%, ver ui.js updateBattleBars): pulso de urgência — antes
    a barra ficava vermelha o tempo todo, então "quase morrendo" e "levou
    um arranhão" pareciam visualmente idênticos, sem nenhum aviso extra. */

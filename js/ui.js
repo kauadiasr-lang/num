@@ -818,6 +818,10 @@ class UIManager {
         const playerHpBar = document.getElementById('player-hp-bar');
         playerHpBar.style.width = `${pHP}%`;
         playerHpBar.classList.toggle('critical', pHP > 0 && pHP <= 25);
+        // Lasca (chip) de dano recente — ver .hp-chip em style.css. Mesmo
+        // valor-alvo do preenchimento principal, mas com transition-delay
+        // própria, então ela só alcança o novo valor um instante depois.
+        document.getElementById('player-hp-chip').style.width = `${pHP}%`;
         document.getElementById('player-mp-bar').style.width = `${pMP}%`;
         document.getElementById('player-hp-text').innerText = `${b.player.currentHp}/${b.player.derivedStats.maxHp}`;
         document.getElementById('player-mp-text').innerText = `${b.player.currentMp}/${b.player.derivedStats.maxMp}`;
@@ -840,6 +844,7 @@ class UIManager {
         const enemyHpBar = document.getElementById('enemy-hp-bar');
         enemyHpBar.style.width = `${eHP}%`;
         enemyHpBar.classList.toggle('critical', eHP > 0 && eHP <= 25);
+        document.getElementById('enemy-hp-chip').style.width = `${eHP}%`;
         document.getElementById('enemy-hp-text').innerText = `${b.enemy.currentHp}/${b.enemy.derivedStats.maxHp}`;
 
         // Ícones de status ativos (sangramento/queimadura/veneno, atordoado,
