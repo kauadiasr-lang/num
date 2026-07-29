@@ -864,7 +864,20 @@ html, body {
     border: 2px solid var(--color-gold);
     padding: 15px; border-radius: 6px; color: var(--color-text); width: 250px;
     pointer-events: none; z-index: 9999; box-shadow: var(--shadow-deep);
-    transform: translate(15px, 15px); transition: opacity 0.1s;
+    transform: translate(15px, 15px); transition: opacity 0.15s ease;
+}
+/* Bug de auditoria (visual): "transições bruscas" — a classe genérica
+   .hidden (ver acima) usa display:none!important, e display não é uma
+   propriedade animável; o transition:opacity declarado logo acima nunca
+   rodava de verdade, o tooltip só aparecia/sumia num corte seco a cada
+   hover. Sobrescrevendo display para permanecer 'block' (maior
+   especificidade que .hidden sozinho) enquanto some via opacity, o mesmo
+   fade que já existe em outros elementos do jogo (toasts, cursor de
+   interação) passa a valer aqui também, sem mexer em quando o tooltip é
+   mostrado/escondido (ainda 100% controlado por attachTooltip/hideTooltip). */
+.item-tooltip.hidden {
+    display: block !important;
+    opacity: 0;
 }
 .tt-stats p { margin: 3px 0; font-size: 0.9rem; }
 .tt-price { margin-top: 10px; color: var(--color-gold); font-weight: bold; border-top: 1px solid var(--color-bronze); padding-top: 5px; }
