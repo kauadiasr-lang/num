@@ -3052,6 +3052,13 @@ class GraphicsEngine {
             ctx.strokeRect(-m.armWrist / 2, armLen * 0.72, m.armWrist, armLen * 0.22);
         }
         ctx.translate(0, armLen);
+        // Punho fechado no pulso — antes a arma saía direto da manga, sem
+        // NENHUMA mão entre os dois (ver _drawHand). Desenhado ANTES da
+        // arma: o cabo/grip (fillRect no início de _drawWeapon) cobre a
+        // parte da frente do punho, exatamente como dedos fechados em
+        // volta de um cabo escondem a mão por baixo — só a parte de trás
+        // (pulso/dorso da mão) fica visível.
+        this._drawHand(ctx, armColor, gloveColor);
         // Usa a arma ATIVA (mainHand ou ranged, conforme activeWeaponSlot),
         // não sempre a mainHand — senão trocar de arma em combate mudava o
         // dano/alcance mas o sprite continuava mostrando a arma antiga.
@@ -3059,14 +3066,35 @@ class GraphicsEngine {
         ctx.restore();
     }
 
+    // 4/20 do bloco de reconstrução visual: mão de verdade no pulso, em vez
+    // da arma saindo direto da manga (ou, sem arma nenhuma, um CÍRCULO liso
+    // fazendo de "punho" — a queixa literal do pedido do usuário).
+    // Silhueta de punho fechado com curvas (não um círculo), mais duas
+    // vincos de nó de dedo discretos pra sugerir os dedos sem virar
+    // textura pesada. `gloveColor` (se houver luva equipada) tinge o
+    // contorno, igual já era feito na braçadeira da manga.
+    _drawHand(ctx, skinOrGloveColor, gloveColor) {
+        ctx.fillStyle = skinOrGloveColor;
+        ctx.beginPath();
+        ctx.moveTo(-5, -5);
+        ctx.bezierCurveTo(-7, -2, -7, 3, -4.5, 5.5);
+        ctx.bezierCurveTo(-1.5, 7, 3.5, 6.5, 5.5, 3.5);
+        ctx.bezierCurveTo(7, 1, 6.5, -3, 4.5, -5);
+        ctx.bezierCurveTo(1.5, -6.8, -2, -6.8, -5, -5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = gloveColor || 'rgba(0,0,0,0.18)';
+        ctx.lineWidth = gloveColor ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.moveTo(-1, -5.5); ctx.quadraticCurveTo(0, 0, -1, 5.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(2, -5.5); ctx.quadraticCurveTo(3, 0, 2, 5.5);
+        ctx.stroke();
+    }
+
     _drawWeapon(ctx, weapon) {
-        if (!weapon) {
-            ctx.fillStyle = '#c99a6b';
-            ctx.beginPath();
-            ctx.arc(4, 0, 5, 0, Math.PI * 2);
-            ctx.fill();
-            return;
-        }
+        if (!weapon) return;
 
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(0, -4, 12, 8);
