@@ -1645,16 +1645,33 @@ class CityEngine {
     // mesma fonte serena de Porto Helênico, e o Santuário Élfico não tinha
     // nada de mágico/natural na própria fonte da praça. Fallback pras cores
     // originais sem cidade carregada/cidade sem o campo (save antigo).
+    // Bacia+borda da fonte são 100% estáticas pra um dado raio/cor — só o
+    // jato central (anima via performance.now(), ver _drawFountain) e o cano
+    // continuam vivos por cima do bake (ver js/spritesystem.js SpriteCache).
+    _bakeFountainBasin(r, colors) {
+        const pad = 4;
+        const w = r * 2 + pad * 2, h = r * 0.9 + pad * 2;
+        const anchorX = r + pad, anchorY = r * 0.45 + pad;
+        const key = `fountain:${Math.round(r * 100)}:${colors.rim}:${colors.basin}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.fillStyle = colors.rim;
+                bctx.beginPath(); bctx.ellipse(anchorX, anchorY, r, r * 0.45, 0, 0, Math.PI * 2); bctx.fill();
+                bctx.fillStyle = colors.basin;
+                bctx.beginPath(); bctx.ellipse(anchorX, anchorY, r * 0.78, r * 0.35, 0, 0, Math.PI * 2); bctx.fill();
+            }),
+            anchorX, anchorY
+        };
+    }
+
     _drawFountain(ctx, w, h) {
         const scale = this._cityScale(h);
         const x = this.fountain.xFrac * w, y = this._horizon(h) + this.fountain.rowOffset * scale;
         const r = this.fountain.r * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const colors = (cityDef && cityDef.fountainColors) || { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' };
-        ctx.fillStyle = colors.rim;
-        ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = colors.basin;
-        ctx.beginPath(); ctx.ellipse(x, y, r * 0.78, r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+        const basin = this._bakeFountainBasin(r, colors);
+        ctx.drawImage(basin.canvas, x - basin.anchorX, y - basin.anchorY);
         // Jato central (anima com o tempo)
         const t = performance.now() * 0.003;
         ctx.strokeStyle = colors.jet;
@@ -1673,14 +1690,32 @@ class CityEngine {
     // Santuário Élfico mostravam as MESMAS estátuas de mármore de Porto
     // Helênico. Fallback pro mármore original sem cidade carregada/cidade
     // sem o campo (save antigo).
+    // Estátua inteira (pedestal+corpo+cabeça) é 100% estática pra uma dada
+    // escala/cor — sem nenhuma animação, então bake completo, sem elemento
+    // vivo por cima (ver js/spritesystem.js SpriteCache).
+    _bakeStatueSprite(scale, color) {
+        const pad = 4;
+        const w = 20 * scale + pad * 2, h = 56 * scale + 2 * scale + pad * 2;
+        const anchorX = 10 * scale + pad, anchorY = 56 * scale + pad;
+        const key = `statue:${Math.round(scale * 100)}:${color}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.fillStyle = color;
+                bctx.fillRect(anchorX - 10 * scale, anchorY - 6 * scale, 20 * scale, 8 * scale); // pedestal
+                bctx.fillRect(anchorX - 5 * scale, anchorY - 46 * scale, 10 * scale, 40 * scale); // corpo
+                bctx.beginPath(); bctx.arc(anchorX, anchorY - 50 * scale, 6 * scale, 0, Math.PI * 2); bctx.fill(); // cabeça
+            }),
+            anchorX, anchorY
+        };
+    }
+
     _drawStatue(ctx, w, h, s) {
         const scale = this._cityScale(h);
         const x = s.xFrac * w, y = this._horizon(h) + s.rowOffset * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        ctx.fillStyle = (cityDef && cityDef.statueColor) || '#c9c2b0';
-        ctx.fillRect(x - 10 * scale, y - 6 * scale, 20 * scale, 8 * scale); // pedestal
-        ctx.fillRect(x - 5 * scale, y - 46 * scale, 10 * scale, 40 * scale); // corpo
-        ctx.beginPath(); ctx.arc(x, y - 50 * scale, 6 * scale, 0, Math.PI * 2); ctx.fill(); // cabeça
+        const color = (cityDef && cityDef.statueColor) || '#c9c2b0';
+        const sprite = this._bakeStatueSprite(scale, color);
+        ctx.drawImage(sprite.canvas, x - sprite.anchorX, y - sprite.anchorY);
     }
 
     // Vegetação orientada a dados (ver this.vegetation + CityDatabase
@@ -1695,13 +1730,33 @@ class CityEngine {
     // TODA cidade, então a Fortaleza Orc e o Santuário Élfico mostravam a
     // mesma vegetação mediterrânea de Porto Helênico apesar de suas
     // descrições falarem de rocha vulcânica / raízes ancestrais.
+    // Cada planta é 100% estática pra um dado tipo/escala — sem animação
+    // própria — então bakeia a silhueta inteira uma vez por combinação e
+    // reusa (ver js/spritesystem.js SpriteCache). bbox generoso e único pra
+    // todos os tipos (em vez de um por tipo) porque são poucas combinações
+    // reais em cache (6 tipos x poucas escalas distintas por resize).
+    _bakeVegetationSprite(scale, type) {
+        const pad = 4;
+        const anchorX = 30 * scale + pad, anchorY = 85 * scale + pad;
+        const w = anchorX * 2, h = anchorY + 12 * scale + pad;
+        const key = `veg:${type}:${Math.round(scale * 100)}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => this._paintVegetation(bctx, anchorX, anchorY, scale, type)),
+            anchorX, anchorY
+        };
+    }
+
     _drawVegetation(ctx, w, h, v) {
         const scale = this._cityScale(h) * (v.scale || 1);
         const x = v.xFrac * w, y = this._horizon(h) + v.rowOffset * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const vegTypes = (cityDef && cityDef.vegetationTypes) || { edge: 'cypress', center: 'laurel' };
         const type = vegTypes[v.slot] || (v.slot === 'edge' ? 'cypress' : 'laurel');
+        const sprite = this._bakeVegetationSprite(scale, type);
+        ctx.drawImage(sprite.canvas, x - sprite.anchorX, y - sprite.anchorY);
+    }
 
+    _paintVegetation(ctx, x, y, scale, type) {
         if (type === 'cypress') {
             ctx.fillStyle = '#4a3a26';
             ctx.fillRect(x - 3 * scale, y - 6 * scale, 6 * scale, 10 * scale); // base do tronco
