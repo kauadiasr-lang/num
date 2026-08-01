@@ -2042,6 +2042,13 @@ class UIManager {
         if (window.City && window.City.dayPhases) {
             window.City.dayPhaseIndex = (window.City.dayPhaseIndex + 2) % window.City.dayPhases.length;
             window.City.dayPhaseTimer = 0;
+            // Bug de auditoria (novo pedido: "dormir não atualiza o mundo"):
+            // pular o relógio pro período oposto NÃO disparava nenhuma
+            // consequência de novo dia — dormir no chão sempre "avança o
+            // tempo" de verdade (mesmo dormindo de graça, sem pagar a
+            // Taverna), então precisa do MESMO avanço de mundo completo que
+            // dormir pago (ver healFatigue/city.js advanceToNewDay).
+            window.City.advanceToNewDay();
         }
 
         // Risco de assalto (item 6 da auditoria de balanceamento): dormir no
@@ -2101,9 +2108,18 @@ class UIManager {
         // mesmo jeito, já que ficam exatamente na metade oposta do ciclo de
         // 4 fases). Antes dormir não tinha NENHUM efeito no relógio: o
         // jogador "dormia" e continuava no mesmo instante exato do dia.
+        //
+        // Bug de auditoria (novo pedido: "dormir não atualiza o mundo"):
+        // pular o relógio sozinho nunca disparava as consequências de um
+        // dia ter se passado de verdade (estoque de loja, juros do Banco,
+        // NPCs/Viajante/Mercador/Pedras de Luz) — só a fase visual mudava,
+        // então o jogador podia dormir dezenas de vezes seguidas e a cidade
+        // continuava "congelada" pra todo efeito prático. Ver
+        // city.js advanceToNewDay() pra tudo que passa a acontecer aqui.
         if (window.City && window.City.dayPhases) {
             window.City.dayPhaseIndex = (window.City.dayPhaseIndex + 2) % window.City.dayPhases.length;
             window.City.dayPhaseTimer = 0;
+            window.City.advanceToNewDay();
         }
 
         window.SaveManager.save(window.Engine.state);

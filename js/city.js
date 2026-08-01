@@ -1067,6 +1067,57 @@ class CityEngine {
         this._toast(`O Banco rendeu juros durante a noite: +${interest}g guardados.`, 'success');
     }
 
+    // Avança o mundo pra um novo dia de verdade (novo pedido de auditoria,
+    // item 2: "dormir não atualiza o mundo") — único ponto que executa TODAS
+    // as consequências de "um dia se passou", chamado tanto pelo ciclo
+    // natural dia/noite (_updateDayCycle, ao entrar em 'dawn' vindo de
+    // 'night') quanto por qualquer forma de "dormir" que pule direto pro
+    // período oposto (ver ui.js healFatigue/freeRest).
+    //
+    // Bug de auditoria encontrado: dormir só pulava `dayPhaseIndex` pro
+    // período oposto do ciclo, sem rodar NENHUMA consequência de novo dia —
+    // `dayCount` nunca incrementava (e o estoque de loja em ui.js openShop
+    // só sorteia de novo quando `cachedStock.day !== dayCount` muda, então
+    // ficava travado no mesmo estoque pra sempre), juros do Banco nunca
+    // eram creditados, e os NPCs comuns/Viajante do Portão nunca eram
+    // trocados por gente nova. Um jogador que sempre dormisse no Curandeiro
+    // (em vez de esperar o ciclo ambiente correr sozinho) via a cidade
+    // inteira "congelada" pra sempre, mesmo pagando pra descansar de
+    // verdade — exatamente o sintoma reportado.
+    //
+    // PONTO DE EXTENSÃO: futuros sistemas diários (missões do quadro,
+    // rumores, eventos aleatórios — itens #3/#6/#7 do mesmo pedido) devem
+    // plugar seu próprio "reroll de novo dia" AQUI, nunca duplicar esta
+    // função em outro lugar.
+    advanceToNewDay() {
+        this.dayCount++; // novo dia — ver openShop (ui.js), invalida o cache de estoque sozinho
+        this._applyBankInterest();
+
+        // Vampiros noturnos se recolhem com a luz do sol.
+        this.nightWanderers = [];
+
+        // NPCs comuns/presos e Viajante do Portão são trocados por gente
+        // nova — mesmo padrão (e mesmas flags) já usado ao trocar de
+        // cidade (ver travelToCity), reaproveitado aqui em vez de duplicado.
+        this.npcs = [];
+        this._arenaNpcsSpawned = false;
+        this._gateTravelerSpawned = false;
+
+        // Mercador Viajante e promoção de loja não "sobrevivem" a um dia
+        // inteiro passado — um novo dia pode trazer (ou não) um mercador/
+        // promoção diferente pelo sorteio normal de _updateRandomEvents.
+        this.travelingMerchant = null;
+        this.activePromotion = null;
+
+        // Pedras de Luz (ver _spawnLightStonesIfNeeded/item 13): força uma
+        // rodada nova, todas não coletadas, se o jogador ainda precisar delas.
+        this.lightStones = [];
+        this._pendingCollectStone = null;
+
+        this._spawnNpcsIfNeeded();
+        this._spawnLightStonesIfNeeded();
+    }
+
     _updateDayCycle(dt) {
         this.dayPhaseTimer += dt;
         if (this.dayPhaseTimer >= this.dayPhaseDuration) {
@@ -1075,11 +1126,7 @@ class CityEngine {
             const enteringDawn = this.dayPhases[this.dayPhaseIndex] !== 'dawn' && this.dayPhases[(this.dayPhaseIndex + 1) % this.dayPhases.length] === 'dawn';
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
             if (enteringNight) this._onNightFalls();
-            if (enteringDawn) {
-                this.dayCount++; // novo dia — ver openShop (ui.js)
-                this.nightWanderers = []; // vampiros se recolhem com a luz do sol
-                this._applyBankInterest();
-            }
+            if (enteringDawn) this.advanceToNewDay();
         }
         if (window.GFX) {
             window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
