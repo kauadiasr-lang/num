@@ -745,6 +745,54 @@ html, body {
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Log de combate no desktop (item 4 da auditoria de balanceamento): antes
+   o log ficava SEMPRE no fluxo vertical central do HUD, entre os cards de
+   status e os botões de ação — exatamente onde GraphicsEngine.getEntityX
+   desenha os dois gladiadores (eles nunca saem de canvasWidth/2 ± 230px,
+   ver graphics.js), então o painel de texto cobria os personagens sempre
+   que havia alguma mensagem mais longa. Em telas largas o suficiente pra
+   ter espaço lateral de sobra (min-width 900px cobre desktop/tablet
+   grande), o log sai do fluxo e vira uma faixa fixa na lateral direita,
+   fora da área de combate — os cards de HUD e os botões de ação ficam só
+   os dois entre si no fluxo vertical (justify-content:space-between do
+   #screen-battle continua funcionando normalmente com dois filhos em vez
+   de três), deixando a arena inteira visível ao centro. No celular (sem
+   esse espaço lateral de sobra) o log continua centralizado como sempre.
+*/
+/* min-width 1400px: GraphicsEngine.getEntityX (graphics.js) desenha os
+   gladiadores a até canvasWidth/2 + 230px do centro (offset máximo fixo,
+   não escala com telas mais estreitas que ~676px) — mas armas mais
+   compridas (lança) e a pose de guarda ainda projetam braço+arma bem além
+   desse ponto-âncora. Testado visualmente com lança em distância máxima
+   (10m): a ~1300px de largura a ponta da lança quase encosta no painel
+   (~20px de folga); a partir de ~1400px sobra folga confortável (~120px).
+   Abaixo de 1400px o log continua centralizado (mesmo comportamento de
+   antes desta mudança) — nunca "meio lateral" arriscando sobrepor o
+   personagem numa combinação de arma/pose/distância mais generosa.
+*/
+@media (min-width: 1400px) {
+    .battle-log {
+        position: absolute;
+        right: 24px;
+        /* top/bottom fixos (não vh nem centralização por transform): a
+           altura do HUD e da fileira de botões vem de padding/font-size em
+           px, não escala com a altura da tela — um valor em vh ou uma
+           centralização por porcentagem encostava (ou cobria) o card do
+           inimigo em telas mais baixas. 230px/150px dão folga confortável
+           acima do HUD e abaixo do topo dos botões de ação em qualquer
+           altura de tela que já bata o próprio min-width:900px deste bloco. */
+        top: 230px;
+        bottom: 150px;
+        width: 260px;
+        max-width: 22vw;
+        height: auto;
+        max-height: none;
+        margin: 0;
+        background: linear-gradient(160deg, rgba(20,16,11,0.88), rgba(20,16,11,0.72));
+        z-index: 5;
+    }
+}
+
 /* Responsivo */
 @media (max-width: 768px) {
     .hud-top { padding: 10px; flex-direction: column; text-align: center; }
