@@ -967,9 +967,24 @@ class CityEngine {
         // com o jogador. O clima reseta pro estado neutro — o próprio
         // _updateWeather já vai sortear de novo usando os modificadores da
         // cidade nova no timer seguinte.
+        // Bug crítico de auditoria (item 1 — Viajante do Portão desaparecendo
+        // após viajar entre cidades): `this.npcs = []` logo abaixo apaga o
+        // objeto NPC do Viajante do Portão do array, mas a flag de
+        // "spawnou uma vez" (`_gateTravelerSpawned`) NUNCA era resetada —
+        // ao contrário de `_arenaNpcsSpawned` (linha abaixo), que já era
+        // corretamente resetada. `_spawnNpcsIfNeeded()` só recria o
+        // Viajante quando `!this._gateTravelerSpawned`, então depois da
+        // PRIMEIRA viagem essa flag ficava travada em `true` para sempre —
+        // o Viajante sumia da praça e nunca mais era recriado em nenhuma
+        // cidade seguinte, mesmo continuando a viajar mais vezes. Só um
+        // refresh da página (que recria o CityEngine do zero, com a flag
+        // de volta a `false`) trazia ele de volta — exatamente o sintoma
+        // reportado. Resetar aqui, no mesmo lugar que `_arenaNpcsSpawned`,
+        // corrige de vez.
         this.npcs = [];
         this.nightWanderers = [];
         this._arenaNpcsSpawned = false;
+        this._gateTravelerSpawned = false;
         this.travelingMerchant = null;
         this.activePromotion = null;
         this.weather = 'clear';
