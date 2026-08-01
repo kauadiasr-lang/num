@@ -389,7 +389,12 @@ class CityEngine {
                 // eventos aleatórios mudando de nome.
                 race: npcRace
             },
-            anim: { type: 'idle', start: performance.now(), duration: 0 }
+            anim: { type: 'idle', start: performance.now(), duration: 0 },
+            // Rotina de vida (item #5 do novo pedido de auditoria — ver
+            // _updateNpcs/_sendNpcToVisitBuilding/_rollNpcBuildingVisits):
+            // 'wandering' (padrão) | 'visiting' (a caminho de uma loja) |
+            // 'inside' (parado e invisível, "dentro" da loja).
+            routineState: 'wandering', invisible: false, insideTimer: 0
         };
     }
 
@@ -456,6 +461,17 @@ class CityEngine {
     _updateNpcs(dt, list = this.npcs, speed = 45) {
         const h = window.Engine.height;
         for (const npc of list) {
+            // Rotina de vida (item #5 do novo pedido de auditoria — "NPCs
+            // vivos"): enquanto "dentro" de uma loja/taverna, o NPC fica
+            // parado e invisível (ver _sendNpcToVisitBuilding/
+            // _npcLeavesBuilding) — não participa do movimento normal
+            // nenhum até o tempo de visita acabar.
+            if (npc.routineState === 'inside') {
+                npc.insideTimer -= dt;
+                if (npc.insideTimer <= 0) this._npcLeavesBuilding(npc);
+                continue;
+            }
+
             npc.waitTimer -= dt;
             const dx = npc.targetX - npc.x, dy = npc.targetY - npc.y;
             const dist = Math.hypot(dx, dy);
@@ -466,6 +482,13 @@ class CityEngine {
                 npc.anim.type = 'walk';
             } else {
                 npc.anim.type = 'idle';
+                // Chegou à porta do prédio que estava visitando — entra.
+                if (npc.routineState === 'visiting') {
+                    npc.routineState = 'inside';
+                    npc.invisible = true;
+                    npc.insideTimer = Utils.randomFloat(18, 45);
+                    continue;
+                }
                 if (npc.waitTimer <= 0 && npc.pin) {
                     npc.targetX = Utils.randomFloat(npc.pin.x - npc.pin.radius, npc.pin.x + npc.pin.radius);
                     npc.targetY = Utils.randomFloat(npc.pin.y - npc.pin.radius * 0.4, npc.pin.y + npc.pin.radius * 0.4);
@@ -478,6 +501,47 @@ class CityEngine {
                 }
             }
         }
+    }
+
+    // Manda um NPC comum visitar uma loja/taverna da praça (ver
+    // _rollNpcBuildingVisits) — reaproveita o MESMO campo targetX/targetY já
+    // usado pelo wander normal, só muda o QUE acontece na chegada (ver
+    // _updateNpcs `routineState === 'visiting'`), sem duplicar nenhuma
+    // lógica de movimento.
+    _sendNpcToVisitBuilding(npc) {
+        const visitable = this.buildings.filter(b => ['blacksmith', 'armorer', 'tavern', 'arcane'].includes(b.id));
+        if (visitable.length === 0) return;
+        const building = visitable[Utils.randomInt(0, visitable.length - 1)];
+        const door = this._doorPoint(building);
+        npc.routineState = 'visiting';
+        npc.targetX = door.x;
+        npc.targetY = door.y;
+    }
+
+    // Chamado quando o tempo de visita acaba (ver _updateNpcs) — volta a
+    // vagar normalmente pela praça, como qualquer NPC recém-nascido.
+    _npcLeavesBuilding(npc) {
+        npc.invisible = false;
+        npc.routineState = 'wandering';
+        const w = window.Engine.width, h = window.Engine.height;
+        npc.targetX = Utils.randomFloat(w * 0.1, w * 0.9);
+        npc.targetY = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        npc.waitTimer = 0;
+    }
+
+    // Rotina de vida dos NPCs (item #5 do novo pedido de auditoria): a cada
+    // troca de fase do dia (exceto ao entrar na noite, quando todos os
+    // comuns já somem sozinhos — ver draw()), uma fração dos moradores
+    // comuns decide visitar uma loja/taverna por um tempo, simulando ter
+    // vida própria além de vagar a esmo pela praça. NPCs "presos"
+    // (espectadores da Arena, Viajante do Portão) nunca têm rotina — eles
+    // existem só pra dar movimento constante num ponto fixo da praça.
+    _rollNpcBuildingVisits() {
+        this.npcs.forEach(npc => {
+            if (npc.pin || npc.isCaravanTraveler) return;
+            if (npc.routineState === 'inside' || npc.routineState === 'visiting') return;
+            if (Utils.chance(35)) this._sendNpcToVisitBuilding(npc);
+        });
     }
 
     // --- Entrada (clique/toque + teclado) ---
@@ -609,6 +673,10 @@ class CityEngine {
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         const pool = isNight ? this._nightVisibleNpcs() : this.npcs;
         for (const npc of pool) {
+            // Rotina de vida (item #5): um NPC "dentro" de uma loja/taverna
+            // não pode ser clicado/conversado — ele simplesmente não está
+            // na praça agora (ver _updateNpcs/draw()).
+            if (npc.invisible) continue;
             const d = Math.hypot(npc.x - x, npc.y - y);
             if (d <= closestDist) { closest = npc; closestDist = d; }
         }
@@ -1151,6 +1219,12 @@ class CityEngine {
             this.dayPhaseIndex = (this.dayPhaseIndex + 1) % this.dayPhases.length;
             if (enteringNight) this._onNightFalls();
             if (enteringDawn) this.advanceToNewDay();
+            // Rotina de vida dos NPCs (item #5 do novo pedido de auditoria) —
+            // dispara em toda troca de fase, EXCETO ao entrar na noite (os
+            // comuns já somem sozinhos nesse instante, ver draw(); mandá-los
+            // "visitar uma loja" bem quando estão prestes a desaparecer não
+            // faria sentido nenhum).
+            if (!enteringNight) this._rollNpcBuildingVisits();
         }
         if (window.GFX) {
             window.GFX.arenaTime = this.dayPhases[this.dayPhaseIndex];
@@ -1873,7 +1947,9 @@ class CityEngine {
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         const drawables = [
             ...this.buildings.map(b => ({ y: this._doorPoint(b).y, draw: () => this._drawBuilding(ctx, w, h, b) })),
-            ...(isNight ? this._nightVisibleNpcs() : this.npcs).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
+            // Rotina de vida (item #5): um NPC "dentro" de uma loja/taverna
+            // nunca é desenhado — ele simplesmente não está na praça agora.
+            ...(isNight ? this._nightVisibleNpcs() : this.npcs).filter(n => !n.invisible).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
             // Pedras de Luz (ver _spawnLightStonesIfNeeded/item 13 da
             // auditoria) entram no MESMO ordenamento por profundidade que
             // prédios/NPCs/jogador — diferente de fonte/estátuas/vegetação
