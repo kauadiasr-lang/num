@@ -720,6 +720,18 @@ class UIManager {
         // nunca inventamos uma raça falsa "Humano" pra eles aqui.
         const raceName = opponent.race && window.RaceSystem ? window.RaceSystem.get(opponent.race).name : null;
         log.innerHTML = `<p>Você encontrou ${opponent.name} (${opponent.personality}${raceName ? ', ' + raceName : ''})!</p>`;
+        // Nome do cenário oficial da arena (item 5 da auditoria de
+        // balanceamento, ver citydatabase.js `arenaName`/`officialArenaBiome`
+        // e graphics.js resetForNewBattle) — sem cidade carregada, ou cidade
+        // sem arenaName definido, cai no nome genérico do próprio bioma
+        // (ARENA_BIOMES[id].name), nunca deixando a arena sem identidade
+        // nenhuma no início da luta.
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const arenaDisplayName = (cityDef && cityDef.arenaName)
+            || (window.ARENA_BIOMES && window.GFX && window.ARENA_BIOMES[window.GFX.arenaBiome] && window.ARENA_BIOMES[window.GFX.arenaBiome].name);
+        if (arenaDisplayName) {
+            log.innerHTML += `<p style="color:var(--color-marble-dark); font-style:italic;">⚔ ${arenaDisplayName}</p>`;
+        }
         // Inimigo Elite raro do Duelo Rápido (ver enemy.js ELITE_ENEMY_CHANCE)
         // — muito mais forte e recompensador, merece um aviso claro logo de
         // cara, não só um nome diferente perdido no HUD.

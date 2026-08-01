@@ -307,20 +307,34 @@ class GraphicsEngine {
             this.arenaTime = times[Utils.randomInt(0, times.length - 1)];
         }
 
-        // Sorteia o bioma da arena (identidade própria de solo/vegetação/
-        // fundo/props) e pré-renderiza o solo detalhado uma única vez para
-        // esta luta — ver ARENA_BIOMES e _paintArenaGroundTexture. Restrito
-        // exclusivamente aos biomas vinculados à Cidade-Hub atual (ver
-        // citydatabase.js `arenaBiomes`) — lutar na Fortaleza Orc nunca deve
-        // sortear a Clareira da Floresta do Santuário Élfico, por exemplo.
-        // Sem o sistema de cidades carregado (ou uma cidade sem a lista
-        // definida), cai no comportamento original: qualquer bioma vale.
+        // Bioma da arena (identidade própria de solo/vegetação/fundo/props),
+        // pré-renderizado uma única vez para esta luta — ver ARENA_BIOMES e
+        // _paintArenaGroundTexture.
+        //
+        // Bug de auditoria (item 5): antes SORTEAVA aleatoriamente dentre
+        // `cityDef.arenaBiomes` a cada luta — a mesma Cidade-Hub podia
+        // mostrar cenários de arena completamente diferentes de duelo pra
+        // duelo, sem identidade fixa nenhuma ("Cada arena deve possuir UM
+        // cenário oficial. Nunca alternar cenários aleatórios na mesma
+        // arena."). Agora usa `cityDef.officialArenaBiome` — um único bioma
+        // fixo por cidade (ver citydatabase.js) — sempre o mesmo em toda
+        // luta naquela Cidade-Hub. `arenaBiomes` continua existindo (e
+        // continua validado em main.js) como a lista de biomas
+        // tematicamente compatíveis com a cidade, não mais como pool de
+        // sorteio. Sem o sistema de cidades carregado (ou uma cidade sem
+        // `officialArenaBiome` definido), cai no comportamento original de
+        // sorteio dentre `arenaBiomes` (ou qualquer bioma, sem cidade
+        // nenhuma) — nunca trava o jogo por falta do campo novo.
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        const allowedBiomes = (cityDef && cityDef.arenaBiomes && cityDef.arenaBiomes.length)
-            ? cityDef.arenaBiomes.filter(id => ARENA_BIOMES[id])
-            : Object.keys(ARENA_BIOMES);
-        const biomeIds = allowedBiomes.length ? allowedBiomes : Object.keys(ARENA_BIOMES);
-        this.arenaBiome = biomeIds[Utils.randomInt(0, biomeIds.length - 1)];
+        if (cityDef && cityDef.officialArenaBiome && ARENA_BIOMES[cityDef.officialArenaBiome]) {
+            this.arenaBiome = cityDef.officialArenaBiome;
+        } else {
+            const allowedBiomes = (cityDef && cityDef.arenaBiomes && cityDef.arenaBiomes.length)
+                ? cityDef.arenaBiomes.filter(id => ARENA_BIOMES[id])
+                : Object.keys(ARENA_BIOMES);
+            const biomeIds = allowedBiomes.length ? allowedBiomes : Object.keys(ARENA_BIOMES);
+            this.arenaBiome = biomeIds[Utils.randomInt(0, biomeIds.length - 1)];
+        }
         // Nonce novo a cada batalha: garante um solo com randomização fresca
         // (pedras/rachaduras/props em posições novas) mesmo repetindo o
         // mesmo bioma da luta anterior — dentro da MESMA luta, todo frame usa

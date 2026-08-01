@@ -365,6 +365,17 @@ function validateGameData() {
             if (knownBiomes && Array.isArray(c.arenaBiomes)) {
                 c.arenaBiomes.forEach(b => need(knownBiomes.includes(b), `CityDatabase['${key}']: arenaBiomes referencia bioma inexistente '${b}'`));
             }
+            // officialArenaBiome (ver graphics.js resetForNewBattle, item 5
+            // da auditoria de balanceamento): o cenário FIXO e oficial desta
+            // arena — precisa existir em ARENA_BIOMES e estar incluído na
+            // própria lista arenaBiomes da cidade (nunca um bioma "estranho"
+            // à identidade já declarada dela), e vir sempre acompanhado de
+            // um nome de exibição (arenaName).
+            if (c.officialArenaBiome) {
+                need(knownBiomes ? knownBiomes.includes(c.officialArenaBiome) : true, `CityDatabase['${key}']: officialArenaBiome referencia bioma inexistente '${c.officialArenaBiome}'`);
+                need(Array.isArray(c.arenaBiomes) && c.arenaBiomes.includes(c.officialArenaBiome), `CityDatabase['${key}']: officialArenaBiome ('${c.officialArenaBiome}') não está incluído em arenaBiomes`);
+                need(!!c.arenaName, `CityDatabase['${key}']: officialArenaBiome definido sem arenaName`);
+            }
             need(c.weather && typeof c.weather.rainChance === 'number' && typeof c.weather.stormChance === 'number', `CityDatabase['${key}']: weather ausente ou inválido`);
             if (knownRaces && c.raceDemographics) {
                 Object.keys(c.raceDemographics).forEach(r => need(knownRaces.includes(r), `CityDatabase['${key}']: raceDemographics referencia raça inexistente '${r}'`));

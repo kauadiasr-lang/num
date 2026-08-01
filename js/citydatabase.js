@@ -26,6 +26,19 @@ const CityDatabase = {
         unlockLevel: 1, // sempre disponível — cidade inicial de qualquer personagem novo
         travelCost: 0,  // "voltar pra casa" nunca cobra passagem
         arenaBiomes: ['coliseu', 'areia', 'ruinas', 'templo', 'castelo'],
+        // Cenário OFICIAL e FIXO desta arena (item 5 da auditoria de
+        // balanceamento) — bug de auditoria: antes graphics.js sorteava um
+        // bioma ALEATÓRIO dentre `arenaBiomes` a cada luta, então a mesma
+        // Cidade-Hub podia mostrar cenários completamente diferentes de
+        // duelo pra duelo, sem identidade fixa nenhuma. `arenaBiomes`
+        // continua existindo (documenta quais biomas são tematicamente
+        // compatíveis com esta cidade, e a validação em main.js exige a
+        // lista não-vazia), mas a escolha de exibição agora é sempre esta
+        // ÚNICA entrada — nunca mais um sorteio. Coliseu Imperial já é
+        // citado na própria descrição da cidade acima, então é literalmente
+        // o cenário oficial, não uma escolha arbitrária nova.
+        officialArenaBiome: 'coliseu',
+        arenaName: 'Coliseu Imperial',
         weather: { rainChance: 35, stormChance: 30 }, // valores originais da Cidade, preservados como padrão
         raceDemographics: { humano: 55, espartano: 15, ateniense: 15, cretense: 8, tebano: 7 },
         accentColor: '#c9a227', // dourado/mármore
@@ -60,6 +73,13 @@ const CityDatabase = {
         unlockLevel: 3,
         travelCost: 120,
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
+        // Cenário oficial e fixo desta arena (ver comentário completo em
+        // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a
+        // própria fundação da fortaleza, descrita na própria descrição da
+        // cidade, então "Fosso de Guerra" sobre o bioma vulcânico é o
+        // cenário coerente, não uma escolha arbitrária nova.
+        officialArenaBiome: 'vulcanica',
+        arenaName: 'Fosso de Guerra',
         weather: { rainChance: 15, stormChance: 45 }, // clima seco a maior parte do tempo, mas tempestades bem mais violentas quando chega a chover
         raceDemographics: { orc: 78, anao: 10, humano: 8, espartano: 4 },
         accentColor: '#6b3a2a',
@@ -93,6 +113,12 @@ const CityDatabase = {
         unlockLevel: 6,
         travelCost: 220,
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
+        // Cenário oficial e fixo desta arena (ver comentário completo em
+        // porto_helenico.officialArenaBiome acima) — a cidade já é descrita
+        // como "erguida entre raízes ancestrais", então uma clareira de
+        // floresta é o cenário coerente, não uma escolha arbitrária nova.
+        officialArenaBiome: 'floresta',
+        arenaName: 'Clareira Sagrada',
         weather: { rainChance: 65, stormChance: 20 }, // chove muito mais que nas outras cidades (identidade climática pedida)
         raceDemographics: { elfo: 70, humano: 10, ateniense: 10, cretense: 10 },
         accentColor: '#2a6a4a',
