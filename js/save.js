@@ -21,8 +21,21 @@ class SaveSystem {
 
     // --- Migração do formato antigo (não destrutiva: a chave antiga nunca é apagada) ---
     _migrateLegacySave() {
-        const existing = this._readSlotsRaw();
-        if (existing) return; // já existe o formato novo, nada a migrar
+        // Bug de auditoria (item 15 — caça contínua a bugs): `_readSlotsRaw()`
+        // retorna null tanto quando a chave do formato novo NUNCA existiu
+        // quanto quando ela existe mas está corrompida (JSON inválido ou não
+        // é array, ver _readSlotsRaw) — usar só esse valor pra decidir se
+        // migra tratava os dois casos como idênticos. Se o formato novo já
+        // existisse mas tivesse ficado corrompido (jogador já com progresso
+        // real em vários slots), migrar de novo a partir do save legado (que
+        // só reflete o ÚNICO slot de ANTES do sistema multi-slot existir)
+        // SUBSTITUIRIA silenciosamente todo esse progresso por um retrato
+        // antigo, em vez de deixar a corrupção intacta (já reportada via
+        // console.error em _readSlotsRaw) sem inventar dados errados por
+        // cima. Checar a chave crua evita confundir "nunca existiu" com
+        // "existe, mas corrompida".
+        const slotsKeyExists = localStorage.getItem(this.slotsKey) !== null;
+        if (slotsKeyExists) return; // formato novo já existe (mesmo que corrompido) — nunca sobrescreve
 
         const legacy = localStorage.getItem(this.legacyKey);
         if (!legacy) return; // instalação nova, sem save nenhum
