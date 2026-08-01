@@ -613,7 +613,19 @@ class Rival extends Entity {
         // já com recompensas/loot/IA de fases exclusivas) não tinha NENHUMA
         // distinção visual além do próprio equipamento.
         if (this.isChampion) {
-            const leagueAuraColors = { bronze: 'rgba(205,127,50,0.35)', silver: 'rgba(200,208,216,0.4)', gold: 'rgba(240,185,35,0.4)' };
+            // Item 10 da auditoria (ligas contínuas): bug de auditoria
+            // encontrado — antes só existiam 3 ligas (bronze/silver/gold),
+            // então qualquer liga NOVA caía no fallback `leagueAuraColors.gold`
+            // (âmbar), fazendo o Campeão Orc e o Campeão Élfico brilharem
+            // com a MESMA cor do Campeão de Ouro, apesar de serem ligas
+            // visualmente/tematicamente distintas. `orc`/`elfica` usam a
+            // MESMA cor de `accent` já estabelecida pra cada raça (ver
+            // races.js) — a identidade visual da liga combina com a da
+            // raça que a domina, em vez de uma cor arbitrária nova.
+            const leagueAuraColors = {
+                bronze: 'rgba(205,127,50,0.35)', silver: 'rgba(200,208,216,0.4)', gold: 'rgba(240,185,35,0.4)',
+                orc: 'rgba(58,90,26,0.4)', elfica: 'rgba(74,138,58,0.4)'
+            };
             this.visuals.hasAura = true;
             this.visuals.auraColor = leagueAuraColors[this.league] || leagueAuraColors.gold;
         }
@@ -813,6 +825,66 @@ const RivalDatabase = {
                             message: 'Séculos de combate falam através de cada golpe de Aurelion!' },
                         { hpPercent: 0.15, personalityId: 'berserker', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
                             message: 'Aurelion recusa a mortalidade — a fúria imortal desperta!' }
+                    ] }
+            ]
+        },
+        // --- Item 10 da auditoria de balanceamento: ligas contínuas ---
+        // Bug de auditoria encontrado: a Ladder inteira acabava em Aurelion
+        // (nível 15) — depois de derrotá-lo, a tela de Ladder simplesmente
+        // mostrava tudo como "Derrotado" e não havia absolutamente NADA
+        // mais pra fazer ali, contrariando o pedido explícito de progressão
+        // contínua ("a próxima liga começa onde a anterior terminou").
+        // O motor de desbloqueio sequencial (ver ui.js _getAllRivals/
+        // openLadder: `isUnlocked = globalIdx === 0 || rivalsDefeated
+        // .includes(anterior)`) já suporta QUALQUER número de ligas sem
+        // nenhuma mudança de código — só faltava o conteúdo. As duas novas
+        // ligas usam as raças/cidades-hub regionais já existentes (Orc/
+        // Elfo, ver races.js e citydatabase.js) como identidade temática,
+        // continuando a progressão de nível exatamente de onde a Liga de
+        // Ouro parou (15), sem nenhum reinício de dificuldade.
+        {
+            id: 'orc', name: 'Liga Orc',
+            rivals: [
+                { id: 'grukthar', name: 'Grukthar, Punho de Gorkhal', title: 'Punho de Gorkhal', level: 16, focus: { str: 0.6, def: 0.4 },
+                    personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 } },
+                { id: 'skarza', name: 'Skarza, Lança Vulcânica', title: 'Lança Vulcânica', level: 17, focus: { str: 0.4, agi: 0.35, acc: 0.25 },
+                    personalityId: 'cacador', styleId: 'lanceiro', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 2 } },
+                { id: 'bruk', name: 'Brûk, o Inabalável', title: 'o Inabalável', level: 18, focus: { def: 0.5, str: 0.35, cha: 0.15 },
+                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
+                { id: 'orc_champion', name: 'Gorkhal, Senhor da Guerra', title: 'Senhor da Guerra', level: 20, focus: { str: 0.35, def: 0.3, agi: 0.2, acc: 0.15 },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 },
+                    phases: [
+                        { hpPercent: 0.65, personalityId: 'executor', unlockSkill: 'fury', emotion: 'determinado',
+                            message: 'Gorkhal ruge e a própria fornalha da Fortaleza parece tremer!' },
+                        { hpPercent: 0.3, personalityId: 'berserker', unlockSkill: 'execution_blow', emotion: 'desesperado', healPercent: 0.12,
+                            message: 'Sangrando, Gorkhal ataca com a fúria de um vulcão prestes a explodir!' }
+                    ] }
+            ]
+        },
+        {
+            id: 'elfica', name: 'Liga Élfica',
+            rivals: [
+                { id: 'sylara', name: 'Sylara, Flecha Ancestral', title: 'Flecha Ancestral', level: 21, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
+                    personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 } },
+                { id: 'thalindor', name: 'Thalindor, Lâmina da Clareira', title: 'Lâmina da Clareira', level: 22, focus: { agi: 0.45, luk: 0.3, acc: 0.25 },
+                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Masculino', archetype: 'assassino', scarStyle: 0 } },
+                { id: 'ilwenna', name: 'Ilwenna, Voz das Raízes', title: 'Voz das Raízes', level: 23, focus: { int: 0.45, acc: 0.3, luk: 0.25 },
+                    personalityId: 'calculista', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 0 } },
+                { id: 'elfica_champion', name: 'Sylvaneth, Guardiã Ancestral', title: 'Guardiã Ancestral', level: 25, focus: { agi: 0.3, int: 0.25, acc: 0.25, luk: 0.2 },
+                    personalityId: 'tatico', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 },
+                    phases: [
+                        { hpPercent: 0.65, personalityId: 'cacador', unlockSkill: 'vampiric_strike', emotion: 'determinado',
+                            message: 'Sylvaneth invoca a força de raízes centenárias para defender o Santuário!' },
+                        { hpPercent: 0.3, personalityId: 'executor', unlockSkill: 'arcane_storm', emotion: 'desesperado', healPercent: 0.15,
+                            message: 'A última guardiã do Santuário recusa cair — a floresta inteira parece lutar ao seu lado!' }
                     ] }
             ]
         }
