@@ -1823,6 +1823,75 @@ class CityEngine {
     // porta + tochas nas laterais. As dimensões já vêm escaladas de
     // _buildingRect (telas baixas encolhem os prédios pra sempre caberem
     // entre o horizonte e o rodapé da praça).
+    // Migração p/ pipeline de sprites (ver js/spritesystem.js): a fachada
+    // inteira do prédio (sombra, parede em gradiente, colunas, telhado,
+    // porta) é 100% estática pra um dado prédio numa dada tela — só
+    // recalculada quando o tamanho da janela muda (bw/bh vêm de
+    // _buildingRect, que já reage a isso). Bakear evita recriar ~5-8
+    // gradientes lineares por prédio a cada um dos 60 quadros por segundo.
+    // Tochas (chama animada) e texto (nome, ícone, mural do campeão — que
+    // pode mudar a qualquer vitória) continuam desenhados ao vivo por cima.
+    _bakeBuildingShell(b, bw, bh) {
+        const halfW = bw / 2 + 12;
+        const topY = -(bh * 1.3) - 4;
+        const botY = 18;
+        const w = halfW * 2, h = botY - topY;
+        const anchorX = halfW, anchorY = -topY;
+        const key = `building:${b.id}|${Math.round(bw)}|${Math.round(bh)}|${b.wall}|${b.roof}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => {
+                bctx.translate(anchorX, anchorY);
+                const left = -bw / 2, top = -bh;
+
+                // Sombra no chão
+                bctx.fillStyle = 'rgba(0,0,0,0.25)';
+                bctx.beginPath();
+                bctx.ellipse(0, 4, bw * 0.55, 10, 0, 0, Math.PI * 2);
+                bctx.fill();
+
+                // Corpo do prédio — gradiente vertical (mais claro no topo,
+                // como se pegasse sol; a própria cor da parede na base).
+                const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
+                wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.22));
+                wallGrad.addColorStop(1, b.wall);
+                bctx.fillStyle = wallGrad;
+                bctx.fillRect(left, top, bw, bh);
+
+                // Colunas de mármore — gradiente horizontal por coluna
+                // (mais escuro nas bordas, brilho claro no meio).
+                const colCount = Math.max(3, Math.floor(bw / 32));
+                for (let i = 0; i < colCount; i++) {
+                    const cx = left + (bw / (colCount - 1)) * i;
+                    const colGrad = bctx.createLinearGradient(cx - 4, 0, cx + 4, 0);
+                    colGrad.addColorStop(0, 'rgba(188,180,158,0.9)');
+                    colGrad.addColorStop(0.5, 'rgba(248,243,228,0.95)');
+                    colGrad.addColorStop(1, 'rgba(188,180,158,0.9)');
+                    bctx.fillStyle = colGrad;
+                    bctx.fillRect(cx - 4, top + 6, 8, bh - 12);
+                }
+
+                // Telhado triangular (pediment) — cume clareado, beirada na
+                // cor original de b.roof.
+                const roofGrad = bctx.createLinearGradient(0, top - bh * 0.3, 0, top);
+                roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.3));
+                roofGrad.addColorStop(1, b.roof);
+                bctx.fillStyle = roofGrad;
+                bctx.beginPath();
+                bctx.moveTo(left - 10, top);
+                bctx.lineTo(0, top - bh * 0.3);
+                bctx.lineTo(left + bw + 10, top);
+                bctx.closePath();
+                bctx.fill();
+
+                // Porta
+                bctx.fillStyle = '#2a1c10';
+                const doorW = bw * 0.22, doorH = bh * 0.42;
+                bctx.fillRect(-doorW / 2, -doorH, doorW, doorH);
+            }),
+            anchorX, anchorY
+        };
+    }
+
     _drawBuilding(ctx, w, h, b) {
         const rect = this._buildingRect(b);
         const door = this._doorPoint(b);
@@ -1835,59 +1904,8 @@ class CityEngine {
         const iconSize = Math.max(11, Math.round(20 * scale));
         const nameSize = Math.max(8, Math.round(12 * scale));
 
-        // Sombra no chão
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(door.x, door.y + 4, bw * 0.55, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Corpo do prédio — antes era um retângulo de cor sólida única
-        // (checklist "iluminação incoerente"/"profundidade insuficiente");
-        // um gradiente vertical sutil (mais claro no topo, como se pegasse
-        // sol; a própria cor da parede na base, perto da sombra no chão)
-        // dá volume à fachada sem precisar de uma segunda cor configurada
-        // por prédio — deriva da MESMA `b.wall` já usada em toda cidade.
-        const wallGrad = ctx.createLinearGradient(0, top, 0, top + bh);
-        wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.22));
-        wallGrad.addColorStop(1, b.wall);
-        ctx.fillStyle = wallGrad;
-        ctx.fillRect(left, top, bw, bh);
-
-        // Colunas de mármore — antes cor sólida única; um gradiente
-        // horizontal por coluna (mais escuro nas bordas, brilho claro no
-        // meio) sugere o arredondado do fuste recebendo luz, em vez de uma
-        // tira plana de cor. Precisa ser recriado por coluna (a posição X
-        // muda), mas colCount é sempre pequeno (3-5), custo desprezível.
-        const colCount = Math.max(3, Math.floor(bw / 32));
-        for (let i = 0; i < colCount; i++) {
-            const cx = left + (bw / (colCount - 1)) * i;
-            const colGrad = ctx.createLinearGradient(cx - 4, 0, cx + 4, 0);
-            colGrad.addColorStop(0, 'rgba(188,180,158,0.9)');
-            colGrad.addColorStop(0.5, 'rgba(248,243,228,0.95)');
-            colGrad.addColorStop(1, 'rgba(188,180,158,0.9)');
-            ctx.fillStyle = colGrad;
-            ctx.fillRect(cx - 4, top + 6, 8, bh - 12);
-        }
-
-        // Telhado triangular (pediment) — mesmo tratamento de gradiente já
-        // aplicado à parede acima (checklist "iluminação incoerente"): o
-        // cume (mais alto, pega mais luz de cima) sai clareado, a beirada
-        // (mais perto da sombra da parede) fica na cor original de b.roof.
-        const roofGrad = ctx.createLinearGradient(0, top - bh * 0.3, 0, top);
-        roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.3));
-        roofGrad.addColorStop(1, b.roof);
-        ctx.fillStyle = roofGrad;
-        ctx.beginPath();
-        ctx.moveTo(left - 10, top);
-        ctx.lineTo(door.x, top - bh * 0.3);
-        ctx.lineTo(left + bw + 10, top);
-        ctx.closePath();
-        ctx.fill();
-
-        // Porta
-        ctx.fillStyle = '#2a1c10';
-        const doorW = bw * 0.22, doorH = bh * 0.42;
-        ctx.fillRect(door.x - doorW / 2, door.y - doorH, doorW, doorH);
+        const shell = this._bakeBuildingShell(b, bw, bh);
+        ctx.drawImage(shell.canvas, door.x - shell.anchorX, door.y - shell.anchorY);
 
         // Tochas nas laterais (reaproveita o desenho já usado na arena, mas
         // bem menores e escaladas — a chama no tamanho da arena, com 16
