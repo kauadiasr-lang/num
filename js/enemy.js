@@ -80,6 +80,24 @@ function randomFighterVisuals(styleId) {
     };
 }
 
+// Fórmula ÚNICA de pontos totais de atributo por nível, compartilhada por
+// TODO combatente procedural (Enemy/Vampire/Ghost) — ver auditoria de
+// balanceamento: antes cada classe tinha sua própria fórmula (Enemy 35+5L,
+// Vampire 40+5L, Ghost 38+5L) e o Elite ainda somava +40 pontos FIXOS por
+// cima da fórmula do Enemy comum. Resultado: dois inimigos no MESMO nível
+// podiam ter totais de atributo bem diferentes só por causa do tipo/flag,
+// nunca de escolhas legítimas (distribuição/equipamento/encantamento/
+// mutação/raça/habilidade) — exatamente o cenário que o pedido de
+// balanceamento proíbe ("nunca por receber pontos extras aleatórios").
+// Diferença de dificuldade entre os tipos continua existindo (Elite sobe
+// +2 níveis, Vampiro/Fantasma têm piso de nível mais alto que o Enemy
+// comum), só que agora só por meio do NÍVEL EFETIVO, nunca de um bônus
+// solto por cima da mesma fórmula.
+function totalStatPointsForLevel(level) {
+    return 35 + level * 5;
+}
+window.totalStatPointsForLevel = totalStatPointsForLevel;
+
 class Enemy extends Entity {
     constructor(playerLevel) {
         // Raça sorteada ANTES do nome (ver RACE_ENEMY_NAMES acima) pra que o
@@ -180,9 +198,13 @@ class Enemy extends Entity {
         // Base + escalonamento; ver Entity.generateStatsFromStyle (player.js)
         // pela distribuição enviesada pelo `statFocus` do estilo já sorteado
         // — um "Mago" tende a nascer com INT alto, um "Brutamontes" com STR
-        // alto, etc, sem deixar de ser aleatório. Elite ganha 40 pontos extra
-        // de atributo, além do nível já ter subido +2 na criação.
-        this.generateStatsFromStyle(35 + (this.level * 5) + (this.isElite ? 40 : 0));
+        // alto, etc, sem deixar de ser aleatório. Elite não ganha mais um
+        // bônus de pontos soltos aqui — o nível já subiu +2 na criação, e a
+        // fórmula compartilhada (totalStatPointsForLevel) já escala com ele;
+        // a vantagem do Elite vem do nível efetivo + melhor raridade de
+        // equipamento/encantamento (ver equipStyleWeapon/equipArmor), nunca
+        // de pontos extra fora da fórmula (ver auditoria de balanceamento).
+        this.generateStatsFromStyle(totalStatPointsForLevel(this.level));
     }
 
     // Equipa uma arma coerente com o estilo de luta já atribuído (chamado
@@ -314,7 +336,11 @@ class Vampire extends Entity {
     }
 
     generateStats() {
-        this.generateStatsFromStyle(40 + (this.level * 5));
+        // Mesma fórmula compartilhada do Enemy comum (ver auditoria de
+        // balanceamento acima) — Vampiro já é mais difícil por ter piso de
+        // nível 5 e um nível efetivo mais alto (playerLevel + 0~2), não
+        // precisa de mais +5 pontos soltos por cima disso.
+        this.generateStatsFromStyle(totalStatPointsForLevel(this.level));
     }
 
     // Ver Entity.equipStyleWeaponGeneric (player.js) pela lógica
@@ -408,7 +434,11 @@ class Ghost extends Entity {
     }
 
     generateStats() {
-        this.generateStatsFromStyle(38 + (this.level * 5));
+        // Mesma fórmula compartilhada do Enemy comum (ver auditoria de
+        // balanceamento acima) — Fantasma já é mais difícil por ter piso de
+        // nível 2 e um nível efetivo mais alto (playerLevel + 0~2), não
+        // precisa de mais +3 pontos soltos por cima disso.
+        this.generateStatsFromStyle(totalStatPointsForLevel(this.level));
     }
 
     // Ver Entity.equipStyleWeaponGeneric (player.js) pela lógica
