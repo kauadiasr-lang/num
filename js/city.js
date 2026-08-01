@@ -192,6 +192,14 @@ class CityEngine {
             this.player.y = this._plazaBottom(h);
             this._initialized = true;
             this._setupInput();
+            // Restaura o contador de dias persistido no Player (ver item #8
+            // do novo pedido de auditoria — "melhorar persistência") — sem
+            // isso, todo refresh de página recriava o CityEngine com
+            // dayCount travado em 1, desfazendo o progresso de dias já
+            // vivido (e, junto com ele, o prazo de qualquer missão com
+            // tempo limite ativa, ver quests.js `expiresAtDay`).
+            const savedPlayer = window.Engine && window.Engine.state && window.Engine.state.player;
+            if (savedPlayer && savedPlayer.dayCount) this.dayCount = savedPlayer.dayCount;
         }
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
@@ -1183,6 +1191,12 @@ class CityEngine {
     // função em outro lugar.
     advanceToNewDay() {
         this.dayCount++; // novo dia — ver openShop (ui.js), invalida o cache de estoque sozinho
+        // Persiste o novo valor no Player (item #8 do novo pedido de
+        // auditoria — ver onEnterCity/player.js `dayCount`), senão um
+        // refresh logo depois desfaria este incremento (o contador
+        // "voltaria no tempo" pra 1, mesmo o dia tendo passado de verdade).
+        const dayCountPlayer = window.Engine && window.Engine.state && window.Engine.state.player;
+        if (dayCountPlayer) dayCountPlayer.dayCount = this.dayCount;
         this._applyBankInterest();
 
         // Vampiros noturnos se recolhem com a luz do sol.

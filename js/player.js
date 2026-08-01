@@ -387,6 +387,24 @@ class Player extends Entity {
         this.achievementDates = {}; // ID da conquista -> timestamp de desbloqueio
         this.playTimeSeconds = 0; // tempo jogado acumulado, usado na tela de saves
 
+        // Bug de auditoria (item #8 do novo pedido — "melhorar
+        // persistência"): CityEngine.dayCount (ver city.js) SEMPRE nascia
+        // travado em 1 no construtor, e nenhum lugar do jogo jamais o lia
+        // de volta de algum lugar persistido — a cada F5/refresh (que
+        // recria o CityEngine do zero), o contador de dias voltava pra 1,
+        // mesmo o jogador já tendo passado dezenas de dias na campanha.
+        // Como o Quadro de Missões (ver quests.js `expiresAtDay`) calcula o
+        // prazo de uma missão como um número ABSOLUTO de dia
+        // (dayCount + timeLimitDays no momento de aceitar), um refresh no
+        // meio do prazo fazia o contador "voltar no tempo" — uma missão
+        // aceita no dia 40 com prazo de 5 dias (expira no dia 45) passava a
+        // precisar de 44 dias NOVOS pra expirar depois de um refresh no dia
+        // 41, em vez dos 4 dias restantes pretendidos. Persistir o dia
+        // aqui (ver city.js onEnterCity/advanceToNewDay, que agora
+        // restauram/sincronizam esse valor) corrige de vez — 1 é o padrão
+        // neutro pra saves antigos, que nunca tiveram esse campo.
+        this.dayCount = 1;
+
         this.visuals = {
             gender: 'Masculino',
             skinTone: '#ffcc99',
