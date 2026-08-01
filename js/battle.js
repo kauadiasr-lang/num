@@ -20,8 +20,11 @@ class BattleSystem {
         // atordoamento, corrida recente, postura de manter distância, e os
         // dois novos status da árvore de Linhagem: barreira/escudo temporário
         // — Luz — e esquiva temporária — Vampirismo).
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0 };
+        // curseTurns/curseDefensePercent (item 9 da auditoria de
+        // balanceamento — Maldição Sanguínea, árvore de Vampirismo): reduz a
+        // Defesa do ALVO amaldiçoado por N turnos, ver executeAttack.
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -211,6 +214,11 @@ class BattleSystem {
         if (defenderState.isDefending) {
             defenseRating *= 2; // Dobra a defesa se usou a ação "Defender" no turno
         }
+        // Maldição Sanguínea (item 9 da auditoria — árvore de Vampirismo):
+        // reduz a Defesa do alvo amaldiçoado enquanto curseTurns > 0.
+        if (defenderState.curseTurns > 0) {
+            defenseRating *= (1 - defenderState.curseDefensePercent / 100);
+        }
 
         // Fórmula AAA: Armor Damage Reduction = Def / (Def + 50)
         let reductionPercent = defenseRating / (defenseRating + 50);
@@ -371,6 +379,21 @@ class BattleSystem {
         return `<span style="color:#ff5555">${target.name} sofre ${tickDamage} de dano por sangramento!</span>`;
     }
 
+    // Contagem regressiva da Maldição Sanguínea (item 9 da auditoria —
+    // Vampirismo) no início do turno da VÍTIMA amaldiçoada — espelha
+    // exatamente o mesmo ponto de chamada de applyBleedTick acima. Ao
+    // contrário do sangramento (que causa dano a cada tique), a maldição só
+    // reduz a Defesa do alvo enquanto curseTurns > 0 (ver executeAttack);
+    // aqui só decrementa o contador e avisa quando ela se dissipa.
+    tickCurse(target, state) {
+        if (!state.curseTurns || state.curseTurns <= 0) return null;
+        state.curseTurns--;
+        if (state.curseTurns <= 0) {
+            return `<span style="color:#7a1030">A maldição sobre ${target.name} se dissipou.</span>`;
+        }
+        return null;
+    }
+
     // Processa o fim do combate
     checkWinCondition() {
         if (this.enemy.currentHp <= 0) {
@@ -431,6 +454,12 @@ class BattleSystem {
                 return;
             }
         }
+
+        // Contagem regressiva da Maldição Sanguínea sofrida PELO jogador
+        // (ver tickCurse) — nunca causa dano/derrota, então não precisa de
+        // checkWinCondition como o sangramento acima.
+        const playerCurseMsg = this.tickCurse(this.player, this.playerState);
+        if (playerCurseMsg) window.UI.appendBattleLog(playerCurseMsg);
 
         // Regeneração de HP por turno (Linhagem — Vigília Noturna/
         // Regeneração Vampírica etc, ver skilltrees.js)
@@ -604,7 +633,7 @@ class BattleSystem {
                 // Alcance da habilidade: físicas usam o alcance da arma; mágicas usam
                 // o alcance próprio (skill.range); cura não tem restrição de alcance.
                 let skillRange = null;
-                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL') {
+                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL' || skill.type === 'CURSE') {
                     skillRange = this.player.getWeaponRange();
                 } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
                     skillRange = { min: 0, max: skill.range };
@@ -690,6 +719,29 @@ class BattleSystem {
                     resultMsg = `<span style="color:#ff5555">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
                     window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff3333", false);
                     window.GFX.spawnParticles(enemyX, enemyY, "#8b0000", 25, 5, 4);
+                    window.GFX.playAnim(false, 'hurt', 500);
+                    window.AudioManager.playSwordClash();
+                }
+                else if (skill.type === 'CURSE') {
+                    // Maldição Sanguínea (item 9 da auditoria — árvore de
+                    // Vampirismo): dano + amaldiçoa o inimigo, reduzindo a
+                    // Defesa dele por N turnos (ver executeAttack, mitigação
+                    // de Defesa). Diferente de SHIELD/EVASION (que reforçam
+                    // QUEM lança), este é o primeiro efeito de linhagem que
+                    // enfraquece o ALVO — a Luz nunca amaldiçoa ninguém, só
+                    // cura/protege/nuka à distância, reforçando que as duas
+                    // árvores não compartilham identidade nenhuma.
+                    let damage = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti));
+                    let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
+                    let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
+
+                    this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
+                    this.enemyState.curseTurns = skill.duration;
+                    this.enemyState.curseDefensePercent = skill.curseDefensePercent;
+
+                    resultMsg = `<span style="color:#7a1030">${this.player.name} usou ${skill.name}: ${mitigatedDamage} de dano e ${this.enemy.name} foi amaldiçoado (-${skill.curseDefensePercent}% de Defesa por ${skill.duration} turnos)!</span>`;
+                    window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#c81e6e", false);
+                    window.GFX.spawnParticles(enemyX, enemyY, "#7a1030", 25, 5, 4);
                     window.GFX.playAnim(false, 'hurt', 500);
                     window.AudioManager.playSwordClash();
                 }
@@ -871,6 +923,23 @@ class BattleSystem {
             window.GFX.playAnim(true, 'hurt', 500);
             window.AudioManager.playSwordClash();
             selfEvent = { type: 'landedHit', crit: false };
+        } else if (skill.type === 'CURSE') {
+            // Espelha o ramo do jogador acima (mesmo motivo: só existe pra
+            // um futuro boss/skillDef reaproveitar este `type`, já que
+            // Enemy/Rival comuns nunca têm `.lineage` nem acesso à árvore
+            // de Vampirismo — mesma simetria já mantida por SHIELD/EVASION).
+            let curseDamage = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti));
+            let curseReductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
+            let curseMitigatedDamage = Math.max(1, Math.floor(curseDamage * (1 - curseReductionPercent)));
+            this.player.currentHp = Utils.clamp(this.player.currentHp - curseMitigatedDamage, 0, this.player.derivedStats.maxHp);
+            this.playerState.curseTurns = skill.duration;
+            this.playerState.curseDefensePercent = skill.curseDefensePercent;
+            message = `<span style="color:#7a1030">${this.enemy.name} usou ${skill.name}: ${curseMitigatedDamage} de dano e ${this.player.name} foi amaldiçoado (-${skill.curseDefensePercent}% de Defesa por ${skill.duration} turnos)!</span>`;
+            window.GFX.spawnText(playerX, playerY - 50, `-${curseMitigatedDamage}`, "#c81e6e", false);
+            window.GFX.spawnParticles(playerX, playerY, "#7a1030", 25, 5, 4);
+            window.GFX.playAnim(true, 'hurt', 500);
+            window.AudioManager.playSwordClash();
+            selfEvent = { type: 'landedHit', crit: false };
         } else if (skill.type === 'STUN') {
             let damage = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.derivedStats.physicalDamage * skill.powerMulti));
             let reductionPercent = this.player.derivedStats.defenseRating / (this.player.derivedStats.defenseRating + 50);
@@ -974,6 +1043,12 @@ class BattleSystem {
         // bosses com habilidades próprias de escudo, ex: Anjo Guardião)
         if (this.enemyState.shieldTurns > 0) this.enemyState.shieldTurns--;
         if (this.enemyState.evasionTurns > 0) this.enemyState.evasionTurns--;
+
+        // Contagem regressiva da Maldição Sanguínea sofrida PELO inimigo
+        // (ver tickCurse) — espelha o mesmo ponto de chamada do jogador em
+        // executePlayerTurn.
+        const enemyCurseMsg = this.tickCurse(this.enemy, this.enemyState);
+        if (enemyCurseMsg) window.UI.appendBattleLog(enemyCurseMsg);
 
         // Sangramento tica sempre, mesmo que o inimigo esteja atordoado
         const bleedMsg = this.applyBleedTick(this.enemy, this.enemyState, false);

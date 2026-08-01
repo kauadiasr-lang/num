@@ -1029,7 +1029,7 @@ class UIManager {
 
             let skillRange = null;
             if (b) {
-                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL') {
+                if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL' || skill.type === 'CURSE') {
                     skillRange = p.getWeaponRange();
                 } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
                     skillRange = { min: 0, max: skill.range };

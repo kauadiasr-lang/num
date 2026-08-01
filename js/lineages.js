@@ -20,7 +20,11 @@ const LINEAGES = {
         name: 'Vampirismo',
         locked: false,
         tagline: 'Poder através do sangue alheio.',
-        specialty: ['Roubo de vida', 'Regeneração', 'Bônus com HP baixo', 'Resistência a sangramento', 'Drenagem de vida'],
+        // "Maldição" adicionada (item 9 da auditoria de balanceamento, ver
+        // skilltrees.js `vam_maldicao_sanguinea`) — antes a árvore não tinha
+        // NENHUM efeito que enfraquecesse o oponente, só bônus para quem
+        // lança; a lista de especialidades ficou incompleta até esta mudança.
+        specialty: ['Roubo de vida', 'Regeneração', 'Bônus com HP baixo', 'Resistência a sangramento', 'Maldição'],
         weaknessId: 'luz', // dano/efeitos da linhagem "luz" causam bônus contra esta
         weaknessName: 'Luz',
         visual: { skinTone: '#e8dce8', eyeColor: '#c81e2a', accent: '#7a1030', hasFangs: true, particle: null },

@@ -76,6 +76,22 @@ const SKILL_TREES = {
                 description: 'Desbloqueia Sangue por Sangue: corte vampírico que também causa sangramento.',
                 skillDef: { id: 'sangue_por_sangue', name: 'Sangue por Sangue', type: 'BLEED', mpCost: 16, powerMulti: 0.9,
                     description: 'Corte vampírico: dano e sangramento por 3 turnos. Usa o alcance da sua arma.', extra: { duration: 3, cooldown: 3 } } },
+            // Maldição Sanguínea (item 9 da auditoria de balanceamento):
+            // antes o ramo vigília->instinto (tier 1->2) só levava a nós
+            // PASSIVOS (furia_fome/sanguinario, tier 3/4) — nenhum dos 3
+            // caminhos de raiz da árvore de Vampirismo tinha uma habilidade
+            // ATIVA própria nascendo do "instinto predatório", só do "sede"
+            // (presas) e do "sangue" (sangue_por_sangue). Além de fechar
+            // essa lacuna estrutural, cobre a identidade "maldição" pedida
+            // explicitamente (junto de roubo de vida/sangramento/mordida já
+            // cobertos, e névoa/sombras já coberto por Véu da Noite abaixo)
+            // — a Luz nunca amaldiçoa o oponente, só cura/protege/nuka à
+            // distância, então este é o primeiro nó de QUALQUER árvore que
+            // enfraquece o ALVO em vez de fortalecer quem lança.
+            { id: 'vam_maldicao_sanguinea', name: 'Maldição Sanguínea', tier: 3, type: 'active', cost: 1, requires: ['vam_instinto'],
+                description: 'Desbloqueia Maldição Sanguínea: amaldiçoa o inimigo, enfraquecendo sua Defesa por vários turnos.',
+                skillDef: { id: 'maldicao_sanguinea', name: 'Maldição Sanguínea', type: 'CURSE', mpCost: 18, powerMulti: 0.7,
+                    description: 'Amaldiçoa o inimigo: causa dano e reduz sua Defesa em 25% por 3 turnos. Usa o alcance da sua arma.', extra: { curseDefensePercent: 25, duration: 3, cooldown: 3 } } },
 
             // --- Tier 4 ---
             { id: 'vam_imortalidade', name: 'Imortalidade Parcial', tier: 4, type: 'passive', cost: 2, requires: ['vam_regeneracao', 'vam_furia_fome'],

@@ -550,7 +550,7 @@ const AICombat = {
         if (enemy.skillCooldowns && enemy.skillCooldowns[skillId] > 0) return false;
         if (enemy.currentMp < skill.mpCost) return false;
         let skillRange = null;
-        if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL') {
+        if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL' || skill.type === 'CURSE') {
             skillRange = enemy.getWeaponRange();
         } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
             skillRange = { min: 0, max: skill.range };

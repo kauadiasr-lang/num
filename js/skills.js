@@ -14,7 +14,15 @@ const SKILL_TYPES = {
     TELEPORT_FAR: 'TELEPORT_FAR',     // Magia básica: teleporta o jogador para o ponto mais distante do inimigo
     AMMO_RECALL: 'AMMO_RECALL',       // Magia básica: recarrega a munição da arma de longo alcance equipada
     SHIELD: 'SHIELD',                 // Reduz % do dano recebido por N turnos (árvore de Linhagem: Luz)
-    EVASION: 'EVASION'                // Aumenta a esquiva por N turnos (árvore de Linhagem: Vampirismo)
+    EVASION: 'EVASION',               // Aumenta a esquiva por N turnos (árvore de Linhagem: Vampirismo)
+    // Dano + amaldiçoa o alvo, reduzindo sua Defesa por N turnos (árvore de
+    // Linhagem: Vampirismo — item 9 da auditoria de balanceamento: a
+    // árvore tinha roubo de vida/sangramento/mordida mas nada que
+    // amaldiçoasse o INIMIGO, ao contrário do pedido original que lista
+    // "maldição" como identidade própria do Vampirismo). Ver battle.js
+    // executeAttack (mitigação de Defesa) e executePlayerTurn/
+    // executeEnemySkill pela execução completa.
+    CURSE: 'CURSE'
 };
 
 class Skill {
