@@ -59,15 +59,23 @@ const STYLE_TO_ARCHETYPE = {
     gladiador: 'campeao', guardiao: 'cavaleiro', mago: 'mercenario', arqueiro: 'mercenario'
 };
 
-function randomFighterVisuals(styleId) {
+// `raceId` (item 7 da auditoria: pool de pele por raça, ver races.js
+// RaceSystem.pickSkinTone) é opcional — sem ele (ou sem RaceSystem
+// carregado), cai no pool genérico ENEMY_SKIN_TONES de sempre, preservando
+// o comportamento anterior a esta mudança pra qualquer chamador que ainda
+// não conheça a raça no momento da chamada.
+function randomFighterVisuals(styleId, raceId) {
     const gender = Utils.chance(50) ? 'Masculino' : 'Feminino';
     const archetypeIds = Object.keys(window.FIGHTER_ARCHETYPES || { veterano: 1 });
     const preferred = STYLE_TO_ARCHETYPE[styleId];
     const archetype = (preferred && Utils.chance(70)) ? preferred : archetypeIds[Utils.randomInt(0, archetypeIds.length - 1)];
     const hairColor = ENEMY_HAIR_COLORS[Utils.randomInt(0, ENEMY_HAIR_COLORS.length - 1)];
+    const skinTone = (raceId && window.RaceSystem)
+        ? window.RaceSystem.pickSkinTone(raceId)
+        : ENEMY_SKIN_TONES[Utils.randomInt(0, ENEMY_SKIN_TONES.length - 1)];
     return {
         gender,
-        skinTone: ENEMY_SKIN_TONES[Utils.randomInt(0, ENEMY_SKIN_TONES.length - 1)],
+        skinTone,
         hairStyle: Utils.randomInt(1, 15),
         hairColor,
         beardStyle: Utils.randomInt(0, 11),
@@ -161,8 +169,10 @@ class Enemy extends Entity {
 
         // Aparência completa e coerente com o estilo sorteado — cada
         // inimigo do Duelo Rápido agora parece um lutador diferente, não uma
-        // cópia idêntica só com equipamento trocado.
-        this.visuals = randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null);
+        // cópia idêntica só com equipamento trocado. `this.race` (linha
+        // acima) já está definido, então a pele já nasce coerente com a
+        // raça sorteada (ver races.js RaceSystem.pickSkinTone).
+        this.visuals = randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null, this.race);
 
         // Aura dourada do Elite (reaproveita o mesmo hook visual da aura de
         // Linhagem, ver graphics.js _drawLineageAura — `hasAura`/`auraColor`/
@@ -576,11 +586,23 @@ class Rival extends Entity {
             level: this.level, allowRareArchetype: false
         });
 
+        // Raça (ver races.js) — precisa ser resolvida ANTES de `visuals`
+        // logo abaixo (bug de auditoria corrigido nesta iteração: a raça só
+        // era atribuída a `this.race` bem depois de `this.visuals` já ter
+        // sido montado, então randomFighterVisuals nunca sabia a raça a
+        // tempo de sortear um tom de pele coerente, ver races.js
+        // RaceSystem.pickSkinTone). `def.race` deixa um rival específico ser
+        // curado, igual aos outros campos de identidade (personalityId/
+        // styleId/visuals); sem isso, sorteia como qualquer outro inimigo.
+        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
+        this.race = def.race || raceIds[Utils.randomInt(0, raceIds.length - 1)];
+
         // Aparência: cada rival nomeado tem gênero/arquétipo/cicatriz
         // AUTORAIS (def.visuals, ver RivalDatabase abaixo) — reforça que é
         // "aquele adversário específico", não um número genérico — e o
-        // resto (cores, cabelo, rosto) é preenchido aleatoriamente por cima.
-        this.visuals = Object.assign(randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null), def.visuals || {});
+        // resto (cores, cabelo, rosto) é preenchido aleatoriamente por cima,
+        // já coerente com `this.race` pra pele.
+        this.visuals = Object.assign(randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null, this.race), def.visuals || {});
 
         // Aura sutil por liga nos Campeões (reaproveita o mesmo hook de
         // graphics.js _drawLineageAura já usado pela Linhagem do jogador e
@@ -595,15 +617,6 @@ class Rival extends Entity {
             this.visuals.hasAura = true;
             this.visuals.auraColor = leagueAuraColors[this.league] || leagueAuraColors.gold;
         }
-
-        // Raça (ver races.js) — o Duelo Rápido (Enemy, acima) já sorteia uma
-        // raça por combatente desde a iteração 6, mas Rivais nomeados da
-        // Ladder ficaram de fora só por nunca terem recebido o campo. Como
-        // os outros campos de identidade (personalityId/styleId/visuals),
-        // `def.race` deixa um rival específico ser curado; sem isso, sorteia
-        // como qualquer outro inimigo.
-        const raceIds = window.RACES ? Object.keys(window.RACES) : ['humano'];
-        this.race = def.race || raceIds[Utils.randomInt(0, raceIds.length - 1)];
 
         this.equipGear(def.gearRarity);
 

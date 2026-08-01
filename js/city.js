@@ -292,7 +292,14 @@ class CityEngine {
 
     _makeNpc(pin = null) {
         const w = window.Engine.width, h = window.Engine.height;
-        const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
+        // Raça sorteada ANTES da pele (bug de auditoria corrigido nesta
+        // iteração: `skinTone` usava um pool fixo genérico aqui embaixo,
+        // calculado ANTES da raça — mesmo problema já corrigido em
+        // enemy.js Rival — então nunca conseguia ficar coerente com a raça
+        // sorteada por _pickNpcRace(), ver races.js RaceSystem.pickSkinTone:
+        // Orc verde/raramente vermelho-roxo dessaturado, Elfo sempre claro,
+        // Humano/Anão com gradiente pardo/negro).
+        const npcRace = this._pickNpcRace();
         const hairColors = ['#2a1c10', '#5a3a1a', '#1a1a1a', '#8a5a2b'];
         let x, y;
         // Túnicas de tons gregos/romanos — antes TODO NPC caía no fallback
@@ -321,7 +328,7 @@ class CityEngine {
             entity: {
                 visuals: {
                     gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
-                    skinTone: skinTones[Utils.randomInt(0, skinTones.length - 1)],
+                    skinTone: window.RaceSystem ? window.RaceSystem.pickSkinTone(npcRace) : '#ffcc99',
                     hairStyle: Utils.randomInt(1, 15),
                     hairColor: hairColors[Utils.randomInt(0, hairColors.length - 1)],
                     beardStyle: 0, eyeColor: '#1a1a1a', faceShape: 1
@@ -335,7 +342,7 @@ class CityEngine {
                 // REALMENTE parecer outro povo ao viajar: a Fortaleza Orc
                 // vira uma praça majoritariamente Orc, não só o discurso dos
                 // eventos aleatórios mudando de nome.
-                race: this._pickNpcRace()
+                race: npcRace
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
