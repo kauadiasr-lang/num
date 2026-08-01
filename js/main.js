@@ -485,10 +485,12 @@ function validateGameData() {
     // acima), mas nunca tinha ganhado a mesma checagem de chave morta —
     // uma assimetria na própria cobertura do validador, não no jogo em si.
     // 'generic'/'famous'/'legendary' são pools base (não cidades);
-    // 'vampirismo'/'luz' são chaves de Linhagem (ver lineages.js), também
-    // não são cidades — só as demais chaves precisam existir em CityDatabase.
+    // 'vampirismo'/'luz' são chaves de Linhagem (ver lineages.js); 'rumors'
+    // é o pool de Rumores (item #6 do novo pedido de auditoria, ver
+    // _talkToNpc) — nenhuma delas é cidade, só as demais chaves precisam
+    // existir em CityDatabase.
     if (typeof CityEngine !== 'undefined' && CityEngine.NPC_DIALOGUE && window.CityDatabase) {
-        const nonCityDialogueKeys = ['generic', 'famous', 'legendary', 'vampirismo', 'luz'];
+        const nonCityDialogueKeys = ['generic', 'famous', 'legendary', 'vampirismo', 'luz', 'rumors'];
         for (const key in CityEngine.NPC_DIALOGUE) {
             if (nonCityDialogueKeys.includes(key)) continue;
             need(!!window.CityDatabase[key], `NPC_DIALOGUE['${key}']: cidade não existe em CityDatabase`);

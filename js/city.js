@@ -896,6 +896,13 @@ class CityEngine {
         else if (cityDialoguePool && Utils.chance(35)) {
             pool = cityDialoguePool;
         }
+        // Rumores (item #6 do novo pedido de auditoria): chance menor que a
+        // fala de cidade acima, pra continuar sendo um "achado" ocasional,
+        // não a norma — nunca compete com a identidade de fama/linhagem/
+        // cidade, só entra quando nenhuma delas já decidiu a fala.
+        else if (Utils.chance(20)) {
+            pool = CityEngine.NPC_DIALOGUE.rumors;
+        }
         // Sem fama ainda: cada NPC fala como a profissão que É, não como um
         // figurante genérico (ver NPC_PROFESSIONS/_makeNpc). NPCs mais
         // antigos que por algum motivo não tenham `profession` (não deveria
@@ -2502,6 +2509,23 @@ class CityEngine {
                 'Vivemos tanto que aprendemos a não ter pressa com nada, nem com a guerra.',
                 'Dizem que forasteiros acham nosso povo frio. Só somos pacientes com o que importa.',
                 'A chuva lava as pegadas de quem não deveria ter passado por aqui.'
+            ],
+            // Rumores (item #6 do novo pedido de auditoria — "conversar com
+            // NPCs pode revelar segredos do mundo"): nunca explica NENHUM
+            // mecanismo diretamente (mesma filosofia de _eventLineageRumor,
+            // que já fazia isso só pra Linhagens) — cada linha aponta pra um
+            // sistema que já existe de verdade no jogo (Pedras de Luz, ver
+            // item 13; bosses de Ritual, ver rituals.js/bossai.js; Mercador
+            // Viajante, ver _makeTravelingMerchant; Quadro de Missões, ver
+            // quests.js; ligas contínuas/arenas regionais, ver enemy.js
+            // RivalDatabase), incentivando explorar em vez de entregar de
+            // bandeja.
+            rumors: [
+                'Um velho jura ter visto pedras brilhando sozinhas entre as pedras da praça, à luz do dia — somem antes que alguém chegue perto.',
+                'Dizem que algo poderoso se esconde além do que os olhos veem por aqui — só quem prova o suficiente de si mesmo chega perto o bastante pra descobrir o quê.',
+                'De vez em quando um mercador de terras distantes aparece na praça sem aviso — quem não estiver por perto na hora certa perde a chance.',
+                'Vi um quadro cheio de pedidos afixado perto do Banco — dizem que quem ajuda sempre sai ganhando mais do que esperava.',
+                'Guerreiros de povos distantes têm suas próprias arenas e adversários, ouvi dizer — só quem viaja bastante chega a enfrentá-los de verdade.'
             ]
         };
     }
