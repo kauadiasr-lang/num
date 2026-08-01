@@ -367,6 +367,7 @@ class BattleSystem {
         this.playerState.holdingDistance = false; // Reseta a postura de manter distância
         window.UI.toggleBattleButtons(false); // Bloqueia a UI
         if (this.player.tickCooldowns) this.player.tickCooldowns(); // Recargas de habilidade avançam a cada turno do jogador
+        if (this.player.regenMp) this.player.regenMp(); // Regeneração passiva de mana (ver Entity.regenMp)
 
         // Sangramento/dot do jogador tica no início do turno dele — espelha
         // exatamente o tique do inimigo em executeEnemyTurn. Bug corrigido
@@ -911,6 +912,7 @@ class BattleSystem {
         this.enemyState.isDefending = false;
         this.enemyState.holdingDistance = false; // Reseta a postura de manter distância — espelha o reset do jogador em executePlayerTurn
         if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
+        if (this.enemy.regenMp) this.enemy.regenMp(); // Regeneração passiva de mana (ver Entity.regenMp) — mesma regra do jogador
         // Bug de auditoria (relatado pelo usuário): inimigos usavam item de
         // cura em turnos seguidos ("spam de poção") sempre que HP e cargas
         // permitiam — a cura de 25% do HP máximo raramente tirava o inimigo

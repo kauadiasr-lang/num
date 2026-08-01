@@ -61,6 +61,22 @@ class Entity {
         }
     }
 
+    // Regeneração passiva de mana por turno — bug de auditoria ("verifique
+    // regeneração"): antes NINGUÉM regenerava mana durante uma batalha, nem
+    // jogador nem inimigo — uma vez gasta, ficava zerada até o fim da luta
+    // (só reenchia entre batalhas, via calculateDerivedStats). 8% do MP
+    // máximo por turno PRÓPRIO (arredondado pra cima, mínimo 1 com maxMp>0)
+    // dá um fluxo real de recurso — ainda bem mais lento que qualquer custo
+    // de habilidade (10-45 MP), então mana continua sendo um recurso
+    // limitado por luta, só que não estritamente "gasta uma vez e nunca
+    // mais". Chamado no início de cada turno próprio (ver executePlayerTurn/
+    // executeEnemyTurn em battle.js), simetricamente pros dois lados.
+    regenMp() {
+        if (this.derivedStats.maxMp <= 0) return;
+        const amount = Math.max(1, Math.ceil(this.derivedStats.maxMp * 0.08));
+        this.currentMp = Utils.clamp(this.currentMp + amount, 0, this.derivedStats.maxMp);
+    }
+
     // Calcula os atributos reais (Base + Raça + Equipamentos)
     getTotalStat(statName) {
         let total = this.baseStats[statName];

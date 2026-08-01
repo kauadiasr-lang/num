@@ -499,6 +499,12 @@ function createBoss(bossId, playerLevel) {
     boss.isBoss = true;
     boss.bossId = bossId;
     boss.lineage = def.lineage;
+    // Bosses nunca passam por AICombat.assignProfile (IA 100% exclusiva, ver
+    // bossai.js), então nunca ganhavam `.aiSkills` como qualquer inimigo
+    // comum — a barra de mana (ver ui.js updateBattleBars) usa esse campo
+    // genericamente pra achar a habilidade mais barata do combatente, sem
+    // precisar de nenhum caso especial pra bosses.
+    boss.aiSkills = (window.BOSS_SKILL_IDS && window.BOSS_SKILL_IDS[bossId]) || [];
     boss.level = Math.max(playerLevel + def.levelBonus, 10);
 
     // Distribuição de atributos generosa e equilibrada (bosses não têm

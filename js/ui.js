@@ -852,6 +852,24 @@ class UIManager {
         document.getElementById('enemy-hp-chip').style.width = `${eHP}%`;
         document.getElementById('enemy-hp-text').innerText = `${b.enemy.currentHp}/${b.enemy.derivedStats.maxHp}`;
 
+        // Barra de mana do inimigo (item 3 da auditoria de balanceamento) —
+        // antes só o jogador tinha barra de MP visível; o inimigo gastava/
+        // regenerava mana "às cegas", sem nenhum feedback visual, o que
+        // reforçava a impressão de "magia infinita" mesmo depois da
+        // munição/custo/cooldown corrigidos (ver bossai.js/ai.js). Mesma
+        // estrutura da barra do jogador (fill + texto), mais uma pulsação
+        // âmbar (.insufficient, ver css/style.css) quando o inimigo tem
+        // habilidades mas não tem mana pra NENHUMA delas agora.
+        const eMP = b.enemy.derivedStats.maxMp > 0 ? (b.enemy.currentMp / b.enemy.derivedStats.maxMp) * 100 : 0;
+        const enemyMpBar = document.getElementById('enemy-mp-bar');
+        enemyMpBar.style.width = `${eMP}%`;
+        document.getElementById('enemy-mp-text').innerText = `${b.enemy.currentMp}/${b.enemy.derivedStats.maxMp}`;
+        const enemySkillCosts = (b.enemy.aiSkills || [])
+            .map(id => window.SkillDB[id] && window.SkillDB[id].mpCost)
+            .filter(cost => typeof cost === 'number');
+        const enemyManaInsufficient = enemySkillCosts.length > 0 && b.enemy.currentMp < Math.min(...enemySkillCosts);
+        enemyMpBar.classList.toggle('insufficient', enemyManaInsufficient);
+
         // Ícones de status ativos (sangramento/queimadura/veneno, atordoado,
         // barreira, evasão) — os estados já existiam em playerState/
         // enemyState (ver battle.js) mas nunca tinham feedback visual algum;

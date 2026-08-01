@@ -15,25 +15,32 @@
 // comum, então nenhum inimigo normal pode usá-las) ---
 function registerBossSkills() {
     if (!window.SkillDB) return;
+    // Bug de auditoria (relatado pelo usuário — "magia infinita"): TODA
+    // habilidade de boss tinha mpCost:0, e o `ready()` de cada árvore de
+    // decisão (ver BOSS_AI abaixo) só checava cooldown, nunca mana — um
+    // boss nunca ficava sem mágica de verdade, só limitado por cooldown
+    // (que sempre volta a zero). Custos agora proporcionais ao poder de
+    // cada habilidade (mesma escala das habilidades comuns, ver skills.js:
+    // 10-32 MP), e `ready()` em cada boss agora exige MP suficiente também.
     const defs = [
         // Conde Vampiro
-        { id: 'conde_garras_sombrias', name: 'Garras Sombrias', type: 'PHYSICAL', mpCost: 0, powerMulti: 1.9,
+        { id: 'conde_garras_sombrias', name: 'Garras Sombrias', type: 'PHYSICAL', mpCost: 18, powerMulti: 1.9,
             description: 'As garras do Conde rasgam a carne com força sobrenatural.', extra: { cooldown: 2, animation: 'attack' } },
-        { id: 'conde_sugar_vida', name: 'Sugar Vida', type: 'LIFESTEAL', mpCost: 0, powerMulti: 1.5,
+        { id: 'conde_sugar_vida', name: 'Sugar Vida', type: 'LIFESTEAL', mpCost: 25, powerMulti: 1.5,
             description: 'O Conde drena a vitalidade da vítima.', extra: { lifestealPercent: 80, cooldown: 3, animation: 'attack' } },
-        { id: 'conde_enxame_morcegos', name: 'Enxame de Morcegos', type: 'MAGIC', mpCost: 0, powerMulti: 2.0,
+        { id: 'conde_enxame_morcegos', name: 'Enxame de Morcegos', type: 'MAGIC', mpCost: 30, powerMulti: 2.0,
             description: 'Uma nuvem de morcegos sanguinários ataca de qualquer distância.', extra: { cooldown: 4, range: 10, animation: 'boss_bats' } },
-        { id: 'conde_garra_final', name: 'Garra Imortal', type: 'STUN', mpCost: 0, powerMulti: 1.7,
+        { id: 'conde_garra_final', name: 'Garra Imortal', type: 'STUN', mpCost: 28, powerMulti: 1.7,
             description: 'Um golpe final que paralisa a vítima de puro terror.', extra: { stunChance: 80, cooldown: 3, animation: 'boss_slam' } },
 
         // Anjo Guardião
-        { id: 'anjo_raio_sagrado', name: 'Raio Sagrado', type: 'MAGIC', mpCost: 0, powerMulti: 2.1,
+        { id: 'anjo_raio_sagrado', name: 'Raio Sagrado', type: 'MAGIC', mpCost: 30, powerMulti: 2.1,
             description: 'Um feixe de luz pura desce dos céus.', extra: { cooldown: 3, range: 10, animation: 'cast' } },
-        { id: 'anjo_cura_divina', name: 'Cura Divina', type: 'HEAL', mpCost: 0, powerMulti: 2.2,
+        { id: 'anjo_cura_divina', name: 'Cura Divina', type: 'HEAL', mpCost: 26, powerMulti: 2.2,
             description: 'O Anjo restaura sua própria vitalidade com luz celestial.', extra: { cooldown: 4, animation: 'cast' } },
-        { id: 'anjo_barreira', name: 'Barreira Celestial', type: 'SHIELD', mpCost: 0, powerMulti: 1,
+        { id: 'anjo_barreira', name: 'Barreira Celestial', type: 'SHIELD', mpCost: 24, powerMulti: 1,
             description: 'Uma barreira de luz absorve grande parte do próximo dano.', extra: { shieldPercent: 50, duration: 2, cooldown: 4, animation: 'cast' } },
-        { id: 'anjo_julgamento_final', name: 'Julgamento Final', type: 'MAGIC', mpCost: 0, powerMulti: 3.2,
+        { id: 'anjo_julgamento_final', name: 'Julgamento Final', type: 'MAGIC', mpCost: 45, powerMulti: 3.2,
             description: 'O julgamento definitivo — luz capaz de reduzir um pecador a cinzas.', extra: { cooldown: 5, range: 10, animation: 'boss_judgment' } }
     ];
     defs.forEach(d => {
@@ -61,7 +68,11 @@ const BOSS_AI = {
             const boss = battle.enemy;
             const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
             const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 2 };
-            const ready = id => boss.isSkillReady(id);
+            // Bug de auditoria ("magia infinita"): antes só checava cooldown
+            // — agora também exige mana suficiente (ver mpCost em
+            // registerBossSkills acima), senão o boss recorre a ATK como
+            // qualquer inimigo comum sem mana pra suas habilidades.
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
 
             // Gate físico: fora do alcance da adaga (minRange 0, maxRange 1),
             // sempre avança (o Conde nunca recua) — EXCETO que, antes disso,
@@ -108,7 +119,9 @@ const BOSS_AI = {
             const boss = battle.enemy;
             const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
             const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 10 };
-            const ready = id => boss.isSkillReady(id);
+            // Bug de auditoria ("magia infinita"): ver mesmo comentário em
+            // conde_vampiro acima — agora também exige mana suficiente.
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
 
             // Bug de auditoria: Anjo Guardião usa lança (spear: minRange 2,
             // maxRange 5), mas essa árvore só tratava "longe demais" — nunca
@@ -160,4 +173,14 @@ window.BossAI = {
         if (!brain) return { action: 'ATK', message: `${battle.enemy.name} ataca!` };
         return brain.decideAction(battle);
     }
+};
+
+// Lista de habilidades exclusivas por boss — usada por createBoss (enemy.js)
+// pra preencher boss.aiSkills, e por ui.js (barra de mana) pra achar a
+// habilidade mais barata do combatente sem precisar de nenhum caso especial
+// pra bosses (que nunca passam por AICombat.assignProfile, então nunca
+// ganhavam `.aiSkills` como qualquer outro inimigo).
+window.BOSS_SKILL_IDS = {
+    conde_vampiro: ['conde_garras_sombrias', 'conde_sugar_vida', 'conde_enxame_morcegos', 'conde_garra_final'],
+    anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final']
 };
