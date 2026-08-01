@@ -376,6 +376,19 @@ class Player extends Entity {
         this.statPoints = 0;   // Pontos de atributo por nível (distribuição manual)
         this.skillPoints = 0;  // Pontos de talento por nível
         this.learnedSkills = []; // IDs das habilidades aprendidas
+
+        // Loadout de batalha (pedido de balanceamento): `learnedSkills` acima
+        // continua sendo TUDO que já foi aprendido/desbloqueado pra sempre —
+        // estas duas listas são o SUBCONJUNTO equipado pra uso em batalha
+        // (ver window.SKILL_LOADOUT_LIMITS em skills.js: 3 comuns + 2 de
+        // árvore de Linhagem). Começam `null`, não `[]`, de propósito: é
+        // assim que `_ensureSkillLoadout()` abaixo distingue "save antigo,
+        // de antes desta feature existir" (chave ausente no JSON, então
+        // `Object.assign` nunca sobrescreve o `null` do construtor) de "save
+        // novo que deliberadamente deixou tudo desequipado" (chave presente
+        // como `[]`, `Object.assign` sobrescreve o `null` normalmente).
+        this.equippedCommonSkills = null;
+        this.equippedMutationSkills = null;
         // skillCooldowns já vem inicializado do construtor de Entity
 
         this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
@@ -555,6 +568,86 @@ class Player extends Entity {
             return true;
         }
         return false;
+    }
+
+    // Migração/inicialização preguiçosa do loadout de batalha — ver
+    // comentário no construtor sobre por que os campos começam `null`.
+    // Saves antigos (de antes desta feature) chegam aqui com as duas listas
+    // ainda `null`: em vez de o jogador simplesmente "perder" acesso às
+    // habilidades que já tinha aprendido (violaria "nunca remova conteúdo
+    // existente"), auto-equipa as primeiras já aprendidas até o novo limite,
+    // preservando o comportamento anterior (tudo aprendido = tudo utilizável)
+    // o mais fielmente possível dentro do novo teto.
+    _ensureSkillLoadout() {
+        if (this.equippedCommonSkills && this.equippedMutationSkills) return;
+        const common = [];
+        const mutation = [];
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
+        (this.learnedSkills || []).forEach(id => {
+            const skill = window.SkillDB && window.SkillDB[id];
+            if (!skill || skill.isBossSkill) return;
+            if (skill.isMutationSkill) {
+                if (mutation.length < limits.mutation) mutation.push(id);
+            } else if (common.length < limits.common) {
+                common.push(id);
+            }
+        });
+        this.equippedCommonSkills = common;
+        this.equippedMutationSkills = mutation;
+    }
+
+    // Retorna true/false conforme conseguiu equipar (falha se a habilidade
+    // não foi aprendida ainda ou se o loadout do tipo certo já está cheio —
+    // ver window.SKILL_LOADOUT_LIMITS). Reequipar uma habilidade já equipada
+    // é sempre um no-op bem-sucedido (idempotente).
+    equipSkill(skillId) {
+        this._ensureSkillLoadout();
+        const skill = window.SkillDB && window.SkillDB[skillId];
+        if (!skill || !this.learnedSkills.includes(skillId)) return false;
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
+        const list = skill.isMutationSkill ? this.equippedMutationSkills : this.equippedCommonSkills;
+        const limit = skill.isMutationSkill ? limits.mutation : limits.common;
+        if (list.includes(skillId)) return true;
+        if (list.length >= limit) return false;
+        list.push(skillId);
+        return true;
+    }
+
+    unequipSkill(skillId) {
+        this._ensureSkillLoadout();
+        const skill = window.SkillDB && window.SkillDB[skillId];
+        const list = (skill && skill.isMutationSkill) ? this.equippedMutationSkills : this.equippedCommonSkills;
+        const idx = list.indexOf(skillId);
+        if (idx === -1) return false;
+        list.splice(idx, 1);
+        return true;
+    }
+
+    isSkillEquipped(skillId) {
+        this._ensureSkillLoadout();
+        return this.equippedCommonSkills.includes(skillId) || this.equippedMutationSkills.includes(skillId);
+    }
+
+    // Lista efetivamente utilizável em batalha (ver ui.js openBattleSkillMenu)
+    // — nunca `learnedSkills` diretamente, que pode ser maior que o loadout.
+    getEquippedSkills() {
+        this._ensureSkillLoadout();
+        return [...this.equippedCommonSkills, ...this.equippedMutationSkills];
+    }
+
+    // Converte Pontos de Talento (SP) em Inteligência permanente, 1 pra 1
+    // (pedido de balanceamento: "o jogador terá a oportunidade de converter
+    // sp points em pontos de inteligência"). `amount` é sempre limitado ao
+    // que o jogador realmente tem disponível — nunca deixa `skillPoints`
+    // negativo. Retorna quantos pontos foram de fato convertidos (0 se não
+    // havia nenhum disponível), pra a UI poder confirmar/recusar a ação.
+    convertSkillPointToInt(amount = 1) {
+        amount = Math.min(amount, this.skillPoints || 0);
+        if (amount <= 0) return 0;
+        this.skillPoints -= amount;
+        this.baseStats.int += amount;
+        this.calculateDerivedStats();
+        return amount;
     }
 
     // setSkillCooldown/isSkillReady/tickCooldowns agora vêm de Entity

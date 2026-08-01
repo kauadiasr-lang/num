@@ -1010,8 +1010,18 @@ class UIManager {
         const menu = document.getElementById('battle-skills-menu');
         const list = document.getElementById('battle-skills-list');
 
+        // Só as habilidades EQUIPADAS (ver window.SKILL_LOADOUT_LIMITS em
+        // skills.js e Player.getEquippedSkills em player.js) aparecem aqui —
+        // `learnedSkills` pode ser maior que isso, mas o jogador escolheu
+        // deliberadamente quais levar pra batalha na Árvore de Talentos/
+        // Mutações.
+        const equippedSkills = p.getEquippedSkills();
         if (p.learnedSkills.length === 0) {
             this.appendBattleLog("Você ainda não aprendeu nenhuma habilidade!");
+            return;
+        }
+        if (equippedSkills.length === 0) {
+            this.appendBattleLog("Nenhuma habilidade equipada! Equipe na Árvore de Talentos ou em Mutações.");
             return;
         }
 
@@ -1019,7 +1029,7 @@ class UIManager {
 
         const b = window.BattleEngine;
 
-        p.learnedSkills.forEach(skillId => {
+        equippedSkills.forEach(skillId => {
             const skill = window.SkillDB[skillId];
             const btn = document.createElement('button');
             btn.className = 'btn-battle-skill';
@@ -1330,7 +1340,13 @@ class UIManager {
         const treeSection = document.getElementById('mutations-skilltree-section');
         treeSection.classList.toggle('hidden', !hasLineage);
         if (hasLineage) {
+            p._ensureSkillLoadout();
+            const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
             document.getElementById('mutations-skillpoints').innerText = `Pontos disponíveis: ${p.mutationSkillPoints || 0}`;
+            const equippedCountEl = document.getElementById('mutations-equipped-count');
+            if (equippedCountEl) {
+                equippedCountEl.innerText = `Equipadas para batalha: ${p.equippedMutationSkills.length}/${limits.mutation}`;
+            }
             const treeEl = document.getElementById('mutations-skilltree');
             treeEl.innerHTML = '';
             const tree = window.SkillTreeSystem.getTreeForDisplay(p, p.lineage);
@@ -1343,15 +1359,33 @@ class UIManager {
                     tiers[tierNum].forEach(node => {
                         const nodeEl = document.createElement('div');
                         nodeEl.className = 'skilltree-node ' + (node.unlocked ? 'unlocked' : (node.unlockable ? 'unlockable' : 'locked'));
+                        // Nós ATIVOS já desbloqueados também entram no loadout
+                        // de batalha (ver window.SKILL_LOADOUT_LIMITS): equipar
+                        // aqui é o único jeito de usar uma habilidade de árvore
+                        // de Linhagem em combate (ui.js openBattleSkillMenu só
+                        // lê Player.getEquippedSkills, nunca learnedSkills cru).
+                        const isActiveUnlocked = node.unlocked && node.type === 'active' && node.skillDef;
+                        const isEquipped = isActiveUnlocked && p.isSkillEquipped(node.skillDef.id);
+                        const equipDisabled = isActiveUnlocked && !isEquipped && p.equippedMutationSkills.length >= limits.mutation;
                         nodeEl.innerHTML = `
                             <h5>${node.name}</h5>
                             <div class="node-type">${node.type === 'active' ? 'Ativa' : 'Passiva'}</div>
                             <div>${node.description}</div>
                             <div class="node-cost">Custo: ${node.cost}${node.unlocked ? ' (Desbloqueado)' : ''}</div>
+                            ${isActiveUnlocked ? `<button class="btn btn-small btn-equip-mutation" style="margin-top:8px;" ${equipDisabled ? 'disabled' : ''}>${isEquipped ? 'Desequipar' : 'Equipar'}</button>` : ''}
                         `;
+                        if (isActiveUnlocked) {
+                            nodeEl.querySelector('.btn-equip-mutation').addEventListener('click', (evt) => {
+                                evt.stopPropagation();
+                                if (isEquipped) p.unequipSkill(node.skillDef.id); else p.equipSkill(node.skillDef.id);
+                                window.SaveManager.save(window.Engine.state);
+                                this.openMutations();
+                            });
+                        }
                         if (node.unlockable) {
                             nodeEl.addEventListener('click', () => {
                                 if (window.SkillTreeSystem.unlockNode(p, p.lineage, node.id)) {
+                                    if (node.type === 'active' && node.skillDef) p.equipSkill(node.skillDef.id); // Auto-equipa se houver vaga
                                     window.SaveManager.save(window.Engine.state);
                                     if (window.AudioManager) window.AudioManager.playConfirm();
                                     this.openMutations();
@@ -1927,6 +1961,25 @@ class UIManager {
         const p = window.Engine.state.player;
         document.getElementById('skill-points').innerText = p.skillPoints || 0;
 
+        p._ensureSkillLoadout();
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
+        const equippedCountEl = document.getElementById('skills-equipped-count');
+        if (equippedCountEl) {
+            equippedCountEl.innerText = `Equipadas para batalha: ${p.equippedCommonSkills.length}/${limits.common}`;
+        }
+
+        const convertBtn = document.getElementById('btn-convert-sp-int');
+        if (convertBtn) {
+            convertBtn.disabled = (p.skillPoints || 0) <= 0;
+            convertBtn.onclick = () => {
+                if (p.convertSkillPointToInt(1) > 0) {
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.AudioManager) window.AudioManager.playConfirm();
+                    this.openSkillTree();
+                }
+            };
+        }
+
         const container = document.getElementById('skills-container');
         container.innerHTML = '';
 
@@ -1942,13 +1995,21 @@ class UIManager {
             if (skill.isBossSkill || skill.isMutationSkill) continue;
             const isUnlocked = p.learnedSkills.includes(key);
             const canUnlock = p.level >= skill.levelReq && p.skillPoints > 0 && !isUnlocked;
+            const isEquipped = isUnlocked && p.isSkillEquipped(key);
 
             const card = document.createElement('div');
             card.className = `skill-card ${isUnlocked ? 'unlocked' : 'locked'}`;
 
             let btnHTML = '';
             if (isUnlocked) {
-                btnHTML = `<p style="color:var(--color-gold); margin-top:10px;">Adquirida</p>`;
+                // Equipar/Desequipar (loadout de batalha, ver
+                // window.SKILL_LOADOUT_LIMITS): aprender é permanente, mas só
+                // as habilidades EQUIPADAS aparecem no menu de batalha.
+                const equipDisabled = !isEquipped && p.equippedCommonSkills.length >= limits.common;
+                btnHTML = `
+                    <p style="color:var(--color-gold); margin-top:10px;">Adquirida</p>
+                    <button class="btn btn-small btn-equip-skill" style="margin-top:5px;" ${equipDisabled ? 'disabled' : ''}>${isEquipped ? 'Desequipar' : 'Equipar'}</button>
+                `;
             } else {
                 btnHTML = `<button class="btn btn-small" style="margin-top:10px;" ${!canUnlock ? 'disabled' : ''}>Aprender (Nv.${skill.levelReq})</button>`;
             }
@@ -1962,10 +2023,17 @@ class UIManager {
                 ${btnHTML}
             `;
 
-            if (!isUnlocked && canUnlock) {
+            if (isUnlocked) {
+                card.querySelector('.btn-equip-skill').onclick = () => {
+                    if (isEquipped) p.unequipSkill(key); else p.equipSkill(key);
+                    window.SaveManager.save(window.Engine.state);
+                    this.openSkillTree(); // Refresh UI
+                };
+            } else if (canUnlock) {
                 card.querySelector('button').onclick = () => {
                     p.skillPoints--;
                     p.learnSkill(key);
+                    p.equipSkill(key); // Auto-equipa se houver vaga livre no loadout
                     window.SaveManager.save(window.Engine.state);
                     this.openSkillTree(); // Refresh UI
                 };

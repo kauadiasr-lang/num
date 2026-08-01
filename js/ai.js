@@ -78,6 +78,25 @@ const AICombat = {
             entity.aiSkills = [style.skillPool[0]];
         }
 
+        // Conversão espelhada de SP -> INT do lado da IA (pedido de
+        // balanceamento): o jogador pode converter Pontos de Talento (SP) em
+        // Inteligência (ver Player.convertSkillPointToInt em player.js), mas
+        // só sacrificando magias que poderia ter aprendido/equipado. Pra que
+        // o inimigo continue "levemente a moderadamente mais forte" que um
+        // jogador do mesmo nível por padrão (em vez de ficar artificialmente
+        // mais fraco por nunca converter nada), ele tem um pool VIRTUAL de SP
+        // igual ao próprio nível, do qual desconta 1 por magia que já
+        // conhece (aiSkills, acima) — exatamente o mesmo preço que o
+        // jogador pagaria. Exemplo do pedido original: nível 7, 2 magias =
+        // 7 - 2 = 5 de pool restante, com uma chance de ter convertido um
+        // valor aleatório entre 1 e 5 desse pool em INT bônus.
+        const virtualSpPool = Math.max(0, level - entity.aiSkills.length);
+        entity.aiIntConversionBonus = 0;
+        if (virtualSpPool > 0 && Utils.chance(50)) {
+            entity.aiIntConversionBonus = Utils.randomInt(1, virtualSpPool);
+            entity.baseStats.int += entity.aiIntConversionBonus;
+        }
+
         // "Lutador de Punho Nu": desequipa a arma principal (mantém o resto do
         // equipamento intacto). Usa o alcance/velocidade de punhos já existente.
         if (entity.aiRareArchetype && entity.aiRareArchetype.id === 'lutador_desarmado') {
