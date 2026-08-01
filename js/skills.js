@@ -22,7 +22,18 @@ const SKILL_TYPES = {
     // "maldição" como identidade própria do Vampirismo). Ver battle.js
     // executeAttack (mitigação de Defesa) e executePlayerTurn/
     // executeEnemySkill pela execução completa.
-    CURSE: 'CURSE'
+    CURSE: 'CURSE',
+    // Imbui temporariamente a arma equipada com um efeito de combate próprio
+    // da Linhagem (item 14 da auditoria de balanceamento) — igual, na
+    // prática, a trocar de Encantamento por N turnos, mas a fonte do efeito
+    // é `window.LINEAGE_IMBUES` (ver skilltrees.js), NUNCA o registry
+    // `ENCHANTMENTS` de enchantments.js: um imbuição de Linhagem não pode
+    // ser comprada/aplicada pela loja de Encantamentos comum (ui.js lê
+    // Object.keys(ENCHANTMENTS) pra montar aquele menu), só obtida
+    // temporariamente ao conjurar esta habilidade. Ver battle.js
+    // executeAttack (seleção de qual "encantamento" vale no acerto) e
+    // executePlayerTurn/executeEnemySkill pela execução completa.
+    IMBUE_WEAPON: 'IMBUE_WEAPON'
 };
 
 class Skill {

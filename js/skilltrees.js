@@ -29,6 +29,37 @@ window.MUTATION_STAT_KEYS = MUTATION_STAT_KEYS;
 // registerAllMutationSkillDefs no fim do arquivo) pra nunca duplicar essa
 // lógica entre o registro incondicional no boot e o registro pontual
 // dentro de unlockNode.
+// Imbuições de arma temporárias (item 14 da auditoria de balanceamento):
+// mesmo formato onHit(attacker, defender) do registry ENCHANTMENTS (ver
+// enchantments.js) — attach nele diretamente NÃO seria certo, pois ui.js
+// (openInventory/renderEnchantments) monta o menu de Encantamentos
+// iterando Object.keys(ENCHANTMENTS) inteiro; uma entrada ali viraria
+// comprável/aplicável em QUALQUER item pela loja comum, quebrando a regra
+// de que uma imbuição de Linhagem só existe temporariamente, via
+// habilidade da árvore de Mutação (ver SKILL_TYPES.IMBUE_WEAPON). Registry
+// próprio e completamente separado; battle.js executeAttack só lê o
+// formato (duck typing), então nenhuma mudança é necessária na lógica de
+// consumo de encantamento já existente.
+const LINEAGE_IMBUES = {
+    fio_sanguinario: {
+        id: 'fio_sanguinario', name: 'Fio Sanguinário', color: '#8a1030',
+        description: 'Imbuição de Vampirismo: cada acerto rouba uma fração extra do dano causado como HP.',
+        onHit(attacker, defender) {
+            return { extraDamage: 0, lifestealPercent: 22, particleColor: '#8a1030' };
+        }
+    },
+    fio_consagrado: {
+        id: 'fio_consagrado', name: 'Fio Consagrado', color: '#fff2c0',
+        description: 'Imbuição da Luz: cada acerto causa dano sagrado extra (mais contra inimigos das trevas) e cura uma fração do dano causado.',
+        onHit(attacker, defender) {
+            const isDarkfoe = defender.lineage === 'vampirismo' || defender.lineage === 'sombras';
+            const extra = isDarkfoe ? Math.floor(attacker.derivedStats.physicalDamage * 0.25) : Math.floor(attacker.derivedStats.physicalDamage * 0.12);
+            return { extraDamage: extra, healPercent: 10, particleColor: '#fff2c0' };
+        }
+    }
+};
+window.LINEAGE_IMBUES = LINEAGE_IMBUES;
+
 function registerMutationSkillDef(d) {
     if (!window.SkillDB[d.id]) {
         window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
@@ -92,6 +123,18 @@ const SKILL_TREES = {
                 description: 'Desbloqueia Maldição Sanguínea: amaldiçoa o inimigo, enfraquecendo sua Defesa por vários turnos.',
                 skillDef: { id: 'maldicao_sanguinea', name: 'Maldição Sanguínea', type: 'CURSE', mpCost: 18, powerMulti: 0.7,
                     description: 'Amaldiçoa o inimigo: causa dano e reduz sua Defesa em 25% por 3 turnos. Usa o alcance da sua arma.', extra: { curseDefensePercent: 25, duration: 3, cooldown: 3 } } },
+            // Fio Sanguinário (item 14 da auditoria de balanceamento): antes
+            // NENHUM nó de nenhuma árvore imbuía a própria arma temporariamente
+            // — só existiam bônus passivos permanentes (statMods) e golpes
+            // avulsos (LIFESTEAL/BLEED/CURSE, dano numa tacada só). Este nó
+            // muda o que a arma FAZ em todo acerto físico por várias tacadas
+            // seguidas, igual trocar de Encantamento por N turnos (ver
+            // skilltrees.js LINEAGE_IMBUES e battle.js executeAttack) — nó
+            // novo, puramente aditivo, não altera nenhum requires existente.
+            { id: 'vam_fio_sanguinario', name: 'Fio Sanguinário', tier: 3, type: 'active', cost: 1, requires: ['vam_presas'],
+                description: 'Desbloqueia Fio Sanguinário: imbui sua arma com sede de sangue por vários turnos.',
+                skillDef: { id: 'fio_sanguinario_skill', name: 'Fio Sanguinário', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui sua arma equipada: todo acerto físico rouba 22% do dano causado como HP, por 4 turnos.', extra: { imbueEnchantId: 'fio_sanguinario', duration: 4, cooldown: 5 } } },
 
             // --- Tier 4 ---
             { id: 'vam_imortalidade', name: 'Imortalidade Parcial', tier: 4, type: 'passive', cost: 2, requires: ['vam_regeneracao', 'vam_furia_fome'],
@@ -132,6 +175,15 @@ const SKILL_TREES = {
                 description: 'Mais 10% de poder de cura (total 25%).', statMods: { healPowerBonusPercent: 10 } },
             { id: 'luz_barreira', name: 'Barreira Luminosa', tier: 2, type: 'passive', cost: 1, requires: ['luz_root_couraca'],
                 description: 'Mais 8% de Defesa e +3% de esquiva.', statMods: { defenseBonusPercent: 8, dodgeBonusPercent: 3 } },
+            // Fio Consagrado (item 14 da auditoria de balanceamento): mesmo
+            // motivo do Fio Sanguinário na árvore de Vampirismo — a Luz tinha
+            // cura/proteção/dano à distância, mas nada que imbuísse a própria
+            // arma equipada por um período. Nó novo (tier 2, ramo da
+            // Couraça), puramente aditivo.
+            { id: 'luz_fio_consagrado', name: 'Fio Consagrado', tier: 2, type: 'active', cost: 1, requires: ['luz_root_couraca'],
+                description: 'Desbloqueia Fio Consagrado: imbui sua arma com poder sagrado por vários turnos.',
+                skillDef: { id: 'fio_consagrado_skill', name: 'Fio Consagrado', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui sua arma equipada: todo acerto físico causa dano sagrado extra (mais contra inimigos das trevas) e cura uma fração do dano causado, por 4 turnos.', extra: { imbueEnchantId: 'fio_consagrado', duration: 4, cooldown: 5 } } },
             { id: 'luz_purificacao', name: 'Purificação', tier: 2, type: 'passive', cost: 1, requires: ['luz_root_resiliencia'],
                 description: 'Mais 20% de resistência a efeitos negativos (total 40%).', statMods: { negativeEffectResistPercent: 20 } },
 

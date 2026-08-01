@@ -33,8 +33,15 @@ class BattleSystem {
         // isso. Ver applyBleedTick/executeAttack — agora só o Veneno de
         // verdade ignora Defesa; Fogo/Sangramento passam a ser mitigados
         // por ela, como qualquer dano físico esperaria.
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
+        // weaponImbueId/weaponImbueTurns (item 14 da auditoria de
+        // balanceamento — Fio Sanguinário/Fio Consagrado): enquanto
+        // weaponImbueTurns > 0, o encantamento efetivo da arma do dono deste
+        // estado passa a ser window.LINEAGE_IMBUES[weaponImbueId] em vez do
+        // encantamento permanente do item (ver executeAttack/
+        // _getEffectiveEnchantment) — sempre reseta pra null/0 no fim da
+        // duração, nunca ficando "vazado" pra fora da batalha (não é salvo).
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -76,6 +83,21 @@ class BattleSystem {
     _getWeaponEnchantment(entity) {
         const weapon = entity.getActiveWeapon ? entity.getActiveWeapon() : null;
         return weapon && window.EnchantmentSystem ? window.EnchantmentSystem.get(weapon) : null;
+    }
+
+    // Encantamento EFETIVO no acerto (item 14 da auditoria — Fio
+    // Sanguinário/Fio Consagrado): enquanto uma imbuição de Linhagem estiver
+    // ativa (`entityState.weaponImbueTurns > 0`), ela assume o lugar do
+    // encantamento permanente do item pela duração restante — o mesmo
+    // formato onHit(attacker, defender) faz o resto do consumo em
+    // executeAttack funcionar sem NENHUMA mudança adicional, já que ele só
+    // enxerga o objeto retornado aqui, nunca de qual registry ele veio.
+    _getEffectiveEnchantment(entity, entityState) {
+        if (entityState.weaponImbueTurns > 0 && entityState.weaponImbueId && window.LINEAGE_IMBUES) {
+            const imbue = window.LINEAGE_IMBUES[entityState.weaponImbueId];
+            if (imbue) return imbue;
+        }
+        return this._getWeaponEnchantment(entity);
     }
 
     // Soma os bônus defensivos de encantamentos SAGRADO/PROFANO quando
@@ -256,7 +278,11 @@ class BattleSystem {
         // resistência a efeitos negativos da Linhagem Luz do defensor), e
         // sangramento/queimadura/veneno contínuos (reduzidos pela resistência
         // a sangramento da Linhagem Vampirismo do defensor).
-        const enchant = this._getWeaponEnchantment(attacker);
+        // Item 14 da auditoria: uma imbuição temporária de Linhagem (Fio
+        // Sanguinário/Fio Consagrado) ativa em `attackerState` assume o
+        // lugar do encantamento permanente do item enquanto durar — ver
+        // _getEffectiveEnchantment.
+        const enchant = this._getEffectiveEnchantment(attacker, attackerState);
         let enchantEff = null;
         if (enchant && enchant.onHit) {
             const negResist = (defender.derivedStats.negativeEffectResistPercent || 0) / 100;
@@ -498,9 +524,13 @@ class BattleSystem {
             }
         }
 
-        // Contagem regressiva de barreira/esquiva temporárias da Linhagem
+        // Contagem regressiva de barreira/esquiva/imbuição temporárias da Linhagem
         if (this.playerState.shieldTurns > 0) this.playerState.shieldTurns--;
         if (this.playerState.evasionTurns > 0) this.playerState.evasionTurns--;
+        if (this.playerState.weaponImbueTurns > 0) {
+            this.playerState.weaponImbueTurns--;
+            if (this.playerState.weaponImbueTurns <= 0) this.playerState.weaponImbueId = null;
+        }
 
         // Instantâneos usados só para a IA do inimigo "perceber" o que aconteceu
         // neste turno (memória de batalha, ver ai.js) — não influenciam a lógica
@@ -863,6 +893,20 @@ class BattleSystem {
                     window.GFX.spawnParticles(playerX, playerY, "#3a1020", 25, 4, 5);
                     window.AudioManager.playMagicCast();
                 }
+                else if (skill.type === 'IMBUE_WEAPON') {
+                    // Imbuição temporária de arma (item 14 da auditoria — Fio
+                    // Sanguinário/Fio Consagrado): substitui o encantamento
+                    // efetivo da arma equipada por `skill.duration` turnos
+                    // (ver _getEffectiveEnchantment/executeAttack) — igual a
+                    // SHIELD/EVASION acima, é um buff no PRÓPRIO lançador,
+                    // nunca um efeito no alvo.
+                    this.playerState.weaponImbueId = skill.imbueEnchantId;
+                    this.playerState.weaponImbueTurns = skill.duration;
+                    const imbue = window.LINEAGE_IMBUES ? window.LINEAGE_IMBUES[skill.imbueEnchantId] : null;
+                    resultMsg = `<span style="color:${imbue ? imbue.color : '#fff2c0'}">${this.player.name} usa ${skill.name}, imbuindo a arma por ${skill.duration} turnos!</span>`;
+                    window.GFX.spawnParticles(playerX, playerY, imbue ? imbue.color : "#fff2c0", 25, 4, 5);
+                    window.AudioManager.playMagicCast();
+                }
             } else {
                 // Failsafe: devolve o turno se por algum motivo a UI permitiu conjurar sem mana
                 resultMsg = "Mana insuficiente!";
@@ -1029,6 +1073,16 @@ class BattleSystem {
             message = `<span style="color:#7a1030">${this.enemy.name} usa ${skill.name}, ganhando +${skill.evasionBonus}% de esquiva por ${skill.duration} turnos!</span>`;
             window.GFX.spawnParticles(enemyX, enemyY, "#3a1020", 25, 4, 5);
             window.AudioManager.playMagicCast();
+        } else if (skill.type === 'IMBUE_WEAPON') {
+            // Espelha o ramo do jogador acima (mesmo motivo: só existe pra
+            // um futuro boss/skillDef reaproveitar este `type`, mesma
+            // simetria já mantida por SHIELD/EVASION/CURSE).
+            this.enemyState.weaponImbueId = skill.imbueEnchantId;
+            this.enemyState.weaponImbueTurns = skill.duration;
+            const imbue = window.LINEAGE_IMBUES ? window.LINEAGE_IMBUES[skill.imbueEnchantId] : null;
+            message = `<span style="color:${imbue ? imbue.color : '#fff2c0'}">${this.enemy.name} usa ${skill.name}, imbuindo a arma por ${skill.duration} turnos!</span>`;
+            window.GFX.spawnParticles(enemyX, enemyY, imbue ? imbue.color : "#fff2c0", 25, 4, 5);
+            window.AudioManager.playMagicCast();
         }
 
         if (selfEvent && window.AICombat) window.AICombat.onSelfEvent(this, selfEvent.type, selfEvent);
@@ -1072,10 +1126,14 @@ class BattleSystem {
         // disponíveis (ver ai.js/executeEnemyItem).
         if (this.enemy.aiState && this.enemy.aiState.itemCooldown > 0) this.enemy.aiState.itemCooldown--;
 
-        // Contagem regressiva de barreira/esquiva temporárias (usado por
-        // bosses com habilidades próprias de escudo, ex: Anjo Guardião)
+        // Contagem regressiva de barreira/esquiva/imbuição temporárias (usado
+        // por bosses com habilidades próprias, ex: Anjo Guardião)
         if (this.enemyState.shieldTurns > 0) this.enemyState.shieldTurns--;
         if (this.enemyState.evasionTurns > 0) this.enemyState.evasionTurns--;
+        if (this.enemyState.weaponImbueTurns > 0) {
+            this.enemyState.weaponImbueTurns--;
+            if (this.enemyState.weaponImbueTurns <= 0) this.enemyState.weaponImbueId = null;
+        }
 
         // Contagem regressiva da Maldição Sanguínea sofrida PELO inimigo
         // (ver tickCurse) — espelha o mesmo ponto de chamada do jogador em
