@@ -78,7 +78,19 @@ const RACES = {
         description: 'Vindos das muralhas de rocha vulcânica da Fortaleza Orc, os orcs medem valor por cicatrizes e vitórias. Fracos de espírito não duram uma estação lá.',
         statMods: { str: 3, def: 1, int: -2 },
         accent: '#3a5a1a', // verde-oliva escuro, couro/rocha vulcânica
-        passive: { statKey: 'drainOnCritPercent', value: 12, label: 'Fúria Sanguinária: acertos críticos roubam +12% do dano como HP.' }
+        passive: { statKey: 'drainOnCritPercent', value: 12, label: 'Fúria Sanguinária: acertos críticos roubam +12% do dano como HP.' }, // item 7 da auditoria de balanceamento ("raças mais diferentes"): antes as 8 raças
+        // eram estatisticamente diferentes mas fisicamente IDÊNTICAS na
+        // renderização — mesma altura, mesma largura de ombro, mesmo
+        // corpo, só a `accent` (cor da faixa) mudava. Orc/Elfo/Anão (as
+        // três raças de fantasia, com identidades físicas bem marcadas na
+        // própria lore) ganham `bodyScale` — lido por graphics.js
+        // (_legLen/_torsoH/_armLen/_headR/_bodyMetrics) pra escalar altura
+        // e largura de verdade no renderizador. As 5 raças "humanas"
+        // (Humano + as 4 culturas gregas) ficam sem o campo de propósito —
+        // fisicamente são a mesma espécie, então continuam com a MESMA
+        // silhueta de sempre (bodyScale ausente = {height:1,width:1} via
+        // fallback), preservando o visual de antes desta mudança.
+        bodyScale: { height: 1.14, width: 1.28 } // mais alto e MUITO mais largo/musculoso
     },
     elfo: {
         id: 'elfo', name: 'Elfo',
@@ -86,7 +98,8 @@ const RACES = {
         description: 'Nascidos sob o dossel eterno do Santuário Élfico, movem-se com uma graça quase sobrenatural e enxergam falhas na guarda alheia que ninguém mais percebe — mas carregam pouco da força bruta dos povos guerreiros.',
         statMods: { agi: 2, int: 2, str: -2 },
         accent: '#4a8a3a', // verde floresta vívido
-        passive: { statKey: 'critChanceLowHpBonus', value: 15, label: 'Precisão Élfica: +15% de chance de crítico com HP abaixo de 30%.' }
+        passive: { statKey: 'critChanceLowHpBonus', value: 15, label: 'Precisão Élfica: +15% de chance de crítico com HP abaixo de 30%.' },
+        bodyScale: { height: 1.07, width: 0.86 } // mais alto e visivelmente mais esguio
     },
     anao: {
         id: 'anao', name: 'Anão',
@@ -94,7 +107,8 @@ const RACES = {
         description: 'Clãs de mineradores e ferreiros das montanhas próximas à Fortaleza Orc, os anões trazem pra arena uma resistência quase teimosa e uma paciência forjada em décadas sob a rocha.',
         statMods: { def: 3, str: 1, agi: -2 },
         accent: '#8a3a1a', // cobre/ferrugem, forja anã
-        passive: { statKey: 'bleedResistPercent', value: 30, label: 'Pele de Pedra: 30% de resistência a sangramento.' }
+        passive: { statKey: 'bleedResistPercent', value: 30, label: 'Pele de Pedra: 30% de resistência a sangramento.' },
+        bodyScale: { height: 0.76, width: 1.18 } // baixo e atarracado, torso largo
     }
 };
 window.RACES = RACES;

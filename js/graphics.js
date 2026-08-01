@@ -2030,12 +2030,17 @@ class GraphicsEngine {
 
         // Sombra com gradiente suave (em vez de uma elipse chapada de opacidade
         // única) — dá uma sensação de contato com o chão bem mais natural.
-        const shadowGrad = ctx.createRadialGradient(x, y + 8, 2, x, y + 8, 34);
+        // Raio acompanha a largura racial (item 7 da auditoria: um Orc
+        // projeta uma sombra visivelmente maior que um Elfo no chão, reforça
+        // a silhueta diferente mesmo antes de olhar pro corpo em si).
+        const shadowScale = this._raceBodyScale(entity).width;
+        const shadowRX = 34 * shadowScale, shadowRY = 10 * shadowScale;
+        const shadowGrad = ctx.createRadialGradient(x, y + 8, 2, x, y + 8, shadowRX);
         shadowGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
         shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = shadowGrad;
         ctx.beginPath();
-        ctx.ellipse(x, y + 8, 34, 10, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, y + 8, shadowRX, shadowRY, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.save();
@@ -2058,10 +2063,26 @@ class GraphicsEngine {
         ctx.globalAlpha = 1;
     }
 
-    _legLen() { return 58; }
-    _torsoH() { return 62; }
-    _headR() { return 20; }
-    _armLen() { return 46; }
+    // Escala de corpo por raça (item 7 da auditoria de balanceamento) — ver
+    // races.js `bodyScale`. Sem raça definida (Vampire/Ghost nunca setam
+    // `.race`, ver enemy.js) ou raça sem bodyScale (Humano e as 4 culturas
+    // gregas, fisicamente idênticas por design), cai no fallback neutro
+    // {height:1, width:1} — preserva a silhueta original de qualquer
+    // combatente que já existia antes desta mudança.
+    _raceBodyScale(entity) {
+        const raceId = entity && entity.race;
+        const race = raceId && window.RACES && window.RACES[raceId];
+        return (race && race.bodyScale) || { height: 1, width: 1 };
+    }
+
+    _legLen(entity) { return 58 * this._raceBodyScale(entity).height; }
+    _torsoH(entity) { return 62 * this._raceBodyScale(entity).height; }
+    // Cabeça escala só uma fração da largura racial (0.4x) — cabeças não
+    // crescem linearmente com o corpo (um Orc com cabeça 28% maior que o
+    // corpo pareceria errado/cartunesco demais); um efeito mais sutil já
+    // lê como "cabeça mais robusta" sem quebrar a proporção corpo/cabeça.
+    _headR(entity) { return 20 * (1 + (this._raceBodyScale(entity).width - 1) * 0.4); }
+    _armLen(entity) { return 46 * this._raceBodyScale(entity).height; }
 
     // Arquétipo visual do lutador (identidade independente do equipamento —
     // ver FIGHTER_ARCHETYPES no topo do arquivo). Some lutadores antigos
@@ -2081,13 +2102,19 @@ class GraphicsEngine {
         const shoulderBase = isFem ? 30 : 34;
         const waistFrac = isFem ? 0.58 : 0.78;
         const limbMul = arch.build.limb * (isFem ? 0.92 : 1);
+        // Escala de largura racial (item 7 da auditoria de balanceamento,
+        // ver _raceBodyScale acima e races.js `bodyScale`) — aplicada por
+        // cima de gênero x arquétipo, então um Orc "brutamontes" fica ainda
+        // mais largo que um Humano "brutamontes", nunca substituindo a
+        // diferenciação que já existia.
+        const widthScale = this._raceBodyScale(entity).width;
         return {
-            shoulder: shoulderBase * arch.build.shoulder,
-            waist: shoulderBase * waistFrac * arch.build.waist,
-            hip: shoulderBase * (isFem ? 0.72 : 0.62) * arch.build.waist,
-            ankle: 8 * limbMul,
-            armShoulder: 9 * limbMul,
-            armWrist: 6.5 * limbMul
+            shoulder: shoulderBase * arch.build.shoulder * widthScale,
+            waist: shoulderBase * waistFrac * arch.build.waist * widthScale,
+            hip: shoulderBase * (isFem ? 0.72 : 0.62) * arch.build.waist * widthScale,
+            ankle: 8 * limbMul * widthScale,
+            armShoulder: 9 * limbMul * widthScale,
+            armWrist: 6.5 * limbMul * widthScale
         };
     }
 
@@ -2153,8 +2180,8 @@ class GraphicsEngine {
     _drawLineageAura(ctx, entity) {
         const v = entity && entity.visuals;
         if (!v || (!v.hasAura && !v.hasSmoke)) return;
-        const legLen = this._legLen();
-        const cy = -legLen - this._torsoH() * 0.6;
+        const legLen = this._legLen(entity);
+        const cy = -legLen - this._torsoH(entity) * 0.6;
         const t = performance.now() / 1000;
 
         if (v.hasAura) {
@@ -2222,9 +2249,9 @@ class GraphicsEngine {
         if (archId !== 'campeao' && archId !== 'cavaleiro') return;
         const arch = this._archetype(entity);
         const big = archId === 'campeao';
-        const legLen = this._legLen();
+        const legLen = this._legLen(entity);
         const m = this._bodyMetrics(entity);
-        const topY = -legLen - this._torsoH() + 6;
+        const topY = -legLen - this._torsoH(entity) + 6;
         const sway = Math.sin(performance.now() / 900) * (big ? 4 : 2);
 
         ctx.save();
@@ -2281,11 +2308,15 @@ class GraphicsEngine {
     // rotacionado (fora do rotate de sway de cada perna), então bakear os
     // dois em conjunto, sem nenhuma rotação, reproduz exatamente o mesmo
     // resultado visual.
-    _legDecorSpriteKey(entity, m) {
+    _legDecorSpriteKey(entity, m, legLen) {
         const boots = entity.equipment && entity.equipment[SLOTS.FEET];
         const archId = (entity.visuals && entity.visuals.archetype) || '';
         const bootColor = boots ? (boots.rarity ? boots.rarity.color : '#8a5a2b') : '';
-        return `legdecor:${archId}|${bootColor}|${m.ankle.toFixed(1)}`;
+        // `legLen` (raça, ver races.js bodyScale.height) entra na chave pelo
+        // mesmo motivo do torsoH em _torsoSpriteKey acima — o desenho usa
+        // `legLen` pra posicionar coxa/perneira/bota (-legLen+2, -legLen*0.62
+        // etc.), então precisa fazer parte da assinatura visual.
+        return `legdecor:${archId}|${bootColor}|${m.ankle.toFixed(1)}|${legLen.toFixed(1)}`;
     }
 
     _bakeLegDecorSprite(entity, m, legLen) {
@@ -2296,7 +2327,7 @@ class GraphicsEngine {
         const w = halfW * 2;
         const h = legLen + 2;
         const anchorX = halfW, anchorY = legLen;
-        const key = this._legDecorSpriteKey(entity, m);
+        const key = this._legDecorSpriteKey(entity, m, legLen);
         return {
             canvas: window.SpriteCache.get(key, w, h, (bctx) => {
                 bctx.translate(anchorX, anchorY);
@@ -2331,7 +2362,7 @@ class GraphicsEngine {
     }
 
     _drawLegs(ctx, entity, pose) {
-        const legLen = this._legLen();
+        const legLen = this._legLen(entity);
         const m = this._bodyMetrics(entity);
         const sway = pose.legSway * 0.15;
 
@@ -2373,12 +2404,25 @@ class GraphicsEngine {
     // é seguro desenhar tudo isso UMA VEZ por combinação visual e reutilizar
     // o bitmap em todo frame seguinte via drawImage, em vez de reexecutar
     // dezenas de chamadas de fill/gradiente/stroke por frame.
-    _torsoSpriteKey(entity, m, torsoColor, metallic) {
+    _torsoSpriteKey(entity, m, torsoH, torsoColor, metallic) {
         const archId = (entity.visuals && entity.visuals.archetype) || 'veterano';
         const gender = (entity.visuals && entity.visuals.gender) || 'Masculino';
         const race = entity.race && window.RACES ? window.RACES[entity.race] : null;
         const raceAccent = race && race.accent ? race.accent : '';
-        return `torso:${archId}|${gender}|${torsoColor}|${metallic}|${raceAccent}|${m.shoulder.toFixed(1)}|${m.waist.toFixed(1)}`;
+        // `torsoH` (item 7 da auditoria: raças com altura diferente, ver
+        // races.js `bodyScale.height`) precisa estar na chave — bug
+        // encontrado nesta auditoria: a chave antiga só incluía
+        // shoulder/waist (largura), então duas raças com a MESMA largura
+        // final mas ALTURA diferente (ex.: uma raça futura com
+        // bodyScale.width igual ao humano mas height diferente)
+        // compartilhariam a mesma entrada de cache — o cheque de w/h em
+        // SpriteCache.get (spritesystem.js) evita um bitmap VISUALMENTE
+        // errado (força redesenho quando o h pedido não bate com o
+        // cacheado), mas sem `torsoH` na chave isso vira um redesenho a
+        // CADA frame nesse cenário (rebake_thrashing), não um cache de
+        // verdade. Incluir `torsoH` aqui casa com o padrão já usado em
+        // _bakeLegShapeSprite (chave inclui `legLen` diretamente).
+        return `torso:${archId}|${gender}|${torsoColor}|${metallic}|${raceAccent}|${m.shoulder.toFixed(1)}|${m.waist.toFixed(1)}|${torsoH.toFixed(1)}`;
     }
 
     _bakeTorsoSprite(entity, m, torsoH, torsoColor, metallic) {
@@ -2388,7 +2432,7 @@ class GraphicsEngine {
         const h = torsoH + pad * 2;
         const anchorX = halfW + pad;
         const anchorY = torsoH + pad;
-        const key = this._torsoSpriteKey(entity, m, torsoColor, metallic);
+        const key = this._torsoSpriteKey(entity, m, torsoH, torsoColor, metallic);
         return {
             canvas: window.SpriteCache.get(key, w, h, (bctx) => {
                 bctx.translate(anchorX, anchorY);
@@ -2427,8 +2471,8 @@ class GraphicsEngine {
     }
 
     _drawTorso(ctx, entity, pose) {
-        const legLen = this._legLen();
-        const torsoH = this._torsoH();
+        const legLen = this._legLen(entity);
+        const torsoH = this._torsoH(entity);
         const m = this._bodyMetrics(entity);
         const chest = entity.equipment && entity.equipment[SLOTS.CHEST];
         const teamColor = entity.__teamColor || '#5a4632';
@@ -2540,10 +2584,10 @@ class GraphicsEngine {
     _drawTorsoDetail(ctx, entity) {
         const amulet = entity.equipment && entity.equipment[SLOTS.AMULET];
         if (!amulet) return;
-        const legLen = this._legLen();
+        const legLen = this._legLen(entity);
         const color = amulet.rarity ? amulet.rarity.color : '#d4af37';
         ctx.save();
-        ctx.translate(0, -legLen - this._torsoH() + 18);
+        ctx.translate(0, -legLen - this._torsoH(entity) + 18);
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
@@ -2558,7 +2602,7 @@ class GraphicsEngine {
         ctx.restore();
     }
 
-    _headAnchorY() { return -this._legLen() - this._torsoH() - this._headR() + 6; }
+    _headAnchorY(entity) { return -this._legLen(entity) - this._torsoH(entity) - this._headR(entity) + 6; }
 
     // Migração p/ pipeline de sprites: a única variação da cabeça entre
     // frames é a expressão da boca (ver _drawMouth), que só olha
@@ -2576,7 +2620,19 @@ class GraphicsEngine {
     _headSpriteKey(entity, pose, helmet) {
         const v = entity.visuals || {};
         const helmetSig = helmet ? `${helmet.id}|${helmet.rarity ? helmet.rarity.color : ''}` : '';
-        return `head:${JSON.stringify(v)}|${this._headExpressionBucket(pose)}|${helmetSig}`;
+        // `entity.race` (item 7 da auditoria: bodyScale.width entra em
+        // _headR, ver races.js) precisa estar na chave — bug encontrado
+        // nesta auditoria: a chave antiga só olhava `v` (visuals), que NUNCA
+        // inclui a raça (`entity.race` é um campo separado). Como o bitmap
+        // da cabeça tem w/h FIXOS (140x120, ver _bakeHeadSprite — ao
+        // contrário do torso/perna, aqui o cheque de w/h em
+        // SpriteCache.get nunca detecta a diferença), dois personagens com
+        // visuals idênticos mas raças diferentes (ex.: dois humanos vs um
+        // Anão com o mesmo preset de cabelo/pele/rosto) colidiriam na MESMA
+        // entrada de cache e um deles ficaria com a cabeça do tamanho ERRADO
+        // — silenciosamente, sem redesenho forçado nenhum.
+        const raceSig = entity.race || '';
+        return `head:${JSON.stringify(v)}|${this._headExpressionBucket(pose)}|${helmetSig}|${raceSig}`;
     }
 
     // Cabeça (pescoço, cabelo, rosto, orelha, sobrancelha, olhos, boca,
@@ -2601,13 +2657,13 @@ class GraphicsEngine {
     _paintHead(ctx, entity, pose, helmet) {
         const v = entity.visuals || {};
         const skin = v.skinTone || '#ffcc99';
-        const headR = this._headR();
-        const headY = this._headAnchorY();
+        const headR = this._headR(entity);
+        const headY = this._headAnchorY(entity);
         const archId = v.archetype;
 
         // Pescoço
         ctx.fillStyle = skin;
-        ctx.fillRect(-6, -this._legLen() - this._torsoH() - 6, 12, 10);
+        ctx.fillRect(-6, -this._legLen(entity) - this._torsoH(entity) - 6, 12, 10);
 
         // Cabelo atrás da cabeça (só se não houver capacete)
         if (!helmet) this._drawHair(ctx, v, headY, headR, true);
@@ -2661,7 +2717,7 @@ class GraphicsEngine {
         this._drawFangs(ctx, v, headY);
 
         if (!helmet) this._drawHair(ctx, v, headY, headR, false);
-        this._drawFacialHair(ctx, v, headY);
+        this._drawFacialHair(ctx, v, headY, headR);
         this._drawArchetypeHeadSignature(ctx, entity, headY, headR);
         if (helmet) this._drawHelmet(ctx, helmet, headY, headR);
     }
@@ -2969,11 +3025,10 @@ class GraphicsEngine {
     // cabelo via v.beardColor. Algumas variantes mais cheias (Viking, Longa,
     // Trançada) ficam indisponíveis para o gênero Feminino no criador —
     // identidade visual apenas, sem qualquer efeito de atributo.
-    _drawFacialHair(ctx, v, headY) {
+    _drawFacialHair(ctx, v, headY, headR) {
         const beardStyle = v.beardStyle || 0;
         if (!beardStyle) return;
         const color = v.beardColor || v.hairColor || '#2a1c10';
-        const headR = this._headR();
         ctx.fillStyle = color;
 
         const drawMustache = () => {
@@ -3119,7 +3174,7 @@ class GraphicsEngine {
 
     // Braço de trás: escudo (se houver) — desenhado antes da cabeça pra ficar atrás do corpo
     _drawBackArm(ctx, entity, pose) {
-        const shoulderY = -this._legLen() - this._torsoH() + 10;
+        const shoulderY = -this._legLen(entity) - this._torsoH(entity) + 10;
         const skin = (entity.visuals && entity.visuals.skinTone) || '#ffcc99';
         const gloves = entity.equipment && entity.equipment[SLOTS.HANDS];
         const gloveColor = gloves ? (gloves.rarity ? gloves.rarity.color : '#5a4632') : null;
@@ -3127,9 +3182,9 @@ class GraphicsEngine {
         const m = this._bodyMetrics(entity);
         const shield = entity.equipment && entity.equipment[SLOTS.OFF_HAND];
         const angle = pose.guard ? -110 : -75;
-        const backArmLen = this._armLen() * 0.7;
+        const backArmLen = this._armLen(entity) * 0.7;
 
-        const armSprite = this._bakeArmLimbSprite(backArmLen, m, armColor, gloveColor, true, this._armLen() * 0.5, this._armLen() * 0.2);
+        const armSprite = this._bakeArmLimbSprite(backArmLen, m, armColor, gloveColor, true, this._armLen(entity) * 0.5, this._armLen(entity) * 0.2);
         ctx.save();
         ctx.translate(-m.shoulder / 2 + 3, shoulderY);
         ctx.rotate(angle * Math.PI / 180);
@@ -3166,13 +3221,13 @@ class GraphicsEngine {
     // Braço da frente: sempre a arma equipada (ou punho nu). anim (opcional)
     // permite desenhar um leve rastro de movimento durante o golpe de ataque.
     _drawFrontArm(ctx, entity, pose, anim) {
-        const shoulderY = -this._legLen() - this._torsoH() + 10;
+        const shoulderY = -this._legLen(entity) - this._torsoH(entity) + 10;
         const skin = (entity.visuals && entity.visuals.skinTone) || '#ffcc99';
         const gloves = entity.equipment && entity.equipment[SLOTS.HANDS];
         const gloveColor = gloves ? (gloves.rarity ? gloves.rarity.color : '#5a4632') : null;
         const armColor = gloves ? '#3a2f22' : skin;
         const m = this._bodyMetrics(entity);
-        const armLen = this._armLen();
+        const armLen = this._armLen(entity);
         const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
 
         const armSpritePlain = this._bakeArmLimbSprite(armLen, m, armColor, gloveColor, false, 0, 0);

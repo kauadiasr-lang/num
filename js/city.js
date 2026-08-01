@@ -2020,10 +2020,15 @@ class CityEngine {
     //
     // Os NPCs (cidadãos) recebem um encolhimento extra além de _cityScale:
     // um gladiador desenhado em tamanho nativo (pés ao topo da cabeça) mede
-    // ~160px (_legLen 58 + _torsoH 62 + _headR*2 40), quase 4x a altura da
-    // porta de um prédio (~44px num prédio da fileira do meio) — bem maior
-    // que um prédio de verdade. NPC_EXTRA_SHRINK aproxima a altura deles da
-    // porta.
+    // ~160px pra uma raça "humana" (_legLen 58 + _torsoH 62 + _headR*2 40 —
+    // Orc/Elfo/Anão escalam esse total pra mais ou pra menos via
+    // races.js `bodyScale`, ver item 7 da auditoria de balanceamento),
+    // quase 4x a altura da porta de um prédio (~44px num prédio da fileira
+    // do meio) — bem maior que um prédio de verdade. NPC_EXTRA_SHRINK
+    // aproxima a altura deles da porta; por ser um fator FIXO (não por
+    // raça), um Orc continua proporcionalmente mais alto/largo que um
+    // Anão na cidade, exatamente como na Arena — só a escala de base muda,
+    // nunca a proporção entre raças.
     static get NPC_EXTRA_SHRINK() { return 0.32; }
 
     // O jogador usava só _cityScale (sem encolhimento extra), o que na
