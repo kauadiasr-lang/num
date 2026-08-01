@@ -25,7 +25,12 @@
 const ANIMATION_TYPES = {
     IDLE: 'idle', WALK: 'walk', RUN: 'run', ATTACK: 'attack', HEAVY_ATTACK: 'heavy_attack',
     HIT: 'hurt', BLOCK: 'block', DODGE: 'dodge', CRITICAL: 'critical', DEATH: 'death',
-    VICTORY: 'victory', CAST: 'cast', CHARGE: 'charge', EQUIP: 'equip', UNEQUIP: 'unequip'
+    VICTORY: 'victory', CAST: 'cast', CHARGE: 'charge', EQUIP: 'equip', UNEQUIP: 'unequip',
+    // Defender (item 8 da auditoria de balanceamento) — ver graphics.js
+    // computePose 'defend': gesto breve de recolhimento ao assumir a
+    // postura defensiva, distinto do `pose.guard` contínuo (braço do
+    // escudo erguido durante todo o turno).
+    DEFEND: 'defend'
 };
 
 // ==========================================================================

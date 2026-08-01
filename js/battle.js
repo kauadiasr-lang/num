@@ -101,6 +101,54 @@ class BattleSystem {
         return mult !== 1 ? Math.floor(damage * mult) : damage;
     }
 
+    // Ação Defender (item 8 da auditoria de balanceamento) — compartilhada
+    // entre jogador e inimigo (chamada pelos dois ramos de `DEF`, ver
+    // executePlayerTurn/executeEnemyTurn) pra nunca duplicar a fórmula.
+    // `state.isDefending = true` já dobrava a Defesa antes desta mudança
+    // (ver executeAttack acima); esta função ADICIONA os 3 efeitos que
+    // faltavam sem tocar nesse comportamento existente:
+    //
+    // 1. Mana extra (além da regeneração passiva por turno de
+    //    Entity.regenMp, já chamada no início de todo turno próprio) — só
+    //    se aplica a quem realmente tem mana (maxMp > 0).
+    // 2. Limpa sangramento ativo (bleedTurns/bleedDamage) com 50% de
+    //    chance — "quando apropriado" (pedido original) significa: só
+    //    quando existe algo pra limpar, e nunca garantido. Bug de auditoria
+    //    verificado e evitado de propósito: `justRan` (a mesma flag de
+    //    "lentidão"/menos esquiva no próximo golpe sofrido) NÃO é limpa
+    //    aqui, porque ela também é usada como o custo deliberado da ação
+    //    RUN/Correr (ver linha ~502 abaixo) — cleanar isso via Defender
+    //    anularia de graça o trade-off daquela ação inteiramente separada,
+    //    já que as duas fontes compartilham o mesmo campo sem distinção.
+    //    Nunca atordoamento (`stunned`): quem está atordoado nem chega a
+    //    executar Defender, então não há nada pra "limpar" nesse caso.
+    // 3. Animação própria (`defend`, ver graphics.js computePose) além da
+    //    postura de guarda contínua que já existia (`pose.guard`, mantida
+    //    intacta) — um gesto breve de recolhimento no momento de assumir a
+    //    postura, não só o braço do escudo erguido durante o turno inteiro.
+    _resolveDefend(entity, state, isPlayer) {
+        state.isDefending = true;
+        let msg = `${entity.name} assumiu uma postura defensiva`;
+
+        if (entity.derivedStats.maxMp > 0) {
+            const manaBefore = entity.currentMp;
+            const manaRestore = Math.max(1, Math.ceil(entity.derivedStats.maxMp * 0.10));
+            entity.currentMp = Utils.clamp(entity.currentMp + manaRestore, 0, entity.derivedStats.maxMp);
+            const actuallyRestored = entity.currentMp - manaBefore;
+            if (actuallyRestored > 0) msg += `, recuperando ${actuallyRestored} de mana`;
+        }
+
+        if (state.bleedTurns > 0 && Utils.chance(50)) {
+            state.bleedTurns = 0;
+            state.bleedDamage = 0;
+            msg += ' e estancou o sangramento';
+        }
+        msg += '!';
+
+        if (window.GFX) window.GFX.playAnim(isPlayer, 'defend', 500);
+        return msg;
+    }
+
     executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1, isCounter = false) {
         const isPlayer = attacker === this.player;
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
@@ -463,8 +511,7 @@ class BattleSystem {
             if (window.GFX) window.GFX.playAnim(true, 'approach', 500);
         }
         else if (actionCode === 'DEF') {
-            this.playerState.isDefending = true;
-            resultMsg = `${this.player.name} assumiu uma postura defensiva!`;
+            resultMsg = this._resolveDefend(this.player, this.playerState, true);
         }
         else if (actionCode === 'HOLD') {
             this.playerState.holdingDistance = true;
@@ -1067,7 +1114,11 @@ class BattleSystem {
             // executeEnemyTurn), exatamente como o do jogador.
             this.enemyState.holdingDistance = true;
         } else if (decision.action === 'DEF') {
-            this.enemyState.isDefending = true;
+            // `resultMsg` já carrega a fala de sabor da IA (ver ai.js
+            // decision.message, ex: "zomba de você, confiante!") — soma a
+            // ela em vez de substituir, preservando essa personalidade.
+            const defendMsg = this._resolveDefend(this.enemy, this.enemyState, false);
+            resultMsg = resultMsg ? `${resultMsg} ${defendMsg}` : defendMsg;
         }
 
         window.UI.appendBattleLog(`<span style="color:#ff4444">${resultMsg}</span>`);

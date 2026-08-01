@@ -1962,6 +1962,21 @@ class GraphicsEngine {
                 pose.offsetY = -k * 4;
                 break;
             }
+            case 'defend': {
+                // Defender (item 8 da auditoria de balanceamento): gesto
+                // breve de recolhimento ao ASSUMIR a postura — arma/escudo
+                // puxados junto ao corpo e um leve agachamento — distinto do
+                // `pose.guard` contínuo (braço do escudo erguido, ver linha
+                // abaixo) que já existia e continua aplicado durante TODO o
+                // turno em que a entidade está defendendo, não só neste
+                // instante de transição. Curva senoidal volta ao neutro em
+                // t=1, igual a hurt/dodge/victory/prepare.
+                const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
+                pose.weaponAngle -= 40 * k;
+                pose.offsetY = 3 * k;
+                pose.torsoLean -= 5 * k;
+                break;
+            }
             case 'boss_bats': { // Conde Vampiro: Enxame de Morcegos — gesto amplo e caótico convocando o enxame
                 const k = Math.sin(Utils.clamp(t, 0, 1) * Math.PI);
                 pose.weaponAngle -= 70 * Math.sin(t * Math.PI * 3); // agito rápido, irregular

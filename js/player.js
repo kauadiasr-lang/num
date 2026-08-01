@@ -502,8 +502,20 @@ class Player extends Entity {
         this.level++;
         this.statPoints += 3;  // Ganha 3 pontos para distribuir por nível
         this.skillPoints += 1; // 1 Ponto de Talento por nível
+        // Bug de auditoria corrigido: `mutationSkillPoints` (pontos da árvore
+        // de Linhagem, ver skilltrees.js) só era concedido UMA VEZ — os +3
+        // fixos de lineages.js `awaken()`, no momento do despertar — e nunca
+        // mais depois disso, em nenhum outro lugar do código. Como as
+        // árvores de Vampirismo/Luz têm ~15 nós somando ~20 de custo total,
+        // o jogador ficava permanentemente travado em 3 pontos pro resto da
+        // campanha assim que os gastava: um beco sem saída de progressão,
+        // não uma limitação intencional. Espelha o MESMO padrão já usado
+        // por `skillPoints` acima (+1 por nível), só que condicionado a já
+        // ter despertado uma Linhagem — sem isso, nenhuma árvore existe
+        // ainda pra gastar o ponto, e o jogador não tem `lineage` definido.
+        if (this.lineage) this.mutationSkillPoints = (this.mutationSkillPoints || 0) + 1;
         this.calculateDerivedStats();
-        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point`);
+        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point${this.lineage ? ', +1 Ponto de Mutação' : ''}`);
     }
 
     learnSkill(skillId) {

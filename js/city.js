@@ -1519,7 +1519,12 @@ class CityEngine {
         // diferente de subir de nível numa batalha (que já mostra banner +
         // fanfarra, ver ui.js showBattleResults).
         if (p && p.level > levelBefore) {
-            this._toast(`Você subiu para o nível ${p.level}! (+3 Atributos, +1 Talento)`, 'success');
+            // Ponto de Mutação (ver player.js levelUp — bug de auditoria
+            // corrigido junto: antes esse ponto nem existia por nível
+            // nenhum, só o texto some agora precisa refletir quando ele é
+            // concedido) só aparece pra quem já despertou uma Linhagem.
+            const mutationPart = p.lineage ? ', +1 Ponto de Mutação' : '';
+            this._toast(`Você subiu para o nível ${p.level}! (+3 Atributos, +1 Talento${mutationPart})`, 'success');
             if (window.AudioManager) window.AudioManager.playLevelUp();
         }
     }
