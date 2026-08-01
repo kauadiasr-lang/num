@@ -135,6 +135,18 @@ class AudioEngine {
         setTimeout(() => this.playTone(1000, 'sine', 0.15, 0.3, 1300), 80);
     }
 
+    // Pedra de Luz coletada na Cidade (item 13 da auditoria de
+    // balanceamento — Ritual da Luz, ver city.js _collectLightStone):
+    // arpejo curto e cristalino, ascendente, distinto de playConfirm/
+    // playHeal, pra dar identidade sonora própria a um recurso raro e
+    // "sagrado" que antes era só um toast silencioso.
+    playLightPickup() {
+        const notes = [900, 1200, 1600];
+        notes.forEach((freq, i) => {
+            setTimeout(() => this.playTone(freq, 'sine', 0.18, 0.3, freq * 1.3), i * 70);
+        });
+    }
+
     // Passo ao andar pela Cidade (ver city.js _updateMovement) — um "thud"
     // grave e curto, com leve variação de tom a cada passo pra não soar
     // igual um metrônomo. O jogador andava pela praça inteira sem NENHUM

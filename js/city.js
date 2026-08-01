@@ -147,6 +147,30 @@ class CityEngine {
             { slot: 'center', xFrac: 0.56, rowOffset: 148 },
         ];
 
+        // Pedras de Luz (item 13 da auditoria de balanceamento): recurso do
+        // Ritual da Luz (Fragmentos Sagrados, ver rituals.js) que antes só
+        // existia como um evento aleatório TOTALMENTE INVISÍVEL (_eventSacredFragment,
+        // removido nesta iteração) — um toast "você encontra um fragmento"
+        // sem NENHUMA presença física no mundo, exatamente o mesmo problema
+        // que o Mercador Viajante já teve corrigido (ver _makeTravelingMerchant).
+        // Agora pedras físicas em posições FIXAS na praça (não sorteadas)
+        // brilham visivelmente enquanto o Ritual da Luz não foi concluído; o
+        // jogador anda até uma e clica pra coletar (ver
+        // _approachAndCollectStone/_updatePendingCollectStone, mesmo fluxo de
+        // aproximação já usado por _approachAndTalk/_updatePendingTalk).
+        // `collected`/`respawnTimer` são estado de sessão (como clima e
+        // promoção de loja) — só o PROGRESSO em si
+        // (player.ritualProgress.luz.sacredFragments) é persistido no save,
+        // através do Player que já existe.
+        this.lightStoneSpots = [
+            { xFrac: 0.05, rowOffset: 175 },
+            { xFrac: 0.95, rowOffset: 175 },
+            { xFrac: 0.5, rowOffset: 225 },
+        ];
+        this.lightStones = [];
+        this._pendingCollectStone = null;
+        this._lightStoneSparkleTimer = 0;
+
         this._interactPromptEl = null;
         this._hintEl = null;
     }
@@ -166,6 +190,7 @@ class CityEngine {
             this._setupInput();
         }
         this._spawnNpcsIfNeeded();
+        this._spawnLightStonesIfNeeded();
         if (window.AudioManager) window.AudioManager.startCityAmbience();
         this._interactPromptEl = document.getElementById('city-interact-prompt');
         this._hintEl = document.getElementById('city-hint');
@@ -245,6 +270,22 @@ class CityEngine {
             this._gateTravelerSpawned = true;
             this.npcs.push(this._makeCaravanTraveler());
         }
+    }
+
+    // Recria as pedras de luz (todas não coletadas) só se o jogador ainda
+    // precisa de Fragmentos Sagrados — nenhuma Linhagem despertada e menos
+    // de 5 já reunidos (ver rituals.js RITUALS.luz_ritual). Idempotente
+    // igual _spawnNpcsIfNeeded: não recria (nem reresseta o respawnTimer de
+    // pedras já coletadas) se já existem pedras nesta cidade/sessão — só
+    // limpa tudo quando o jogador deixa de precisar (despertou a Luz ou já
+    // tem os 5), removendo a "decoração morta" da praça.
+    _spawnLightStonesIfNeeded() {
+        const p = window.Engine.state.player;
+        const rp = p ? p.ritualProgress.luz : null;
+        const eligible = p && !p.lineage && (!rp || rp.sacredFragments < 5);
+        if (!eligible) { this.lightStones = []; return; }
+        if (this.lightStones.length > 0) return;
+        this.lightStones = this.lightStoneSpots.map((spot, i) => ({ id: i, spot, collected: false, respawnTimer: 0 }));
     }
 
     // NPC fixo no vão do portão da muralha — raio de "pin" bem pequeno, já
@@ -519,6 +560,17 @@ class CityEngine {
             return;
         }
 
+        // Clicar numa Pedra de Luz (ver _spawnLightStonesIfNeeded) manda o
+        // jogador andar até perto dela primeiro, mesmo fluxo de aproximação
+        // do NPC acima — coletar um Fragmento Sagrado sem sequer se
+        // aproximar dele não faria sentido físico nenhum, e o objeto todo
+        // desta iteração é justamente dar presença FÍSICA a esse recurso.
+        const stone = this._lightStoneAtPoint(x, y);
+        if (stone) {
+            this._approachAndCollectStone(stone);
+            return;
+        }
+
         // Clicar direto num prédio entra nele na hora, sem precisar andar até
         // lá primeiro — só cliques no chão (fora de qualquer estrutura) fazem
         // o jogador caminhar. Continua dando pra "passear de verdade" com
@@ -596,6 +648,109 @@ class CityEngine {
         this.player.facing = (npc.x >= this.player.x) ? 1 : -1;
         npc.facing = (npc.x > this.player.x) ? -1 : 1;
         this._talkToNpc(npc);
+    }
+
+    // Posição de tela de uma Pedra de Luz — mesma convenção de xFrac/
+    // rowOffset escalados por _cityScale já usada por fonte/estátuas/vegetação.
+    _lightStonePos(stone) {
+        const w = window.Engine.width, h = window.Engine.height;
+        const scale = this._cityScale(h);
+        return { x: stone.spot.xFrac * w, y: this._horizon(h) + stone.spot.rowOffset * scale };
+    }
+
+    // Pedra de Luz mais próxima do clique, dentro de um raio pequeno (mesma
+    // ideia de _npcAtPoint) — só considera pedras ainda não coletadas.
+    _lightStoneAtPoint(x, y) {
+        const radius = 30 * this._cityScale(window.Engine.height);
+        let closest = null, closestDist = radius;
+        for (const stone of this.lightStones) {
+            if (stone.collected) continue;
+            const pos = this._lightStonePos(stone);
+            const d = Math.hypot(pos.x - x, pos.y - y);
+            if (d <= closestDist) { closest = stone; closestDist = d; }
+        }
+        return closest;
+    }
+
+    // Manda o jogador andar até perto da pedra clicada, mesma ideia de
+    // _approachAndTalk — a coleta de verdade só dispara na chegada (ver
+    // _updatePendingCollectStone).
+    _approachAndCollectStone(stone) {
+        if (this._pendingCollectStone === stone) return;
+        this._pendingCollectStone = stone;
+        const pos = this._lightStonePos(stone);
+        const approachDist = 34;
+        const dir = (pos.x >= this.player.x) ? -1 : 1;
+        this._setPlayerDestination(pos.x + dir * approachDist, pos.y);
+    }
+
+    // Chamado a cada frame (ver update()): assim que o jogador termina de
+    // andar até o destino de _approachAndCollectStone, coleta de verdade
+    // (_collectLightStone). Se a pedra sumiu no meio do caminho (já
+    // coletada por... nada mais a coleta além do próprio jogador, mas o
+    // Ritual pode ter sido concluído nesse meio-tempo, ver
+    // _updateLightStones) ou o jogador ficou longe demais, desiste
+    // silenciosamente — mesmo padrão de _updatePendingTalk.
+    _updatePendingCollectStone() {
+        if (!this._pendingCollectStone) return;
+        const stone = this._pendingCollectStone;
+        const stillExists = this.lightStones.includes(stone) && !stone.collected;
+        if (!stillExists) { this._pendingCollectStone = null; return; }
+
+        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
+        if (!arrived) return;
+
+        this._pendingCollectStone = null;
+        const pos = this._lightStonePos(stone);
+        if (this._distanceTo(pos) > 60) return; // desviado no meio do caminho, desiste
+        this._collectLightStone(stone);
+    }
+
+    // Coleta de verdade: soma o Fragmento Sagrado ao progresso do Ritual da
+    // Luz (mesmo RitualSystem.onSacredFragmentFound que o antigo evento
+    // aleatório já chamava — o RECURSO em si não muda, só ganhou presença
+    // física de verdade), com VFX/som próprios, e agenda o respawn (ver
+    // _updateLightStones) na MESMA posição fixa — nunca uma nova pedra em
+    // lugar aleatório.
+    _collectLightStone(stone) {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        stone.collected = true;
+        // Mesma janela de tempo (50-100s) que o evento aleatório substituído
+        // usava para sortear de novo — preserva o ritmo de raridade original.
+        stone.respawnTimer = Utils.randomFloat(50, 100);
+
+        window.RitualSystem.onSacredFragmentFound(p, 1);
+        const have = p.ritualProgress.luz.sacredFragments;
+        const pos = this._lightStonePos(stone);
+        if (window.GFX) {
+            window.GFX.spawnParticles(pos.x, pos.y - 10, '#fff2b8', 18, 4, 3);
+            window.GFX.spawnText(pos.x, pos.y - 40, '+1 Fragmento Sagrado', '#ffe9a3', false);
+        }
+        if (window.AudioManager) window.AudioManager.playLightPickup();
+        this._toast(`Você recolhe um Fragmento Sagrado que brilhava entre as pedras... (${have}/5)`, 'success');
+
+        // Já reuniu tudo que precisava — a última pedra some de vez (sem
+        // respawn) e o resto da praça também some no próximo
+        // _spawnLightStonesIfNeeded (ver onEnterCity/travelToCity).
+        if (have >= 5) this.lightStones.forEach(s => { s.collected = true; s.respawnTimer = Infinity; });
+    }
+
+    // Decrementa o respawn de cada pedra já coletada (ver update()) e a
+    // faz reaparecer na MESMA posição — só se o jogador ainda precisar dela
+    // (ritual ainda incompleto, nenhuma Linhagem despertada nesse meio-tempo).
+    _updateLightStones(dt) {
+        if (this.lightStones.length === 0) return;
+        const p = window.Engine.state.player;
+        for (const stone of this.lightStones) {
+            if (!stone.collected) continue;
+            stone.respawnTimer -= dt;
+            if (stone.respawnTimer <= 0) {
+                const rp = p ? p.ritualProgress.luz : null;
+                const stillEligible = p && !p.lineage && (!rp || rp.sacredFragments < 5);
+                if (stillEligible) stone.collected = false;
+            }
+        }
     }
 
     // Fala rápida de um NPC ambiente — nunca revela mecanismos de jogo
@@ -820,7 +975,14 @@ class CityEngine {
         this.weather = 'clear';
         this._weatherTimer = Utils.randomFloat(45, 90);
         this.isStorm = false;
+        // Pedras de Luz (ver _spawnLightStonesIfNeeded) — mesma razão do
+        // resto do ambiente acima: não faz sentido "atravessar" a viagem com
+        // o jogador, então força uma nova rodada (todas não coletadas) na
+        // cidade de chegada.
+        this.lightStones = [];
+        this._pendingCollectStone = null;
         this._spawnNpcsIfNeeded();
+        this._spawnLightStonesIfNeeded();
 
         // Troca o MOOD da trilha ambiente pra da nova cidade (ver
         // audio.js CITY_MUSIC_MOODS) — startAmbientMusic() é um no-op se já
@@ -848,6 +1010,8 @@ class CityEngine {
         this._updateDayCycle(dt);
         this._updateMovement(dt);
         this._updatePendingTalk();
+        this._updatePendingCollectStone();
+        this._updateLightStones(dt);
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
         // continuar simulando o passeio de alguém que ninguém vê.
@@ -1240,6 +1404,21 @@ class CityEngine {
             this._ambientSoundTimer = Utils.randomFloat(3, 7);
             window.AudioManager.playCityAmbientOneshot();
         }
+
+        // Fagulhas de luz subindo de cada Pedra ainda não coletada (ver
+        // _drawLightStone) — reforça o "brilho" mesmo parado, do mesmo jeito
+        // que a fumaça da forja acima já anima o Ferreiro em repouso.
+        if (this.lightStones.length > 0) {
+            this._lightStoneSparkleTimer -= dt;
+            if (this._lightStoneSparkleTimer <= 0 && window.GFX.qualityLevel !== 'baixa') {
+                this._lightStoneSparkleTimer = Utils.randomFloat(0.5, 1.1);
+                for (const stone of this.lightStones) {
+                    if (stone.collected) continue;
+                    const pos = this._lightStonePos(stone);
+                    window.GFX.spawnParticles(pos.x, pos.y - 6, '#fff2b8', 1, 0.5, 2);
+                }
+            }
+        }
     }
 
     // Clima da praça: alterna entre 'clear' e 'rain' em ciclos temporizados
@@ -1340,11 +1519,14 @@ class CityEngine {
             if (!this._nightEncounterPending) table.push({ w: 3, run: () => this._eventNightMonsterAttack(p) });
         }
 
-        // Fragmentos Sagrados (Ritual da Luz) — encontrados a qualquer hora,
-        // raramente, enquanto o jogador ainda não completou o requisito.
-        if (p && !p.lineage && (!p.ritualProgress.luz || p.ritualProgress.luz.sacredFragments < 5)) {
-            table.push({ w: 2, run: () => this._eventSacredFragment(p) });
-        }
+        // Fragmentos Sagrados (Ritual da Luz): item 13 da auditoria de
+        // balanceamento — antes um evento aleatório aqui mesmo
+        // (_eventSacredFragment, removido) entregava o fragmento
+        // instantaneamente via toast, sem NENHUMA presença física no mundo.
+        // Agora são Pedras de Luz físicas, visíveis e clicáveis, espalhadas
+        // em posições fixas pela praça sempre que o Ritual da Luz ainda não
+        // foi concluído (ver _spawnLightStonesIfNeeded/_collectLightStone) —
+        // não fazem mais parte deste sorteio de eventos.
 
         const totalW = table.reduce((s, e) => s + e.w, 0);
         if (totalW <= 0) return;
@@ -1409,15 +1591,6 @@ class CityEngine {
                 window.UI.beginBattleWith(monster);
             }
         }, 1800);
-    }
-
-    // Fragmento Sagrado — recurso do Ritual da Luz, encontrado por acaso na
-    // cidade (nunca comprado, nunca explicado diretamente ao jogador).
-    _eventSacredFragment(p) {
-        window.RitualSystem.onSacredFragmentFound(p, 1);
-        const have = p.ritualProgress.luz.sacredFragments;
-        this._toast(`Você encontra um Fragmento Sagrado brilhando entre as pedras da praça... (${have}/5)`, 'success');
-        if (window.AudioManager) window.AudioManager.playConfirm();
     }
 
     // Rumores veIados sobre as Linhagens — nunca explicam o mecanismo
@@ -1615,6 +1788,13 @@ class CityEngine {
         const drawables = [
             ...this.buildings.map(b => ({ y: this._doorPoint(b).y, draw: () => this._drawBuilding(ctx, w, h, b) })),
             ...(isNight ? this._nightVisibleNpcs() : this.npcs).map(n => ({ y: n.y, draw: () => this._drawNpc(ctx, n) })),
+            // Pedras de Luz (ver _spawnLightStonesIfNeeded/item 13 da
+            // auditoria) entram no MESMO ordenamento por profundidade que
+            // prédios/NPCs/jogador — diferente de fonte/estátuas/vegetação
+            // acima (sempre desenhadas por baixo), uma pedra perto do
+            // jogador precisa poder ficar tanto atrás quanto na frente dele
+            // dependendo de quem está mais "embaixo" na tela.
+            ...this.lightStones.filter(s => !s.collected).map(s => ({ y: this._lightStonePos(s).y, draw: () => this._drawLightStone(ctx, s) })),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);
@@ -1728,6 +1908,46 @@ class CityEngine {
         const color = (cityDef && cityDef.statueColor) || '#c9c2b0';
         const sprite = this._bakeStatueSprite(scale, color);
         window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
+    }
+
+    // Pedra de Luz (item 13 da auditoria de balanceamento) — pulsa um brilho
+    // suave (halo radial, mesma técnica já usada pelo flicker das tochas em
+    // graphics.js) pra ficar visível de longe na praça mesmo entre os
+    // prédios/NPCs; a rocha em si é pequena e simples (não é um monumento,
+    // só um achado). Nunca é baked (SpriteCache): o pulso anima a cada
+      // frame via performance.now(), então não haveria nada de "estático" pra
+    // cachear, ao contrário da fonte/estátuas/vegetação acima.
+    _drawLightStone(ctx, stone) {
+        const w = window.Engine.width, h = window.Engine.height;
+        const pos = this._lightStonePos(stone);
+        const scale = this._cityScale(h);
+        const t = performance.now() * 0.0025;
+        const pulse = 0.65 + Math.sin(t + stone.id * 2.1) * 0.35;
+        const r = 9 * scale;
+
+        ctx.save();
+        const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r * 3.2);
+        glow.addColorStop(0, `rgba(255,240,180,${0.5 * pulse})`);
+        glow.addColorStop(1, 'rgba(255,240,180,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+
+        // Rocha pequena e irregular (silhueta simples, sem bake) sob o brilho.
+        ctx.fillStyle = '#5a5448';
+        ctx.beginPath();
+        ctx.moveTo(pos.x - r * 0.9, pos.y);
+        ctx.lineTo(pos.x - r * 0.4, pos.y - r * 0.7);
+        ctx.lineTo(pos.x + r * 0.5, pos.y - r * 0.5);
+        ctx.lineTo(pos.x + r * 0.9, pos.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Núcleo luminoso, o "fragmento" propriamente dito, cravado na rocha.
+        ctx.fillStyle = `rgba(255,242,192,${0.75 + pulse * 0.25})`;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y - r * 0.5, r * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     // Vegetação orientada a dados (ver this.vegetation + CityDatabase
