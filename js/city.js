@@ -1661,6 +1661,17 @@ class CityEngine {
             { w: 2, run: () => this._eventPromotion() },
             { w: 2, run: () => this._eventPerformer() },
             { w: 2, run: () => this._eventCrier() },
+            // Item #7 do novo pedido de auditoria ("eventos aleatórios
+            // durante viagens/caminhada"): a lista pedida (viajante
+            // perdido, mercador ambulante, ladrões, caçadores, sacerdote,
+            // vampiro, patrulha, animais) já cobria mercador/ladrões/
+            // vampiro através dos eventos acima/abaixo — faltavam viajante
+            // perdido, caçadores, sacerdote, patrulha e animais.
+            { w: 2, run: () => this._eventLostTraveler(p) },
+            { w: 2, run: () => this._eventHunters() },
+            { w: 2, run: () => this._eventPriestBlessing(p) },
+            { w: 2, run: () => this._eventPatrol() },
+            { w: 2, run: () => this._eventWildAnimal(p) },
             // Rumores sobre as Linhagens (Mutações) — pistas veladas, nunca
             // explica o mecanismo diretamente (ver rituals.js/lineages.js).
             // Só aparece pra quem ainda não despertou nenhuma linhagem.
@@ -1912,6 +1923,73 @@ class CityEngine {
             'Pregoeiro anuncia: a fama de todo campeão é registrada no Hall da Fama!'
         ];
         this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    // Viajante Perdido (item #7 do novo pedido de auditoria) — ajudar
+    // alguém perdido a encontrar o caminho rende uma pequena gratificação,
+    // mesmo padrão mecânico de _eventMessenger (efeito simples que já
+    // existe: ouro), só com identidade/flavor própria.
+    _eventLostTraveler(p) {
+        if (!p) return;
+        const gift = Utils.randomInt(8, 25);
+        p.gold += gift;
+        this._toast(`Um viajante perdido pediu ajuda para achar o caminho — agradecido, deixou ${gift}g antes de seguir viagem.`, 'success');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+    }
+
+    // Caçadores (item #7) — desafiam o jogador a provar sua pontaria/força,
+    // mesmo padrão de _eventDuelist (puxa uma batalha de verdade via
+    // UI.startBattle), só com identidade própria (caçadores, não duelistas
+    // da arena).
+    _eventHunters() {
+        this._toast('Um bando de caçadores zomba da sua postura e propõe testar sua força de verdade!', 'info');
+        setTimeout(() => {
+            if (this._isActive() && window.UI && window.UI.startBattle) {
+                const arenaMenu = document.getElementById('city-arena-menu');
+                if (arenaMenu) arenaMenu.classList.add('hidden');
+                window.UI.startBattle();
+            }
+        }, 1800);
+    }
+
+    // Bênção do Sacerdote (item #7) — reduz 1 nível de fadiga de graça, a
+    // única forma de cura "de graça" fora do Curandeiro/dormir no chão
+    // (ver ui.js healFatigue/freeRest) — mecânica real, não só flavor,
+    // condizente com a identidade de um sacerdote abençoando um gladiador.
+    _eventPriestBlessing(p) {
+        if (!p || (p.fatigue || 0) <= 0) {
+            this._toast('Um sacerdote te abençoa em silêncio antes de seguir seu caminho.', 'info');
+            return;
+        }
+        p.cureFatigue(1);
+        this._toast('Um sacerdote te abençoa, aliviando um pouco do seu cansaço acumulado.', 'success');
+        if (window.AudioManager) window.AudioManager.playHeal();
+    }
+
+    // Patrulha da Guarda (item #7) — puramente flavor, mesmo tratamento já
+    // aceito por _eventNoble/_eventPerformer/_eventCrier (nem todo evento
+    // precisa de efeito mecânico pra ter identidade própria).
+    _eventPatrol() {
+        const lines = [
+            'Uma patrulha da guarda cruza a praça, atenta a qualquer sinal de encrenca.',
+            'Guardas trocam cumprimentos formais com você antes de seguir a ronda.',
+            'A patrulha da noite passada capturou um ladrão local — a praça respira um pouco mais tranquila.'
+        ];
+        this._toast(lines[Utils.randomInt(0, lines.length - 1)], 'info');
+    }
+
+    // Animal Selvagem (item #7) — um bicho cavando por perto desenterra
+    // algo de valor, mesmo padrão mecânico de _eventLostTraveler/
+    // _eventMessenger (efeito simples: ouro), com identidade própria.
+    _eventWildAnimal(p) {
+        if (!p) return;
+        if (Utils.chance(50)) {
+            const gift = Utils.randomInt(5, 18);
+            p.gold += gift;
+            this._toast(`Um cão vira-lata desenterra algo brilhante perto da fonte — você encontra ${gift}g no meio da terra.`, 'success');
+        } else {
+            this._toast('Um bando de pássaros alça voo de repente perto da muralha, sem motivo aparente.', 'info');
+        }
     }
 
     _eventVictoryComment(p) {
