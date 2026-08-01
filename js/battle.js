@@ -1358,6 +1358,14 @@ class BattleSystem {
                 }
             }
 
+            // Progresso de Missões Secundárias (ver quests.js) — bosses de
+            // Ritual ficam de fora (combate único/especial, não um "duelo"
+            // comum pra fins de missão, igual ao Ritual da Luz que também
+            // não mistura contadores com combates de boss).
+            if (window.QuestSystem && !this.enemy.isBoss) {
+                window.QuestSystem.onBattleVictory(this.player, this.enemy, { hpPercentAtEnd: hpPercent });
+            }
+
             // Ritual do Vampirismo: Vampiros comuns (não o boss) têm chance
             // pequena de dropar uma Essência Vampírica ao serem derrotados.
             if (this.enemy.isVampireEnemy && this.enemy.rollEssenceDrop && this.enemy.rollEssenceDrop()) {

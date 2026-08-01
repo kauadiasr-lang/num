@@ -122,6 +122,10 @@ class CityEngine {
             { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
             { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
             { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
+            // Quadro de Missões (novo pedido de auditoria, item #4) — entre o
+            // Banco e o Hall da Fama na fileira da frente, sem colidir com
+            // nenhum prédio nem com as Pedras de Luz (xFrac 0.05/0.5/0.95).
+            { id: 'questboard', name: 'Quadro de Missões', icon: '📜', xFrac: 0.35, rowOffset: 165, w: 95, h: 78, wall: '#7a6a52', roof: '#8a6a2a', row: 'front' },
         ];
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
@@ -849,6 +853,12 @@ class CityEngine {
         // NPC e jogador já se encaram antes de chegar aqui (ver
         // _updatePendingTalk, que chama _talkToNpc só depois de ajustar os
         // dois `facing`) — nada a fazer com direção neste método.
+
+        // Progresso de missões de Investigação (ver quests.js) — só conversas
+        // GENÉRICAS de ambiente contam (nunca vampiro/mercador/viajante, que
+        // já têm fluxos próprios acima e não são "moradores comuns" pra fins
+        // de missão).
+        if (window.QuestSystem && p) window.QuestSystem.onNpcTalked(p);
     }
 
     get _interactRadius() { return 70; }
@@ -920,6 +930,9 @@ class CityEngine {
                 break;
             case 'halloffame':
                 window.UI.openHallOfFame();
+                break;
+            case 'questboard':
+                window.UI.openQuestBoard();
                 break;
             default: break;
         }
@@ -1012,6 +1025,10 @@ class CityEngine {
         // Estoque de loja é cacheado por cidade também (ver ui.js openShop
         // `cacheKey`), então não precisa ser limpo aqui — só nunca reutiliza
         // o estoque de outra cidade por engano.
+
+        // Progresso de missões de Entrega (ver quests.js) — completa ao
+        // CHEGAR na cidade de destino pedida.
+        if (window.QuestSystem) window.QuestSystem.onCityArrival(p, cityId);
 
         window.SaveManager.save(window.Engine.state);
         this._toast(`Você chega a ${dest.name}!`, 'success');
@@ -1116,6 +1133,13 @@ class CityEngine {
 
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
+
+        // Missões Secundárias (ver quests.js) — falha qualquer missão ativa
+        // cujo prazo tenha vencido; o quadro da cidade também sorteia uma
+        // nova leva procedural sozinho no próximo openQuestBoard (cacheado
+        // por dia, mesmo padrão do estoque de loja).
+        const p = window.Engine && window.Engine.state && window.Engine.state.player;
+        if (window.QuestSystem && p) window.QuestSystem.onNewDay(p);
     }
 
     _updateDayCycle(dt) {

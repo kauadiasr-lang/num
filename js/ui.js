@@ -232,6 +232,7 @@ class UIManager {
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-questboard').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
@@ -2293,6 +2294,76 @@ class UIManager {
         `;
         container.innerHTML = html;
         this.showScreen('screen-halloffame');
+    }
+
+    // --- QUADRO DE MISSÕES (novo pedido de auditoria, itens #3/#4) ---
+    openQuestBoard() {
+        const p = window.Engine.state.player;
+        const cityId = window.getCurrentCityId();
+        const cityDef = window.getCurrentCityDef();
+        window.QuestSystem._ensureFields(p);
+
+        document.getElementById('questboard-reputation').innerText =
+            `Reputação em ${cityDef.name}: ${window.QuestSystem.getReputation(p, cityId)}`;
+
+        const board = window.QuestSystem.getBoardForCity(p, cityId);
+
+        const activeEl = document.getElementById('questboard-active');
+        activeEl.innerHTML = '';
+        if (board.active.length === 0) {
+            activeEl.innerHTML = '<p class="questboard-empty">Nenhuma missão ativa nesta cidade.</p>';
+        }
+        board.active.forEach(quest => {
+            const meta = window.QUEST_TYPE_META[quest.type];
+            const percent = window.QuestSystem.getProgressPercent(quest, p);
+            const label = window.QuestSystem.getProgressLabel(quest, p);
+            const deadline = (quest.expiresAtDay !== null && quest.expiresAtDay !== undefined)
+                ? `<span class="quest-deadline">Prazo: dia ${quest.expiresAtDay}</span>` : '';
+            const card = document.createElement('div');
+            card.className = 'quest-card quest-active';
+            card.innerHTML = `
+                <div class="quest-card-header" style="color:${meta.color}">${meta.icon} ${meta.name}: ${quest.name}</div>
+                <div class="quest-card-giver">Pedido por: ${quest.giver}</div>
+                <div class="quest-card-desc">${quest.description}</div>
+                <div class="quest-progress-bar"><div class="quest-progress-fill" style="width:${percent}%; background:${meta.color}"></div></div>
+                <div class="quest-progress-label">${label} ${deadline}</div>
+                <div class="quest-card-reward">Recompensa: ${quest.reward.gold}g, ${quest.reward.xp}XP, +${quest.reward.reputation} reputação</div>
+                <button class="btn-small btn-quest-abandon">Abandonar</button>
+            `;
+            card.querySelector('.btn-quest-abandon').addEventListener('click', () => {
+                window.QuestSystem.abandonQuest(p, quest.instanceId);
+                window.SaveManager.save(window.Engine.state);
+                this.openQuestBoard();
+            });
+            activeEl.appendChild(card);
+        });
+
+        const availableEl = document.getElementById('questboard-available');
+        availableEl.innerHTML = '';
+        if (board.available.length === 0) {
+            availableEl.innerHTML = '<p class="questboard-empty">Nenhuma missão nova disponível hoje. Volte amanhã.</p>';
+        }
+        board.available.forEach(quest => {
+            const meta = window.QUEST_TYPE_META[quest.type];
+            const card = document.createElement('div');
+            card.className = 'quest-card quest-available';
+            card.innerHTML = `
+                <div class="quest-card-header" style="color:${meta.color}">${meta.icon} ${meta.name}: ${quest.name}</div>
+                <div class="quest-card-giver">Pedido por: ${quest.giver}</div>
+                <div class="quest-card-desc">${quest.description}</div>
+                <div class="quest-card-reward">Recompensa: ${quest.reward.gold}g, ${quest.reward.xp}XP, +${quest.reward.reputation} reputação${quest.timeLimitDays ? ` (prazo: ${quest.timeLimitDays} dias)` : ''}</div>
+                <button class="btn-small btn-quest-accept">Aceitar</button>
+            `;
+            card.querySelector('.btn-quest-accept').addEventListener('click', () => {
+                window.QuestSystem.acceptQuest(p, quest);
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                this.openQuestBoard();
+            });
+            availableEl.appendChild(card);
+        });
+
+        this.showScreen('screen-questboard');
     }
 
     // --- CONQUISTAS ---

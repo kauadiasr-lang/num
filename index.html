@@ -604,6 +604,28 @@
                 </div>
             </div>
 
+            <!-- TELA: QUADRO DE MISSÕES (novo pedido de auditoria, item #4) —
+                 aceitar/abandonar/acompanhar missões secundárias por cidade,
+                 ver js/quests.js/ui.js openQuestBoard. -->
+            <div id="screen-questboard" class="screen">
+                <div class="panel questboard-panel">
+                    <button class="btn-close" id="btn-close-questboard">X</button>
+                    <div class="panel-watermark">📜</div>
+                    <h2 class="panel-title">Quadro de Missões</h2>
+                    <p id="questboard-reputation" class="questboard-reputation"></p>
+
+                    <div class="questboard-section">
+                        <h3 class="questboard-subtitle">Missões Ativas</h3>
+                        <div id="questboard-active" class="questboard-list"></div>
+                    </div>
+
+                    <div class="questboard-section">
+                        <h3 class="questboard-subtitle">Disponíveis</h3>
+                        <div id="questboard-available" class="questboard-list"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- TELA: ÁRVORE DE TALENTOS -->
             <div id="screen-skills" class="screen">
                 <div class="panel skills-panel">
@@ -664,6 +686,7 @@
     <script src="js/citydatabase.js"></script>
     <script src="js/skilltrees.js"></script>
     <script src="js/rituals.js"></script>
+    <script src="js/quests.js"></script>
     <script src="js/player.js"></script>
     <script src="js/ai_data.js"></script>
     <script src="js/ai.js"></script>

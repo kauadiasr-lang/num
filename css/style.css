@@ -1269,6 +1269,30 @@ html, body {
 }
 
 /* ==========================================================================
+   Quadro de Missões (novo pedido de auditoria, itens #3/#4) — mesma
+   linguagem visual de cards com barra de progresso já usada pelos Rituais
+   acima (.ritual-card/.ritual-progress-bar), reaproveitada em vez de
+   inventar um estilo novo do zero.
+   ========================================================================== */
+.questboard-panel { width: 92%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; }
+.questboard-reputation { text-align: center; color: var(--color-gold); font-weight: bold; margin-bottom: 10px; }
+.questboard-section { margin-top: 18px; }
+.questboard-subtitle { color: var(--color-gold); border-bottom: 1px solid var(--color-bronze-dark); padding-bottom: 6px; margin-bottom: 10px; }
+.questboard-list { display: flex; flex-direction: column; gap: 12px; }
+.questboard-empty { text-align: center; color: var(--color-marble-dark); font-style: italic; padding: 10px 0; }
+
+.quest-card { background: rgba(0,0,0,0.25); border: 1px solid var(--color-bronze-dark); border-radius: 6px; padding: 12px; }
+.quest-card-header { font-weight: bold; margin-bottom: 4px; }
+.quest-card-giver { font-size: 0.78rem; color: var(--color-marble-dark); font-style: italic; margin-bottom: 4px; }
+.quest-card-desc { font-size: 0.85rem; color: var(--color-marble-dark); margin-bottom: 8px; }
+.quest-progress-bar { width: 100%; height: 10px; background: var(--color-stone); border-radius: 5px; overflow: hidden; }
+.quest-progress-fill { height: 100%; transition: width 0.4s ease; }
+.quest-progress-label { font-size: 0.78rem; color: var(--color-marble-dark); margin-top: 4px; display: flex; justify-content: space-between; }
+.quest-deadline { color: #ff8888; }
+.quest-card-reward { font-size: 0.8rem; color: var(--color-gold); margin: 6px 0; }
+.quest-card .btn-quest-accept, .quest-card .btn-quest-abandon { width: 100%; margin-top: 4px; }
+
+/* ==========================================================================
    Guia do Jogo — referência estática, acessível do Menu Principal e do Hub,
    sem depender de personagem/save carregado.
    ========================================================================== */

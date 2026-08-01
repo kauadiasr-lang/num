@@ -432,6 +432,19 @@ class Player extends Entity {
             vampirismo: { vampiricEssences: 0 },
             luz: { potionsUsed: 0, noMagicWins: 0, sacredFragments: 0 }
         };
+
+        // --- Missões Secundárias (ver quests.js) ---
+        // activeQuests: instanceId -> instância completa (ver
+        // QuestSystem.acceptQuest); completedQuestIds/failedQuestIds:
+        // defId (únicas) ou instanceId (procedurais), nunca reaproveitados;
+        // reputation: cityId -> número (some ganha por completar missões
+        // naquela cidade). QuestSystem._ensureFields já inicializa esses
+        // campos defensivamente também, mas declarar aqui documenta o
+        // formato de save de verdade, igual a todo outro campo desta classe.
+        this.activeQuests = {};
+        this.completedQuestIds = [];
+        this.failedQuestIds = [];
+        this.reputation = {};
     }
 
     addFatigue(amount) {
