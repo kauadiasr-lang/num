@@ -2034,9 +2034,39 @@ class UIManager {
             window.City.dayPhaseTimer = 0;
         }
 
+        // Risco de assalto (item 6 da auditoria de balanceamento): dormir no
+        // chão sem pagar a taverna era 100% seguro antes, igualzinho à cura
+        // paga — nenhuma consequência, nenhuma decisão de verdade. Agora é
+        // uma aposta real: a maioria das vezes alguém rouba entre 40%-90%
+        // de TODO o ouro CARREGADO (`p.gold` — nunca `p.bankGold`, o ouro
+        // guardado no Banco da cidade continua fora de alcance, ver
+        // Player.bankGold), com uma pequena chance de escapar ileso e uma
+        // pequena chance de encontrar um viajante amigável que ainda ajuda
+        // com um pouco de ouro. A cura de fadiga/reset de noites em claro
+        // acima acontecem de qualquer forma — você dormiu de verdade nos
+        // três casos, só o resultado do risco que muda.
+        const eventRoll = Utils.randomInt(1, 100);
+        let message;
+        if (eventRoll <= 8) {
+            const gift = Utils.randomInt(10, 30);
+            p.gold += gift;
+            message = `Você dormiu no chão, mas um viajante gentil dividiu comida e ${gift} de ouro com você durante a noite.`;
+            window.AudioManager.playHeal();
+        } else if (eventRoll <= 16) {
+            message = 'Você sentiu passos se aproximando na escuridão — mas acordou a tempo e o assaltante fugiu antes de levar nada.';
+            window.AudioManager.playConfirm();
+        } else {
+            const stolenPercent = Utils.randomFloat(0.4, 0.9);
+            const stolen = Math.floor(p.gold * stolenPercent);
+            p.gold -= stolen;
+            message = stolen > 0
+                ? `Você foi assaltado enquanto dormia! Levaram ${stolen} de ouro.`
+                : 'Você dormiu no chão, sem nada de valor com você para roubar.';
+            window.AudioManager.playError();
+        }
+
         window.SaveManager.save(window.Engine.state);
-        window.AudioManager.playHeal();
-        document.getElementById('healer-message').innerText = 'Você dormiu no chão da taverna. Cansado, mas 1 nível de fadiga a menos.';
+        document.getElementById('healer-message').innerText = message;
         this.updateHealerScreen();
         this.updateHubStats();
     }
