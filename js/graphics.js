@@ -2326,17 +2326,17 @@ class GraphicsEngine {
         ctx.save();
         ctx.translate(-8, 0);
         ctx.rotate(sway * Math.PI / 180);
-        ctx.drawImage(legSprite.canvas, -legSprite.anchorX, -legSprite.anchorY);
+        window.RenderManager.blit(ctx, legSprite.canvas, 0, 0, legSprite.anchorX, legSprite.anchorY);
         ctx.restore();
 
         ctx.save();
         ctx.translate(8, 0);
         ctx.rotate(-sway * Math.PI / 180);
-        ctx.drawImage(legSprite.canvas, -legSprite.anchorX, -legSprite.anchorY);
+        window.RenderManager.blit(ctx, legSprite.canvas, 0, 0, legSprite.anchorX, legSprite.anchorY);
         ctx.restore();
 
         const decorSprite = this._bakeLegDecorSprite(entity, m, legLen);
-        ctx.drawImage(decorSprite.canvas, -decorSprite.anchorX, -decorSprite.anchorY);
+        window.RenderManager.blit(ctx, decorSprite.canvas, 0, 0, decorSprite.anchorX, decorSprite.anchorY);
     }
 
     // Caminho do torso afunilado (ombros largos -> cintura estreita) — usado
@@ -2448,7 +2448,7 @@ class GraphicsEngine {
         ctx.scale(1, pose.torsoScaleY);
 
         const sprite = this._bakeTorsoSprite(entity, m, torsoH, torsoColor, metallic);
-        ctx.drawImage(sprite.canvas, -sprite.anchorX, -sprite.anchorY);
+        window.RenderManager.blit(ctx, sprite.canvas, 0, 0, sprite.anchorX, sprite.anchorY);
 
         ctx.restore();
     }
@@ -2654,7 +2654,7 @@ class GraphicsEngine {
 
     _drawHead(ctx, entity, pose) {
         const sprite = this._bakeHeadSprite(entity, pose);
-        ctx.drawImage(sprite.canvas, -sprite.anchorX, -sprite.anchorY);
+        window.RenderManager.blit(ctx, sprite.canvas, 0, 0, sprite.anchorX, sprite.anchorY);
     }
 
     // 2/20 do bloco de reconstrução visual: orelha visível no lado de trás
@@ -3119,7 +3119,7 @@ class GraphicsEngine {
         ctx.save();
         ctx.translate(-m.shoulder / 2 + 3, shoulderY);
         ctx.rotate(angle * Math.PI / 180);
-        ctx.drawImage(armSprite.canvas, -armSprite.anchorX, -armSprite.anchorY);
+        window.RenderManager.blit(ctx, armSprite.canvas, 0, 0, armSprite.anchorX, armSprite.anchorY);
         ctx.restore();
 
         if (shield) {
@@ -3173,7 +3173,7 @@ class GraphicsEngine {
                 ctx.globalAlpha = 0.14 + i * 0.08;
                 ctx.translate(m.shoulder / 2 - 3, shoulderY);
                 ctx.rotate((pose.weaponAngle - back) * Math.PI / 180);
-                ctx.drawImage(armSpritePlain.canvas, -armSpritePlain.anchorX, -armSpritePlain.anchorY);
+                window.RenderManager.blit(ctx, armSpritePlain.canvas, 0, 0, armSpritePlain.anchorX, armSpritePlain.anchorY);
                 ctx.translate(0, armLen);
                 this._drawWeapon(ctx, activeWeapon);
                 ctx.restore();
@@ -3184,7 +3184,7 @@ class GraphicsEngine {
         ctx.save();
         ctx.translate(m.shoulder / 2 - 3, shoulderY);
         ctx.rotate(pose.weaponAngle * Math.PI / 180);
-        ctx.drawImage(armSpriteWithGlove.canvas, -armSpriteWithGlove.anchorX, -armSpriteWithGlove.anchorY);
+        window.RenderManager.blit(ctx, armSpriteWithGlove.canvas, 0, 0, armSpriteWithGlove.anchorX, armSpriteWithGlove.anchorY);
         ctx.translate(0, armLen);
         // Punho fechado no pulso — antes a arma saía direto da manga, sem
         // NENHUMA mão entre os dois (ver _drawHand). Desenhado ANTES da

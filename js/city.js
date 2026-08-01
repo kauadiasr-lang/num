@@ -1671,7 +1671,7 @@ class CityEngine {
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const colors = (cityDef && cityDef.fountainColors) || { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' };
         const basin = this._bakeFountainBasin(r, colors);
-        ctx.drawImage(basin.canvas, x - basin.anchorX, y - basin.anchorY);
+        window.RenderManager.blit(ctx, basin.canvas, x, y, basin.anchorX, basin.anchorY);
         // Jato central (anima com o tempo)
         const t = performance.now() * 0.003;
         ctx.strokeStyle = colors.jet;
@@ -1715,7 +1715,7 @@ class CityEngine {
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const color = (cityDef && cityDef.statueColor) || '#c9c2b0';
         const sprite = this._bakeStatueSprite(scale, color);
-        ctx.drawImage(sprite.canvas, x - sprite.anchorX, y - sprite.anchorY);
+        window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
     }
 
     // Vegetação orientada a dados (ver this.vegetation + CityDatabase
@@ -1753,7 +1753,7 @@ class CityEngine {
         const vegTypes = (cityDef && cityDef.vegetationTypes) || { edge: 'cypress', center: 'laurel' };
         const type = vegTypes[v.slot] || (v.slot === 'edge' ? 'cypress' : 'laurel');
         const sprite = this._bakeVegetationSprite(scale, type);
-        ctx.drawImage(sprite.canvas, x - sprite.anchorX, y - sprite.anchorY);
+        window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
     }
 
     _paintVegetation(ctx, x, y, scale, type) {
@@ -1960,7 +1960,7 @@ class CityEngine {
         const nameSize = Math.max(8, Math.round(12 * scale));
 
         const shell = this._bakeBuildingShell(b, bw, bh);
-        ctx.drawImage(shell.canvas, door.x - shell.anchorX, door.y - shell.anchorY);
+        window.RenderManager.blit(ctx, shell.canvas, door.x, door.y, shell.anchorX, shell.anchorY);
 
         // Tochas nas laterais (reaproveita o desenho já usado na arena, mas
         // bem menores e escaladas — a chama no tamanho da arena, com 16
