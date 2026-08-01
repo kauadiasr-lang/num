@@ -179,7 +179,16 @@ const ItemDatabase = {
 
         // --- Amuletos/anéis regionais (Cidades-Hub Regionais) ---
         trolltusk: { id: 't_05', name: "Presa de Troll", slot: SLOTS.AMULET, weight: 0.3, value: 150, durability: 999, hpBonus: 35, region: 'fortaleza_orc' },
-        livingforestring: { id: 't_06', name: "Anel da Floresta Viva", slot: SLOTS.RING, weight: 0.1, value: 150, durability: 999, stats: { int: 2 }, mpBonus: 20, region: 'santuario_elfico' }
+        livingforestring: { id: 't_06', name: "Anel da Floresta Viva", slot: SLOTS.RING, weight: 0.1, value: 150, durability: 999, stats: { int: 2 }, mpBonus: 20, region: 'santuario_elfico' },
+        // Item 11 da auditoria de balanceamento ("catálogo de itens
+        // exclusivo por cidade"): bug de auditoria encontrado — o Santuário
+        // Élfico já tinha arma/arco/capa/anel regionais, mas NENHUM amuleto
+        // (só um anel), apesar do pedido original listar "amuletos"
+        // explicitamente como categoria própria da Cidade Élfica (junto de
+        // arcos/capas/armaduras leves, todos já cobertos). Fortaleza Orc já
+        // tinha seu amuleto (Presa de Troll) desde o trabalho original das
+        // Cidades-Hub Regionais — o Santuário ficou com essa lacuna.
+        elderwoodamulet: { id: 't_07', name: "Amuleto da Seiva Ancestral", slot: SLOTS.AMULET, weight: 0.2, value: 150, durability: 999, stats: { int: 1 }, hpBonus: 20, mpBonus: 25, region: 'santuario_elfico' }
     },
     consumables: {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },
