@@ -1042,6 +1042,19 @@ class BattleSystem {
             resultMsg = this.executeEnemyItem();
         } else if (decision.action === 'SWAP_INTERNAL') {
             resultMsg = window.AICombat.trySwapWeapon(this);
+        } else if (decision.action === 'SWITCH_WEAPON') {
+            // Espelha o SWITCH_WEAPON do jogador (ver executePlayerTurn
+            // acima): alterna entre as duas armas JÁ equipadas (principal e
+            // secundária, ver Entity.hasDualWeapons/maybeEquipSecondaryWeapon
+            // em player.js) — nunca conjura uma arma nova, e consome o turno
+            // inteiro sem atacar, exatamente como a ação equivalente do
+            // jogador. A decisão de QUANDO trocar já foi tomada em
+            // AICombat.decideAction/_buildCandidates (munição/alcance/vida/
+            // mana), nunca aleatoriamente.
+            this.enemy.activeWeaponSlot = (this.enemy.activeWeaponSlot === SLOTS.MAIN_HAND) ? SLOTS.RANGED : SLOTS.MAIN_HAND;
+            this.enemy.calculateDerivedStats();
+            this.enemy.aiState.lastWeaponSwitchTurn = this.enemy.aiState.turnCount;
+            if (window.GFX) window.GFX.playAnim(false, 'approach', 500);
         } else if (decision.action === 'HOLD') {
             // Bug de auditoria: HOLD do jogador já marca playerState.
             // holdingDistance (lido pelo APPROACH do inimigo, resistindo a

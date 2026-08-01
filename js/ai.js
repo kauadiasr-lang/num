@@ -120,6 +120,28 @@ const AICombat = {
         return pool[Utils.randomInt(0, pool.length - 1)];
     },
 
+    // Sorteia uma arma SECUNDÁRIA (categoria oposta à principal do estilo) —
+    // ver Entity.maybeEquipSecondaryWeapon (player.js). Estilos de longo
+    // alcance (arqueiro) recebem uma lâmina rápida de reserva pra quando o
+    // alvo fecha distância; qualquer outro estilo recebe uma arma de longo
+    // alcance de reserva pra quando o alvo foge — nunca a mesma categoria da
+    // arma principal, senão a troca em combate (SWITCH_WEAPON) não mudaria
+    // nada na prática. Mesmo filtro regional das outras funções de sorteio.
+    pickSecondaryWeaponFromStyle(styleId) {
+        const style = AI_FIGHTING_STYLES[styleId] || AI_FIGHTING_STYLES.espadachim;
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const availableInCity = (id) => {
+            const t = ItemDatabase.weapons[id];
+            return !t.region || t.region === cityId;
+        };
+        const pool = (style.preferredRangeBand === 'ranged'
+            ? ['dagger', 'shortsword']
+            : ['bow', 'crossbow', 'elvenlongbow']
+        ).filter(availableInCity);
+        if (pool.length === 0) return null;
+        return pool[Utils.randomInt(0, pool.length - 1)];
+    },
+
     // Sorteia um escudo (ou null) conforme `preferShield` do estilo — bug de
     // auditoria: essa flag existia em ai_data.js desde a criação do motor de
     // IA mas nunca era lida em lugar nenhum, então Gladiadores e Guardiões
@@ -445,6 +467,22 @@ const AICombat = {
             subRange = true;
         }
         if (battle.distance > range.max) {
+            // Troca TÁTICA de arma (item 2 da auditoria de balanceamento) —
+            // checada ANTES de recuar/correr/avançar: se a arma de RESERVA
+            // (ver Entity.hasDualWeapons/getInactiveWeapon em player.js) já
+            // cobre a distância atual, trocar resolve o alcance imediatamente
+            // em vez de gastar vários turnos se aproximando — nunca
+            // aleatório, só quando a troca de fato resolve o alcance.
+            // Cooldown de 2 turnos evita ficar alternando toda hora (trocar
+            // já consome o turno inteiro, ver battle.js).
+            if (enemy.hasDualWeapons() && ai.turnCount - (ai.lastWeaponSwitchTurn || 0) >= 2) {
+                const inactiveWeapon = enemy.getInactiveWeapon();
+                const inactiveRange = enemy.getWeaponRangeFor(inactiveWeapon);
+                if (battle.distance >= inactiveRange.min && battle.distance <= inactiveRange.max) {
+                    const activeWeapon = enemy.getActiveWeapon();
+                    return { action: 'SWITCH_WEAPON', message: `${enemy.name} percebe que ${activeWeapon ? activeWeapon.name : 'suas mãos'} não alcança e saca ${inactiveWeapon.name}!` };
+                }
+            }
             // Perseguidores natos preferem Correr quando a distância a fechar é grande
             if (p.pursuitDrive > 0.65 && (battle.distance - range.max) > 3 && Utils.chance(50)) {
                 return { action: 'RUN', message: `${enemy.name} corre para encurtar distância!` };
@@ -677,6 +715,52 @@ const AICombat = {
             swapScore = 0; // não troca toda hora
         }
         add('SWAP', null, swapScore, null);
+
+        // Troca TÁTICA de arma (item 2 da auditoria de balanceamento) —
+        // diferente do SWAP acima (que descarta a arma e saca uma NOVA
+        // aleatória, mecanismo antigo de flavor/adaptação): aqui o inimigo
+        // JÁ carrega duas armas reais (ver Entity.hasDualWeapons/
+        // maybeEquipSecondaryWeapon em player.js) e só troca quando a arma
+        // ativa está genuinamente inadequada — nunca à toa. O caso "alvo
+        // longe demais" já é resolvido ANTES de chegar aqui (ver
+        // decideAction, gate de alcance máximo) — aqui sobram os gatilhos
+        // que fazem sentido conforme os candidatos normais são pontuados:
+        // munição zerada, perto demais pra arma atual (ctx.subRange, ver
+        // decideAction) e vida baixa com reserva de longo alcance.
+        if (enemy.hasDualWeapons() && enemy.aiState.turnCount - (enemy.aiState.lastWeaponSwitchTurn || 0) >= 2) {
+            const activeWeapon = enemy.getActiveWeapon();
+            const inactiveWeapon = enemy.getInactiveWeapon();
+            const inactiveRange = enemy.getWeaponRangeFor(inactiveWeapon);
+            let switchScore = 0;
+            let switchMsg = null;
+            if (activeWeapon && activeWeapon.maxAmmo && activeWeapon.ammo <= 0) {
+                // Munição zerada na arma de longo alcance ativa: manter
+                // atacando com ela é inútil, trocar pra a corpo a corpo é
+                // quase obrigatório.
+                switchScore = 3.0;
+                switchMsg = `${enemy.name} fica sem munição e troca para ${inactiveWeapon.name}!`;
+            } else if (ctx.subRange && battle.distance >= inactiveRange.min && battle.distance <= inactiveRange.max) {
+                // Perto demais pra arma ativa (ataque sai com penalidade de
+                // dano, ver _weaponRangeMulti em battle.js), mas a reserva
+                // cobre essa distância sem nenhuma penalidade — trocar é
+                // objetivamente melhor que atacar fraco ou recuar.
+                switchScore = 1.8 * (0.5 + p.weaponSwapTendency);
+                switchMsg = `${enemy.name} está perto demais para ${activeWeapon ? activeWeapon.name : 'suas mãos'} e saca ${inactiveWeapon.name}!`;
+            }
+            // Baixa vida + reserva de longo alcance: trocar pra brigar à
+            // distância em vez de continuar corpo a corpo é uma retirada
+            // tática, mais forte em personalidades cautelosas.
+            if (inactiveWeapon && inactiveWeapon.slot === SLOTS.RANGED && activeWeapon && activeWeapon.slot !== SLOTS.RANGED && hpPercent < 0.35) {
+                switchScore += 0.7 * (0.3 + p.caution);
+                if (!switchMsg) switchMsg = `${enemy.name}, ferido, troca para ${inactiveWeapon.name} pra brigar à distância!`;
+            }
+            // Sem mana pra habilidades: a arma em si (principal ou reserva)
+            // vira o recurso central do turno, então a IA fica um pouco
+            // mais disposta a garantir que está com a certa pro alcance atual.
+            const mpPercent = enemy.derivedStats.maxMp > 0 ? enemy.currentMp / enemy.derivedStats.maxMp : 1;
+            if (mpPercent < 0.2) switchScore *= 1.15;
+            if (switchScore > 0) add('SWITCH_WEAPON', null, switchScore, switchMsg);
+        }
 
         // Provocar (flavor puro, reaproveita DEF/HOLD com mensagem diferente e leve ganho de moral)
         // — cada personalidade tem sua própria frase (ver AI_TAUNT_LINES em

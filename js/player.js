@@ -219,6 +219,14 @@ class Entity {
         return !!(this.equipment[SLOTS.MAIN_HAND] && this.equipment[SLOTS.RANGED]);
     }
 
+    // A OUTRA arma (a que não está ativa agora) — usada pela IA (ver
+    // AICombat.decideAction/_buildCandidates em ai.js) pra avaliar se vale
+    // a pena trocar antes de efetivamente trocar.
+    getInactiveWeapon() {
+        const otherSlot = this.activeWeaponSlot === SLOTS.MAIN_HAND ? SLOTS.RANGED : SLOTS.MAIN_HAND;
+        return this.equipment[otherSlot] || null;
+    }
+
     // Bônus de precisão vinda da arma equipada (usado no cálculo de acerto em batalha)
     getWeaponAccBonus() {
         const weapon = this.getActiveWeapon();
@@ -235,7 +243,14 @@ class Entity {
     // Funciona automaticamente para qualquer arma futura, desde que ela
     // carregue minRange/maxRange (ver items.js).
     getWeaponRange() {
-        const weapon = this.getActiveWeapon();
+        return this.getWeaponRangeFor(this.getActiveWeapon());
+    }
+
+    // Igual a getWeaponRange(), mas pra uma arma ARBITRÁRIA (não precisa ser
+    // a ativa agora) — usada pela IA (ver AICombat.decideAction/
+    // _buildCandidates em ai.js) pra avaliar se a arma de RESERVA (ver
+    // getInactiveWeapon) resolveria o alcance atual antes de trocar.
+    getWeaponRangeFor(weapon) {
         if (weapon && weapon.minRange !== undefined) {
             return { min: weapon.minRange, max: weapon.maxRange };
         }
@@ -284,15 +299,52 @@ class Entity {
         const styleId = this.aiStyle ? this.aiStyle.id : 'espadachim';
         const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
         const rarity = Utils.chance(rarityChancePercent) ? RARITY.UNCOMMON : RARITY.COMMON;
-        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        const weapon = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        // Bug de auditoria (sistema de duas armas): a arma sempre era gravada
+        // em equipment[SLOTS.MAIN_HAND] aqui, mesmo quando o próprio item já
+        // carrega slot:SLOTS.RANGED (arco/besta, ver items.js) — um Arqueiro
+        // nascia com o arco guardado na CHAVE errada do dicionário de
+        // equipamento. Não quebrava o ataque (getActiveWeapon() lê por
+        // activeWeaponSlot, ajustado logo abaixo pra sempre acompanhar onde
+        // a arma REALMENTE está), mas hasDualWeapons() (checa
+        // equipment[MAIN_HAND] && equipment[RANGED] literalmente) nunca via
+        // essa arma como a principal corpo a corpo — nenhum inimigo
+        // conseguia ter duas armas de verdade, e qualquer código que lesse
+        // equipment[SLOTS.RANGED] direto (em vez de getActiveWeapon())
+        // simplesmente não enxergava o arco do Arqueiro.
+        this.equipment[weapon.slot] = weapon;
+        this.activeWeaponSlot = weapon.slot;
         if (enchantChancePercent > 0 && typeof Enemy !== 'undefined') {
-            Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], enchantChancePercent);
+            Enemy.maybeEnchantWeapon(weapon, enchantChancePercent);
         }
         const shieldId = window.AICombat.pickShieldFromStyle(styleId);
         if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
+
+        // Arma secundária (sistema de duas armas, pedido de balanceamento
+        // item 2): complementa a principal com uma arma de categoria OPOSTA
+        // (corpo a corpo <-> longo alcance) — nunca duas do mesmo tipo, pra
+        // que a troca em combate (ver AICombat.decideAction/SWITCH_WEAPON
+        // em ai.js) sempre signifique uma mudança tática real de alcance.
+        // Chance-gated (nem todo combatente carrega uma reserva) e nunca
+        // sobrescreve o slot da arma principal.
+        this.maybeEquipSecondaryWeapon(styleId, rarity);
+
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
+    }
+
+    // Ver comentário em equipStyleWeaponGeneric acima. 35% de chance de
+    // carregar uma arma de reserva de categoria oposta à principal — usado
+    // por Enemy/Vampire/Ghost/Rival (todos passam por aqui ou chamam este
+    // método diretamente, ver Rival.equipGear em enemy.js).
+    maybeEquipSecondaryWeapon(styleId, rarity) {
+        if (!window.AICombat || !Utils.chance(35)) return;
+        const secondaryId = window.AICombat.pickSecondaryWeaponFromStyle(styleId);
+        if (!secondaryId) return;
+        const secondary = ItemFactory.createEquipment(secondaryId, 'weapons', rarity);
+        if (secondary.slot === this.activeWeaponSlot) return; // nunca a mesma categoria da principal
+        this.equipment[secondary.slot] = secondary;
     }
 }
 

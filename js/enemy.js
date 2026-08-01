@@ -644,12 +644,34 @@ class Rival extends Entity {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
         const armorId = window.AICombat.pickArmor();
-        this.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        // Bug de auditoria (sistema de duas armas, ver Entity.
+        // equipStyleWeaponGeneric em player.js pelo mesmo bug e explicação
+        // completa): a arma sempre era gravada em equipment[SLOTS.MAIN_HAND]
+        // aqui, mesmo pra um Rival de estilo Arqueiro cuja arma sorteada
+        // (arco/besta) já carrega slot:SLOTS.RANGED — hasDualWeapons() nunca
+        // via essa arma como a principal. activeWeaponSlot ajustado junto
+        // pra sempre acompanhar onde a arma realmente está.
+        const weapon = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        this.equipment[weapon.slot] = weapon;
+        this.activeWeaponSlot = weapon.slot;
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
         // Campeões carregam arma encantada com mais frequência que rivais
         // comuns — reforça que enfrentar um Campeão é diferente (ver
         // Enemy.maybeEnchantWeapon acima, compartilhado com o Duelo Rápido).
-        Enemy.maybeEnchantWeapon(this.equipment[SLOTS.MAIN_HAND], this.isChampion ? 35 : 18);
+        Enemy.maybeEnchantWeapon(weapon, this.isChampion ? 35 : 18);
+
+        // Arma secundária (item 2 da auditoria de balanceamento) — mesma
+        // regra do Duelo Rápido comum (ver Entity.maybeEquipSecondaryWeapon
+        // em player.js): categoria oposta à principal, chance-gated. Rivais
+        // Campeões têm chance bem maior de carregar uma reserva de verdade,
+        // reforçando que enfrentar um Campeão é um combate mais completo.
+        if (window.AICombat && Utils.chance(this.isChampion ? 55 : 30)) {
+            const secondaryId = window.AICombat.pickSecondaryWeaponFromStyle(this.aiStyle.id);
+            if (secondaryId) {
+                const secondary = ItemFactory.createEquipment(secondaryId, 'weapons', rarity);
+                if (secondary.slot !== this.activeWeaponSlot) this.equipment[secondary.slot] = secondary;
+            }
+        }
 
         // Escudo por preferência de ESTILO (gladiador/guardião), igual a
         // Enemy/Vampire — antes só Campeões ganhavam escudo, deixando
