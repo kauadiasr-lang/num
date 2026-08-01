@@ -12,7 +12,7 @@
 const ENCHANTMENTS = {
     fogo: {
         id: 'fogo', name: 'Fogo', color: '#ff5a1e', appliesTo: ['weapon'],
-        description: 'Queimadura: dano extra ao longo de 2 turnos após acertar.',
+        description: 'Queimadura: dano extra (mitigado pela Defesa do alvo) ao longo de 2 turnos após acertar.',
         cost: 120,
         // Aplicado em cada acerto físico do item encantado (ver battle.js
         // executeAttack). Retorna { extraDamage, statusEffect } — statusEffect
@@ -50,7 +50,7 @@ const ENCHANTMENTS = {
     },
     sangramento: {
         id: 'sangramento', name: 'Sangramento', color: '#c0392b', appliesTo: ['weapon'],
-        description: 'Corte profundo: sangramento adicional que se acumula com golpes repetidos.',
+        description: 'Corte profundo (mitigado pela Defesa do alvo): sangramento adicional que se acumula com golpes repetidos.',
         cost: 130,
         onHit(attacker, defender) {
             const bleed = Math.max(2, Math.floor(attacker.getTotalStat('str') * 0.4));
@@ -59,7 +59,12 @@ const ENCHANTMENTS = {
     },
     sagrado: {
         id: 'sagrado', name: 'Sagrado', color: '#ffe9a3', appliesTo: ['weapon', 'armor'],
-        description: 'Dano extra contra inimigos das trevas; cura uma fração do dano causado.',
+        // Item 12 da auditoria: a descrição nunca mencionava o bônus de
+        // +6% de Defesa (ver onDefend abaixo) — só aparecia de verdade
+        // quando o jogador equipava numa peça de armadura, sem NENHUM
+        // aviso prévio disso na própria descrição mostrada no tooltip/tela
+        // de Encantamentos.
+        description: 'Dano extra contra inimigos das trevas; cura uma fração do dano causado. Em armadura: +6% de Defesa.',
         cost: 180,
         onHit(attacker, defender) {
             const isDarkfoe = defender.lineage === 'vampirismo' || defender.lineage === 'sombras';
@@ -73,7 +78,9 @@ const ENCHANTMENTS = {
     },
     profano: {
         id: 'profano', name: 'Profano', color: '#5a1e5a', appliesTo: ['weapon', 'armor'],
-        description: 'Dano extra contra inimigos sagrados; rouba um pouco de vida.',
+        // Mesmo motivo do Sagrado acima — +4% de esquiva (onDefend) nunca
+        // aparecia na descrição.
+        description: 'Dano extra contra inimigos sagrados; rouba um pouco de vida. Em armadura: +4% de esquiva.',
         cost: 180,
         onHit(attacker, defender) {
             const isHolyFoe = defender.lineage === 'luz';

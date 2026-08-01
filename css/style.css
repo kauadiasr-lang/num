@@ -1333,6 +1333,10 @@ html, body {
 }
 .enchant-row .enchant-item-name { flex: 1; }
 .enchant-row .btn-enchant-cycle { font-size: 0.72rem; padding: 4px 8px; }
+/* Item 12 da auditoria: descrição do encantamento em preview, visível
+   ANTES de gastar ouro aplicando (ver ui.js renderEnchantments). */
+.enchant-preview-col { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 220px; }
+.enchant-preview-desc { text-align: center; line-height: 1.25; font-size: 0.68rem; opacity: 0.9; }
 
 /* Cinemática de despertar de Linhagem */
 .lineage-awakening-overlay {

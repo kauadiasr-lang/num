@@ -23,8 +23,18 @@ class BattleSystem {
         // curseTurns/curseDefensePercent (item 9 da auditoria de
         // balanceamento — Maldição Sanguínea, árvore de Vampirismo): reduz a
         // Defesa do ALVO amaldiçoado por N turnos, ver executeAttack.
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
+        // bleedIgnoresArmor (item 12 da auditoria — revisão de
+        // encantamentos): antes NENHUM dano contínuo (Fogo/Sangramento/
+        // Veneno, todos armazenados nos MESMOS bleedTurns/bleedDamage)
+        // jamais era mitigado por Defesa — então o próprio texto do
+        // encantamento Veneno ("dano contínuo que ignora armadura") não
+        // descrevia nada de ESPECIAL: Fogo e Sangramento "ignoravam
+        // armadura" exatamente do mesmo jeito, sem nunca terem prometido
+        // isso. Ver applyBleedTick/executeAttack — agora só o Veneno de
+        // verdade ignora Defesa; Fogo/Sangramento passam a ser mitigados
+        // por ela, como qualquer dano físico esperaria.
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -275,6 +285,9 @@ class BattleSystem {
                     defenderState.bleedDamage = Math.max(1, enchantEff.dot.damage);
                 }
                 defenderState.bleedTurns = enchantEff.dot.turns;
+                // Item 12 da auditoria: `ignoresArmor` (Veneno) agora tem
+                // efeito real de verdade — ver applyBleedTick.
+                defenderState.bleedIgnoresArmor = !!enchantEff.dot.ignoresArmor;
             }
             if (enchantEff.stunChance && Utils.chance(enchantEff.stunChance * (1 - negResist))) defenderState.stunned = true;
             if (enchantEff.slowChance && Utils.chance(enchantEff.slowChance * (1 - negResist))) defenderState.justRan = true; // reaproveita a penalidade de esquiva já existente como "lentidão"
@@ -364,7 +377,20 @@ class BattleSystem {
         // fonte contínua (habilidade de sangramento OU encantamento de
         // fogo/veneno/sangramento) — aplicada aqui, no tique, não na origem.
         const resist = (target.derivedStats && target.derivedStats.bleedResistPercent) || 0;
-        const tickDamage = Math.max(1, Math.floor(state.bleedDamage * (1 - resist / 100)));
+        let baseTickDamage = state.bleedDamage;
+        // Item 12 da auditoria: mitigação por Defesa — a MESMA fórmula usada
+        // em qualquer dano físico (Def / (Def + 50)) — se aplica ao tique,
+        // A MENOS que a fonte seja Veneno (`bleedIgnoresArmor`). Antes NADA
+        // aqui olhava pra Defesa: Fogo/Sangramento/Veneno eram idênticos
+        // nesse aspecto, então o texto do Veneno ("ignora armadura") não
+        // descrevia nenhuma diferença real — agora ignora Defesa de
+        // verdade, e Fogo/Sangramento passam a ser mitigados por ela, como
+        // qualquer corte/queimadura física esperaria.
+        if (!state.bleedIgnoresArmor && target.derivedStats && target.derivedStats.defenseRating) {
+            const reductionPercent = target.derivedStats.defenseRating / (target.derivedStats.defenseRating + 50);
+            baseTickDamage = baseTickDamage * (1 - reductionPercent);
+        }
+        const tickDamage = Math.max(1, Math.floor(baseTickDamage * (1 - resist / 100)));
 
         target.currentHp = Utils.clamp(target.currentHp - tickDamage, 0, target.derivedStats.maxHp);
         state.bleedTurns--;
@@ -715,6 +741,11 @@ class BattleSystem {
                     this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
                     this.enemyState.bleedTurns = skill.duration;
                     this.enemyState.bleedDamage = Math.max(1, Math.floor(this.player.getTotalStat('str') * 0.8));
+                    // Item 12 da auditoria: um corte de habilidade é mitigado
+                    // por Defesa como qualquer dano físico — nunca deixa
+                    // `bleedIgnoresArmor` travado em `true` de um Veneno
+                    // anterior que já tenha expirado.
+                    this.enemyState.bleedIgnoresArmor = false;
 
                     resultMsg = `<span style="color:#ff5555">${this.player.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
                     window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff3333", false);
@@ -917,6 +948,8 @@ class BattleSystem {
             this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
             this.playerState.bleedTurns = skill.duration;
             this.playerState.bleedDamage = Math.max(1, Math.floor(this.enemy.getTotalStat('str') * 0.8));
+            // Item 12 da auditoria: mesmo motivo do ramo do jogador acima.
+            this.playerState.bleedIgnoresArmor = false;
             message = `<span style="color:#ff5555">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
             window.GFX.spawnText(playerX, playerY - 50, `-${mitigatedDamage}`, "#ff3333", false);
             window.GFX.spawnParticles(playerX, playerY, "#8b0000", 25, 5, 4);

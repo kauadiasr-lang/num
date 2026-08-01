@@ -1216,9 +1216,19 @@ class UIManager {
             const preview = window.ENCHANTMENTS[previewId];
             const currentName = item.enchantmentId ? window.ENCHANTMENTS[item.enchantmentId].name : 'Nenhum';
 
+            // Item 12 da auditoria de balanceamento ("cada encantamento deve
+            // aparecer na descrição"): bug de auditoria encontrado — esta
+            // linha só mostrava o NOME do encantamento em preview (ex:
+            // "Fogo ▸") e o custo, nunca o que ele realmente FAZ. O jogador
+            // tinha que aplicar (gastando ouro) ou já saber de cor pra
+            // descobrir o efeito — a descrição só aparecia DEPOIS, no
+            // tooltip do item já equipado (ver updateInventoryStats).
             row.innerHTML = `
                 <span class="enchant-item-name">${item.name}<br><small style="color:#888">Atual: ${currentName}</small></span>
-                <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
+                <div class="enchant-preview-col">
+                    <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
+                    <small class="enchant-preview-desc" style="color:${preview.color}">${preview.description}</small>
+                </div>
                 <button class="btn-small btn-enchant-apply">Aplicar (${preview.cost}g)</button>
             `;
 
