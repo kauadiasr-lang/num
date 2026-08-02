@@ -86,6 +86,7 @@ window.RoadEngine = {
     // gigantes"/"cachoeiras" — as mesmas silhuetas combinam com os dois).
     RIVER_X_FRAC: 0.55, // fração do WORLD_LENGTH onde o rio cruza a estrada
     GIANT_TREE_SPACING: 2600, // bem mais esparso que a vegetação normal (220) — são marcos raros, não decoração de fundo
+    CAMP_SPACING: 5200, // acampamentos — mais esparsos ainda que as árvores gigantes (cenário raro, não repetitivo)
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -856,6 +857,12 @@ window.RoadEngine = {
         // caminhável (nunca bloqueiam nem colidem).
         this._drawGiantTrees(ctx, w, h, corrupted);
 
+        // Acampamentos abandonados (pedido do usuário: "acampamentos" — o
+        // mapa não deve parecer um corredor) — marco de terreno puramente
+        // decorativo, mesmo princípio de _drawGiantTrees (determinístico,
+        // fora da faixa caminhável, cullado por Camera.isVisible).
+        this._drawTravelCamps(ctx, w, h, corrupted);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -1002,6 +1009,44 @@ window.RoadEngine = {
             ctx.beginPath(); ctx.arc(gx, canopyY, 46, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(gx - 32, canopyY + 14, 32, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(gx + 34, canopyY + 10, 34, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Acampamentos abandonados esparsos (pedido do usuário: "acampamentos"
+    // como marco de terreno físico) — 2 tendas triangulares + o brilho de
+    // uma fogueira apagando, sempre fora da faixa caminhável, nunca
+    // colidem. Puramente cênico (distinto do evento `campfire`, que É
+    // interativo — aqui não há aviso de interação nenhum, é só paisagem
+    // "alguém acampou aqui recentemente").
+    _drawTravelCamps(ctx, w, h, corrupted) {
+        const spacing = this.CAMP_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const cx = i * spacing;
+            if (cx < 500 || cx > this.WORLD_LENGTH - 500) continue;
+            if (this._hash(i * 71 + 11000) >= 40) continue; // acampamento raro, nem todo slot tem um
+            const side = (this._hash(i * 41 + 11500) % 2 === 0) ? -1 : 1;
+            const cy = side * (this.LANE_HALF_HEIGHT + 60);
+            if (!window.Camera.isVisible(cx, cy, w, h, 200)) continue;
+
+            // Brasas ainda vivas no meio do acampamento — mesmo tom
+            // avermelhado usado no resto do jogo pra fogo, tingido de roxo
+            // se a floresta estiver corrompida (animais/viajantes já
+            // fugiram, só resta a fogueira apagando sozinha).
+            ctx.fillStyle = corrupted ? 'rgba(90,40,110,0.5)' : 'rgba(255,120,40,0.5)';
+            ctx.beginPath(); ctx.arc(cx, cy - 4, 12, 0, Math.PI * 2); ctx.fill();
+
+            // Duas tendas triangulares simples, uma de cada lado da fogueira.
+            ctx.fillStyle = corrupted ? '#2a2028' : '#6b5a3a';
+            for (const dx of [-38, 34]) {
+                ctx.beginPath();
+                ctx.moveTo(cx + dx, cy + 4);
+                ctx.lineTo(cx + dx + 20, cy + 4);
+                ctx.lineTo(cx + dx + 10, cy - 34);
+                ctx.closePath();
+                ctx.fill();
+            }
         }
     },
 
