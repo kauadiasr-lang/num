@@ -190,6 +190,19 @@ class UIManager {
         // e retoma a ambiência (som, NPCs) — idempotente, sem custo se já
         // estava rodando.
         if (screenId === 'screen-hub' && window.City) window.City.onEnterCity();
+
+        // Bug de auditoria corrigido ("ouro não atualiza na tela principal
+        // mesmo gastando"): o HUD do Hub (#hub-player-gold e demais) só era
+        // atualizado pelos poucos lugares que lembravam de chamar
+        // updateHubStats() explicitamente antes de voltar pro Hub (ex: fim
+        // de batalha, cura no Curandeiro). Fechar Inventário/Encantamentos/
+        // Loja/Banco/etc via showScreen('screen-hub') direto (ver
+        // btn-close-inv e afins) nunca disparava esse refresh, então o HUD
+        // continuava mostrando o ouro/nível/fadiga de ANTES da ação até a
+        // próxima coisa que por acaso chamasse updateHubStats(). Agora
+        // QUALQUER transição pro Hub garante o HUD atualizado, não importa
+        // de onde o jogador voltou.
+        if (screenId === 'screen-hub' && window.Engine.state.player) this.updateHubStats();
     }
 
     initEventListeners() {
@@ -1203,6 +1216,16 @@ class UIManager {
         const p = window.Engine.state.player;
         const container = document.getElementById('enchant-container');
         container.innerHTML = '';
+
+        // Bug de auditoria corrigido ("não consigo ver seu dinheiro ao
+        // encantar itens"): esta tela nunca mostrava o ouro do jogador em
+        // lugar nenhum, então decidir se dava pra pagar um encantamento
+        // (preço mostrado em cada botão "Aplicar (Xg)") exigia sair da tela,
+        // conferir no Hub, e voltar. Atualizado aqui (chamado toda vez que a
+        // tela abre e depois de cada compra) e não só uma vez, pra nunca
+        // mostrar um valor desatualizado após aplicar um encantamento.
+        const goldEl = document.getElementById('enchant-player-gold');
+        if (goldEl) goldEl.innerText = p.gold;
 
         const enchantableSlots = [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.CHEST, SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND];
         const allIds = Object.keys(window.ENCHANTMENTS);
