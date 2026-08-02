@@ -224,8 +224,19 @@ window.QuestSystem = {
             .filter(d => d.cityId === cityId && isFree(d.id))
             .map(d => ({ ...d, instanceId: `unique_${d.id}`, defId: d.id, unique: true }));
 
+        // Bug de auditoria corrigido (exploit real de farm de recompensa):
+        // este filtro só excluía missões JÁ ACEITAS (activeQuests), nunca as
+        // já concluídas/falhas — diferente de `isFree` acima, que cobre os
+        // três casos pras únicas. Como o pool procedural é cacheado por dia
+        // (ver _getProceduralPool), completar uma missão a removia de
+        // activeQuests mas NUNCA a tirava do quadro: reabrir o quadro no
+        // MESMO dia mostrava a mesma missão de novo, pronta pra aceitar,
+        // cumprir e receber a recompensa outra vez — repetidamente, sem
+        // limite, o quanto o jogador quisesse reabrir a tela.
         const proceduralAvailable = this._getProceduralPool(cityId, player)
-            .filter(q => !player.activeQuests[q.instanceId]); // já aceita não aparece 2x no quadro
+            .filter(q => !player.activeQuests[q.instanceId]
+                && !player.completedQuestIds.includes(q.instanceId)
+                && !player.failedQuestIds.includes(q.instanceId));
 
         const active = Object.values(player.activeQuests).filter(q => q.cityId === cityId);
 

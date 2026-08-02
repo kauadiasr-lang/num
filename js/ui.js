@@ -1621,6 +1621,20 @@ class UIManager {
                 slotEl.innerText = slotKey;
                 slotEl.style.borderColor = '#444';
                 slotEl.style.color = '#666';
+                // Bug de auditoria corrigido ("brilho de item encantado
+                // aparece mesmo sem estar encantado"): diferente da mochila
+                // (renderBag), que recria cada slot do zero a cada chamada,
+                // os slots de Equipamento são os MESMOS elementos do DOM
+                // reaproveitados pra sempre (getElementById(`slot-${slotKey}`)
+                // acima) — o ramo "item encontrado" já zera/redefine o
+                // boxShadow corretamente a cada render, mas este ramo "slot
+                // vazio" nunca zerava o dele. Resultado: desequipar um item
+                // que estava encantado deixava o brilho da COR daquele
+                // encantamento grudado no slot pra sempre, mesmo com o slot
+                // genuinamente vazio (ou depois preenchido por outro item
+                // sem encantamento nenhum) — bug puramente visual, nenhuma
+                // corrupção de dado real por trás.
+                slotEl.style.boxShadow = '';
                 slotEl.classList.remove('filled');
                 slotEl.onmouseenter = null;
                 slotEl.onclick = null;
