@@ -269,6 +269,17 @@ window.RoadEngine = {
         return this.active && window.Engine && window.Engine.state.screen === 'ROADWORLD';
     },
 
+    // Impacto visual da corrupção (pedido do usuário) — true enquanto o
+    // monstro das sombras que corrompe a Floresta Ancestral (evento
+    // `nature_spirit`, ver _generateForestEncounter) ainda existir e não
+    // tiver sido derrotado. Nunca guarda estado próprio: lida sempre fresco
+    // a partir de `_events`, então volta ao normal sozinho assim que o
+    // evento for consumido (vitória) — sem precisar zerar nada explicitamente.
+    _isForestCorrupted() {
+        return this.toId === window.FOREST_EXPEDITION_ID
+            && this._events.some(ev => ev.type === 'nature_spirit' && !ev.consumed);
+    },
+
     _speed() {
         // A cavalo é mais rápido que a pé (mesma proporção do antigo
         // ROAD_STEPS_HORSE/ROAD_STEPS_WALK = 4/6); correr (Shift) multiplica
@@ -576,6 +587,7 @@ window.RoadEngine = {
         const fromDef = window.CityDatabase[this.fromId];
         const toDef = window.CityDatabase[this.toId];
         const t = Utils.clamp(this._player.x / this.WORLD_LENGTH, 0, 1);
+        const corrupted = this._isForestCorrupted();
         // Sem toDef (Expedição à Floresta Ancestral, destino virtual) a
         // paleta cai numa mistura fixa verde-mística, condizente com a
         // cor de fundo que a tela antiga screen-road já usava pra ela.
@@ -585,11 +597,23 @@ window.RoadEngine = {
 
         const horizon = h * 0.4;
         const grad = ctx.createLinearGradient(0, horizon, 0, h);
-        grad.addColorStop(0, colors[0]);
-        grad.addColorStop(1, colors[1]);
+        // Impacto visual da corrupção (pedido do usuário): enquanto o
+        // monstro das sombras que corrompe a Floresta Ancestral ainda não
+        // foi derrotado (ver _isForestCorrupted), o chão vira quase preto
+        // com tinta roxa em vez do verde-mística normal, e o céu escurece —
+        // volta ao normal sozinho assim que o evento `nature_spirit` for
+        // consumido (vitória), sem precisar de nenhum estado extra
+        // persistido (a checagem já é sempre fresca a partir de _events).
+        if (corrupted) {
+            grad.addColorStop(0, '#2a1230');
+            grad.addColorStop(1, '#0a0510');
+        } else {
+            grad.addColorStop(0, colors[0]);
+            grad.addColorStop(1, colors[1]);
+        }
         ctx.fillStyle = grad;
         ctx.fillRect(0, horizon, w, h - horizon);
-        ctx.fillStyle = '#7fa8d9';
+        ctx.fillStyle = corrupted ? '#241830' : '#7fa8d9';
         ctx.fillRect(0, 0, w, horizon);
 
         // A câmera já foi suavizada em update()/_updateCamera — chamar
@@ -640,18 +664,42 @@ window.RoadEngine = {
             const side = (i % 2 === 0) ? -1 : 1;
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
             if (!window.Camera.isVisible(vx, vy, w, h)) continue;
-            ctx.fillStyle = 'rgba(20,40,15,0.55)';
+            // Folhas escurecidas enquanto a floresta estiver corrompida —
+            // mesmas silhuetas, só tingidas de roxo doentio em vez do verde
+            // saudável normal.
+            ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : 'rgba(20,40,15,0.55)';
             ctx.beginPath();
             ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
             ctx.fill();
         }
 
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
-        // patrulhas caminhando ao fundo, puramente decorativos.
-        this._drawAmbientLife(ctx, w, h);
+        // patrulhas caminhando ao fundo, puramente decorativos. "Animais
+        // fogem" enquanto a floresta estiver corrompida (pedido do
+        // usuário) — nenhuma vida ambiente aparece até o monstro das
+        // sombras ser derrotado.
+        if (!corrupted) this._drawAmbientLife(ctx, w, h);
+        else this._drawCorruptionMist(ctx, w, h);
 
         this._drawPlayer(ctx);
         ctx.restore();
+    },
+
+    // Névoa roxa da corrupção (pedido do usuário: "névoa roxa, espíritos
+    // desaparecem, animais fogem") — algumas manchas translúcidas grandes
+    // seguindo o jogador (posição relativa fixa, então nunca precisa achar
+    // "onde" desenhar por chunk como a vegetação/vida ambiente) por cima
+    // de tudo, dando a sensação de neblina doentia cobrindo a cena.
+    _drawCorruptionMist(ctx, w, h) {
+        const px = this._player.x;
+        ctx.fillStyle = 'rgba(90,30,120,0.12)';
+        for (let i = -2; i <= 2; i++) {
+            const mx = px + i * 260;
+            const my = Math.sin(performance.now() / 1400 + i) * 30;
+            ctx.beginPath();
+            ctx.ellipse(mx, my, 220, 70, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
     },
 
     // Vida ambiente (Fase 6) — nunca guarda estado num array (a posição de
