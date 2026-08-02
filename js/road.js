@@ -45,6 +45,16 @@
  * arco, ver _drawCityGate) no lugar da linha nua; (5) o jogador ganhou uma
  * animação de caminhada procedural (ver _drawPlayer); (6) um HUD de
  * progresso (#roadworld-progress) mostra % do caminho percorrido.
+ *
+ * Fase 6 (mundo vivo ambiente) + Fase 7 (performance/chunking): viajantes,
+ * caravanas, animais e patrulhas (ver AMBIENT_TYPES/_drawAmbientLife) —
+ * puramente decorativos (nunca bloqueiam, nunca colidem, nunca entram em
+ * _events), com posição calculada a partir do tempo (performance.now()) e
+ * de um hash determinístico por chunk, nunca guardada num array — o mesmo
+ * princípio já usado pela vegetação esparsa (ver draw()): custo por frame
+ * proporcional só aos chunks visíveis perto da câmera (Camera.isVisible),
+ * nunca ao WORLD_LENGTH inteiro, então a estrada continua tão rápida com
+ * poucos NPCs quanto com centenas espalhados pelos 63000 de mundo.
  */
 window.RoadEngine = {
     WORLD_LENGTH: 63000, // ~5min andando contínuo a pé (walkSpeed=210px/s * 300s)
@@ -63,6 +73,16 @@ window.RoadEngine = {
     CAMERA_SMOOTH_TIME: 0.12, // constante de tempo da câmera suavizada (ver update()) — quanto menor, mais "grudada" no jogador
     GATE_ZONE_RADIUS: 130, // largura da área de transição desenhada em volta de cada portão de cidade (ver _drawCityGate)
     WALK_CYCLE_SPEED_DIVISOR: 35, // converte px/s de movimento real em rad/s do ciclo de passada (ver _drawPlayer)
+
+    // Mundo vivo ambiente (Fase 6) — cada "chunk" de mundo (unidade de
+    // geração/culling, não um pedaço de save) tem uma chance de conter UMA
+    // entidade decorativa entre os 4 tipos pedidos no design (viajante a
+    // pé, caravana, animal, patrulha de guarda). Nunca colide com o
+    // jogador, nunca interrompe a travessia — só "vida" ao fundo (ver
+    // _drawAmbientLife).
+    AMBIENT_CHUNK_SIZE: 2500,
+    AMBIENT_SPAWN_CHANCE: 55, // % dos chunks que têm alguma entidade (de 0 a 100, ver _hash)
+    AMBIENT_TYPES: ['npc_traveler', 'caravan', 'animal', 'patrol'],
 
     // Gabarito genérico de zonas — o nome da última é preenchido em
     // start() com o nome da cidade de destino ("Arredores de X"), as
@@ -227,10 +247,16 @@ window.RoadEngine = {
 
     // Hash determinístico (sem Math.random) — mesma vegetação sempre
     // aparece no mesmo ponto do mundo, geração sempre reproduzível.
+    // Sempre retorna 0-99: `^` no JS opera em int32 SIGNED, então sem o
+    // `>>> 0` final `x % 100` podia sair negativo (ex.: entradas cujo hash
+    // cai na metade "negativa" do int32) — isso corrompia índices de
+    // array em qualquer chamador (`types[h % types.length]`,
+    // `AMBIENT_TYPES[...]` etc. viravam `undefined` sempre que o hash desse
+    // negativo, sem nenhum erro visível, só um ícone/tipo faltando).
     _hash(i) {
         let x = (i * 2654435761) >>> 0;
         x ^= x >>> 15;
-        return x % 100;
+        return (x >>> 0) % 100;
     },
 
     abandon() {
@@ -620,8 +646,66 @@ window.RoadEngine = {
             ctx.fill();
         }
 
+        // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
+        // patrulhas caminhando ao fundo, puramente decorativos.
+        this._drawAmbientLife(ctx, w, h);
+
         this._drawPlayer(ctx);
         ctx.restore();
+    },
+
+    // Vida ambiente (Fase 6) — nunca guarda estado num array (a posição de
+    // cada entidade é uma função pura de tempo decorrido + hash do chunk),
+    // e só é calculada/desenhada pros poucos chunks perto da câmera (Fase
+    // 7 — o mesmo princípio de chunking/culling que já vale pra vegetação
+    // acima, aplicado a NPCs): o custo por frame nunca cresce com
+    // WORLD_LENGTH, só com o quanto cabe na tela.
+    _drawAmbientLife(ctx, w, h) {
+        const chunkSize = this.AMBIENT_CHUNK_SIZE;
+        const px = this._player.x;
+        const firstChunk = Math.max(0, Math.floor((px - w) / chunkSize) - 1);
+        const lastChunk = Math.min(Math.ceil(this.WORLD_LENGTH / chunkSize), Math.ceil((px + w) / chunkSize) + 1);
+        const t = performance.now() / 1000;
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+
+        for (let c = firstChunk; c <= lastChunk; c++) {
+            if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) continue;
+            const kind = this.AMBIENT_TYPES[this._hash(c * 29 + 6000) % this.AMBIENT_TYPES.length];
+            const seed = this._hash(c * 47 + 7000);
+            const chunkStart = c * chunkSize;
+            let x, y, icon;
+
+            if (kind === 'caravan') {
+                // Atravessa o MUNDO INTEIRO (não só o chunk) e reaparece do
+                // início ao sair — "caravanas devem viajar" entre cidades de
+                // verdade, sem precisar guardar posição entre frames.
+                x = (t * 90 + seed * 500) % this.WORLD_LENGTH;
+                y = -40;
+                icon = '🚚';
+            } else if (kind === 'npc_traveler') {
+                // Anda continuamente numa direção dentro do próprio chunk
+                // (módulo do tempo), nunca oscila vai-e-volta como
+                // bandido/patrulha — dá a sensação de estar realmente indo
+                // de um lugar a outro, não só decorando o mesmo ponto.
+                x = chunkStart + ((t * 40 + seed * 25) % chunkSize);
+                y = (seed % 2 === 0 ? -1 : 1) * 95;
+                icon = '🚶';
+            } else if (kind === 'animal') {
+                const cx = chunkStart + chunkSize * 0.5;
+                x = cx + Math.sin(t * 0.4 + seed) * 180;
+                y = Math.cos(t * 0.3 + seed) * 55;
+                icon = '🦌';
+            } else { // patrol — guarda vai-e-volta, mesmo padrão do bandido (_updateBandits) mas sem raio de detecção nenhum (nunca dispara batalha)
+                const cx = chunkStart + chunkSize * 0.5;
+                x = cx + Math.sin(t * 0.5 + seed) * 220;
+                y = (seed % 2 === 0 ? -1 : 1) * 115;
+                icon = '🛡️';
+            }
+
+            if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
+            ctx.fillText(icon, x, y + 8);
+        }
     },
 
     _drawEvent(ctx, ev) {
