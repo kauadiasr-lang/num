@@ -32,6 +32,19 @@
  * A Expedição à Floresta Ancestral (ligada a Natureza/Corrupção)
  * continua no sistema antigo (js/roads.js RoadSystem + tela screen-road)
  * até a migração física dela na Fase 5.
+ *
+ * Correção pós-Fase-5 (bugs reportados pelo usuário via vídeo): (1)
+ * #screen-roadworld não estava na lista de telas com fundo transparente em
+ * css/style.css — o canvas desenhava tudo certo, mas ficava escondido atrás
+ * de um fundo opaco (ver css/style.css); (2) o movimento aqui era hard-snap
+ * (via PlayerController, pensado pra Praça) — agora ACCEL/DECEL/_approach
+ * dão aceleração/frenagem de verdade, só nesta engine (ver ACCEL/DECEL/
+ * _updateMovement); (3) a câmera usava Camera.follow() (hard-snap) — agora
+ * _updateCamera suaviza exponencialmente e escreve Camera.x/y direto; (4)
+ * início/fim de cidade ganharam um portão de verdade (área de transição +
+ * arco, ver _drawCityGate) no lugar da linha nua; (5) o jogador ganhou uma
+ * animação de caminhada procedural (ver _drawPlayer); (6) um HUD de
+ * progresso (#roadworld-progress) mostra % do caminho percorrido.
  */
 window.RoadEngine = {
     WORLD_LENGTH: 63000, // ~5min andando contínuo a pé (walkSpeed=210px/s * 300s)
@@ -39,6 +52,17 @@ window.RoadEngine = {
     INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
     BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
     BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
+
+    // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
+    // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
+    // (WASD/clique) em vez de saltar pra ela, ver _approach/update(). Essa
+    // lógica fica só aqui (RoadEngine-local), nunca em PlayerController —
+    // a Praça continua com o movimento rígido original, intocado.
+    ACCEL: 900, // px/s² ao acelerar (sair do zero ou mudar de direção)
+    DECEL: 1400, // px/s² ao soltar as teclas/chegar no alvo — freia mais rápido do que acelera, sensação mais natural
+    CAMERA_SMOOTH_TIME: 0.12, // constante de tempo da câmera suavizada (ver update()) — quanto menor, mais "grudada" no jogador
+    GATE_ZONE_RADIUS: 130, // largura da área de transição desenhada em volta de cada portão de cidade (ver _drawCityGate)
+    WALK_CYCLE_SPEED_DIVISOR: 35, // converte px/s de movimento real em rad/s do ciclo de passada (ver _drawPlayer)
 
     // Gabarito genérico de zonas — o nome da última é preenchido em
     // start() com o nome da cidade de destino ("Arredores de X"), as
@@ -107,13 +131,21 @@ window.RoadEngine = {
         this.toId = toId;
         this.mode = mode === 'horse' ? 'horse' : 'walk';
         this.player = player;
-        this._player = { x: 40, y: 0, targetX: null, targetY: null, facing: 1, moving: false, pathQueue: [] };
+        this._player = { x: 40, y: 0, vx: 0, vy: 0, targetX: null, targetY: null, facing: 1, moving: false, pathQueue: [] };
         this.keysHeld = { up: false, down: false, left: false, right: false };
         this._running = false;
         this._nextFatigueTickAt = this._fatigueTickEvery;
         this._arrived = false;
         this.active = true;
         this._nearEvent = null;
+        this._walkCycle = 0;
+        this._lastProgressPct = -1;
+        // A câmera parte já centrada na posição inicial do jogador (nunca em
+        // 0,0) — evita um "salto"/slide-in visível no primeiro frame da
+        // travessia (ponto inicial da cidade de origem precisa continuar
+        // exatamente onde o jogador está, sem bug de câmera).
+        this._camX = this._player.x;
+        this._camY = this._player.y;
 
         const toDef = window.CityDatabase[toId];
         // A Expedição à Floresta Ancestral (ver roads.js FOREST_EXPEDITION_ID)
@@ -258,8 +290,8 @@ window.RoadEngine = {
         // update(), que também usa _isActive() e não só um bool solto).
         if (!this._isActive()) return;
         const p = this._player;
-        window.PlayerController.update(p, this.keysHeld, dt, this._speed(), this._bounds(), []);
-        window.Camera.follow(p);
+        this._updateMovement(p, dt);
+        this._updateCamera(p, dt);
 
         // Fadiga ao longo da distância (só a pé) — mesma cadência/chance
         // (35%) do antigo RoadSystem.advance, só que disparada por
@@ -287,6 +319,95 @@ window.RoadEngine = {
 
         this._updateBandits();
         this._updateInteractPrompt();
+        this._updateProgressLabel();
+    },
+
+    // Move current em direção a target, no máximo maxDelta por chamada —
+    // a mesma lógica de "persegue a velocidade-alvo" usada pra suavizar
+    // aceleração/frenagem (ver _updateMovement) e a câmera (ver _updateCamera).
+    _approach(current, target, maxDelta) {
+        if (current < target) return Math.min(current + maxDelta, target);
+        if (current > target) return Math.max(current - maxDelta, target);
+        return current;
+    },
+
+    // Movimento local da Estrada — NUNCA delega pra PlayerController.update
+    // (que é hard-snap, sem aceleração): o pedido do usuário foi
+    // explicitamente "adicionar movimento suave com aceleração e
+    // desaceleração" e "evitar mudanças instantâneas de direção", então essa
+    // física fica só aqui, sem arriscar regredir o movimento (intocado) da
+    // Praça, que continua usando PlayerController normalmente.
+    _updateMovement(p, dt) {
+        const bounds = this._bounds();
+        const speed = this._speed();
+        let targetVx = 0, targetVy = 0;
+        const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
+
+        if (keyMoving) {
+            if (this.keysHeld.up) targetVy -= 1;
+            if (this.keysHeld.down) targetVy += 1;
+            if (this.keysHeld.left) targetVx -= 1;
+            if (this.keysHeld.right) targetVx += 1;
+            const len = Math.hypot(targetVx, targetVy) || 1;
+            targetVx = (targetVx / len) * speed;
+            targetVy = (targetVy / len) * speed;
+            p.targetX = null;
+            p.targetY = null;
+        } else if (p.targetX !== null) {
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 4) {
+                p.targetX = null;
+                p.targetY = null;
+            } else {
+                targetVx = (dx / dist) * speed;
+                targetVy = (dy / dist) * speed;
+            }
+        }
+
+        // Persegue a velocidade-alvo em vez de saltar pra ela — acelera mais
+        // devagar do que freia (ACCEL < DECEL), sensação mais natural de pé
+        // saindo do chão vs. parando de repente.
+        const rate = (targetVx !== 0 || targetVy !== 0) ? this.ACCEL : this.DECEL;
+        p.vx = this._approach(p.vx, targetVx, rate * dt);
+        p.vy = this._approach(p.vy, targetVy, rate * dt);
+
+        const realSpeed = Math.hypot(p.vx, p.vy);
+        p.moving = realSpeed > 5;
+        if (Math.abs(p.vx) > 5) p.facing = p.vx > 0 ? 1 : -1;
+
+        p.x = Utils.clamp(p.x + p.vx * dt, bounds.minX, bounds.maxX);
+        p.y = Utils.clamp(p.y + p.vy * dt, bounds.minY, bounds.maxY);
+
+        // Ciclo de passada avança com a velocidade REAL (pós-suavização), não
+        // a velocidade-alvo — perna acompanha o corpo acelerando/freando de
+        // verdade, nunca troca de fase instantaneamente ao parar/começar.
+        if (p.moving) this._walkCycle += dt * (realSpeed / this.WALK_CYCLE_SPEED_DIVISOR);
+    },
+
+    // Câmera suavizada (exponencial, independente de FPS) — bypassa
+    // Camera.follow() de propósito (esse hard-snap pro CityEngine da Praça
+    // continua igual) e escreve Camera.x/y direto, só pra este mundo. Ver
+    // pedido do usuário: "a câmera deve acompanhar suavemente o jogador, sem
+    // travamentos ou movimentos bruscos".
+    _updateCamera(p, dt) {
+        const factor = 1 - Math.exp(-dt / this.CAMERA_SMOOTH_TIME);
+        this._camX += (p.x - this._camX) * factor;
+        this._camY += (p.y - this._camY) * factor;
+        window.Camera.x = this._camX;
+        window.Camera.y = this._camY;
+    },
+
+    // Sensação de distância percorrida (pedido do usuário) — atualiza o HUD
+    // #roadworld-progress só quando o percentual inteiro muda, mesmo padrão
+    // de _updateZoneLabel (nunca escreve no DOM todo frame à toa).
+    _updateProgressLabel() {
+        const pct = Math.round(Utils.clamp(this._player.x / this.WORLD_LENGTH, 0, 1) * 100);
+        if (pct === this._lastProgressPct) return;
+        this._lastProgressPct = pct;
+        const el = document.getElementById('roadworld-progress');
+        if (el) el.innerText = `${pct}% do caminho`;
     },
 
     // Bandidos (e o Espírito da Natureza, ver _generateForestEncounter)
@@ -445,15 +566,21 @@ window.RoadEngine = {
         ctx.fillStyle = '#7fa8d9';
         ctx.fillRect(0, 0, w, horizon);
 
-        window.Camera.follow(this._player);
+        // A câmera já foi suavizada em update()/_updateCamera — chamar
+        // Camera.follow() aqui de novo seria um hard-snap por cima da
+        // suavização (desfazendo o trabalho todo), então draw() só LÊ o
+        // offset já calculado.
         const offset = window.Camera.getOffset(w, h);
         ctx.save();
         ctx.translate(offset.dx, offset.dy);
 
-        // Marco de partida/chegada — só orientação visual nesta fase
-        // mínima (sem props/eventos físicos ainda, ver Fase 4).
-        this._drawMarker(ctx, 0, fromDef ? fromDef.name : '');
-        this._drawMarker(ctx, this.WORLD_LENGTH, this._destLabel);
+        // Portões de cidade (partida/chegada) — área de transição real
+        // (chão mistura estrada/cidade) + arco com dois postes, em vez de
+        // uma linha nua, atendendo ao pedido "cidades devem ter
+        // limites/bordas claras, com áreas de transição entre estrada,
+        // campo e cidade".
+        this._drawCityGate(ctx, 0, fromDef ? fromDef.name : '');
+        this._drawCityGate(ctx, this.WORLD_LENGTH, this._destLabel);
 
         // Placas de bioma (Fase 3) — um marco em cada fronteira de zona,
         // com o nome da zona que começa ali. A cor de fundo já muda de
@@ -523,11 +650,75 @@ window.RoadEngine = {
         ctx.fillText(label, x, -this.LANE_HALF_HEIGHT - 12);
     },
 
+    // Portão de cidade (início/fim da travessia) — uma faixa de chão que
+    // mistura cor de estrada com um tom de pedra (gradiente, sem trocar o
+    // cenário de golpe) mais um arco simples de dois postes + lintel, dando
+    // a sensação de atravessar um limite de verdade em vez de uma linha
+    // nua. Fronteiras internas de bioma (Campos/Bosque/Floresta) continuam
+    // usando o _drawMarker simples — só início/fim de cidade ganham o portão.
+    _drawCityGate(ctx, x, label) {
+        const half = this.LANE_HALF_HEIGHT;
+        const r = this.GATE_ZONE_RADIUS;
+
+        const grad = ctx.createLinearGradient(x - r, 0, x + r, 0);
+        grad.addColorStop(0, 'rgba(130,120,105,0)');
+        grad.addColorStop(0.5, 'rgba(130,120,105,0.55)');
+        grad.addColorStop(1, 'rgba(130,120,105,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, -half, r * 2, half * 2);
+
+        const postW = 14, postH = 90, postGap = 46;
+        ctx.fillStyle = '#5a4a3a';
+        ctx.fillRect(x - postGap - postW / 2, -postH, postW, postH * 2);
+        ctx.fillRect(x + postGap - postW / 2, -postH, postW, postH * 2);
+        ctx.fillStyle = '#42352a';
+        ctx.fillRect(x - postGap - postW / 2 - 4, -postH - 16, postGap * 2 + postW + 8, 16);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, x, -postH - 26);
+    },
+
+    // Figura animada de bastão (sem sprites, mesmo estilo 100% procedural
+    // do resto do jogo) — pernas/braços balançam com _walkCycle (avança de
+    // acordo com a velocidade REAL de _updateMovement, então andar mais
+    // rápido = passada mais rápida) e um leve "bob" vertical enquanto anda,
+    // atendendo ao pedido "criar uma animação de caminhada fluida" /
+    // "fazer o personagem parecer que realmente está andando".
     _drawPlayer(ctx) {
         const p = this._player;
+        const swing = p.moving ? Math.sin(this._walkCycle) * 14 : 0;
+        const bob = p.moving ? Math.abs(Math.sin(this._walkCycle)) * 3 : 0;
+        const cx = p.x, cy = p.y - bob;
+        const facing = p.facing || 1;
+
+        ctx.strokeStyle = '#3a2c1e';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + 6);
+        ctx.lineTo(cx + swing * 0.5, cy + 26);
+        ctx.moveTo(cx, cy + 6);
+        ctx.lineTo(cx - swing * 0.5, cy + 26);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 6);
+        ctx.lineTo(cx - swing * 0.4, cy + 12);
+        ctx.moveTo(cx, cy - 6);
+        ctx.lineTo(cx + swing * 0.4, cy + 12);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 6);
+        ctx.lineTo(cx, cy + 8);
+        ctx.stroke();
+
         ctx.fillStyle = '#e8c99b';
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+        ctx.arc(cx + facing * 2, cy - 16, 12, 0, Math.PI * 2);
         ctx.fill();
     }
 };

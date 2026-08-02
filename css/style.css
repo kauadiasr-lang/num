@@ -457,8 +457,12 @@ html, body {
    entre a HUD, o log e os botões de ação. O mesmo vale pro Menu Principal
    e os Créditos, que reaproveitam a arena cinematográfica como pano de fundo,
    e pro Hub/Cidade, cujo mapa explorável (prédios, NPCs, jogador) é desenhado
-   direto no canvas por trás da HUD e dos prompts de interação. */
-#screen-battle, #screen-mainmenu, #screen-credits, #screen-hub {
+   direto no canvas por trás da HUD e dos prompts de interação. screen-roadworld
+   (Mundo da Estrada, ver js/road.js RoadEngine) é o mesmo caso do Hub — sem
+   isso aqui a tela ficava com o fundo opaco padrão de .screen, escondendo
+   TODO o mundo desenhado no canvas atrás dela (bug reportado: "tela cinza,
+   paisagem desaparece" ao iniciar uma viagem a pé).*/
+#screen-battle, #screen-mainmenu, #screen-credits, #screen-hub, #screen-roadworld {
     background: transparent;
 }
 
