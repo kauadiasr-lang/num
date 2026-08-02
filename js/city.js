@@ -1917,10 +1917,18 @@ class CityEngine {
         // tela por GraphicsEngine. Por isso os dois entram AQUI DENTRO,
         // no mesmo ctx.translate de tudo mais, usando _worldWidth() em
         // vez da largura do canvas.
+        // Só o eixo X pan de verdade na Praça — o mundo da cidade sempre foi
+        // desenhado só MAIS LARGO que a tela (ver _worldWidth), nunca mais
+        // alto, então usar offset.dy (calculado por Camera.getOffset a
+        // partir de player.y, pensado pro Mundo da Estrada, que TEM uma
+        // faixa vertical de verdade) empurrava chão/muralha/prédios pra
+        // cima/baixo por até ~300px — abrindo uma fresta na base do canvas
+        // (chão não cobria mais até o fim) que revelava o que sobrou lá
+        // (bug reportado: "campo cheio de riscos" sob a praça).
         window.Camera.follow(this.player);
         const offset = window.Camera.getOffset(w, h);
         ctx.save();
-        ctx.translate(offset.dx, offset.dy);
+        ctx.translate(offset.dx, 0);
 
         this._drawPlazaGround(ctx, this._worldWidth(), h, horizon);
         if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, this._worldWidth(), horizon);
