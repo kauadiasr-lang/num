@@ -177,6 +177,17 @@ class Entity {
             if (mutation.dodgeBonusPercent) dodgeChance += mutation.dodgeBonusPercent;
         }
 
+        // Linhagem SECUNDÁRIA da Natureza (ver nature.js) — soma
+        // independente da PRINCIPAL acima, já que as duas podem estar
+        // ativas ao mesmo tempo (Natureza nunca ocupa `this.lineage`). Só
+        // contribui de verdade enquanto o Amuleto do Guardião estiver
+        // equipado (ver NatureSystem.isActive/sumSecondaryPassiveStats).
+        const secondaryMutation = (this.secondaryLineage && window.SkillTreeSystem) ? window.SkillTreeSystem.sumSecondaryPassiveStats(this) : null;
+        if (secondaryMutation) {
+            if (secondaryMutation.defenseBonusPercent) defenseRating *= (1 + secondaryMutation.defenseBonusPercent / 100);
+            if (secondaryMutation.dodgeBonusPercent) dodgeChance += secondaryMutation.dodgeBonusPercent;
+        }
+
         // Traço único de raça (ver races.js `passive`) — mesmo formato dos
         // passivos de linhagem acima (statKey/value), então generaliza pra
         // qualquer chave de derivedStats sem precisar de mais nenhum caso
@@ -200,16 +211,18 @@ class Entity {
 
         // Estatísticas derivadas da Linhagem (0 se não houver mutação ativa)
         // — expostas de forma genérica pra battle.js consumir sem precisar
-        // saber qual linhagem específica está ativa.
-        this.derivedStats.lifestealPercent = (mutation ? mutation.lifestealPercent : 0) + raceBonus('lifestealPercent');
-        this.derivedStats.hpRegenPerTurn = (mutation ? mutation.hpRegenPerTurn : 0) + raceBonus('hpRegenPerTurn');
-        this.derivedStats.lowHpDamageBonusPercent = (mutation ? mutation.lowHpDamageBonusPercent : 0) + raceBonus('lowHpDamageBonusPercent');
-        this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + raceBonus('bleedResistPercent');
-        this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + raceBonus('drainOnCritPercent');
-        this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + raceBonus('healPowerBonusPercent');
-        this.derivedStats.negativeEffectResistPercent = (mutation ? mutation.negativeEffectResistPercent : 0) + raceBonus('negativeEffectResistPercent');
-        this.derivedStats.critChanceLowHpBonus = (mutation ? mutation.critChanceLowHpBonus : 0) + raceBonus('critChanceLowHpBonus');
-        this.derivedStats.mutationSpecials = mutation ? mutation.specials : [];
+        // saber qual linhagem específica está ativa. Soma PRINCIPAL +
+        // SECUNDÁRIA (Natureza) + raça, as três fontes empilham livremente.
+        const sec = (key) => secondaryMutation ? (secondaryMutation[key] || 0) : 0;
+        this.derivedStats.lifestealPercent = (mutation ? mutation.lifestealPercent : 0) + sec('lifestealPercent') + raceBonus('lifestealPercent');
+        this.derivedStats.hpRegenPerTurn = (mutation ? mutation.hpRegenPerTurn : 0) + sec('hpRegenPerTurn') + raceBonus('hpRegenPerTurn');
+        this.derivedStats.lowHpDamageBonusPercent = (mutation ? mutation.lowHpDamageBonusPercent : 0) + sec('lowHpDamageBonusPercent') + raceBonus('lowHpDamageBonusPercent');
+        this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + sec('bleedResistPercent') + raceBonus('bleedResistPercent');
+        this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + sec('drainOnCritPercent') + raceBonus('drainOnCritPercent');
+        this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + sec('healPowerBonusPercent') + raceBonus('healPowerBonusPercent');
+        this.derivedStats.negativeEffectResistPercent = (mutation ? mutation.negativeEffectResistPercent : 0) + sec('negativeEffectResistPercent') + raceBonus('negativeEffectResistPercent');
+        this.derivedStats.critChanceLowHpBonus = (mutation ? mutation.critChanceLowHpBonus : 0) + sec('critChanceLowHpBonus') + raceBonus('critChanceLowHpBonus');
+        this.derivedStats.mutationSpecials = [...(mutation ? mutation.specials : []), ...(secondaryMutation ? secondaryMutation.specials : [])];
 
         // Se HP/MP atual for 0 (nova entidade) ou maior que o novo máximo, ajusta.
         if (this.currentHp === 0 || this.currentHp > this.derivedStats.maxHp) {
@@ -466,6 +479,18 @@ class Player extends Entity {
         this.mutationSkillPoints = 0;     // pontos pra desbloquear nós da árvore da linhagem
         this.skillTreeUnlocked = {};      // { nodeId: true } — nós já desbloqueados (qualquer árvore)
         this.bossesDefeated = [];         // IDs de bosses de ritual derrotados (Conde Vampiro, Anjo Guardião...)
+
+        // Linhagem SECUNDÁRIA da Natureza (ver nature.js) — NUNCA ocupa
+        // `this.lineage` acima, de propósito: pode coexistir com QUALQUER
+        // linhagem principal (ou nenhuma). Vive metade nesses campos, metade
+        // no item real do Amuleto do Guardião (slot AMULET) — o amuleto
+        // precisa estar DE FATO equipado pra os poderes valerem (ver
+        // NatureSystem.isActive), mas o progresso salvo aqui nunca se perde
+        // só por desequipar/vender o amuleto. null/0 são o padrão neutro pra
+        // saves antigos, que nunca tiveram este sistema.
+        this.secondaryLineage = null;
+        this.secondaryLineageAwakenedAt = null;
+        this.natureSkillPoints = 0;       // pool PRÓPRIO, separado de mutationSkillPoints acima
         // Progresso de cada ritual, independente de qual linhagem o jogador
         // já despertou — permite acompanhar o progresso de descoberta de
         // TODAS as linhagens ainda não obtidas ao mesmo tempo.
@@ -568,8 +593,13 @@ class Player extends Entity {
         // ter despertado uma Linhagem — sem isso, nenhuma árvore existe
         // ainda pra gastar o ponto, e o jogador não tem `lineage` definido.
         if (this.lineage) this.mutationSkillPoints = (this.mutationSkillPoints || 0) + 1;
+        // Mesmo padrão acima, só que pro pool PRÓPRIO da Linhagem
+        // SECUNDÁRIA da Natureza (ver nature.js/skilltrees.js) — os dois
+        // pools crescem de forma totalmente independente, já que as duas
+        // linhagens podem estar ativas ao mesmo tempo.
+        if (this.secondaryLineage) this.natureSkillPoints = (this.natureSkillPoints || 0) + 1;
         this.calculateDerivedStats();
-        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point${this.lineage ? ', +1 Ponto de Mutação' : ''}`);
+        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point${this.lineage ? ', +1 Ponto de Mutação' : ''}${this.secondaryLineage ? ', +1 Ponto de Natureza' : ''}`);
     }
 
     learnSkill(skillId) {

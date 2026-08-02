@@ -312,8 +312,19 @@ class UIManager {
             // indo pro Hub exatamente como antes.
             if (p && p.roadJourney) {
                 if (this._lastBattleWasVictory) {
-                    this.openRoad();
+                    // Descoberta da Floresta Ancestral (ver nature.js): a
+                    // vitória contra o monstro das sombras que corrompia as
+                    // raízes é o próprio evento de descoberta — mostra a
+                    // cena antes de voltar pra Estrada, nunca as duas coisas
+                    // ao mesmo tempo silenciosamente.
+                    if (this._pendingNatureDiscovery) {
+                        this._pendingNatureDiscovery = false;
+                        this._resolveNatureDiscoveryVictory(p);
+                    } else {
+                        this.openRoad();
+                    }
                 } else {
+                    this._pendingNatureDiscovery = false;
                     window.RoadSystem.abandonJourney(p);
                     window.SaveManager.save(window.Engine.state);
                     if (window.MainMenu) window.MainMenu.showToast('Derrotado, você recua e abandona a viagem.', 'error');
@@ -1336,6 +1347,63 @@ class UIManager {
     // do jogador (se houver), o progresso dos Rituais de descoberta (ver
     // rituals.js), a Skill Tree da linhagem ativa (ver skilltrees.js) e os
     // bosses de ritual já derrotados (ver enemy.js BOSS_DEFS).
+    // Desenha os nós de uma árvore de habilidades (tiers, custo, botões de
+    // desbloquear/equipar) dentro de `containerEl` — extraído para ser usado
+    // tanto pela linhagem PRINCIPAL quanto pela SECUNDÁRIA (Natureza, ver
+    // nature.js) em openMutations, já que a lógica de desenho é idêntica
+    // para qualquer árvore registrada em SKILL_TREES, só muda o `treeId`
+    // usado pra consultar SkillTreeSystem.
+    _renderSkillTreeInto(p, treeId, containerEl, limits) {
+        containerEl.innerHTML = '';
+        const tree = window.SkillTreeSystem.getTreeForDisplay(p, treeId);
+        if (!tree) return;
+        const tiers = {};
+        tree.nodes.forEach(n => { (tiers[n.tier] = tiers[n.tier] || []).push(n); });
+        Object.keys(tiers).sort((a, b) => a - b).forEach(tierNum => {
+            const tierRow = document.createElement('div');
+            tierRow.className = 'skilltree-tier';
+            tiers[tierNum].forEach(node => {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'skilltree-node ' + (node.unlocked ? 'unlocked' : (node.unlockable ? 'unlockable' : 'locked'));
+                // Nós ATIVOS já desbloqueados também entram no loadout de
+                // batalha (ver window.SKILL_LOADOUT_LIMITS): equipar aqui é
+                // o único jeito de usar uma habilidade de árvore de Linhagem
+                // em combate (ui.js openBattleSkillMenu só lê
+                // Player.getEquippedSkills, nunca learnedSkills cru).
+                const isActiveUnlocked = node.unlocked && node.type === 'active' && node.skillDef;
+                const isEquipped = isActiveUnlocked && p.isSkillEquipped(node.skillDef.id);
+                const equipDisabled = isActiveUnlocked && !isEquipped && p.equippedMutationSkills.length >= limits.mutation;
+                nodeEl.innerHTML = `
+                    <h5>${node.name}</h5>
+                    <div class="node-type">${node.type === 'active' ? 'Ativa' : 'Passiva'}</div>
+                    <div>${node.description}</div>
+                    <div class="node-cost">Custo: ${node.cost}${node.unlocked ? ' (Desbloqueado)' : ''}</div>
+                    ${isActiveUnlocked ? `<button class="btn btn-small btn-equip-mutation" style="margin-top:8px;" ${equipDisabled ? 'disabled' : ''}>${isEquipped ? 'Desequipar' : 'Equipar'}</button>` : ''}
+                `;
+                if (isActiveUnlocked) {
+                    nodeEl.querySelector('.btn-equip-mutation').addEventListener('click', (evt) => {
+                        evt.stopPropagation();
+                        if (isEquipped) p.unequipSkill(node.skillDef.id); else p.equipSkill(node.skillDef.id);
+                        window.SaveManager.save(window.Engine.state);
+                        this.openMutations();
+                    });
+                }
+                if (node.unlockable) {
+                    nodeEl.addEventListener('click', () => {
+                        if (window.SkillTreeSystem.unlockNode(p, treeId, node.id)) {
+                            if (node.type === 'active' && node.skillDef) p.equipSkill(node.skillDef.id); // Auto-equipa se houver vaga
+                            window.SaveManager.save(window.Engine.state);
+                            if (window.AudioManager) window.AudioManager.playConfirm();
+                            this.openMutations();
+                        }
+                    });
+                }
+                tierRow.appendChild(nodeEl);
+            });
+            containerEl.appendChild(tierRow);
+        });
+    }
+
     openMutations() {
         const p = window.Engine.state.player;
         const hasLineage = !!p.lineage;
@@ -1410,56 +1478,32 @@ class UIManager {
             if (equippedCountEl) {
                 equippedCountEl.innerText = `Equipadas para batalha: ${p.equippedMutationSkills.length}/${limits.mutation}`;
             }
-            const treeEl = document.getElementById('mutations-skilltree');
-            treeEl.innerHTML = '';
-            const tree = window.SkillTreeSystem.getTreeForDisplay(p, p.lineage);
-            if (tree) {
-                const tiers = {};
-                tree.nodes.forEach(n => { (tiers[n.tier] = tiers[n.tier] || []).push(n); });
-                Object.keys(tiers).sort((a, b) => a - b).forEach(tierNum => {
-                    const tierRow = document.createElement('div');
-                    tierRow.className = 'skilltree-tier';
-                    tiers[tierNum].forEach(node => {
-                        const nodeEl = document.createElement('div');
-                        nodeEl.className = 'skilltree-node ' + (node.unlocked ? 'unlocked' : (node.unlockable ? 'unlockable' : 'locked'));
-                        // Nós ATIVOS já desbloqueados também entram no loadout
-                        // de batalha (ver window.SKILL_LOADOUT_LIMITS): equipar
-                        // aqui é o único jeito de usar uma habilidade de árvore
-                        // de Linhagem em combate (ui.js openBattleSkillMenu só
-                        // lê Player.getEquippedSkills, nunca learnedSkills cru).
-                        const isActiveUnlocked = node.unlocked && node.type === 'active' && node.skillDef;
-                        const isEquipped = isActiveUnlocked && p.isSkillEquipped(node.skillDef.id);
-                        const equipDisabled = isActiveUnlocked && !isEquipped && p.equippedMutationSkills.length >= limits.mutation;
-                        nodeEl.innerHTML = `
-                            <h5>${node.name}</h5>
-                            <div class="node-type">${node.type === 'active' ? 'Ativa' : 'Passiva'}</div>
-                            <div>${node.description}</div>
-                            <div class="node-cost">Custo: ${node.cost}${node.unlocked ? ' (Desbloqueado)' : ''}</div>
-                            ${isActiveUnlocked ? `<button class="btn btn-small btn-equip-mutation" style="margin-top:8px;" ${equipDisabled ? 'disabled' : ''}>${isEquipped ? 'Desequipar' : 'Equipar'}</button>` : ''}
-                        `;
-                        if (isActiveUnlocked) {
-                            nodeEl.querySelector('.btn-equip-mutation').addEventListener('click', (evt) => {
-                                evt.stopPropagation();
-                                if (isEquipped) p.unequipSkill(node.skillDef.id); else p.equipSkill(node.skillDef.id);
-                                window.SaveManager.save(window.Engine.state);
-                                this.openMutations();
-                            });
-                        }
-                        if (node.unlockable) {
-                            nodeEl.addEventListener('click', () => {
-                                if (window.SkillTreeSystem.unlockNode(p, p.lineage, node.id)) {
-                                    if (node.type === 'active' && node.skillDef) p.equipSkill(node.skillDef.id); // Auto-equipa se houver vaga
-                                    window.SaveManager.save(window.Engine.state);
-                                    if (window.AudioManager) window.AudioManager.playConfirm();
-                                    this.openMutations();
-                                }
-                            });
-                        }
-                        tierRow.appendChild(nodeEl);
-                    });
-                    treeEl.appendChild(tierRow);
-                });
-            }
+            this._renderSkillTreeInto(p, p.lineage, document.getElementById('mutations-skilltree'), limits);
+        }
+
+        // Linhagem SECUNDÁRIA (Natureza, ver nature.js) — sempre exibida numa
+        // seção própria, nunca substitui a linhagem PRINCIPAL acima: as duas
+        // coexistem lado a lado, cada uma com seu próprio pool de pontos e
+        // árvore (mesmo mecanismo genérico de SkillTreeSystem, só que
+        // parametrizado por `p.secondaryLineage` em vez de `p.lineage`).
+        const secondarySection = document.getElementById('mutations-secondary-section');
+        const hasSecondary = !!p.secondaryLineage;
+        secondarySection.classList.toggle('hidden', !hasSecondary);
+        if (hasSecondary) {
+            p._ensureSkillLoadout();
+            const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
+            const natureInfo = window.NatureSystem.get();
+            const active = window.NatureSystem.isActive(p);
+            document.getElementById('mutations-secondary-current').innerHTML = `
+                <span class="mutations-current-icon">🌿</span>
+                <div>
+                    <div class="mutations-current-name">${natureInfo.name}${active ? '' : ' <small style="color:#e74c3c;">(Amuleto não equipado — poderes inativos)</small>'}</div>
+                    <div class="mutations-current-tagline">${natureInfo.tagline}</div>
+                    <div class="mutations-current-specialty">Especialidade: ${natureInfo.specialty.join(', ')}</div>
+                </div>
+            `;
+            document.getElementById('mutations-secondary-skillpoints').innerText = `Pontos disponíveis: ${p.natureSkillPoints || 0}`;
+            this._renderSkillTreeInto(p, p.secondaryLineage, document.getElementById('mutations-secondary-skilltree'), limits);
         }
 
         // Bosses de ritual derrotados
@@ -1491,6 +1535,12 @@ class UIManager {
         if (!lineage) { if (callback) callback(); return; }
 
         const overlay = document.getElementById('lineage-awakening-overlay');
+        // Sempre reseta o kicker pro texto padrão desta cinemática — o
+        // mesmo overlay é reaproveitado por _resolveNatureDiscoveryVictory
+        // (Linhagem SECUNDÁRIA) com um texto diferente, e por ser um nó DOM
+        // persistente (não recriado a cada chamada) o texto anterior fica
+        // "grudado" se ninguém o redefinir explicitamente aqui.
+        document.getElementById('lineage-awakening-kicker').innerText = 'NOVA LINHAGEM DESPERTA';
         document.getElementById('lineage-awakening-name').innerText = lineage.name;
         document.getElementById('lineage-awakening-tagline').innerText = lineage.tagline;
         overlay.classList.remove('hidden');
@@ -1503,6 +1553,41 @@ class UIManager {
         setTimeout(() => {
             overlay.classList.add('hidden');
             if (callback) callback();
+        }, 3200);
+    }
+
+    // Cena de descoberta da Linhagem SECUNDÁRIA da Natureza (ver nature.js)
+    // — disparada ao vencer o monstro das sombras que corrompia a Floresta
+    // Ancestral durante uma viagem pela Estrada (ver roads.js _rollEvent,
+    // ui.js btn-return-hub). Reaproveita o MESMO overlay de
+    // showLineageAwakening (nunca duplica markup/CSS pra uma segunda
+    // cinemática quase idêntica), só com textos e cor de VFX diferentes, e
+    // ao fechar retoma a viagem em vez de ir pra tela de resultados — a
+    // vitória contra esse monstro específico É o evento de descoberta, não
+    // uma batalha comum.
+    _resolveNatureDiscoveryVictory(p) {
+        const amulet = window.NatureSystem.grantGuardianAmulet(p);
+        window.SaveManager.save(window.Engine.state);
+        // Segurança: se por algum motivo a linhagem secundária já existisse
+        // (nunca deveria, ver NatureSystem.isDiscoveryAvailable), nunca trava
+        // o jogo numa cinemática vazia — só retoma a viagem normalmente.
+        if (!amulet) { this.openRoad(); return; }
+
+        const lineage = window.NATURE_LINEAGE;
+        const overlay = document.getElementById('lineage-awakening-overlay');
+        document.getElementById('lineage-awakening-kicker').innerText = 'LINHAGEM SECUNDÁRIA DESPERTA';
+        document.getElementById('lineage-awakening-name').innerText = lineage.name;
+        document.getElementById('lineage-awakening-tagline').innerText = `${lineage.tagline} Você recebeu o Amuleto do Guardião.`;
+        overlay.classList.remove('hidden');
+
+        if (window.GFX && window.GFX.playLineageAwakeningVFX) {
+            window.GFX.playLineageAwakeningVFX('#4caf50');
+        }
+        if (window.AudioManager && window.AudioManager.playConfirm) window.AudioManager.playConfirm();
+
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            this.openRoad();
         }, 3200);
     }
 
@@ -2485,7 +2570,12 @@ class UIManager {
             // Estrada sozinha se o jogador venceu (ver showBattleResults).
             // `elite` (chefe opcional do caminho, ver roads.js) usa um
             // inimigo mais forte que o Duelo Rápido comum, nunca o mesmo
-            // startBattle() genérico.
+            // startBattle() genérico. `natureDiscovery` (Floresta Ancestral,
+            // ver nature.js) marca a próxima vitória pra disparar a cena de
+            // descoberta em vez de só retomar a viagem — guardado numa flag
+            // própria (não no roadJourney, que já é limpo/recriado em
+            // vários pontos) pra sobreviver até o clique em "Continuar".
+            this._pendingNatureDiscovery = !!result.natureDiscovery;
             this.openRoad(); // atualiza o log com a mensagem de aviso antes da batalha começar
             setTimeout(() => {
                 if (window.Engine.state.player !== p || !p.roadJourney) return;

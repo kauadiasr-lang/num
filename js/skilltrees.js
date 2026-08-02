@@ -223,6 +223,51 @@ const SKILL_TREES = {
                 skillDef: { id: 'ira_celestial', name: 'Ira Celestial', type: 'MAGIC', mpCost: 38, powerMulti: 3.0,
                     description: 'A magia sagrada definitiva: dano cataclísmico de longo alcance (10m).', extra: { cooldown: 5, range: 10 } } }
         ]
+    },
+
+    // Árvore da Linhagem SECUNDÁRIA da Natureza (ver nature.js) — focada em
+    // suporte (cura, raízes, espinhos, regeneração, resistências,
+    // espíritos), NUNCA compete diretamente com o dano de uma linhagem
+    // PRINCIPAL (Vampirismo/Luz/Sombras/Titã). Todos os ids têm o prefixo
+    // `nat_` de propósito: o mesmo dicionário `player.skillTreeUnlocked` é
+    // compartilhado entre TODAS as árvores do jogo (ver comentário em
+    // player.js), então prefixos distintos por linhagem são o que evita
+    // colisão de chave entre árvores diferentes.
+    natureza: {
+        id: 'natureza', name: 'Árvore da Natureza',
+        nodes: [
+            // --- Tier 1: raízes ---
+            { id: 'nat_root_cura', name: 'Seiva Curativa', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Aumenta em 10% o poder de cura de poções e habilidades.', statMods: { healPowerBonusPercent: 10 } },
+            { id: 'nat_root_raizes', name: 'Raízes Profundas', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Aumenta a Defesa em 8%.', statMods: { defenseBonusPercent: 8 } },
+            { id: 'nat_root_regen', name: 'Regeneração Silvestre', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Regenera 2% do HP máximo no início de cada turno.', statMods: { hpRegenPerTurn: 2 } },
+
+            // --- Tier 2 ---
+            { id: 'nat_toque_vital', name: 'Toque Vital', tier: 2, type: 'active', cost: 1, requires: ['nat_root_cura'],
+                description: 'Desbloqueia Toque Vital: cura uma boa quantidade de HP com o poder da Natureza.',
+                skillDef: { id: 'nat_toque_vital_skill', name: 'Toque Vital', type: 'HEAL', mpCost: 18, powerMulti: 1.5,
+                    description: 'Cura o próprio gladiador com o poder curativo da Natureza.' } },
+            { id: 'nat_espinhos', name: 'Investida de Espinhos', tier: 2, type: 'active', cost: 1, requires: ['nat_root_raizes'],
+                description: 'Desbloqueia Investida de Espinhos: um golpe de raízes afiadas que causa sangramento contínuo.',
+                skillDef: { id: 'nat_espinhos_skill', name: 'Investida de Espinhos', type: 'BLEED', mpCost: 16, powerMulti: 0.95,
+                    description: 'Golpe de raízes afiadas que causa sangramento contínuo no alvo.', extra: { duration: 3, bleedMulti: 0.35 } } },
+            { id: 'nat_resistencia', name: 'Casca Resistente', tier: 2, type: 'passive', cost: 1, requires: ['nat_root_regen'],
+                description: 'Reduz em 15% os efeitos negativos sofridos (venenos, maldições, atordoamentos).', statMods: { negativeEffectResistPercent: 15 } },
+
+            // --- Tier 3 ---
+            { id: 'nat_purificacao', name: 'Purificação', tier: 3, type: 'active', cost: 2, requires: ['nat_toque_vital'],
+                description: 'Desbloqueia Casulo de Espinhos: uma barreira de raízes reduz o dano recebido por alguns turnos.',
+                skillDef: { id: 'nat_casulo_skill', name: 'Casulo de Espinhos', type: 'SHIELD', mpCost: 20, powerMulti: 1,
+                    description: 'Uma barreira de raízes e espinhos reduz o dano recebido por alguns turnos.', extra: { duration: 3, shieldPercent: 30 } } },
+            { id: 'nat_espiritos', name: 'Espíritos Guardiões', tier: 3, type: 'passive', cost: 2, requires: ['nat_espinhos', 'nat_resistencia'],
+                description: 'Reduz em 25% o dano recebido de sangramento.', statMods: { bleedResistPercent: 25 } },
+
+            // --- Tier 4: capstone ---
+            { id: 'nat_guardiao_floresta', name: 'Guardião da Floresta', tier: 4, type: 'passive', cost: 3, requires: ['nat_purificacao', 'nat_espiritos'],
+                description: 'Regenera mais 4% do HP máximo no início de cada turno (soma com a Regeneração Silvestre).', statMods: { hpRegenPerTurn: 4 } }
+        ]
     }
 };
 window.SKILL_TREES = SKILL_TREES;
@@ -239,18 +284,33 @@ window.SkillTreeSystem = {
     },
 
     // Um nó é desbloqueável se: a árvore pertence à linhagem ativa do
-    // jogador, ele ainda não foi desbloqueado, o jogador tem pontos
-    // suficientes, e (é raiz OU pelo menos um pré-requisito já foi
-    // desbloqueado) — é essa condição "OR" que torna a árvore um grafo
-    // ramificado de verdade, nunca uma corrente linear única.
+    // jogador — PRINCIPAL (player.lineage) OU SECUNDÁRIA
+    // (player.secondaryLineage, ver nature.js: a Linhagem da Natureza NUNCA
+    // ocupa player.lineage, pra poder coexistir com qualquer linhagem
+    // principal) — ele ainda não foi desbloqueado, o jogador tem pontos
+    // suficientes NO POOL CERTO (ver _pointsFieldFor), e (é raiz OU pelo
+    // menos um pré-requisito já foi desbloqueado) — é essa condição "OR"
+    // que torna a árvore um grafo ramificado de verdade, nunca uma
+    // corrente linear única.
     isUnlockable(player, treeId, nodeId) {
         const node = this.getNode(treeId, nodeId);
         if (!node) return false;
-        if (player.lineage !== treeId) return false;
+        if (player.lineage !== treeId && player.secondaryLineage !== treeId) return false;
         if (player.skillTreeUnlocked && player.skillTreeUnlocked[nodeId]) return false;
-        if ((player.mutationSkillPoints || 0) < node.cost) return false;
+        const pointsField = this._pointsFieldFor(player, treeId);
+        if ((player[pointsField] || 0) < node.cost) return false;
         if (node.requires.length === 0) return true;
         return node.requires.some(reqId => player.skillTreeUnlocked && player.skillTreeUnlocked[reqId]);
+    },
+
+    // Qual campo do Player guarda os pontos de talento de uma árvore
+    // específica — a Linhagem PRINCIPAL sempre gasta de
+    // `mutationSkillPoints`; a Linhagem SECUNDÁRIA da Natureza tem seu
+    // PRÓPRIO pool (`natureSkillPoints`), inteiramente separado, já que as
+    // duas podem estar ativas ao mesmo tempo no mesmo personagem — gastar
+    // pontos de uma nunca deve afetar a outra.
+    _pointsFieldFor(player, treeId) {
+        return player.secondaryLineage === treeId ? 'natureSkillPoints' : 'mutationSkillPoints';
     },
 
     unlockNode(player, treeId, nodeId) {
@@ -259,7 +319,8 @@ window.SkillTreeSystem = {
 
         player.skillTreeUnlocked = player.skillTreeUnlocked || {};
         player.skillTreeUnlocked[nodeId] = true;
-        player.mutationSkillPoints -= node.cost;
+        const pointsField = this._pointsFieldFor(player, treeId);
+        player[pointsField] -= node.cost;
 
         if (node.type === 'active' && node.skillDef) {
             // Registra a habilidade ativa no MESMO banco usado pelas
@@ -277,17 +338,16 @@ window.SkillTreeSystem = {
         return true;
     },
 
-    // Soma todos os statMods dos nós passivos desbloqueados da árvore da
-    // linhagem ativa do jogador — chamado por Player.calculateDerivedStats().
-    // Também retorna quais nós "especiais" (sem statMods numéricos simples,
-    // ex: auto_revive_heal) estão ativos, pra battle.js consultar.
-    sumPassiveStats(player) {
+    // Soma os statMods de UMA árvore específica (nós passivos já
+    // desbloqueados) — extraído de sumPassiveStats/sumSecondaryPassiveStats
+    // abaixo pra nunca duplicar essa lógica de agregação entre a Linhagem
+    // PRINCIPAL e a SECUNDÁRIA.
+    _sumTreePassives(player, treeId) {
         const totals = {};
         MUTATION_STAT_KEYS.forEach(k => totals[k] = 0);
         totals.specials = [];
-        if (!player.lineage || !player.skillTreeUnlocked) return totals;
-        const tree = SKILL_TREES[player.lineage];
-        if (!tree) return totals;
+        const tree = SKILL_TREES[treeId];
+        if (!tree || !player.skillTreeUnlocked) return totals;
 
         tree.nodes.forEach(node => {
             if (node.type !== 'passive' || !player.skillTreeUnlocked[node.id]) return;
@@ -299,6 +359,36 @@ window.SkillTreeSystem = {
             if (node.special) totals.specials.push(node.special);
         });
         return totals;
+    },
+
+    // Soma todos os statMods dos nós passivos desbloqueados da árvore da
+    // linhagem PRINCIPAL ativa do jogador — chamado por
+    // Player.calculateDerivedStats(). Também retorna quais nós "especiais"
+    // (sem statMods numéricos simples, ex: auto_revive_heal) estão ativos,
+    // pra battle.js consultar.
+    sumPassiveStats(player) {
+        if (!player.lineage) {
+            const empty = {};
+            MUTATION_STAT_KEYS.forEach(k => empty[k] = 0);
+            empty.specials = [];
+            return empty;
+        }
+        return this._sumTreePassives(player, player.lineage);
+    },
+
+    // Mesma soma, mas para a Linhagem SECUNDÁRIA da Natureza (ver
+    // nature.js) — só contribui enquanto o Amuleto do Guardião estiver DE
+    // FATO EQUIPADO (NatureSystem.isActive). Removê-lo (pra mochila) ou
+    // vendê-lo desativa os poderes imediatamente, mas NUNCA apaga o
+    // progresso já salvo em skillTreeUnlocked/natureSkillPoints —
+    // reequipar (ou obter outro) reativa tudo de novo, do zero de estado
+    // salvo, sem perder nenhum nó já desbloqueado.
+    sumSecondaryPassiveStats(player) {
+        const empty = {};
+        MUTATION_STAT_KEYS.forEach(k => empty[k] = 0);
+        empty.specials = [];
+        if (!player.secondaryLineage || !window.NatureSystem || !window.NatureSystem.isActive(player)) return empty;
+        return this._sumTreePassives(player, player.secondaryLineage);
     },
 
     // Nós desbloqueados agrupados por tier, pra renderização da árvore na UI.

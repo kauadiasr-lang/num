@@ -282,6 +282,13 @@
                             <div id="mutations-skilltree" class="mutations-skilltree"></div>
                         </div>
 
+                        <div class="mutations-section hidden" id="mutations-secondary-section">
+                            <h3 class="mutations-subtitle">Linhagem Secundária: Natureza</h3>
+                            <div id="mutations-secondary-current" class="mutations-current"></div>
+                            <p id="mutations-secondary-skillpoints" class="mutations-skillpoints">Pontos disponíveis: 0</p>
+                            <div id="mutations-secondary-skilltree" class="mutations-skilltree"></div>
+                        </div>
+
                         <div class="mutations-section">
                             <h3 class="mutations-subtitle">Bosses Derrotados</h3>
                             <div id="mutations-bosses" class="mutations-bosses-list"></div>
@@ -308,7 +315,7 @@
                  resultados normal da batalha (ver ui.js showLineageAwakening). -->
             <div id="lineage-awakening-overlay" class="lineage-awakening-overlay hidden">
                 <div class="lineage-awakening-content">
-                    <p class="lineage-awakening-kicker">NOVA LINHAGEM DESPERTA</p>
+                    <p id="lineage-awakening-kicker" class="lineage-awakening-kicker">NOVA LINHAGEM DESPERTA</p>
                     <h1 id="lineage-awakening-name" class="lineage-awakening-name">Vampirismo</h1>
                     <p id="lineage-awakening-tagline" class="lineage-awakening-tagline"></p>
                 </div>
@@ -710,6 +717,7 @@
     <script src="js/citydatabase.js"></script>
     <script src="js/roads.js"></script>
     <script src="js/skilltrees.js"></script>
+    <script src="js/nature.js"></script>
     <script src="js/rituals.js"></script>
     <script src="js/quests.js"></script>
     <script src="js/player.js"></script>

@@ -92,10 +92,26 @@ const RoadSystem = {
         if (journey.log.length > 5) journey.log.length = 5;
 
         const arrived = journey.step >= journey.totalSteps;
-        return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite };
+        return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite, natureDiscovery: !!result.natureDiscovery };
     },
 
     _rollEvent(player, label) {
+        // Descoberta da Floresta Ancestral (item pedido: Linhagem SECUNDÁRIA
+        // da Natureza, ver nature.js) — checada ANTES da tabela normal,
+        // raridade própria e separada, e só pode acontecer uma vez por
+        // personagem (nunca mais reaparece depois de já ter a linhagem
+        // secundária, corrompida ou não). Ainda usa o mesmo fluxo de
+        // "ambush" já testado (batalha real, vencer/perder decide o
+        // resultado), só que sinalizado como `natureDiscovery` pra ui.js
+        // saber que precisa disparar a cena de descoberta na vitória, em
+        // vez de só retomar a viagem normalmente.
+        if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player) && Utils.chance(4)) {
+            return {
+                message: `${label}: a névoa da mata se adensa — um monstro das sombras corrompe as raízes ao seu redor!`,
+                ambush: true, natureDiscovery: true
+            };
+        }
+
         const roll = Utils.randomInt(1, 100);
         if (roll <= 12) {
             // Emboscada: batalha real contra um inimigo procedural, mesmo
