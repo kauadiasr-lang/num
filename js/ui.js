@@ -2666,6 +2666,8 @@ class UIManager {
 
         const fromDef = window.CityDatabase[journey.fromId];
 
+        const sceneryCanvas = document.getElementById('road-scenery-canvas');
+
         if (journey.isForestExpedition) {
             document.getElementById('road-title').innerText = `${fromDef.name} → Floresta Ancestral`;
             document.getElementById('road-mode').innerText = 'A pé';
@@ -2676,8 +2678,11 @@ class UIManager {
 
             // Paleta fixa esverdeada/mística (ver graphics.js ARENA_BIOMES
             // floresta_ancestral) em vez de interpolar com uma cidade
-            // destino que não existe de verdade.
+            // destino que não existe de verdade. Cena procedural (ver
+            // drawRoadScenery) também escondida pelo mesmo motivo — sem
+            // um `toCityId` real, não faz sentido nenhuma interpolação.
             document.getElementById('screen-road').style.background = 'linear-gradient(180deg, #1a3a1522, #0a0a0a 70%)';
+            if (sceneryCanvas) sceneryCanvas.classList.add('hidden');
 
             const logEl = document.getElementById('road-log');
             logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A mata se fecha atrás de você...</p>';
@@ -2701,6 +2706,14 @@ class UIManager {
         const t = journey.totalSteps > 0 ? journey.step / journey.totalSteps : 0;
         const blended = Utils.lerpColor ? Utils.lerpColor(fromDef.accentColor, toDef.accentColor, t) : toDef.accentColor;
         document.getElementById('screen-road').style.background = `linear-gradient(180deg, ${blended}22, #0a0a0a 70%)`;
+
+        // Cena procedural com vegetação/solo de verdade (ver graphics.js
+        // drawRoadScenery) — a MESMA transição de progresso acima, só que
+        // desenhada de verdade em vez de só uma cor de fundo.
+        if (sceneryCanvas) {
+            sceneryCanvas.classList.remove('hidden');
+            if (window.GFX && window.GFX.drawRoadScenery) window.GFX.drawRoadScenery(sceneryCanvas, journey.fromId, journey.toId, t);
+        }
 
         const logEl = document.getElementById('road-log');
         logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A estrada se estende à sua frente...</p>';

@@ -645,6 +645,13 @@
                     <div class="panel-watermark">🥾</div>
                     <h2 class="panel-title" id="road-title">Estrada</h2>
                     <p class="road-mode-label">Modo: <span id="road-mode" class="highlight-gold">A pé</span></p>
+                    <!-- Transição gradual de bioma entre as duas cidades (ver
+                         graphics.js drawRoadScenery/ui.js openRoad) — nunca
+                         instantânea, sempre interpolada conforme o progresso
+                         avança. Reaproveita o mesmo motor procedural (sem
+                         asset novo) já usado pra desenhar a vegetação da
+                         Praça de cada cidade. -->
+                    <canvas id="road-scenery-canvas" class="road-scenery-canvas" width="900" height="150"></canvas>
                     <div class="road-progress-bar"><div id="road-progress-fill" class="road-progress-fill"></div></div>
                     <p class="road-progress-label" id="road-progress-label">0/0</p>
                     <div id="road-log" class="road-log"></div>

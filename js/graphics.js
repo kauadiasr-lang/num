@@ -458,6 +458,54 @@ class GraphicsEngine {
         }
     }
 
+    // Cena procedural da Estrada (item pedido na auditoria de mundo vivo:
+    // transição gradual de bioma entre cidades, nunca instantânea, mesmo
+    // sem asset novo) — ver ui.js openRoad, que chama isto a cada render da
+    // tela com o `t` (0 a 1) do progresso da viagem. Reaproveita os MESMOS
+    // dados de identidade visual já usados pra desenhar a Praça de cada
+    // cidade (groundColors/treelineColor/vegetationTypes, ver
+    // citydatabase.js, city.js _paintVegetation) — nunca duplica paleta
+    // nova só pra Estrada. A vegetação de origem desbota (alpha 1-t)
+    // enquanto a de destino ganha força (alpha t), cruzando gradualmente em
+    // vez de trocar de uma vez.
+    drawRoadScenery(canvas, fromCityId, toCityId, t) {
+        const fromDef = window.CityDatabase && window.CityDatabase[fromCityId];
+        const toDef = window.CityDatabase && window.CityDatabase[toCityId];
+        if (!canvas || !fromDef || !toDef) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const treelineBlend = Utils.lerpColor(fromDef.treelineColor, toDef.treelineColor, t);
+        ctx.fillStyle = treelineBlend;
+        ctx.fillRect(0, 0, w, h * 0.62);
+
+        const groundTop = Utils.lerpColor(fromDef.groundColors[0], toDef.groundColors[0], t);
+        const groundBottom = Utils.lerpColor(fromDef.groundColors[1], toDef.groundColors[1], t);
+        const groundGrad = ctx.createLinearGradient(0, h * 0.55, 0, h);
+        groundGrad.addColorStop(0, groundTop);
+        groundGrad.addColorStop(1, groundBottom);
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, h * 0.55, w, h * 0.45);
+
+        if (window.City && window.City._paintVegetation) {
+            const scale = h / 220;
+            const fromType = (fromDef.vegetationTypes && fromDef.vegetationTypes.edge) || 'cypress';
+            const toType = (toDef.vegetationTypes && toDef.vegetationTypes.edge) || 'cypress';
+            [w * 0.15, w * 0.38, w * 0.62, w * 0.85].forEach((x, i) => {
+                const y = h * (0.78 + (i % 2) * 0.06);
+                ctx.save();
+                ctx.globalAlpha = 1 - t;
+                window.City._paintVegetation(ctx, x, y, scale, fromType);
+                ctx.restore();
+                ctx.save();
+                ctx.globalAlpha = t;
+                window.City._paintVegetation(ctx, x, y, scale, toType);
+                ctx.restore();
+            });
+        }
+    }
+
     // Posição X de um gladiador na arena. Reflete a distância tática real da
     // batalha (suavizada quadro a quadro): quanto maior window.BattleEngine.distance,
     // mais afastados os gladiadores aparecem — e vice-versa quando se aproximam.
