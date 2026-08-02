@@ -122,7 +122,17 @@ window.PlayerController = {
         const insideAnyRect = (x, y) => rects.some(r => x > r.left && x < r.right && y > r.top && y < r.bottom);
 
         const nodes = [{ x: sx, y: sy }];
-        const pad = 3;
+        // Bug corrigido: `pad` precisa ser MAIOR que a margem padrão usada
+        // por collides() (16px, ver assinatura acima) — cada quina de
+        // contorno gerada aqui vira um waypoint de verdade que o jogador
+        // tenta alcançar, e se ela ficar só 3px fora do retângulo "cru"
+        // (sem contar a margem de colisão de verdade), o próprio waypoint
+        // continua DENTRO da zona bloqueada de collides() em ~13px — o
+        // jogador nunca "chega" nele (a distância nunca cai o bastante pra
+        // liberar o próximo trecho do caminho), travando pra sempre bem no
+        // meio de qualquer rota que precise contornar a quina de um
+        // prédio. 20 garante folga real além da margem de colisão.
+        const pad = 20;
         rects.forEach(r => {
             const corners = [
                 clampPt(r.left - pad, r.top - pad),

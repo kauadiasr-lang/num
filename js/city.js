@@ -28,7 +28,7 @@ class CityEngine {
     constructor() {
         // Posição do jogador em pixels de tela (não fração — precisa de uma
         // velocidade de caminhada consistente independente da resolução).
-        this.player = { x: 0, y: 0, targetX: null, targetY: null, facing: 1, moving: false, pathQueue: [] };
+        this.player = { x: 0, y: 0, vx: 0, vy: 0, targetX: null, targetY: null, facing: 1, moving: false, pathQueue: [] };
         this.walkSpeed = 210; // px/s
 
         this.keysHeld = { up: false, down: false, left: false, right: false };
@@ -45,6 +45,14 @@ class CityEngine {
         // clicar num NPC de longe puxava a fala instantaneamente, sem o
         // personagem sequer se mover até ele.
         this._pendingTalkNpc = null;
+
+        // Prédio que o jogador clicou pra entrar, mas ainda não chegou perto
+        // o bastante (ver _approachAndInteractBuilding/
+        // _updatePendingInteractBuilding) — mesmo padrão de
+        // _pendingTalkNpc/_pendingCollectStone: antes clicar direto num
+        // prédio de qualquer ponto da praça abria a loja/tela na hora, sem
+        // o personagem sequer se mover até lá.
+        this._pendingInteractBuilding = null;
 
         // Ciclo dia/noite: percorre as 4 mesmas paletas já usadas pela
         // arena (dawn/day/sunset/night), sincronizando GFX.arenaTime.
@@ -158,6 +166,22 @@ class CityEngine {
             { slot: 'edge', xFrac: 0.975, rowOffset: 55, scale: 1.2 },
             { slot: 'center', xFrac: 0.44, rowOffset: 148 },
             { slot: 'center', xFrac: 0.56, rowOffset: 148 },
+        ];
+
+        // Vegetação do lado de FORA das muralhas (pedido do usuário: "o
+        // lado de fora das muralhas deve possuir a vegetação e ambiente
+        // externo correto de acordo com o sistema de biomas já
+        // existente") — reaproveita a MESMA _drawVegetation/vegetationTypes.
+        // edge que já cerca a praça por dentro (ver `this.vegetation`
+        // acima), só com xFrac fora de [0,1] (_drawVegetation multiplica
+        // xFrac por _worldWidth() sem nenhum clamp, então funciona igual).
+        // Desenhada ANTES da muralha (ver draw()) — só as copas aparecem
+        // por cima dela, como se a mata/floresta continuasse ali fora.
+        this.exteriorVegetation = [
+            { slot: 'edge', xFrac: -0.045, rowOffset: 80, scale: 1.15 },
+            { slot: 'edge', xFrac: -0.09, rowOffset: 145, scale: 0.9 },
+            { slot: 'edge', xFrac: 1.045, rowOffset: 90, scale: 1.15 },
+            { slot: 'edge', xFrac: 1.09, rowOffset: 150, scale: 0.9 },
         ];
 
         // Pedras de Luz (item 13 da auditoria de balanceamento): recurso do
@@ -654,7 +678,17 @@ class CityEngine {
         const rect = canvas.getBoundingClientRect();
         const screenX = clientX - rect.left, screenY = clientY - rect.top;
         const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
-        const x = screenX - offset.dx, y = screenY - offset.dy; // agora em coordenadas de MUNDO
+        // Bug corrigido: a Praça só rola a câmera no eixo X (ver draw(),
+        // `ctx.translate(offset.dx, 0)` — o eixo Y NUNCA é transladado,
+        // igual antes do bug do "campo de riscos"). Usar `offset.dy` aqui
+        // (calculado a partir de player.y, pensado pro mundo da Estrada, que
+        // TEM uma faixa vertical de verdade) somava um deslocamento vertical
+        // de até ~300px em toda conversão de clique pra coordenada de mundo
+        // — exatamente o bug reportado ("o personagem anda pra uma direção
+        // errada, como pra baixo"), e também a causa raiz de cliques em
+        // NPCs/prédios/pedras de luz próximos ao topo da praça (Viajante do
+        // Portão incluído) quase nunca acertarem o raio de detecção certo.
+        const x = screenX - offset.dx, y = screenY; // agora em coordenadas de MUNDO
         this._dismissHint();
 
         // Clicar num NPC manda o jogador andar até perto dele primeiro (ver
@@ -679,14 +713,17 @@ class CityEngine {
             return;
         }
 
-        // Clicar direto num prédio entra nele na hora, sem precisar andar até
-        // lá primeiro — só cliques no chão (fora de qualquer estrutura) fazem
-        // o jogador caminhar. Continua dando pra "passear de verdade" com
-        // WASD/setas ou clicando no chão; o clique direto na estrutura é só
-        // um atalho.
+        // Clicar num prédio manda o jogador andar até a porta primeiro (mesmo
+        // fluxo de aproximação de _approachAndTalk/_approachAndCollectStone)
+        // — a interação de verdade só dispara na chegada (ver
+        // _updatePendingInteractBuilding). Entrar numa loja/tela sem sequer
+        // se aproximar da porta não fazia sentido físico nenhum, e é
+        // exatamente o comportamento pedido: "ao clicar numa construção... o
+        // personagem deve caminhar automaticamente até ele e somente depois
+        // ativar a interação".
         const building = this._buildingAtPoint(x, y);
         if (building) {
-            this.interact(building.id);
+            this._approachAndInteractBuilding(building);
             return;
         }
 
@@ -723,6 +760,41 @@ class CityEngine {
         return closest;
     }
 
+    // Ponto de aproximação seguro — bug corrigido: o ponto ingênuo (a
+    // distância fixa `preferredDist` do alvo, do lado de onde o jogador já
+    // vem) podia cair DENTRO de uma zona de colisão (do próprio prédio-alvo
+    // OU de um vizinho perto demais). Caso real reportado pelo usuário: o
+    // Viajante do Portão fica perto o bastante do Mercado Arcano pra o
+    // ponto de aproximação padrão cair sempre dentro da margem de colisão
+    // do prédio vizinho — o jogador nunca conseguia "chegar" (targetX nunca
+    // ficava null), então _pendingTalkNpc/_pendingInteractBuilding nunca
+    // limpavam e a interação nunca disparava, por mais que o clique em si
+    // estivesse certo. Tenta a distância pedida primeiro, depois
+    // distâncias maiores (escapa da colisão do PRÓPRIO alvo, se
+    // `preferredDist` foi subestimado) e menores (escapa da colisão de um
+    // VIZINHO perto demais do alvo), até achar um ponto livre; no pior caso
+    // (cercado por todos os lados), aponta direto pro alvo — melhor chegar
+    // perto demais do que ficar preso pra sempre num ponto inalcançável.
+    //
+    // Segundo bug corrigido pelo mesmo motivo: um alvo perto o bastante da
+    // BORDA do mundo (ex: o Viajante do Portão, perto do limite direito)
+    // também podia gerar um ponto de aproximação além de `_worldWidth()` —
+    // com o jogador já parado exatamente na borda (bounds de
+    // _updateMovement), a distância até esse ponto nunca cai abaixo de 4px
+    // (preso contra a parede invisível do mundo, não uma colisão de
+    // prédio), travando "chegada" pra sempre do mesmo jeito. Por isso cada
+    // candidato aqui é sempre grampeado dentro dos MESMOS limites usados
+    // por _setPlayerDestination antes de testar colisão.
+    _safeApproachPoint(targetX, targetY, dir, preferredDist) {
+        const minX = 40, maxX = this._worldWidth() - 40;
+        const candidates = [preferredDist, preferredDist * 1.5, preferredDist * 2.2, preferredDist * 0.66, preferredDist * 0.33, 0];
+        for (const d of candidates) {
+            const x = Utils.clamp(targetX + dir * d, minX, maxX);
+            if (!this._collides(x, targetY)) return { x, y: targetY };
+        }
+        return { x: Utils.clamp(targetX, minX, maxX), y: targetY };
+    }
+
     // Manda o jogador andar até perto do NPC clicado, sem falar ainda — a
     // fala de verdade só dispara quando ele chega (ver _updatePendingTalk).
     // Clicar de novo no MESMO NPC enquanto já está a caminho não reinicia o
@@ -732,10 +804,9 @@ class CityEngine {
         this._pendingTalkNpc = npc;
         // Para a uma distância confortável de conversa, do lado de onde o
         // jogador já está vindo (não em cima do NPC).
-        const approachDist = 42;
         const dir = (npc.x >= this.player.x) ? -1 : 1;
-        const destX = npc.x + dir * approachDist;
-        this._setPlayerDestination(destX, npc.y);
+        const pos = this._safeApproachPoint(npc.x, npc.y, dir, 42);
+        this._setPlayerDestination(pos.x, pos.y);
     }
 
     // Chamado a cada frame (ver update()): assim que o jogador termina de
@@ -760,6 +831,58 @@ class CityEngine {
         this.player.facing = (npc.x >= this.player.x) ? 1 : -1;
         npc.facing = (npc.x > this.player.x) ? -1 : 1;
         this._talkToNpc(npc);
+    }
+
+    // Manda o jogador andar até perto da porta do prédio clicado — a
+    // interação de verdade (abrir loja/tela) só dispara na chegada (ver
+    // _updatePendingInteractBuilding), mesmo padrão de _approachAndTalk/
+    // _approachAndCollectStone. Clicar de novo no MESMO prédio enquanto já
+    // está a caminho não reinicia o trajeto.
+    _approachAndInteractBuilding(building) {
+        if (this._pendingInteractBuilding === building) return;
+        this._pendingInteractBuilding = building;
+        const door = this._doorPoint(building);
+        // Distância mínima pra ficar FORA da própria caixa de colisão do
+        // prédio (ver _obstacleRectsForCollision: metade da largura + 20 de
+        // margem do prédio + 16 de margem padrão de PlayerController.
+        // collides), com uma folga extra pra sobrar espaço de verdade entre
+        // o jogador e a porta — usar só `_interactRadius` (70) aqui
+        // travava a aproximação de prédios largos (a Arena, w=240) pra
+        // sempre, porque o ponto ingênuo ainda caía dentro da própria
+        // colisão do prédio (ver _safeApproachPoint).
+        const scale = this._cityScale(window.Engine.height);
+        const bw = building.w * scale;
+        const clearance = bw / 2 + 20 + 16 + 24;
+        const dir = (door.x >= this.player.x) ? -1 : 1;
+        const pos = this._safeApproachPoint(door.x, door.y, dir, clearance);
+        this._setPlayerDestination(pos.x, pos.y);
+    }
+
+    // Chamado a cada frame (ver update()): assim que o jogador termina de
+    // andar até a porta clicada, dispara a interação de verdade (interact()).
+    // Se o jogador ficou longe demais (desviado por um obstáculo no meio do
+    // caminho, ou um clique novo o mandou pra outro lugar), desiste
+    // silenciosamente — mesmo padrão de _updatePendingTalk/
+    // _updatePendingCollectStone.
+    _updatePendingInteractBuilding() {
+        if (!this._pendingInteractBuilding) return;
+        const building = this._pendingInteractBuilding;
+        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
+        if (!arrived) return;
+
+        this._pendingInteractBuilding = null;
+        const door = this._doorPoint(building);
+        // Tolerância dinâmica igual à distância de aproximação calculada em
+        // _approachAndInteractBuilding (clearance da própria colisão do
+        // prédio, que pode passar de `_interactRadius` em prédios largos
+        // como a Arena) — usar só `_interactRadius+20` aqui rejeitava a
+        // chegada como "longe demais" mesmo quando o jogador tinha acabado
+        // de chegar exatamente no ponto seguro pretendido, e a interação
+        // nunca disparava.
+        const scale = this._cityScale(window.Engine.height);
+        const clearance = (building.w * scale) / 2 + 20 + 16 + 24;
+        if (this._distanceTo(door) > clearance + 20) return;
+        this.interact(building.id);
     }
 
     // Posição de tela de uma Pedra de Luz — mesma convenção de xFrac/
@@ -790,10 +913,10 @@ class CityEngine {
     _approachAndCollectStone(stone) {
         if (this._pendingCollectStone === stone) return;
         this._pendingCollectStone = stone;
-        const pos = this._lightStonePos(stone);
-        const approachDist = 34;
-        const dir = (pos.x >= this.player.x) ? -1 : 1;
-        this._setPlayerDestination(pos.x + dir * approachDist, pos.y);
+        const stonePos = this._lightStonePos(stone);
+        const dir = (stonePos.x >= this.player.x) ? -1 : 1;
+        const pos = this._safeApproachPoint(stonePos.x, stonePos.y, dir, 34);
+        this._setPlayerDestination(pos.x, pos.y);
     }
 
     // Chamado a cada frame (ver update()): assim que o jogador termina de
@@ -1006,10 +1129,33 @@ class CityEngine {
         return { left: door.x - bw / 2, right: door.x + bw / 2, top: door.y - bh, bottom: door.y, w: bw, h: bh };
     }
 
+    // Caixa de clique que acompanha o CONTORNO VISUAL de verdade do prédio
+    // (telhado triangular + sombra no chão, ver _bakeBuildingShell — mesmos
+    // `halfW`/`topY`/`botY` usados lá pra bakear a fachada), não só o corpo
+    // retangular das paredes (_buildingRect, usado pra colisão de
+    // caminhada). Bug corrigido: a caixa antiga (paredes + uma margem fixa
+    // de 20/10px) nunca cobria o telhado inteiro (ele sobe ~30% da altura
+    // do prédio acima do topo das paredes) nem as beiradas (~12px pra cada
+    // lado) — cliques no telhado ou na beirada da sombra "erravam" o
+    // prédio, exatamente o "área de interação incorreta/desalinhada da
+    // imagem real" reportado.
+    _buildingHitRect(building) {
+        const door = this._doorPoint(building);
+        const scale = this._cityScale(window.Engine.height);
+        const bw = building.w * scale, bh = building.h * scale;
+        const halfW = bw / 2 + 12;
+        return {
+            left: door.x - halfW,
+            right: door.x + halfW,
+            top: door.y - (bh * 1.3 + 4),
+            bottom: door.y + 18,
+        };
+    }
+
     _buildingAtPoint(x, y) {
         for (const b of this.buildings) {
-            const r = this._buildingRect(b);
-            if (x >= r.left && x <= r.right && y >= r.top - 20 && y <= r.bottom + 10) return b;
+            const r = this._buildingHitRect(b);
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return b;
         }
         return null;
     }
@@ -1165,6 +1311,7 @@ class CityEngine {
         this._updateMovement(dt);
         this._updatePendingTalk();
         this._updatePendingCollectStone();
+        this._updatePendingInteractBuilding();
         this._updateLightStones(dt);
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
@@ -1350,17 +1497,81 @@ class CityEngine {
         }
     }
 
-    // Delegado a PlayerController (ver js/playercontroller.js) — mesmo
-    // comportamento de sempre, só reorganizado pra ser reaproveitável pelo
-    // mundo da Estrada na Fase 2 (ver docs/superpowers/specs/2026-08-02-
-    // explorable-world-travel-design.md). `bounds`/`obstacleRects` são
-    // montados aqui (únicos da Praça); a física de movimento em si vive
-    // no controlador genérico.
+    // Move `current` em direção a `target`, no máximo `maxDelta` por
+    // chamada — mesmo helper usado por RoadEngine._approach (ver js/road.js)
+    // pra suavizar aceleração/frenagem, agora também na Praça.
+    _approach(current, target, maxDelta) {
+        if (current < target) return Math.min(current + maxDelta, target);
+        if (current > target) return Math.max(current - maxDelta, target);
+        return current;
+    }
+
+    // Movimento da Praça — NUNCA delega mais pra PlayerController.update
+    // (hard-snap: a velocidade saltava direto pro alvo, sem nenhuma
+    // aceleração/frenagem). Pedido do usuário: "adicionar movimento suave
+    // com aceleração e desaceleração... evitar mudanças instantâneas de
+    // direção". A velocidade REAL (this.player.vx/vy) persegue a
+    // velocidade-alvo (WASD ou clique-pra-andar, incluindo os waypoints de
+    // `pathQueue` calculados por PlayerController.findPath em
+    // _setPlayerDestination — findPath continua compartilhado, só a
+    // integração de posição por frame passou a ser local) via _approach,
+    // mesma técnica já usada por RoadEngine._updateMovement (ver js/road.js)
+    // — ACCEL/DECEL abaixo usam os MESMOS valores, pra caminhar na cidade e
+    // na estrada ter a mesma sensação. `bounds`/`obstacleRects` continuam
+    // montados aqui (únicos da Praça); só a colisão em si (PlayerController.
+    // collides, via this._collides) continua compartilhada.
+    static get ACCEL() { return 900; } // px/s² ao acelerar (sair do zero ou mudar de direção)
+    static get DECEL() { return 1400; } // px/s² ao soltar as teclas/chegar no alvo — freia mais rápido do que acelera
+
     _updateMovement(dt) {
         const h = window.Engine.height;
         const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(h) + 20, maxY: this._plazaBottom(h) + 30 };
-        const obstacles = this._obstacleRectsForCollision();
-        PlayerController.update(this.player, this.keysHeld, dt, this.walkSpeed, bounds, obstacles);
+        const p = this.player;
+        let targetVx = 0, targetVy = 0;
+        const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
+
+        if (keyMoving) {
+            if (this.keysHeld.up) targetVy -= 1;
+            if (this.keysHeld.down) targetVy += 1;
+            if (this.keysHeld.left) targetVx -= 1;
+            if (this.keysHeld.right) targetVx += 1;
+            const len = Math.hypot(targetVx, targetVy) || 1;
+            targetVx = (targetVx / len) * this.walkSpeed;
+            targetVy = (targetVy / len) * this.walkSpeed;
+            p.targetX = null;
+            p.targetY = null;
+            p.pathQueue = [];
+        } else if (p.targetX !== null) {
+            const dx = p.targetX - p.x, dy = p.targetY - p.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 4) {
+                if (p.pathQueue.length > 0) {
+                    const next = p.pathQueue.shift();
+                    p.targetX = next.x;
+                    p.targetY = next.y;
+                } else {
+                    p.targetX = null;
+                    p.targetY = null;
+                }
+            } else {
+                targetVx = (dx / dist) * this.walkSpeed;
+                targetVy = (dy / dist) * this.walkSpeed;
+            }
+        }
+
+        const rate = (targetVx !== 0 || targetVy !== 0) ? CityEngine.ACCEL : CityEngine.DECEL;
+        p.vx = this._approach(p.vx || 0, targetVx, rate * dt);
+        p.vy = this._approach(p.vy || 0, targetVy, rate * dt);
+
+        const realSpeed = Math.hypot(p.vx, p.vy);
+        p.moving = realSpeed > 5;
+        if (Math.abs(p.vx) > 5) p.facing = p.vx > 0 ? 1 : -1;
+
+        const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
+        if (!this._collides(nx, p.y)) p.x = nx;
+        if (!this._collides(p.x, ny)) p.y = ny;
+        p.x = Utils.clamp(p.x, bounds.minX, bounds.maxX);
+        p.y = Utils.clamp(p.y, bounds.minY, bounds.maxY);
 
         // Som de passo / poeira nos pés — apresentação, não movimento em
         // si, continua vivendo aqui.
@@ -1926,12 +2137,38 @@ class CityEngine {
         // (chão não cobria mais até o fim) que revelava o que sobrou lá
         // (bug reportado: "campo cheio de riscos" sob a praça).
         window.Camera.follow(this.player);
+        // Trava a câmera pra nunca revelar além de EXTERIOR_MARGIN de onde
+        // o chão/vegetação externa termina de ser desenhado (ver
+        // _drawExteriorGround/exteriorVegetation abaixo) — sem essa trava, o
+        // jogador perto de qualquer borda do mundo (x perto de 0 ou de
+        // _worldWidth()) revelava uma fresta sem NADA desenhado (câmera
+        // centralizada nele, mas o mundo simplesmente acaba ali), quebrando
+        // a "sensação de mundo contínuo" pedida pelo usuário mesmo com as
+        // muralhas/vegetação externa novas.
+        const worldW = this._worldWidth();
+        const margin = CityEngine.EXTERIOR_MARGIN;
+        const halfScreen = w / 2;
+        const minCamX = halfScreen - margin, maxCamX = worldW - halfScreen + margin;
+        window.Camera.x = (minCamX <= maxCamX) ? Utils.clamp(window.Camera.x, minCamX, maxCamX) : worldW / 2;
         const offset = window.Camera.getOffset(w, h);
         ctx.save();
         ctx.translate(offset.dx, 0);
 
-        this._drawPlazaGround(ctx, this._worldWidth(), h, horizon);
-        if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, this._worldWidth(), horizon);
+        // Ambiente externo às muralhas (ver pedido do usuário: "o lado de
+        // fora das muralhas deve possuir a vegetação e ambiente externo
+        // correto de acordo com o sistema de biomas já existente") — mesma
+        // paleta de chão da cidade atual (CityDatabase.groundColors), só
+        // mais escura/enevoada, e a MESMA vegetação de borda
+        // (vegetationTypes.edge) que já cerca a praça por dentro, só
+        // posicionada além de x=0/x=worldWidth. Desenhado ANTES do chão da
+        // praça e da muralha, que cobrem a base dela — só as copas das
+        // árvores aparecem por cima da muralha, dando a sensação de floresta/
+        // bioma continuando ali fora, nunca uma quebra vazia.
+        this._drawExteriorGround(ctx, worldW, h, horizon, margin);
+        this.exteriorVegetation.forEach(v => this._drawVegetation(ctx, w, h, v));
+
+        this._drawPlazaGround(ctx, worldW, h, horizon);
+        if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, worldW, horizon, this._plazaBottom(h));
 
         this._drawFountain(ctx, w, h);
         this.statues.forEach(s => this._drawStatue(ctx, w, h, s));
@@ -1992,6 +2229,26 @@ class CityEngine {
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
             }
         }
+    }
+
+    // Chão além das muralhas (ver pedido do usuário: "o lado de fora das
+    // muralhas deve possuir a vegetação e ambiente externo correto de
+    // acordo com o sistema de biomas já existente") — MESMA paleta de chão
+    // da cidade atual (groundColors), só escurecida/enevoada (sugere "mais
+    // longe, fora do alcance da luz da cidade"), desenhada nas duas faixas
+    // além de [0, w] até onde a câmera pode revelar (ver EXTERIOR_MARGIN).
+    // Nunca inventa uma cor nova por cidade — reaproveita o mesmo sistema de
+    // biomas que já differencia Porto Helênico/Fortaleza Orc/Santuário
+    // Élfico (ver citydatabase.js), só aplicado do lado de fora.
+    _drawExteriorGround(ctx, w, h, horizon, margin) {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const colors = (cityDef && cityDef.groundColors) || ['#8a8070', '#5a5448'];
+        const grad = ctx.createLinearGradient(0, horizon, 0, h);
+        grad.addColorStop(0, this._darkenHex(colors[0], 0.35));
+        grad.addColorStop(1, this._darkenHex(colors[1], 0.35));
+        ctx.fillStyle = grad;
+        ctx.fillRect(-margin, horizon, margin, h - horizon);
+        ctx.fillRect(w, horizon, margin, h - horizon);
     }
 
     // Cores da fonte lidas da Cidade-Hub atual (ver citydatabase.js
@@ -2271,6 +2528,16 @@ class CityEngine {
         return `rgb(${r},${g},${b})`;
     }
 
+    // Inverso de _lightenHex — escurece um hex em direção ao preto por
+    // `percent` (0-1), usado pelo chão externo às muralhas (ver
+    // _drawExteriorGround), sugerindo "mais longe, fora da luz da cidade".
+    _darkenHex(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const mix = c => Math.max(0, Math.round(c * (1 - percent)));
+        const r = mix((num >> 16) & 0xff), g = mix((num >> 8) & 0xff), b = mix(num & 0xff);
+        return `rgb(${r},${g},${b})`;
+    }
+
     // Prédio procedural greco-romano: base + colunas + telhado triangular +
     // porta + tochas nas laterais. As dimensões já vêm escaladas de
     // _buildingRect (telas baixas encolhem os prédios pra sempre caberem
@@ -2442,6 +2709,12 @@ class CityEngine {
     // quanto por _makeCaravanTraveler (posiciona o NPC exatamente dentro do
     // vão), pra nunca dessincronizar visual e posição de interação.
     static get GATE_XFRAC() { return 0.965; }
+
+    // Quanto além de [0, _worldWidth()] a câmera pode revelar antes de
+    // travar (ver draw()) — precisa ser MAIOR que a largura da muralha
+    // lateral (ver graphics.js _drawCitySideWall, ~3.2% do mundo) pra
+    // sempre sobrar uma faixa visível de ambiente externo além dela.
+    static get EXTERIOR_MARGIN() { return 220; }
 
     // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —
     // nunca revelam mecanismos de jogo, só reagem à fama (vitórias) do

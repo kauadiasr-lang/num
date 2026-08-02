@@ -1508,7 +1508,7 @@ class GraphicsEngine {
     // mostrava a mesma muralha de pedra bruta da Fortaleza Orc/Porto
     // Helênico. Fallback pras cores originais sem cidade carregada/cidade
     // sem o campo (save antigo).
-    _drawCityWall(ctx, w, horizon) {
+    _drawCityWall(ctx, w, horizon, plazaBottom) {
         // Baixa o bastante pra não tapar a vista das montanhas/floresta ao
         // fundo (era alta demais, "tampando a beleza da passagem" — feedback
         // direto do usuário) — ainda clara o bastante pra ler como uma
@@ -1566,6 +1566,51 @@ class GraphicsEngine {
             this._drawTorch(ctx, 0, 0, tClock, 0.9);
             ctx.restore();
         }
+
+        // Muralhas laterais — fecham os dois lados do mundo caminhável
+        // (x=0 e x=w) descendo do horizonte até o rodapé da praça, na
+        // MESMA pedra/cor da muralha de fundo acima. Bug reportado pelo
+        // usuário: antes só existia essa faixa de fundo (o "back wall"
+        // horizontal logo acima) — as laterais ficavam completamente
+        // abertas, sem nenhuma estrutura fechando o perímetro ("as
+        // muralhas não cercam a cidade inteira... incluindo as laterais").
+        if (plazaBottom) {
+            const sideW = Math.max(28, w * 0.032);
+            this._drawCitySideWall(ctx, 0, sideW, horizon, plazaBottom, wallColors, false);
+            this._drawCitySideWall(ctx, w, sideW, horizon, plazaBottom, wallColors, true);
+        }
+    }
+
+    // Segmento de muralha lateral — um bloco de pedra vertical de largura
+    // constante `sideW`, do horizonte (topo, mais longe) até o rodapé da
+    // praça (base, mais perto da câmera), com ameias no topo (mesmo
+    // desenho da muralha de fundo) e uma sombra interna simples pra dar
+    // volume em vez de uma borda dura sem profundidade nenhuma.
+    // `edgeX` é 0 (lado esquerdo) ou `w` (lado direito, `isRight=true`) —
+    // o bloco sempre cresce PRA DENTRO do mundo caminhável a partir da
+    // borda, nunca pra fora dela.
+    _drawCitySideWall(ctx, edgeX, sideW, horizon, plazaBottom, wallColors, isRight) {
+        const left = isRight ? edgeX - sideW : edgeX;
+        const topY = horizon - sideW * 0.15;
+
+        const grad = ctx.createLinearGradient(0, topY, 0, plazaBottom);
+        grad.addColorStop(0, wallColors.base);
+        grad.addColorStop(1, wallColors.tower);
+        ctx.fillStyle = grad;
+        ctx.fillRect(left, topY, sideW, plazaBottom - topY);
+
+        // Ameias no topo, exatamente onde encontra a muralha de fundo —
+        // lê como a MESMA estrutura contínua, não um bloco solto do lado.
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        const merlonW = sideW * 0.42;
+        for (let i = 0; i < 3; i++) {
+            ctx.fillRect(left + sideW * 0.08 + i * merlonW * 1.4, topY, merlonW, 9);
+        }
+
+        // Sombra interna — separa visualmente a muralha do chão da praça
+        // em vez de uma borda dura sem volume nenhum.
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(isRight ? left : left + sideW - 7, horizon, 7, plazaBottom - horizon);
     }
 
     // Duas cadeias de montanhas em profundidade (mais clara/suave ao fundo,
