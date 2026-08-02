@@ -189,6 +189,20 @@ const ARENA_BIOMES = {
         vegetation: 'none', special: 'snow',
         midground: 'peaks', midgroundColor: 'rgba(180,200,220,0.5)', hasCrowd: false, hasBanners: false,
         props: ['icicleRock', 'bones', 'frozenBanner']
+    },
+    // Floresta Ancestral (item pedido na auditoria de mundo vivo): bioma
+    // neutro especial, não pertence a nenhuma cidade/facção — só aparece no
+    // encontro raro da Linhagem Secundária da Natureza (ver nature.js,
+    // roads.js, ui.js startNatureDiscoveryBattle), nunca sorteado
+    // normalmente pelas cidades-hub. Paleta mais escura e esverdeada que a
+    // `floresta` comum, com vaga-lumes (special:'fireflies', ver
+    // _spawnBiomeAmbient) pra dar a sensação de "mata sagrada" pedida.
+    floresta_ancestral: {
+        name: 'Floresta Ancestral',
+        ground: ['#1f2e1c', '#243523', '#182417', '#20301e'], accent: '#0f1a0e',
+        vegetation: 'dense', special: 'fireflies',
+        midground: 'treeline', midgroundColor: 'rgba(20,40,22,0.85)', hasCrowd: false, hasBanners: false,
+        props: ['log', 'bush', 'flower', 'stump', 'rock']
     }
 };
 window.ARENA_BIOMES = ARENA_BIOMES;
@@ -563,6 +577,10 @@ class GraphicsEngine {
         } else if (biome.special === 'snow') { // neve caindo devagar
             const p = new Particle(Utils.randomFloat(0, w), horizon - 10, 'rgba(255,255,255,0.85)', 0.4, Utils.randomFloat(2, 4));
             p.vy = Utils.randomFloat(0.6, 1.2); p.vx *= 0.4; p.decay = 0.006;
+            this.particles.push(p);
+        } else if (biome.special === 'fireflies') { // vaga-lumes flutuando na névoa verde da Floresta Ancestral
+            const p = new Particle(Utils.randomFloat(w * 0.1, w * 0.9), Utils.randomFloat(horizon + 10, h - 20), 'rgba(190,255,140,0.9)', 0.5, Utils.randomFloat(1.5, 2.5));
+            p.vy = -Utils.randomFloat(0.1, 0.35); p.vx = Utils.randomFloat(-0.3, 0.3); p.decay = 0.007;
             this.particles.push(p);
         } else if (biome.vegetation === 'dense') { // folhas voando (floresta)
             const p = new Particle(Utils.randomFloat(0, w * 0.3), Utils.randomFloat(horizon, horizon + 60), '#a3752a', 1.2, Utils.randomFloat(2, 3.5));

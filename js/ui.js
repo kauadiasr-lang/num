@@ -738,8 +738,24 @@ class UIManager {
         this.beginBattleWith(enemy);
     }
 
-    // Prepara a tela de batalha para qualquer tipo de oponente (Enemy ou Rival)
-    beginBattleWith(opponent) {
+    // Encontro da Floresta Ancestral (ver nature.js/roads.js) — mesmo
+    // inimigo procedural de uma emboscada comum da Estrada, só que força o
+    // cenário `floresta_ancestral` (ver graphics.js ARENA_BIOMES: névoa
+    // verde, vaga-lumes) em vez do bioma normal da cidade atual — a mata
+    // sagrada é neutra, nunca pertence a nenhuma Cidade-Hub.
+    startNatureDiscoveryBattle() {
+        const p = window.Engine.state.player;
+        const enemy = new Enemy(p.level);
+        this.beginBattleWith(enemy, 'floresta_ancestral');
+    }
+
+    // Prepara a tela de batalha para qualquer tipo de oponente (Enemy ou
+    // Rival). `forcedBiome` é opcional — quando informado (e existir em
+    // ARENA_BIOMES), sobrepõe o bioma normalmente sorteado por
+    // resetForNewBattle() a partir da cidade atual (ver
+    // startNatureDiscoveryBattle acima). Sem `forcedBiome`, o comportamento
+    // é idêntico ao de antes desta opção existir.
+    beginBattleWith(opponent, forcedBiome = null) {
         const p = window.Engine.state.player;
 
         // Para a ambiência pacata da cidade antes do combate e liga a trilha
@@ -765,6 +781,9 @@ class UIManager {
 
         // Sorteia a atmosfera da arena (céu/horário) e zera animações dos combatentes
         if (window.GFX) window.GFX.resetForNewBattle();
+        if (forcedBiome && window.ARENA_BIOMES && window.ARENA_BIOMES[forcedBiome] && window.GFX) {
+            window.GFX.arenaBiome = forcedBiome;
+        }
 
         // Atualiza UI
         document.getElementById('battle-player-name').innerText = p.name;
@@ -2579,7 +2598,8 @@ class UIManager {
             this.openRoad(); // atualiza o log com a mensagem de aviso antes da batalha começar
             setTimeout(() => {
                 if (window.Engine.state.player !== p || !p.roadJourney) return;
-                if (result.elite) this.startEliteRoadBattle();
+                if (result.natureDiscovery) this.startNatureDiscoveryBattle();
+                else if (result.elite) this.startEliteRoadBattle();
                 else this.startBattle();
             }, 1400);
             return;
