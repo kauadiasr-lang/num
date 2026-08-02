@@ -76,6 +76,17 @@ window.RoadEngine = {
     BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
     BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
 
+    // Marcos de terreno puramente visuais (pedido explícito do usuário na
+    // seção "EXPLORAÇÃO ENTRE CIDADES": "rios", "árvores gigantes" — o mapa
+    // NÃO deve parecer um corredor uniforme) — ver _drawRiverCrossing/
+    // _drawGiantTrees. Nunca colidem, nunca entram em `_events` (são
+    // paisagem, não interação), então não competem com bandido/mercador/
+    // baú etc. Vale tanto pra travessia real entre cidades quanto pra
+    // Expedição à Floresta Ancestral (que já é descrita como tendo "raízes
+    // gigantes"/"cachoeiras" — as mesmas silhuetas combinam com os dois).
+    RIVER_X_FRAC: 0.55, // fração do WORLD_LENGTH onde o rio cruza a estrada
+    GIANT_TREE_SPACING: 2600, // bem mais esparso que a vegetação normal (220) — são marcos raros, não decoração de fundo
+
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
     // (WASD/clique) em vez de saltar pra ela, ver _approach/update(). Essa
@@ -752,6 +763,12 @@ window.RoadEngine = {
         this._drawCityGate(ctx, 0, fromDef ? fromDef.name : '');
         this._drawCityGate(ctx, this.WORLD_LENGTH, this._destLabel);
 
+        // Rio atravessando a estrada (pedido do usuário: "rios" — o mapa
+        // não deve parecer um corredor uniforme) — feição de terreno fixa,
+        // desenhada cedo (antes de eventos/vegetação) pra parecer parte do
+        // CHÃO, não um objeto flutuando por cima.
+        this._drawRiverCrossing(ctx, w, h);
+
         // Placas de bioma (Fase 3) — um marco em cada fronteira de zona,
         // com o nome da zona que começa ali. A cor de fundo já muda de
         // forma contínua (mistura acima) — isso só rotula fisicamente as
@@ -795,6 +812,11 @@ window.RoadEngine = {
             ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        // Árvores gigantes (pedido do usuário) — marcos raros e bem mais
+        // esparsos que a vegetação normal acima, sempre fora da faixa
+        // caminhável (nunca bloqueiam nem colidem).
+        this._drawGiantTrees(ctx, w, h, corrupted);
 
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
@@ -876,6 +898,72 @@ window.RoadEngine = {
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
             ctx.fillText(icon, x, y + 8);
+        }
+    },
+
+    // Rio atravessando a estrada, com uma ponte de madeira sobre a faixa
+    // caminhável (pedido do usuário: "rios" como feição física da
+    // travessia, não um evento sorteado) — posição FIXA (mesma fração do
+    // mundo em toda travessia, real ou Expedição à Floresta), então o
+    // jogador sempre encontra exatamente um rio no meio do caminho. Puramente
+    // visual: a ponte não colide com nada, o jogador simplesmente anda por
+    // cima dela como qualquer outro trecho da faixa.
+    _drawRiverCrossing(ctx, w, h) {
+        const rx = this.WORLD_LENGTH * this.RIVER_X_FRAC;
+        if (!window.Camera.isVisible(rx, 0, w, h, 300)) return;
+        const half = this.LANE_HALF_HEIGHT + 40;
+        const riverHalfW = 70;
+        const grad = ctx.createLinearGradient(rx - riverHalfW, 0, rx + riverHalfW, 0);
+        grad.addColorStop(0, 'rgba(60,120,170,0)');
+        grad.addColorStop(0.5, 'rgba(70,150,195,0.75)');
+        grad.addColorStop(1, 'rgba(60,120,170,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(rx - riverHalfW, -half, riverHalfW * 2, half * 2);
+
+        // Ponte de madeira sobre a faixa caminhável — só a largura da faixa
+        // em si, o rio continua visível além dela dos dois lados.
+        const bridgeW = 26;
+        ctx.fillStyle = '#5a4230';
+        ctx.fillRect(rx - bridgeW / 2, -this.LANE_HALF_HEIGHT, bridgeW, this.LANE_HALF_HEIGHT * 2);
+        ctx.strokeStyle = '#3a2c1e';
+        ctx.lineWidth = 3;
+        for (let py = -this.LANE_HALF_HEIGHT; py <= this.LANE_HALF_HEIGHT; py += 24) {
+            ctx.beginPath();
+            ctx.moveTo(rx - bridgeW / 2, py);
+            ctx.lineTo(rx + bridgeW / 2, py);
+            ctx.stroke();
+        }
+    },
+
+    // Árvores gigantes esparsas (pedido do usuário: "árvores gigantes" —
+    // marcos de terreno raros, bem diferentes da vegetação normal/pequena
+    // já desenhada acima) — determinístico via _hash (mesmo padrão da
+    // vegetação: sem array guardado, sem Math.random, custo só pros chunks
+    // visíveis perto da câmera). Sempre fora da faixa caminhável (`side *
+    // (LANE_HALF_HEIGHT + 70)`), nunca colide, nunca aparece perto demais
+    // dos portões de cidade (evita competir visualmente com a cena de
+    // chegada/partida).
+    _drawGiantTrees(ctx, w, h, corrupted) {
+        const spacing = this.GIANT_TREE_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const gx = i * spacing;
+            if (gx < 400 || gx > this.WORLD_LENGTH - 400) continue;
+            if (this._hash(i * 97 + 9000) >= 55) continue; // nem todo slot tem uma árvore gigante
+            const side = (this._hash(i * 53 + 9500) % 2 === 0) ? -1 : 1;
+            const gy = side * (this.LANE_HALF_HEIGHT + 70);
+            if (!window.Camera.isVisible(gx, gy, w, h, 200)) continue;
+
+            const trunkH = 70;
+            ctx.fillStyle = corrupted ? '#1a1410' : '#4a3624';
+            ctx.fillRect(gx - 9, gy - trunkH, 18, trunkH);
+
+            const canopyY = gy - trunkH - 10;
+            ctx.fillStyle = corrupted ? 'rgba(35,15,45,0.85)' : 'rgba(20,55,20,0.85)';
+            ctx.beginPath(); ctx.arc(gx, canopyY, 46, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(gx - 32, canopyY + 14, 32, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(gx + 34, canopyY + 10, 34, 0, Math.PI * 2); ctx.fill();
         }
     },
 
