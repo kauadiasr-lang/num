@@ -696,6 +696,11 @@ class GraphicsEngine {
             // por cima disso.
             this.drawCityBackdrop(ctx, canvasWidth, canvasHeight);
             if (window.City) window.City.draw(ctx, canvasWidth, canvasHeight);
+        } else if (screen === 'ROADWORLD') {
+            // Mundo da Estrada (Fase 2, ver js/road.js RoadEngine) — desenha
+            // seu próprio céu/chão em degradê (mistura a paleta da cidade de
+            // origem/destino conforme o progresso), sem o backdrop da Praça.
+            if (window.RoadEngine) window.RoadEngine.draw(ctx, canvasWidth, canvasHeight);
         } else {
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);

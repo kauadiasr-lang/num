@@ -164,6 +164,10 @@ class GameEngine {
         // dia/noite, proximidade de prédios. Só age quando a tela é HUB.
         if (window.City) window.City.update(dt);
 
+        // Mundo da Estrada (Fase 2, ver js/road.js): trajeto real entre
+        // cidades. Só age quando a tela é ROADWORLD (ver RoadEngine._isActive).
+        if (window.RoadEngine) window.RoadEngine.update(dt);
+
         // Atualiza timer do Screen Shake
         if (this.shakeTimer > 0) {
             this.shakeTimer -= dt;

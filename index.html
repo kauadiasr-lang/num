@@ -662,6 +662,20 @@
                 </div>
             </div>
 
+            <!-- TELA: MUNDO DA ESTRADA (Fase 2 — trajeto real entre cidades, ver
+                 js/road.js RoadEngine). Full-canvas como screen-hub — o jogador
+                 controla o personagem de verdade, não é um menu. -->
+            <div id="screen-roadworld" class="screen screen-city">
+                <div class="hud-top">
+                    <div class="player-info">
+                        <h3 id="roadworld-title" class="highlight-gold">Estrada</h3>
+                        <p id="roadworld-mode">A pé</p>
+                    </div>
+                </div>
+                <p id="roadworld-hint" class="city-hint">Toque no chão para andar (ou WASD/setas, Shift para correr)</p>
+                <button id="btn-abandon-roadworld" class="btn btn-small" style="position:absolute; bottom:20px; right:20px;">Abandonar Viagem</button>
+            </div>
+
             <!-- TELA: HALL DA FAMA -->
             <div id="screen-halloffame" class="screen">
                 <div class="panel halloffame-panel">
