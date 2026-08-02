@@ -44,10 +44,34 @@ class MainMenuManager {
             return;
         }
         window.Engine.restorePlayerFromSave(savedData);
+
+        // Compat: um save antigo pode ter uma viagem real (não-Floresta)
+        // presa no formato antigo de RoadSystem (step/totalSteps/log) —
+        // esse formato não existe mais pra viagens reais (ver js/road.js
+        // RoadEngine, Fase 2 do redesenho de viagem). Resolve
+        // automaticamente pro destino, sem cobrar passagem de novo (já foi
+        // paga ao iniciar), e avisa o jogador. Expedição à Floresta
+        // Ancestral não é afetada (continua no sistema antigo intacto).
+        const p = window.Engine.state.player;
+        let resumedJourneyMessage = null;
+        if (p.roadJourney && !p.roadJourney.isForestExpedition) {
+            const toId = p.roadJourney.toId;
+            p.roadJourney = null;
+            if (window.CityDatabase[toId]) window.City.travelToCity(toId, true);
+            resumedJourneyMessage = 'Sua viagem em andamento foi concluída automaticamente (o mundo da Estrada mudou).';
+        }
+        // `roadWorldJourney` (o novo campo, ver js/road.js) só descreve
+        // fromId/toId/mode — o progresso em si nunca é salvo (RoadEngine é
+        // só estado de sessão), então um save feito no meio de uma
+        // travessia real sempre volta pro jogador na cidade de origem;
+        // só limpamos o campo pra não deixar uma jornada "fantasma" presa.
+        if (p.roadWorldJourney) p.roadWorldJourney = null;
+
         window.AudioManager.stopAmbientMusic();
         window.UI.updateHubStats();
         window.UI.showScreen('screen-hub', 'zoom');
         this.showToast(`Bem-vindo de volta, ${window.Engine.state.player.name}!`, 'success');
+        if (resumedJourneyMessage) this.showToast(resumedJourneyMessage, 'info');
     }
 
     // Abre a criação de personagem já mirando um slot específico — todo save
