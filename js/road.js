@@ -1,6 +1,6 @@
 /**
- * Mundo da Estrada (Fase 2 — mínimo; Fase 3 — biomas graduais) —
- * Arena of Blades
+ * Mundo da Estrada (Fase 2 — mínimo; Fase 3 — biomas graduais;
+ * Fase 4 — eventos físicos + encontros) — Arena of Blades
  *
  * Substitui o loop de dados-por-etapa (js/roads.js RoadSystem.advance/
  * _rollEvent) por um mundo real onde o jogador anda de verdade (WASD/
@@ -15,8 +15,20 @@
  * automaticamente ganha uma rota funcional, sem precisar de conteúdo
  * específico por par de cidade"). A cor de fundo continua uma mistura
  * CONTÍNUA entre a paleta de origem/destino (ver draw()) — as zonas
- * mudam densidade/nome, nunca a cena inteira de uma vez. Ainda SEM
- * eventos físicos (ver Fase 4) nem NPCs/caravanas ambiente (Fase 6).
+ * mudam densidade/nome, nunca a cena inteira de uma vez.
+ *
+ * Eventos físicos (Fase 4): objetos de mundo (mercador, baú, esconderijo,
+ * fogueira, carroça quebrada) espalhados pela travessia — o jogador anda
+ * até perto e decide interagir (tecla E / toque no aviso) ou seguir andando,
+ * nunca um pop-up automático (ver _generateEvents/_resolveEvent). Bandidos
+ * são um objeto físico HOSTIL: patrulham um pequeno trecho e disparam uma
+ * batalha de verdade (reaproveita ui.js startBattle) se o jogador chegar
+ * perto — contorná-los (ficar fora do raio de detecção) é a forma de evitar
+ * a luta, exatamente como pedido ("atacar, fugir, contornar, ignorar").
+ * Vitória retoma a travessia na mesma posição (ver ui.js onRoadWorldEncounter/
+ * btn-return-hub); derrota encerra a viagem, mesmo padrão já usado pela
+ * antiga emboscada de roads.js.
+ *
  * A Expedição à Floresta Ancestral (ligada a Natureza/Corrupção)
  * continua no sistema antigo (js/roads.js RoadSystem + tela screen-road)
  * até a migração física dela na Fase 5.
@@ -24,6 +36,9 @@
 window.RoadEngine = {
     WORLD_LENGTH: 63000, // ~5min andando contínuo a pé (walkSpeed=210px/s * 300s)
     LANE_HALF_HEIGHT: 140, // faixa caminhável acima/abaixo da linha central da estrada
+    INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
+    BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
+    BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
 
     // Gabarito genérico de zonas — o nome da última é preenchido em
     // start() com o nome da cidade de destino ("Arredores de X"), as
@@ -35,6 +50,17 @@ window.RoadEngine = {
         { name: 'Floresta', vegDensity: 1.9 },
         { name: null, vegDensity: 1.2 } // nome real vem de start()
     ],
+
+    // Tipos de evento pacífico — o bandido (hostil) não entra aqui porque
+    // não tem aviso de interação nenhum, ver _updateBandits.
+    EVENT_TYPES: {
+        merchant: { icon: '🧺', label: 'Negociar com o comerciante' },
+        chest: { icon: '📦', label: 'Abrir baú' },
+        secret: { icon: '💰', label: 'Investigar o esconderijo' },
+        campfire: { icon: '🔥', label: 'Descansar na fogueira' },
+        cart: { icon: '🛒', label: 'Examinar a carroça quebrada' }
+    },
+    EVENT_COUNT: 6, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
     active: false,
     fromId: null,
@@ -50,6 +76,8 @@ window.RoadEngine = {
     _zones: null,
     _zoneLength: 0,
     _lastZoneIndex: -1,
+    _events: null,
+    _nearEvent: null,
 
     // Inicia a travessia. `mode` é 'walk' ou 'horse' (custo do cavalo já
     // cobrado por quem chama, ver ui.js startRoadJourney — igual ao
@@ -65,6 +93,7 @@ window.RoadEngine = {
         this._nextFatigueTickAt = this._fatigueTickEvery;
         this._arrived = false;
         this.active = true;
+        this._nearEvent = null;
 
         const toDef = window.CityDatabase[toId];
         this._zones = this.ZONE_TEMPLATE.map((z, i) => ({
@@ -74,8 +103,37 @@ window.RoadEngine = {
         this._zoneLength = this.WORLD_LENGTH / this._zones.length;
         this._lastZoneIndex = -1;
         this._updateZoneLabel(0);
+        this._generateEvents(fromId, toId);
+        this._updateInteractPrompt();
 
         window.Camera.follow(this._player);
+    },
+
+    // Posições determinísticas (sem Math.random) espalhadas ao longo da
+    // travessia inteira — o mesmo par de cidades sempre gera os mesmos
+    // eventos nos mesmos pontos, mas pares diferentes de cidade têm uma
+    // "semente" própria (_stringHash de fromId+toId), então a viagem pra
+    // Fortaleza Orc não tem exatamente a mesma sequência da viagem pro
+    // Santuário Élfico.
+    _generateEvents(fromId, toId) {
+        const seed = this._stringHash(fromId + '->' + toId);
+        const types = Object.keys(this.EVENT_TYPES).concat(['bandit']);
+        const segment = this.WORLD_LENGTH / this.EVENT_COUNT;
+        this._events = [];
+        for (let i = 0; i < this.EVENT_COUNT; i++) {
+            const h = this._hash(i * 7 + seed);
+            const type = types[h % types.length];
+            const x = Utils.clamp(i * segment + segment * 0.5 + (h % 400) - 200, 400, this.WORLD_LENGTH - 400);
+            const side = (i % 2 === 0) ? -1 : 1;
+            const y = side * 70;
+            this._events.push({ type, x, y, spawnX: x, consumed: false });
+        }
+    },
+
+    _stringHash(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+        return h;
     },
 
     _zoneIndexAt(x) {
@@ -121,6 +179,9 @@ window.RoadEngine = {
             case 'ArrowLeft': case 'a': case 'A': this.keysHeld.left = isDown; break;
             case 'ArrowRight': case 'd': case 'D': this.keysHeld.right = isDown; break;
             case 'Shift': this._running = isDown; break;
+            case 'e': case 'E':
+                if (isDown && this._nearEvent) this._resolveEvent(this._nearEvent);
+                break;
             default: return;
         }
     },
@@ -140,7 +201,14 @@ window.RoadEngine = {
     },
 
     update(dt) {
-        if (!this.active) return;
+        // Corrige um bug que existia desde a Fase 2: só checar `this.active`
+        // (sem checar a TELA) deixava o RoadEngine continuando a mover o
+        // jogador/consumir fadiga/checar chegada em segundo plano mesmo
+        // depois da tela trocar pra BATTLE (ver _updateBandits abaixo) — o
+        // Mundo da Estrada precisava ficar pausado de verdade durante uma
+        // emboscada, do mesmo jeito que CityEngine já faz (ver city.js
+        // update(), que também usa _isActive() e não só um bool solto).
+        if (!this._isActive()) return;
         const p = this._player;
         window.PlayerController.update(p, this.keysHeld, dt, this._speed(), this._bounds(), []);
         window.Camera.follow(p);
@@ -158,6 +226,7 @@ window.RoadEngine = {
         if (!this._arrived && p.x >= this.WORLD_LENGTH - 60) {
             this._arrived = true;
             if (window.UI && window.UI.onRoadWorldArrival) window.UI.onRoadWorldArrival(this.toId);
+            return;
         }
 
         // Bioma atual (Fase 3) — só escreve no DOM quando a zona muda (não
@@ -167,6 +236,109 @@ window.RoadEngine = {
             this._lastZoneIndex = zoneIdx;
             this._updateZoneLabel(zoneIdx);
         }
+
+        this._updateBandits();
+        this._updateInteractPrompt();
+    },
+
+    // Bandidos patrulham um pequeno trecho (vai e volta) ao redor do ponto
+    // onde nasceram — puramente visual até o jogador chegar perto o
+    // bastante (ver BANDIT_DETECT_RADIUS), quando a emboscada dispara
+    // sozinha (mesmo espírito de "o jogador vê o inimigo andando pelo
+    // mapa" pedido no design, sem nenhuma mensagem de texto substituindo
+    // a cena). Ficar fora do raio (ou correr direto) é como se contorna/
+    // ignora — nenhum código extra precisa disso, só não entrar no raio.
+    _updateBandits() {
+        const p = this._player;
+        for (const ev of this._events) {
+            if (ev.type !== 'bandit' || ev.consumed) continue;
+            ev.x = ev.spawnX + Math.sin(performance.now() / 1000 * 0.6 + ev.spawnX) * this.BANDIT_PATROL_RANGE;
+            const dist = Math.hypot(p.x - ev.x, p.y - ev.y);
+            if (dist < this.BANDIT_DETECT_RADIUS) {
+                ev.consumed = true;
+                if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter();
+                return; // a tela muda pra BATTLE agora — nada mais a fazer neste frame
+            }
+        }
+    },
+
+    // Evento pacífico mais próximo dentro do raio de interação — mesmo
+    // padrão do aviso de "entrar em prédio" da Praça (ver city.js
+    // _updateProximity/#city-interact-prompt), reaproveitando a MESMA
+    // classe CSS (.city-interact-prompt) num elemento próprio da Estrada.
+    _updateInteractPrompt() {
+        const p = this._player;
+        let nearest = null, nearestDist = this.INTERACT_RADIUS;
+        for (const ev of this._events) {
+            if (ev.consumed || ev.type === 'bandit') continue;
+            const d = Math.hypot(p.x - ev.x, p.y - ev.y);
+            if (d < nearestDist) { nearest = ev; nearestDist = d; }
+        }
+        this._nearEvent = nearest;
+        const el = document.getElementById('roadworld-interact-prompt');
+        if (!el) return;
+        if (nearest) {
+            const def = this.EVENT_TYPES[nearest.type];
+            el.innerText = `${def.icon} ${def.label}`;
+            el.classList.add('visible');
+            el.onclick = () => this._resolveEvent(nearest);
+        } else {
+            el.classList.remove('visible');
+        }
+    },
+
+    // Resolve um evento pacífico ao interagir — sempre consumido depois (só
+    // acontece uma vez), sempre com um toast explicando o que aconteceu.
+    // Reaproveita a mesma lógica de recompensa que roads.js _rollEvent/
+    // _rollChest já usava pro equivalente sorteado, agora disparada por
+    // proximidade física em vez de dados.
+    _resolveEvent(ev) {
+        ev.consumed = true;
+        this._nearEvent = null;
+        const el = document.getElementById('roadworld-interact-prompt');
+        if (el) el.classList.remove('visible');
+        const p = this.player;
+        const toast = (msg, kind = 'info') => { if (window.MainMenu) window.MainMenu.showToast(msg, kind); };
+
+        if (ev.type === 'merchant') {
+            const gift = Utils.randomInt(10, 35);
+            p.gold += gift;
+            toast(`O comerciante compra uma bugiganga sua por ${gift}g.`, 'success');
+        } else if (ev.type === 'secret') {
+            const gift = Utils.randomInt(40, 80);
+            p.gold += gift;
+            toast(`Um esconderijo secreto guarda ${gift}g abandonados há muito tempo.`, 'success');
+        } else if (ev.type === 'campfire') {
+            if ((p.fatigue || 0) > 0) {
+                p.cureFatigue(1);
+                toast('Você descansa um instante à fogueira — 1 nível de fadiga a menos.', 'success');
+            } else {
+                toast('A fogueira ainda aquece, mas você não sente nenhum cansaço agora.', 'info');
+            }
+        } else if (ev.type === 'cart') {
+            toast('A carroça quebrada não guarda nada de útil — só madeira estilhaçada.', 'info');
+        } else if (ev.type === 'chest') {
+            const cityId = this.fromId;
+            const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
+                ? window.ItemFactory._pickRandomEquipmentId(cityId, false) : null;
+            if (!picked) {
+                const gift = Utils.randomInt(15, 30);
+                p.gold += gift;
+                toast(`Um baú vazio guarda só ${gift}g esquecidos no fundo.`, 'success');
+                return;
+            }
+            const rarity = Utils.chance(20) ? RARITY.UNCOMMON : RARITY.COMMON;
+            const item = window.ItemFactory.createEquipment(picked.id, picked.category, rarity);
+            if (p.inventory.length < p.inventoryCapacity) {
+                p.inventory.push(item);
+                toast(`Um baú escondido entre as pedras guarda ${item.name}!`, 'success');
+            } else {
+                const soldFor = Math.floor(item.value * 0.5);
+                p.gold += soldFor;
+                toast(`Um baú guarda ${item.name}, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
+            }
+        }
+        window.SaveManager.save(window.Engine.state);
     },
 
     draw(ctx, w, h) {
@@ -205,6 +377,14 @@ window.RoadEngine = {
             this._drawMarker(ctx, i * this._zoneLength, this._zones[i].name);
         }
 
+        // Eventos físicos (Fase 4) — mercador/baú/esconderijo/fogueira/
+        // carroça/bandido, todos objetos reais no mapa (nunca um pop-up).
+        for (const ev of this._events) {
+            if (ev.consumed) continue;
+            if (!window.Camera.isVisible(ev.x, ev.y, w, h, 150)) continue;
+            this._drawEvent(ctx, ev);
+        }
+
         // Vegetação esparsa, só decorativa — gerada de forma determinística
         // (sem array guardado em memória, sem Math.random) e cullada via
         // Camera.isVisible, então o custo por frame não cresce com
@@ -229,6 +409,18 @@ window.RoadEngine = {
 
         this._drawPlayer(ctx);
         ctx.restore();
+    },
+
+    _drawEvent(ctx, ev) {
+        const isBandit = ev.type === 'bandit';
+        ctx.fillStyle = isBandit ? 'rgba(120,20,20,0.85)' : 'rgba(60,45,30,0.85)';
+        ctx.beginPath();
+        ctx.arc(ev.x, ev.y, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        const icon = isBandit ? '⚔️' : this.EVENT_TYPES[ev.type].icon;
+        ctx.fillText(icon, ev.x, ev.y + 7);
     },
 
     _drawMarker(ctx, x, label) {

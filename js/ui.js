@@ -348,6 +348,25 @@ class UIManager {
                 }
                 return;
             }
+            // Emboscada no Mundo da Estrada de verdade (ver js/road.js
+            // RoadEngine _updateBandits/ui.js onRoadWorldEncounter) — mesmo
+            // princípio do bloco acima (roadJourney antigo), agora pro
+            // formato novo: vencer volta pra tela ROADWORLD (RoadEngine
+            // nunca chamou abandon(), então a posição/zona/eventos restantes
+            // continuam exatamente como estavam); perder encerra a
+            // travessia aqui mesmo.
+            if (p && p.roadWorldJourney) {
+                if (this._lastBattleWasVictory) {
+                    this.showScreen('screen-roadworld');
+                } else {
+                    p.roadWorldJourney = null;
+                    if (window.RoadEngine) window.RoadEngine.abandon();
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.MainMenu) window.MainMenu.showToast('Derrotado, você recua e abandona a viagem.', 'error');
+                    this.showScreen('screen-hub');
+                }
+                return;
+            }
             this.showScreen('screen-hub');
         });
 
@@ -2683,6 +2702,20 @@ class UIManager {
             this.updateHubStats();
         }
         this.showScreen('screen-hub');
+    }
+
+    // Chamado pelo RoadEngine (js/road.js _updateBandits) quando o jogador
+    // chega perto demais de um bandido patrulhando — a emboscada É a
+    // próxima etapa da travessia (mesmo espírito de city.js _eventHunters/
+    // roads.js RoadSystem.advance `ambush`), só que disparada por posição
+    // física real, não por sorteio. RoadEngine continua "vivo" (não chama
+    // abandon()) — só a TELA muda pra BATTLE, então o Mundo da Estrada
+    // (posição do jogador, zona atual, eventos restantes) fica intacto em
+    // memória, pronto pra ser retomado exatamente de onde parou se o
+    // jogador vencer (ver btn-return-hub abaixo).
+    onRoadWorldEncounter() {
+        window.SaveManager.save(window.Engine.state);
+        this.startBattle();
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão (ver
