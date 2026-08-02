@@ -714,6 +714,19 @@ class UIManager {
         this.beginBattleWith(enemy);
     }
 
+    // Chefe opcional da Estrada (ver roads.js `elite`, item pedido na
+    // auditoria de mundo vivo: "chefes opcionais" durante a exploração) —
+    // nível efetivo bem mais alto que o Duelo Rápido comum (Enemy já sorteia
+    // ±1 nível e uma chance própria de Elite em cima do nível recebido,
+    // então +3 aqui garante uma luta perceptivelmente mais dura sem precisar
+    // duplicar/alterar a lógica de geração do Enemy). expValue/goldValue já
+    // escalam com o nível, então a recompensa maior é automática.
+    startEliteRoadBattle() {
+        const p = window.Engine.state.player;
+        const enemy = new Enemy(p.level + 3);
+        this.beginBattleWith(enemy);
+    }
+
     // Prepara a tela de batalha para qualquer tipo de oponente (Enemy ou Rival)
     beginBattleWith(opponent) {
         const p = window.Engine.state.player;
@@ -2470,9 +2483,14 @@ class UIManager {
             // instante pro jogador ler o aviso na tela da Estrada; a tela de
             // batalha assume e, ao voltar (ver btn-return-hub), retoma a
             // Estrada sozinha se o jogador venceu (ver showBattleResults).
+            // `elite` (chefe opcional do caminho, ver roads.js) usa um
+            // inimigo mais forte que o Duelo Rápido comum, nunca o mesmo
+            // startBattle() genérico.
             this.openRoad(); // atualiza o log com a mensagem de aviso antes da batalha começar
             setTimeout(() => {
-                if (window.Engine.state.player === p && p.roadJourney) this.startBattle();
+                if (window.Engine.state.player !== p || !p.roadJourney) return;
+                if (result.elite) this.startEliteRoadBattle();
+                else this.startBattle();
             }, 1400);
             return;
         }

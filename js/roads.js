@@ -67,12 +67,13 @@ const RoadSystem = {
     },
 
     // Avança uma etapa: sorteia um evento de caminho e aplica o efeito.
-    // Retorna { message, label, arrived, ambush } — `arrived` true quando a
-    // etapa que acabou de rodar era a última (quem chama decide o que fazer:
-    // ver ui.js advanceRoad, que then chama City.travelToCity). `ambush`
-    // true quando o evento decidiu por conta própria iniciar uma batalha
-    // (ver ui.js, que já cuida de não deixar chegar na cidade no meio de
-    // uma emboscada em andamento).
+    // Retorna { message, label, arrived, ambush, elite } — `arrived` true
+    // quando a etapa que acabou de rodar era a última (quem chama decide o
+    // que fazer: ver ui.js advanceRoad, que then chama City.travelToCity).
+    // `ambush` true quando o evento decidiu por conta própria iniciar uma
+    // batalha (ver ui.js, que já cuida de não deixar chegar na cidade no
+    // meio de uma emboscada em andamento); `elite` marca a variante rara e
+    // mais dura desse mesmo tipo de evento (chefe opcional do caminho).
     advance(player) {
         const journey = player.roadJourney;
         if (!journey) return null;
@@ -91,18 +92,26 @@ const RoadSystem = {
         if (journey.log.length > 5) journey.log.length = 5;
 
         const arrived = journey.step >= journey.totalSteps;
-        return { message: result.message, label, arrived, ambush: !!result.ambush };
+        return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite };
     },
 
     _rollEvent(player, label) {
         const roll = Utils.randomInt(1, 100);
-        if (roll <= 15) {
+        if (roll <= 12) {
             // Emboscada: batalha real contra um inimigo procedural, mesmo
             // padrão de city.js _eventHunters — nunca uma derrota "de
             // surpresa" sem luta, sempre uma luta de verdade que o jogador
             // pode vencer ou perder como qualquer Duelo Rápido (ver ui.js
             // openRoad, que dispara startBattle e retoma a viagem depois).
             return { message: `${label}: passos apressados se aproximam por trás — uma emboscada!`, ambush: true };
+        } else if (roll <= 16) {
+            // Chefe opcional do caminho (item pedido na auditoria de mundo
+            // vivo: "chefes opcionais" durante a exploração) — raro, mais
+            // forte que uma emboscada comum (ver ui.js startRoadBattle,
+            // nível efetivo +3), recompensa maior compensa o risco extra.
+            // Sempre avisado ANTES da luta começar (nunca uma derrota de
+            // surpresa sem chance de reação).
+            return { message: `${label}: um vulto imponente bloqueia a passagem, avaliando se você é digno de um desafio maior...`, ambush: true, elite: true };
         } else if (roll <= 30) {
             const gift = Utils.randomInt(10, 35);
             player.gold += gift;
@@ -111,14 +120,49 @@ const RoadSystem = {
             const gift = Utils.randomInt(5, 20);
             player.gold += gift;
             return { message: `${label}: você encontra ${gift}g esquecidos entre as pedras.` };
+        } else if (roll <= 48) {
+            return this._rollChest(player, label);
         } else if (roll <= 55) {
+            // Local secreto (item pedido: "segredos" durante a exploração)
+            // — recompensa nitidamente maior que o achado comum acima,
+            // condizente com ser um esconderijo escondido, não só moedas
+            // caídas à vista.
+            const gift = Utils.randomInt(40, 80);
+            player.gold += gift;
+            return { message: `${label}: um esconderijo secreto guarda ${gift}g abandonados há muito tempo.` };
+        } else if (roll <= 68) {
             return { message: `${label}: um viajante solitário troca poucas palavras com você antes de seguir em silêncio.` };
-        } else if (roll <= 65 && (player.fatigue || 0) > 0) {
+        } else if (roll <= 78 && (player.fatigue || 0) > 0) {
             player.cureFatigue(1);
             return { message: `${label}: você descansa um instante à sombra — 1 nível de fadiga a menos.` };
         } else {
             return { message: `${label}: nada de especial chama sua atenção — apenas o caminho seguindo em frente.` };
         }
+    },
+
+    // Baú (item pedido: "baús" durante a exploração) — item de equipamento
+    // real via ItemFactory, mesmo pool regional já usado pelo loot de
+    // batalha (ver enemy.js generateLoot/_pickRandomEquipmentId). Mochila
+    // cheia nunca "perde" o achado silenciosamente: vende no local por
+    // metade do valor em vez de descartar.
+    _rollChest(player, label) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
+            ? window.ItemFactory._pickRandomEquipmentId(cityId, false) : null;
+        if (!picked) {
+            const gift = Utils.randomInt(15, 30);
+            player.gold += gift;
+            return { message: `${label}: um baú vazio, só ${gift}g esquecidos no fundo.` };
+        }
+        const rarity = Utils.chance(20) ? RARITY.UNCOMMON : RARITY.COMMON;
+        const item = window.ItemFactory.createEquipment(picked.id, picked.category, rarity);
+        if (player.inventory.length < player.inventoryCapacity) {
+            player.inventory.push(item);
+            return { message: `${label}: um baú escondido entre as pedras guarda ${item.name}!` };
+        }
+        const soldFor = Math.floor(item.value * 0.5);
+        player.gold += soldFor;
+        return { message: `${label}: um baú guarda ${item.name}, mas sua mochila está cheia — você vende no local por ${soldFor}g.` };
     }
 };
 window.RoadSystem = RoadSystem;
