@@ -52,14 +52,24 @@ window.RoadEngine = {
     ],
 
     // Tipos de evento pacífico — o bandido (hostil) não entra aqui porque
-    // não tem aviso de interação nenhum, ver _updateBandits.
+    // não tem aviso de interação nenhum, ver _updateBandits. `traveler`
+    // (Fase 5 — missões de viagem) oferece uma missão de verdade ao
+    // interagir (ver _resolveEvent), reaproveitando QuestFactory/
+    // QuestSystem já existentes (só muda ONDE a missão é oferecida — pelo
+    // quadro da cidade OU por um viajante encontrado na estrada).
     EVENT_TYPES: {
         merchant: { icon: '🧺', label: 'Negociar com o comerciante' },
         chest: { icon: '📦', label: 'Abrir baú' },
         secret: { icon: '💰', label: 'Investigar o esconderijo' },
         campfire: { icon: '🔥', label: 'Descansar na fogueira' },
-        cart: { icon: '🛒', label: 'Examinar a carroça quebrada' }
+        cart: { icon: '🛒', label: 'Examinar a carroça quebrada' },
+        traveler: { icon: '🧳', label: 'Conversar com o viajante' }
     },
+    // Tipos de missão oferecidos pelo viajante — os três que já existiam em
+    // QuestFactory mais próximos do pedido explícito ("escoltar", "caçar
+    // uma criatura", "encontrar um objeto perdido"): ESCORT (Proteção de
+    // Comboio), HUNT (Contrato de Caça), RECOVERY (Item Perdido).
+    TRAVELER_QUEST_TYPES: ['ESCORT', 'HUNT', 'RECOVERY'],
     EVENT_COUNT: 6, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
     // Entidades exclusivas da Expedição à Floresta Ancestral (Fase 5, ver
@@ -352,6 +362,24 @@ window.RoadEngine = {
         // showCorruptionChoice, chamada via onRoadWorldCorruptionEvent).
         if (ev.type === 'corruption') {
             if (window.UI && window.UI.onRoadWorldCorruptionEvent) window.UI.onRoadWorldCorruptionEvent();
+            return;
+        }
+
+        // Viajante (Fase 5 — missões de viagem) — oferece uma missão
+        // real via QuestFactory/QuestSystem (as mesmas usadas pelo quadro
+        // da cidade), aceita na hora (sem quadro de escolha nesta versão
+        // mínima). O progresso já funciona sozinho: QuestSystem.
+        // onBattleVictory é chamado de dentro de battle.js pra QUALQUER
+        // vitória, incluindo as disparadas por um bandido na Estrada.
+        if (ev.type === 'traveler') {
+            const type = this.TRAVELER_QUEST_TYPES[this._hash(Math.floor(ev.x)) % this.TRAVELER_QUEST_TYPES.length];
+            const offer = window.QuestFactory && window.QuestFactory.generate(this.fromId, p, type);
+            if (offer && window.QuestSystem && window.QuestSystem.acceptQuest(p, offer)) {
+                toast(`Nova missão de um viajante: ${offer.name}. ${offer.description}`, 'success');
+            } else {
+                toast('O viajante só quer trocar algumas palavras antes de seguir seu caminho.', 'info');
+            }
+            window.SaveManager.save(window.Engine.state);
             return;
         }
 
