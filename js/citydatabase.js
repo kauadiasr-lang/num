@@ -32,6 +32,11 @@ const CityDatabase = {
         // DESTINO, então sair de Porto Helênico rumo à Fortaleza Orc
         // aparece com essa família aqui só na PRIMEIRA metade do caminho.
         roadFamily: 'natureza',
+        // Estilo de arquitetura dos prédios da praça (ver city.js
+        // _bakeBuildingShell/_bakeBuildingShellGreco) — Porto Helênico
+        // preserva a fachada greco-romana original (colunas + pediment)
+        // de antes deste campo existir.
+        buildingStyle: 'greco',
         arenaBiomes: ['coliseu', 'areia', 'ruinas', 'templo', 'castelo'],
         // Cenário OFICIAL e FIXO desta arena (item 5 da auditoria de
         // balanceamento) — bug de auditoria: antes graphics.js sorteava um
@@ -82,6 +87,11 @@ const CityDatabase = {
         // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
         // para a explicação completa do campo).
         roadFamily: 'orc',
+        // Estilo de arquitetura (ver porto_helenico.buildingStyle acima) —
+        // vigas de ferro nos cantos + telhado plano com ameias em vez de
+        // colunas de mármore + pediment, atendendo ao pedido explícito
+        // "toda arquitetura [orc] deve parecer brutal".
+        buildingStyle: 'orc',
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a
@@ -125,6 +135,11 @@ const CityDatabase = {
         // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
         // para a explicação completa do campo).
         roadFamily: 'elfico',
+        // Estilo de arquitetura (ver porto_helenico.buildingStyle acima) —
+        // raízes retorcidas + telhado em cúpula orgânica em vez de colunas
+        // de mármore + pediment, atendendo ao pedido explícito
+        // "arquitetura elegante... raízes... madeira viva" da cidade élfica.
+        buildingStyle: 'elfico',
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — a cidade já é descrita

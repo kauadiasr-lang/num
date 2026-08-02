@@ -2491,15 +2491,60 @@ class CityEngine {
         return `rgb(${r},${g},${b})`;
     }
 
-    // Prédio procedural greco-romano: base + colunas + telhado triangular +
-    // porta + tochas nas laterais. As dimensões já vêm escaladas de
-    // _buildingRect (telas baixas encolhem os prédios pra sempre caberem
-    // entre o horizonte e o rodapé da praça).
+    // Escurece uma cor hex em direção ao preto por `percent` (0-1) — usado
+    // pela fachada BRUTA da Fortaleza Orc (ver _bakeBuildingShell), que
+    // precisa de um tom bem mais escuro/duro que o gradiente clareado
+    // padrão dos outros estilos de arquitetura.
+    _darkenHex(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const mix = c => Math.max(0, Math.round(c * (1 - percent)));
+        const r = mix((num >> 16) & 0xff), g = mix((num >> 8) & 0xff), b = mix(num & 0xff);
+        return `rgb(${r},${g},${b})`;
+    }
+
+    // Mistura uma cor hex em direção a OUTRA cor hex (não preto/branco) por
+    // `percent` (0-1) — usado pela fachada ÉLFICA (ver
+    // _bakeBuildingShellElfico) pra tingir a parede de verde de verdade.
+    // `_lightenHex` sozinho só deixava a MESMA cor marrom mais clara (bug
+    // desta iteração: o comentário dizia "parede tingida de verde" mas o
+    // código nunca misturava verde nenhum, só clareava a cor original —
+    // confirmado com um teste de pixel comparando Porto Helênico x
+    // Santuário Élfico, que voltavam quase idênticos).
+    _tintHex(hex, targetHex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const tnum = parseInt(targetHex.replace('#', ''), 16);
+        const mix = (c, t) => Math.round(c + (t - c) * percent);
+        const r = mix((num >> 16) & 0xff, (tnum >> 16) & 0xff);
+        const g = mix((num >> 8) & 0xff, (tnum >> 8) & 0xff);
+        const b = mix(num & 0xff, tnum & 0xff);
+        return `rgb(${r},${g},${b})`;
+    }
+
+
+    // Prédio procedural — a "forma" (colunas retas + telhado triangular
+    // grego) era IDÊNTICA em toda cidade, então mesmo com paleta de cores
+    // própria por cidade (ver citydatabase.js `wallColors`/`accentColor`)
+    // a Fortaleza Orc e o Santuário Élfico continuavam parecendo Porto
+    // Helênico repintado — nunca uma arquitetura realmente própria, como
+    // pedido explicitamente pelo usuário ("Toda arquitetura [orc] deve
+    // parecer brutal" / "Arquitetura elegante [élfica]. Raízes. Madeira
+    // viva."). `buildingStyle` (ver citydatabase.js) escolhe entre 3
+    // formas de fachada abaixo — 'greco' (padrão, Porto Helênico,
+    // intocado), 'orc' (paredes escurecidas, vigas de ferro em vez de
+    // colunas de mármore, telhado plano com ameias serrilhadas) e 'elfico'
+    // (paredes tingidas de verde, raízes retorcidas em vez de colunas
+    // retas, telhado em cúpula orgânica com um brilho de espírito no
+    // cume). As dimensões já vêm escaladas de _buildingRect (telas baixas
+    // encolhem os prédios pra sempre caberem entre o horizonte e o
+    // rodapé da praça).
     // Migração p/ pipeline de sprites (ver js/spritesystem.js): a fachada
     // inteira do prédio (sombra, parede em gradiente, colunas, telhado,
     // porta) é 100% estática pra um dado prédio numa dada tela — só
     // recalculada quando o tamanho da janela muda (bw/bh vêm de
-    // _buildingRect, que já reage a isso). Bakear evita recriar ~5-8
+    // _buildingRect, que já reage a isso) ou o jogador viaja pra uma
+    // cidade com outro `buildingStyle` (por isso `style` entra na chave
+    // do cache — sem isso, viajar mostraria a fachada da cidade ANTERIOR
+    // até o tamanho da janela mudar). Bakear evita recriar ~5-8
     // gradientes lineares por prédio a cada um dos 60 quadros por segundo.
     // Tochas (chama animada) e texto (nome, ícone, mural do campeão — que
     // pode mudar a qualquer vitória) continuam desenhados ao vivo por cima.
@@ -2509,59 +2554,155 @@ class CityEngine {
         const botY = 18;
         const w = halfW * 2, h = botY - topY;
         const anchorX = halfW, anchorY = -topY;
-        const key = `building:${b.id}|${Math.round(bw)}|${Math.round(bh)}|${b.wall}|${b.roof}`;
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const style = (cityDef && cityDef.buildingStyle) || 'greco';
+        const key = `building:${b.id}|${Math.round(bw)}|${Math.round(bh)}|${b.wall}|${b.roof}|${style}`;
         return {
             canvas: window.SpriteCache.get(key, w, h, (bctx) => {
                 bctx.translate(anchorX, anchorY);
                 const left = -bw / 2, top = -bh;
 
-                // Sombra no chão
+                // Sombra no chão — igual nos 3 estilos.
                 bctx.fillStyle = 'rgba(0,0,0,0.25)';
                 bctx.beginPath();
                 bctx.ellipse(0, 4, bw * 0.55, 10, 0, 0, Math.PI * 2);
                 bctx.fill();
 
-                // Corpo do prédio — gradiente vertical (mais claro no topo,
-                // como se pegasse sol; a própria cor da parede na base).
-                const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
-                wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.22));
-                wallGrad.addColorStop(1, b.wall);
-                bctx.fillStyle = wallGrad;
-                bctx.fillRect(left, top, bw, bh);
+                if (style === 'orc') this._bakeBuildingShellOrc(bctx, b, bw, bh, left, top);
+                else if (style === 'elfico') this._bakeBuildingShellElfico(bctx, b, bw, bh, left, top);
+                else this._bakeBuildingShellGreco(bctx, b, bw, bh, left, top);
 
-                // Colunas de mármore — gradiente horizontal por coluna
-                // (mais escuro nas bordas, brilho claro no meio).
-                const colCount = Math.max(3, Math.floor(bw / 32));
-                for (let i = 0; i < colCount; i++) {
-                    const cx = left + (bw / (colCount - 1)) * i;
-                    const colGrad = bctx.createLinearGradient(cx - 4, 0, cx + 4, 0);
-                    colGrad.addColorStop(0, 'rgba(188,180,158,0.9)');
-                    colGrad.addColorStop(0.5, 'rgba(248,243,228,0.95)');
-                    colGrad.addColorStop(1, 'rgba(188,180,158,0.9)');
-                    bctx.fillStyle = colGrad;
-                    bctx.fillRect(cx - 4, top + 6, 8, bh - 12);
-                }
-
-                // Telhado triangular (pediment) — cume clareado, beirada na
-                // cor original de b.roof.
-                const roofGrad = bctx.createLinearGradient(0, top - bh * 0.3, 0, top);
-                roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.3));
-                roofGrad.addColorStop(1, b.roof);
-                bctx.fillStyle = roofGrad;
-                bctx.beginPath();
-                bctx.moveTo(left - 10, top);
-                bctx.lineTo(0, top - bh * 0.3);
-                bctx.lineTo(left + bw + 10, top);
-                bctx.closePath();
-                bctx.fill();
-
-                // Porta
+                // Porta — igual nos 3 estilos.
                 bctx.fillStyle = '#2a1c10';
                 const doorW = bw * 0.22, doorH = bh * 0.42;
                 bctx.fillRect(-doorW / 2, -doorH, doorW, doorH);
             }),
             anchorX, anchorY
         };
+    }
+
+    // Estilo padrão (Porto Helênico e qualquer cidade futura sem
+    // `buildingStyle` definido) — EXATAMENTE o desenho greco-romano
+    // original (base + colunas de mármore + telhado triangular/pediment),
+    // intocado, pra nenhuma cidade existente mudar de aparência sem querer.
+    _bakeBuildingShellGreco(bctx, b, bw, bh, left, top) {
+        const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
+        wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.22));
+        wallGrad.addColorStop(1, b.wall);
+        bctx.fillStyle = wallGrad;
+        bctx.fillRect(left, top, bw, bh);
+
+        const colCount = Math.max(3, Math.floor(bw / 32));
+        for (let i = 0; i < colCount; i++) {
+            const cx = left + (bw / (colCount - 1)) * i;
+            const colGrad = bctx.createLinearGradient(cx - 4, 0, cx + 4, 0);
+            colGrad.addColorStop(0, 'rgba(188,180,158,0.9)');
+            colGrad.addColorStop(0.5, 'rgba(248,243,228,0.95)');
+            colGrad.addColorStop(1, 'rgba(188,180,158,0.9)');
+            bctx.fillStyle = colGrad;
+            bctx.fillRect(cx - 4, top + 6, 8, bh - 12);
+        }
+
+        const roofGrad = bctx.createLinearGradient(0, top - bh * 0.3, 0, top);
+        roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.3));
+        roofGrad.addColorStop(1, b.roof);
+        bctx.fillStyle = roofGrad;
+        bctx.beginPath();
+        bctx.moveTo(left - 10, top);
+        bctx.lineTo(0, top - bh * 0.3);
+        bctx.lineTo(left + bw + 10, top);
+        bctx.closePath();
+        bctx.fill();
+    }
+
+    // Estilo BRUTO (Fortaleza Orc, pedido explícito do usuário: "toda
+    // arquitetura deve parecer brutal") — parede escurecida (pedra/ferro
+    // sujo, sem o clareado "polido" grego), vigas de ferro grossas nos
+    // cantos em vez de colunas de mármore finas, telhado PLANO (sem
+    // pediment elegante) com ameias serrilhadas na beirada e uma viga
+    // cruzada de reforço — silhueta mais pesada e angulosa de propósito.
+    _bakeBuildingShellOrc(bctx, b, bw, bh, left, top) {
+        const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
+        wallGrad.addColorStop(0, b.wall);
+        wallGrad.addColorStop(1, this._darkenHex(b.wall, 0.35));
+        bctx.fillStyle = wallGrad;
+        bctx.fillRect(left, top, bw, bh);
+
+        // Vigas de ferro nos cantos + uma central — grossas e escuras, sem
+        // o brilho de mármore polido das colunas gregas.
+        const beamW = Math.max(8, bw * 0.07);
+        const beamXs = [left + beamW * 0.4, 0, left + bw - beamW * 1.4];
+        bctx.fillStyle = 'rgba(20,18,16,0.85)';
+        for (const bx of beamXs) bctx.fillRect(bx, top + 4, beamW, bh - 8);
+        // Rebites (pequenos círculos) ao longo das vigas laterais — reforça
+        // a sensação de "ferro remendado", não madeira/pedra lisa.
+        bctx.fillStyle = 'rgba(90,85,75,0.9)';
+        for (const bx of [beamXs[0], beamXs[2]]) {
+            for (let ry = top + 12; ry < top + bh - 8; ry += 18) {
+                bctx.beginPath();
+                bctx.arc(bx + beamW / 2, ry, 2.2, 0, Math.PI * 2);
+                bctx.fill();
+            }
+        }
+
+        // Telhado plano e escuro (sem triângulo elegante) com ameias
+        // serrilhadas — mais fortaleza de guerra que templo.
+        const roofY = top - bh * 0.14;
+        bctx.fillStyle = this._darkenHex(b.roof, 0.1);
+        bctx.fillRect(left - 8, roofY, bw + 16, top - roofY + 6);
+        const merlonW = Math.max(10, bw / 8);
+        bctx.fillStyle = this._darkenHex(b.roof, 0.25);
+        for (let mx = left - 8; mx < left + bw + 8; mx += merlonW * 1.6) {
+            bctx.fillRect(mx, roofY - 8, merlonW, 10);
+        }
+    }
+
+    // Estilo ÉLFICO (Santuário Élfico, pedido explícito do usuário:
+    // "Arquitetura elegante. Raízes... Árvores gigantes. Madeira viva.")
+    // — parede tingida de verde (madeira viva, não pedra/mármore), raízes
+    // retorcidas (curvas orgânicas) em vez de colunas retas, telhado em
+    // forma de cúpula/copa de árvore (arco suave, não um triângulo reto)
+    // com um brilho de espírito da floresta no cume.
+    _bakeBuildingShellElfico(bctx, b, bw, bh, left, top) {
+        const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
+        wallGrad.addColorStop(0, this._tintHex(b.wall, '#6a9a5a', 0.45));
+        wallGrad.addColorStop(1, this._tintHex(b.wall, '#2a4a2a', 0.5));
+        bctx.fillStyle = wallGrad;
+        bctx.fillRect(left, top, bw, bh);
+
+        // Raízes retorcidas ladeando a fachada — curvas orgânicas em vez de
+        // colunas retas, afinando conforme sobem (mesmo espírito visual das
+        // raízes já usadas alhures na identidade élfica).
+        bctx.strokeStyle = '#3a4a2a';
+        bctx.lineCap = 'round';
+        const rootXs = [left + bw * 0.08, left + bw * 0.5, left + bw * 0.92];
+        for (const rx of rootXs) {
+            bctx.lineWidth = 7;
+            bctx.beginPath();
+            bctx.moveTo(rx, top + bh);
+            bctx.quadraticCurveTo(rx + (rx < 0 ? -10 : 10), top + bh * 0.45, rx, top + 4);
+            bctx.stroke();
+        }
+
+        // Telhado em cúpula orgânica (copa de árvore) — arco suave em vez
+        // do pediment triangular reto do estilo grego, tingido de verde
+        // (copa viva) em vez do tom de telhado original sem mistura.
+        const roofGrad = bctx.createLinearGradient(0, top - bh * 0.32, 0, top);
+        roofGrad.addColorStop(0, this._tintHex(b.roof, '#6ab568', 0.55));
+        roofGrad.addColorStop(1, this._tintHex(b.roof, '#2a5a2a', 0.4));
+        bctx.fillStyle = roofGrad;
+        bctx.beginPath();
+        bctx.moveTo(left - 10, top);
+        bctx.quadraticCurveTo(0, top - bh * 0.55, left + bw + 10, top);
+        bctx.closePath();
+        bctx.fill();
+
+        // Brilho de espírito da floresta no cume — mesmo tom já usado nas
+        // raízes ancestrais da identidade élfica (ver graphics.js/nature.js).
+        bctx.fillStyle = 'rgba(140,230,150,0.75)';
+        bctx.beginPath();
+        bctx.arc(0, top - bh * 0.32, 3.5, 0, Math.PI * 2);
+        bctx.fill();
     }
 
     _drawBuilding(ctx, w, h, b) {
