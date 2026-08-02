@@ -1459,11 +1459,17 @@ class GraphicsEngine {
         // Escadaria de pedra subindo das colinas em direção às montanhas,
         // do lado de fora — sugere que a estrada continua além da cidade.
         this._drawCityStairway(ctx, w, horizon);
-        // Muralha da cidade com um portão lateral (ver Cidades-Hub
-        // Regionais/CityEngine._makeCaravanTraveler): a camada mais próxima
-        // do jogador, desenhada por último — reforça a transição cidade ->
-        // muralha -> floresta -> montanhas em vez de um corte seco.
-        this._drawCityWall(ctx, w, horizon);
+        // A muralha com o portão NÃO é desenhada aqui — ela precisa rolar
+        // junto com o chão/prédios/Viajante do Portão (todos em coordenada
+        // de MUNDO, ver Fase 1 do redesenho de câmera), então quem chama
+        // agora é CityEngine.draw() (dentro do mesmo ctx.translate de todo
+        // o resto do conteúdo), usando _worldWidth() em vez da largura do
+        // canvas. Desenhá-la aqui (fundo em coordenada de tela) deixava o
+        // portão sempre fixo na mesma posição de TELA, nunca alinhado de
+        // verdade com o Viajante (que mora em coordenada de mundo) assim
+        // que a câmera se movia — e sem espaço sobrando na borda da tela
+        // pra um segundo lado da muralha (GATE_XFRAC=0.965 quase no limite
+        // da tela), a parede direita nem chegava a ser desenhada.
     }
 
     // Escadaria externa: uma fileira de degraus de pedra subindo em direção

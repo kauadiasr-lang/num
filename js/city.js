@@ -326,9 +326,13 @@ class CityEngine {
 
     // NPC fixo no vão do portão da muralha — raio de "pin" bem pequeno, já
     // que ele deveria estar sempre visível bem ali, não vagando pela praça
-    // inteira como os NPCs comuns.
+    // inteira como os NPCs comuns. Precisa da MESMA largura usada por
+    // GraphicsEngine._drawCityWall (agora chamado de dentro de
+    // CityEngine.draw() com _worldWidth(), ver Fase 1) — usar a largura do
+    // canvas aqui de novo faria o Viajante voltar a "sumir" (ficar
+    // desalinhado do vão de verdade da muralha assim que a câmera se move).
     _makeCaravanTraveler() {
-        const w = window.Engine.width, h = window.Engine.height;
+        const w = this._worldWidth(), h = window.Engine.height;
         const gateX = w * CityEngine.GATE_XFRAC;
         const gateY = this._horizon(h) + 45;
         const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
@@ -1901,15 +1905,25 @@ class CityEngine {
         if (!this._initialized) return;
         const horizon = this._horizon(h);
 
-        // Fundo (céu/piso) continua em coordenada de TELA — é um degradê
-        // uniforme, nunca precisa rolar com a câmera (rolar um degradê
-        // uniforme é visualmente idêntico a não rolar).
-        this._drawPlazaGround(ctx, w, h, horizon);
-
+        // Só o céu/montanhas/floresta distante (ver GraphicsEngine.
+        // drawCityBackdrop) continuam em coordenada de TELA — são um
+        // degradê/silhueta bem ao fundo, igual pra qualquer posição da
+        // câmera. O CHÃO da praça (piso com juntas de pedra) e a muralha
+        // com o portão precisam rolar JUNTO com prédios/vegetação/NPCs —
+        // bug reportado: deixar o piso em coordenada de tela fazia os
+        // prédios "flutuarem" deslizando por cima de um chão parado, e o
+        // Viajante do Portão (posicionado em coordenada de MUNDO) ficava
+        // desalinhado de uma muralha ainda desenhada em coordenada de
+        // tela por GraphicsEngine. Por isso os dois entram AQUI DENTRO,
+        // no mesmo ctx.translate de tudo mais, usando _worldWidth() em
+        // vez da largura do canvas.
         window.Camera.follow(this.player);
         const offset = window.Camera.getOffset(w, h);
         ctx.save();
         ctx.translate(offset.dx, offset.dy);
+
+        this._drawPlazaGround(ctx, this._worldWidth(), h, horizon);
+        if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, this._worldWidth(), horizon);
 
         this._drawFountain(ctx, w, h);
         this.statues.forEach(s => this._drawStatue(ctx, w, h, s));
