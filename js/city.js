@@ -1318,236 +1318,71 @@ class CityEngine {
         }
     }
 
+    // Delegado a PlayerController (ver js/playercontroller.js) — mesmo
+    // comportamento de sempre, só reorganizado pra ser reaproveitável pelo
+    // mundo da Estrada na Fase 2 (ver docs/superpowers/specs/2026-08-02-
+    // explorable-world-travel-design.md). `bounds`/`obstacleRects` são
+    // montados aqui (únicos da Praça); a física de movimento em si vive
+    // no controlador genérico.
     _updateMovement(dt) {
         const h = window.Engine.height, w = window.Engine.width;
-        let vx = 0, vy = 0;
-        const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
+        const bounds = { minX: 30, maxX: w - 30, minY: this._horizon(h) + 20, maxY: this._plazaBottom(h) + 30 };
+        const obstacles = this._obstacleRectsForCollision();
+        PlayerController.update(this.player, this.keysHeld, dt, this.walkSpeed, bounds, obstacles);
 
-        if (keyMoving) {
-            if (this.keysHeld.up) vy -= 1;
-            if (this.keysHeld.down) vy += 1;
-            if (this.keysHeld.left) vx -= 1;
-            if (this.keysHeld.right) vx += 1;
-            const len = Math.hypot(vx, vy) || 1;
-            vx = (vx / len) * this.walkSpeed;
-            vy = (vy / len) * this.walkSpeed;
-            this.player.targetX = null;
-            this.player.targetY = null;
-            this.player.pathQueue = [];
-        } else if (this.player.targetX !== null) {
-            const dx = this.player.targetX - this.player.x;
-            const dy = this.player.targetY - this.player.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 4) {
-                if (this.player.pathQueue.length > 0) {
-                    // Ainda há trechos do trajeto contornando obstáculos — segue pro próximo.
-                    const next = this.player.pathQueue.shift();
-                    this.player.targetX = next.x;
-                    this.player.targetY = next.y;
-                } else {
-                    this.player.targetX = null;
-                    this.player.targetY = null;
-                }
-            } else {
-                vx = (dx / dist) * this.walkSpeed;
-                vy = (dy / dist) * this.walkSpeed;
-            }
-        }
-
-        this.player.moving = vx !== 0 || vy !== 0;
-
-        // Som de passo — só toca enquanto anda de verdade, num intervalo
-        // fixo (independente de FPS, por isso o `dt`). A praça inteira era
-        // silenciosa durante o movimento, com ou sem som ambiente ligado.
+        // Som de passo / poeira nos pés — apresentação, não movimento em
+        // si, continua vivendo aqui.
         if (this.player.moving) {
             this._footstepTimer -= dt;
             if (this._footstepTimer <= 0) {
                 this._footstepTimer = 0.32;
                 if (window.AudioManager) window.AudioManager.playFootstep();
-                // Poeira nos pés a cada passo (mesmo instante do som) — o
-                // chão de pedra/mármore da praça (ver _drawPlazaGround) nunca
-                // reagia em nada ao jogador andar por cima, mesmo a Arena de
-                // combate já tendo poeira ambiente própria (drawArenaBackground).
                 if (window.GFX) window.GFX.spawnParticles(this.player.x, this.player.y + 4, '#9a8a70', 2, 0.6, 2);
             }
         } else {
             this._footstepTimer = 0;
         }
 
-        if (vx !== 0) {
-            this.player.facing = vx > 0 ? 1 : -1;
-        } else if (!this.player.moving && this._mouseX != null) {
-            // Parado: olha na direção do cursor (com uma pequena zona morta
-            // pra não ficar tremendo quando o mouse está quase em cima dele).
+        if (!this.player.moving && this._mouseX != null) {
             const dead = 6;
             if (this._mouseX > this.player.x + dead) this.player.facing = 1;
             else if (this._mouseX < this.player.x - dead) this.player.facing = -1;
         }
-
-        let nx = this.player.x + vx * dt;
-        let ny = this.player.y + vy * dt;
-
-        // Colisão simples (eixo a eixo) contra prédios e a fonte central
-        if (!this._collides(nx, this.player.y)) this.player.x = nx;
-        if (!this._collides(this.player.x, ny)) this.player.y = ny;
-
-        // Mantém o jogador dentro da praça
-        this.player.x = Utils.clamp(this.player.x, 30, w - 30);
-        this.player.y = Utils.clamp(this.player.y, this._horizon(h) + 20, this._plazaBottom(h) + 30);
     }
 
-    _collides(x, y) {
-        const margin = 16; // "largura" aproximada do gladiador
-        for (const b of this.buildings) {
-            const r = this._buildingRect(b);
-            if (x > r.left - margin && x < r.right + margin && y > r.top && y < r.bottom + margin * 0.6) return true;
-        }
-        const w = window.Engine.width, h = window.Engine.height;
-        const scale = this._cityScale(h);
-        const f = { x: this.fountain.xFrac * w, y: this._horizon(h) + this.fountain.rowOffset * scale };
-        if (Math.hypot(x - f.x, y - f.y) < this.fountain.r * scale + margin * 0.5) return true;
-        return false;
-    }
-
-    // --- Caminho até o destino (grafo de visibilidade simples) ---
-    // Antes o jogador tentava andar em linha reta até o alvo e, se um prédio
-    // (ou a fonte) estivesse no meio do caminho, ficava "preso" deslizando na
-    // parede sem nunca contornar o obstáculo. Agora, se a linha reta esbarra
-    // em algo, calculamos o caminho mais curto contornando as quinas dos
-    // obstáculos (com uma pequena folga) e o jogador anda por esse trajeto,
-    // ponto a ponto, até o destino clicado.
-    _obstacleRects() {
-        const margin = 20; // mesma folga usada em _collides, pra nunca gerar um trajeto que roça a parede
+    // Retângulos/círculos de colisão pra ESTE frame — prédios (ver
+    // _buildingRect) + a fonte central como círculo (`isCircle`, ver
+    // PlayerController.collides). Compartilhado entre _updateMovement,
+    // _collides e _setPlayerDestination (findPath) pra nunca duplicar a
+    // montagem da lista de obstáculos.
+    _obstacleRectsForCollision() {
+        const margin = 20;
         const rects = this.buildings.map(b => {
             const r = this._buildingRect(b);
             return { left: r.left - margin, right: r.right + margin, top: r.top, bottom: r.bottom + margin * 0.6 };
         });
         const w = window.Engine.width, h = window.Engine.height;
         const scale = this._cityScale(h);
-        const fx = this.fountain.xFrac * w, fy = this._horizon(h) + this.fountain.rowOffset * scale;
-        const fr = this.fountain.r * scale + margin * 0.5;
-        rects.push({ left: fx - fr, right: fx + fr, top: fy - fr, bottom: fy + fr });
+        rects.push({
+            isCircle: true,
+            cx: this.fountain.xFrac * w,
+            cy: this._horizon(h) + this.fountain.rowOffset * scale,
+            radius: this.fountain.r * scale
+        });
         return rects;
     }
 
-    // Interseção segmento×retângulo (Liang-Barsky).
-    _segmentHitsRect(x1, y1, x2, y2, rect) {
-        const dx = x2 - x1, dy = y2 - y1;
-        let tmin = 0, tmax = 1;
-        const p = [-dx, dx, -dy, dy];
-        const q = [x1 - rect.left, rect.right - x1, y1 - rect.top, rect.bottom - y1];
-        for (let i = 0; i < 4; i++) {
-            if (p[i] === 0) {
-                if (q[i] < 0) return false;
-            } else {
-                const t = q[i] / p[i];
-                if (p[i] < 0) { if (t > tmax) return false; if (t > tmin) tmin = t; }
-                else { if (t < tmin) return false; if (t < tmax) tmax = t; }
-            }
-        }
-        return tmin < tmax;
-    }
-
-    _lineClear(x1, y1, x2, y2, rects) {
-        for (const r of rects) {
-            if (this._segmentHitsRect(x1, y1, x2, y2, r)) return false;
-        }
-        return true;
-    }
-
-    // Retorna a lista de pontos (waypoints) que o jogador deve seguir, em
-    // ordem, até (tx,ty). Se a linha reta já for livre, é só um ponto (o
-    // próprio destino) — o caso comum, sem custo extra de cálculo.
-    _findPath(sx, sy, tx, ty) {
-        const rects = this._obstacleRects();
-        if (this._lineClear(sx, sy, tx, ty, rects)) return [{ x: tx, y: ty }];
-
-        // As quinas de um prédio alto (ex.: a Arena) podem ficar acima do
-        // horizonte ou fora da faixa onde o jogador tem permissão de andar
-        // (mesmo limite aplicado em _updateMovement) — usar essa quina como
-        // waypoint travava o jogador contra o próprio limite da praça, sem
-        // nunca chegar lá. Por isso descartamos quinas fora da área andável
-        // ou que, depois de encostadas nela, ainda caiam dentro de algum
-        // obstáculo (nesse caso o contorno tem que usar as outras quinas).
-        const h = window.Engine.height, w = window.Engine.width;
-        const minY = this._horizon(h) + 24, maxY = this._plazaBottom(h) + 26;
-        const minX = 32, maxX = w - 32;
-        const clampPt = (x, y) => ({ x: Utils.clamp(x, minX, maxX), y: Utils.clamp(y, minY, maxY) });
-        const insideAnyRect = (x, y) => rects.some(r => x > r.left && x < r.right && y > r.top && y < r.bottom);
-
-        const nodes = [{ x: sx, y: sy }];
-        const pad = 3;
-        rects.forEach(r => {
-            const corners = [
-                clampPt(r.left - pad, r.top - pad),
-                clampPt(r.right + pad, r.top - pad),
-                clampPt(r.left - pad, r.bottom + pad),
-                clampPt(r.right + pad, r.bottom + pad),
-            ];
-            corners.forEach(c => { if (!insideAnyRect(c.x, c.y)) nodes.push(c); });
-        });
-        const goalIdx = nodes.length;
-        nodes.push({ x: tx, y: ty });
-
-        const n = nodes.length;
-        const adj = Array.from({ length: n }, () => []);
-        for (let i = 0; i < n; i++) {
-            for (let j = i + 1; j < n; j++) {
-                const a = nodes[i], b = nodes[j];
-                if (this._lineClear(a.x, a.y, b.x, b.y, rects)) {
-                    const d = Math.hypot(a.x - b.x, a.y - b.y);
-                    adj[i].push([j, d]);
-                    adj[j].push([i, d]);
-                }
-            }
-        }
-
-        // Dijkstra (grafo pequeno — poucas dezenas de nós — então busca
-        // linear pelo menor "dist" a cada passo é simples e rápida o bastante).
-        const dist = new Array(n).fill(Infinity);
-        const prev = new Array(n).fill(-1);
-        const visited = new Array(n).fill(false);
-        dist[0] = 0;
-        for (let iter = 0; iter < n; iter++) {
-            let u = -1, best = Infinity;
-            for (let i = 0; i < n; i++) if (!visited[i] && dist[i] < best) { best = dist[i]; u = i; }
-            if (u === -1 || u === goalIdx) break;
-            visited[u] = true;
-            for (const [v, wgt] of adj[u]) {
-                if (dist[u] + wgt < dist[v]) { dist[v] = dist[u] + wgt; prev[v] = u; }
-            }
-        }
-
-        // Em pontos bem apertados entre dois prédios vizinhos pode não sobrar
-        // nenhuma quina de folga livre — nesse caso, em vez de desistir e
-        // mandar o jogador andar reto de novo (recriando o "preso na parede"
-        // original), ele anda até o ponto alcançável mais próximo do destino
-        // real. Sempre chega o mais perto possível, nunca fica parado.
-        let targetIdx = goalIdx;
-        if (dist[goalIdx] === Infinity) {
-            let bestIdx = -1, bestDist = Infinity;
-            // i=0 (o próprio ponto de partida) não conta — "chegar" ali de
-            // volta não é progresso nenhum.
-            for (let i = 1; i < n; i++) {
-                if (i === goalIdx || dist[i] === Infinity) continue;
-                const d = Math.hypot(nodes[i].x - tx, nodes[i].y - ty);
-                if (d < bestDist) { bestDist = d; bestIdx = i; }
-            }
-            if (bestIdx === -1) return [{ x: tx, y: ty }]; // nem uma quina vizinha alcançável; tenta direto
-            targetIdx = bestIdx;
-        }
-
-        const path = [];
-        let cur = targetIdx;
-        while (cur !== -1) { path.unshift(nodes[cur]); cur = prev[cur]; }
-        path.shift(); // remove o próprio ponto de partida
-        return path.length > 0 ? path : [{ x: tx, y: ty }];
+    _collides(x, y) {
+        return PlayerController.collides(x, y, this._obstacleRectsForCollision());
     }
 
     // Define o destino final do jogador, calculando o trajeto (com desvios,
-    // se preciso) e guardando os waypoints restantes na fila.
+    // se preciso) e guardando os waypoints restantes na fila — delegado a
+    // PlayerController.findPath (ver js/playercontroller.js).
     _setPlayerDestination(x, y) {
-        const path = this._findPath(this.player.x, this.player.y, x, y);
+        const h = window.Engine.height, w = window.Engine.width;
+        const bounds = { minX: 32, maxX: w - 32, minY: this._horizon(h) + 24, maxY: this._plazaBottom(h) + 26 };
+        const path = PlayerController.findPath(this.player.x, this.player.y, x, y, this._obstacleRectsForCollision(), bounds);
         this.player.pathQueue = path.slice(1);
         const first = path[0];
         this.player.targetX = first.x;
