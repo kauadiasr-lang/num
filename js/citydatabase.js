@@ -25,6 +25,13 @@ const CityDatabase = {
         description: 'A cidade natal de todo gladiador que começa sua jornada na Arena — praças de mármore, oliveiras centenárias e o Coliseu Imperial erguido no centro de tudo.',
         unlockLevel: 1, // sempre disponível — cidade inicial de qualquer personagem novo
         travelCost: 0,  // "voltar pra casa" nunca cobra passagem
+        // Família de bioma da Estrada (ver js/road.js ZONE_FAMILY_STAGES) —
+        // usada só pra nomear/colorir as zonas da travessia MANUAL entre
+        // cidades (WASD/clique), nunca pela viagem rápida. Nunca usada
+        // sozinha: cada trecho mistura a família de ORIGEM com a de
+        // DESTINO, então sair de Porto Helênico rumo à Fortaleza Orc
+        // aparece com essa família aqui só na PRIMEIRA metade do caminho.
+        roadFamily: 'natureza',
         arenaBiomes: ['coliseu', 'areia', 'ruinas', 'templo', 'castelo'],
         // Cenário OFICIAL e FIXO desta arena (item 5 da auditoria de
         // balanceamento) — bug de auditoria: antes graphics.js sorteava um
@@ -72,6 +79,9 @@ const CityDatabase = {
         description: 'Muralhas de pedra bruta e ferro enferrujado erguidas sobre rocha vulcânica — aqui só prospera quem prova força de verdade, todos os dias.',
         unlockLevel: 3,
         travelCost: 120,
+        // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
+        // para a explicação completa do campo).
+        roadFamily: 'orc',
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a
@@ -112,6 +122,9 @@ const CityDatabase = {
         description: 'Uma cidade erguida entre raízes ancestrais e cascatas silenciosas, onde a fronteira entre floresta e civilização praticamente não existe.',
         unlockLevel: 6,
         travelCost: 220,
+        // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
+        // para a explicação completa do campo).
+        roadFamily: 'elfico',
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — a cidade já é descrita

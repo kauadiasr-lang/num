@@ -8,14 +8,27 @@
  * de destino. Reaproveita o mesmo PlayerController (js/playercontroller.js)
  * usado pela Praça — mesma física de movimento, mundo diferente.
  *
- * Biomas (Fase 3): a travessia é dividida em zonas nomeadas (Campos,
- * Bosque, Floresta, Arredores-de-<destino>) com densidade de vegetação
- * crescente — GENÉRICAS por design, não por par-de-cidade (a mesma
- * decisão arquitetural já usada em roads.js: "uma cidade nova
- * automaticamente ganha uma rota funcional, sem precisar de conteúdo
- * específico por par de cidade"). A cor de fundo continua uma mistura
- * CONTÍNUA entre a paleta de origem/destino (ver draw()) — as zonas
- * mudam densidade/nome, nunca a cena inteira de uma vez.
+ * Biomas (Fase 3): a travessia é dividida em zonas nomeadas com densidade
+ * de vegetação crescente. A cor de fundo continua uma mistura CONTÍNUA
+ * entre a paleta de origem/destino (ver draw()) — as zonas mudam
+ * densidade/nome/cor de vegetação em DEGRAUS ao longo do caminho, nunca a
+ * cena inteira de uma vez, então a travessia sente uma transição gradual
+ * "Cidade Principal → Campos → Bosque → território do destino", nunca um
+ * corte instantâneo.
+ *
+ * Identidade por par-de-cidade (auditoria desta iteração): a travessia
+ * VIRTUAL (Expedição à Floresta Ancestral, `toId` sem entrada em
+ * CityDatabase) continua com o gabarito genérico ZONE_TEMPLATE — ela não
+ * pertence a nenhuma facção, então não tem "família" nenhuma por design.
+ * Já uma travessia REAL entre duas cidades usa `roadFamily` (ver
+ * citydatabase.js, ex. porto_helenico='natureza', fortaleza_orc='orc',
+ * santuario_elfico='elfico') pra montar zonas que combinam as DUAS
+ * pontas: as duas primeiras zonas pertencem à família de ORIGEM, as duas
+ * últimas à família de DESTINO (ver ZONE_FAMILY_STAGES/start()) — assim
+ * sair de Porto Helênico rumo à Fortaleza Orc mostra "Campos"/"Bosque
+ * Verdejante" na primeira metade e "Terras Ressecadas"/"Rochas
+ * Vulcânicas" (nome + cor de vegetação avermelhada/seca) na segunda,
+ * nunca a mesma mata genérica não importa o destino.
  *
  * Eventos físicos (Fase 4): objetos de mundo (mercador, baú, esconderijo,
  * fogueira, carroça quebrada) espalhados pela travessia — o jogador anda
@@ -84,16 +97,45 @@ window.RoadEngine = {
     AMBIENT_SPAWN_CHANCE: 55, // % dos chunks que têm alguma entidade (de 0 a 100, ver _hash)
     AMBIENT_TYPES: ['npc_traveler', 'caravan', 'animal', 'patrol'],
 
-    // Gabarito genérico de zonas — o nome da última é preenchido em
-    // start() com o nome da cidade de destino ("Arredores de X"), as
-    // outras três são sempre as mesmas (mato rasteiro → mato mais denso
-    // → floresta fechada), independente de quais cidades estão ligadas.
+    // Gabarito genérico de zonas — usado SÓ pela Expedição à Floresta
+    // Ancestral (destino virtual, sem `roadFamily` — ela não pertence a
+    // nenhuma facção). O nome da última é preenchido em start() com o
+    // nome da cidade de destino ("Arredores de X"), as outras três são
+    // sempre as mesmas (mato rasteiro → mato mais denso → floresta
+    // fechada verde-mística), independente de quais cidades estão ligadas.
+    // Travessias REAIS entre cidades usam ZONE_FAMILY_STAGES abaixo.
     ZONE_TEMPLATE: [
-        { name: 'Campos', vegDensity: 1.0 },
-        { name: 'Bosque', vegDensity: 1.4 },
-        { name: 'Floresta', vegDensity: 1.9 },
-        { name: null, vegDensity: 1.2 } // nome real vem de start()
+        { name: 'Campos', vegDensity: 1.0, vegColor: 'rgba(20,40,15,0.55)' },
+        { name: 'Bosque', vegDensity: 1.4, vegColor: 'rgba(20,40,15,0.55)' },
+        { name: 'Floresta', vegDensity: 1.9, vegColor: 'rgba(20,40,15,0.55)' },
+        { name: null, vegDensity: 1.2, vegColor: 'rgba(20,40,15,0.55)' } // nome real vem de start()
     ],
+
+    // Duas etapas nomeadas + coloridas por família de bioma (ver
+    // citydatabase.js `roadFamily`) — usadas em start() pra montar as
+    // zonas de uma travessia REAL entre cidades (nunca a Expedição à
+    // Floresta, que é virtual e usa ZONE_TEMPLATE). Cada família cobre
+    // METADE do caminho a partir da sua ponta (origem ou destino), então
+    // o jogador vê a paisagem mudar gradualmente de uma identidade pra
+    // outra em vez de um corte instantâneo entre cidades. Pedido do
+    // usuário ("grama seca, pedras escuras, terra avermelhada" pro
+    // território Orc; "vegetação viva, verde esmeralda" pro território
+    // Élfico) — cor aqui é só da vegetação esparsa da estrada (ver draw());
+    // o gradiente contínuo de chão já existia antes e continua intocado.
+    ZONE_FAMILY_STAGES: {
+        natureza: [
+            { name: 'Campos', vegColor: 'rgba(20,60,20,0.55)' },
+            { name: 'Bosque Verdejante', vegColor: 'rgba(15,50,18,0.6)' }
+        ],
+        orc: [
+            { name: 'Terras Ressecadas', vegColor: 'rgba(95,70,35,0.55)' },
+            { name: 'Rochas Vulcânicas', vegColor: 'rgba(60,35,25,0.6)' }
+        ],
+        elfico: [
+            { name: 'Trilha Élfica', vegColor: 'rgba(45,150,110,0.5)' },
+            { name: 'Bosque Luminoso', vegColor: 'rgba(70,210,160,0.45)' }
+        ]
+    },
 
     // Tipos de evento pacífico — o bandido (hostil) não entra aqui porque
     // não tem aviso de interação nenhum, ver _updateBandits. `traveler`
@@ -167,16 +209,34 @@ window.RoadEngine = {
         this._camX = this._player.x;
         this._camY = this._player.y;
 
+        const fromDef = window.CityDatabase[fromId];
         const toDef = window.CityDatabase[toId];
         // A Expedição à Floresta Ancestral (ver roads.js FOREST_EXPEDITION_ID)
         // é um destino VIRTUAL — nunca existe em CityDatabase — então nome
         // de zona/marco de chegada precisam de um nome próprio em vez de
         // `toDef.name` (que seria undefined).
         this._destLabel = toDef ? toDef.name : (toId === window.FOREST_EXPEDITION_ID ? 'Floresta Ancestral' : 'Chegada');
-        this._zones = this.ZONE_TEMPLATE.map((z, i) => ({
-            name: i === this.ZONE_TEMPLATE.length - 1 ? `Arredores de ${this._destLabel}` : z.name,
-            vegDensity: z.vegDensity
-        }));
+        if (toDef) {
+            // Travessia real entre cidades — mistura a família de ORIGEM
+            // (primeira metade) com a de DESTINO (segunda metade), ver
+            // comentário completo em ZONE_FAMILY_STAGES acima. Fallback pra
+            // 'natureza' cobre qualquer cidade futura sem `roadFamily` ainda
+            // definido, sem quebrar a travessia.
+            const fromFamily = this.ZONE_FAMILY_STAGES[(fromDef && fromDef.roadFamily) || 'natureza'];
+            const toFamily = this.ZONE_FAMILY_STAGES[(toDef && toDef.roadFamily) || 'natureza'];
+            this._zones = [
+                { name: fromFamily[0].name, vegDensity: 1.0, vegColor: fromFamily[0].vegColor },
+                { name: fromFamily[1].name, vegDensity: 1.4, vegColor: fromFamily[1].vegColor },
+                { name: toFamily[0].name, vegDensity: 1.7, vegColor: toFamily[0].vegColor },
+                { name: `Arredores de ${this._destLabel}`, vegDensity: 1.2, vegColor: toFamily[1].vegColor }
+            ];
+        } else {
+            this._zones = this.ZONE_TEMPLATE.map((z, i) => ({
+                name: i === this.ZONE_TEMPLATE.length - 1 ? `Arredores de ${this._destLabel}` : z.name,
+                vegDensity: z.vegDensity,
+                vegColor: z.vegColor
+            }));
+        }
         this._zoneLength = this.WORLD_LENGTH / this._zones.length;
         this._lastZoneIndex = -1;
         this._updateZoneLabel(0);
@@ -659,15 +719,18 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const vx = i * spacing;
             if (vx < 0 || vx > this.WORLD_LENGTH) continue;
-            const density = this._zones[this._zoneIndexAt(vx)].vegDensity;
+            const zone = this._zones[this._zoneIndexAt(vx)];
+            const density = zone.vegDensity;
             if (this._hash(i) >= 40 * density) continue;
             const side = (i % 2 === 0) ? -1 : 1;
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
             if (!window.Camera.isVisible(vx, vy, w, h)) continue;
-            // Folhas escurecidas enquanto a floresta estiver corrompida —
-            // mesmas silhuetas, só tingidas de roxo doentio em vez do verde
-            // saudável normal.
-            ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : 'rgba(20,40,15,0.55)';
+            // Cor da vegetação varia por zona/família de bioma (identidade
+            // visual por par-de-cidade, ver ZONE_FAMILY_STAGES) — exceto
+            // enquanto a floresta estiver corrompida, quando SEMPRE vira
+            // roxo doentio por cima de qualquer família (prioridade da
+            // corrupção sobre a identidade normal da zona).
+            ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
             ctx.beginPath();
             ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
             ctx.fill();
