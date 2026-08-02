@@ -76,7 +76,14 @@ const CityDatabase = {
         // Cor da floresta silenciosa fora da muralha (ver graphics.js
         // drawCityBackdrop/_drawTreeline) — Porto Helênico preserva a cor
         // original de antes deste campo existir.
-        treelineColor: 'rgba(24,34,22,0.55)'
+        treelineColor: 'rgba(24,34,22,0.55)',
+        // Tingimento do céu (ver graphics.js _blendCityPalette) — mistura
+        // uma cor por cima do céu dia/noite normal, em QUALQUER hora do
+        // dia, dando "iluminação própria" por cidade (pedido explícito:
+        // item de identidade da cidade). Porto Helênico fica `null` — sem
+        // tingimento nenhum, céu dia/noite padrão intocado ("natureza
+        // equilibrada", nem quente nem fria).
+        skyTint: null
     },
     fortaleza_orc: {
         id: 'fortaleza_orc',
@@ -124,7 +131,13 @@ const CityDatabase = {
         // Vegetação escassa e ressecada fora da muralha, não a mesma mata
         // cerrada do Santuário Élfico — condizente com a própria descrição
         // da Fortaleza ("rocha vulcânica"), ver graphics.js _drawTreeline.
-        treelineColor: 'rgba(48,38,26,0.35)'
+        treelineColor: 'rgba(48,38,26,0.35)',
+        // Tingimento do céu (ver porto_helenico.skyTint acima) — laranja-
+        // fogo por cima do céu em QUALQUER hora do dia, atendendo ao
+        // pedido explícito "a iluminação deve adquirir tons quentes" no
+        // território Orc — nunca só um evento pontual, é a identidade
+        // permanente do céu desta cidade.
+        skyTint: { color: '#ff5a1e', strength: 0.16 }
     },
     santuario_elfico: {
         id: 'santuario_elfico',
@@ -170,7 +183,12 @@ const CityDatabase = {
         // Floresta densa e vívida fora da muralha, mais rica que a mata
         // padrão — condizente com a própria descrição do Santuário ("entre
         // raízes ancestrais"), ver graphics.js _drawTreeline.
-        treelineColor: 'rgba(20,50,26,0.7)'
+        treelineColor: 'rgba(20,50,26,0.7)',
+        // Tingimento do céu (ver porto_helenico.skyTint acima) — verde-
+        // esmeralda por cima do céu em QUALQUER hora do dia, atendendo à
+        // paleta pedida explicitamente pra cidade élfica ("verde esmeralda,
+        // azul claro, branco dourado").
+        skyTint: { color: '#7be8b0', strength: 0.14 }
     }
 };
 window.CityDatabase = CityDatabase;

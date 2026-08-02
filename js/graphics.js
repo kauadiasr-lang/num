@@ -1350,6 +1350,18 @@ class GraphicsEngine {
     // Mistura suavemente as duas paletas nomeadas vizinhas conforme o
     // progresso contínuo do dia — evita o "salto" brusco de cor toda vez que
     // a Cidade troca de fase (dawn→day→sunset→night→dawn...).
+    //
+    // "Iluminação própria" por cidade (item de identidade pedido
+    // explicitamente pelo usuário) — bug de auditoria corrigido nesta
+    // iteração: o céu da Cidade usava SEMPRE as mesmas 4 paletas nomeadas
+    // acima, então Porto Helênico/Fortaleza Orc/Santuário Élfico tinham
+    // um céu IDÊNTICO na mesma hora do dia, apesar de já terem chão/
+    // muralha/vegetação com cor própria (ver citydatabase.js
+    // groundColors/wallColors/treelineColor). `skyTint` (ver
+    // citydatabase.js) mistura uma cor por cima do céu dia/noite normal,
+    // em QUALQUER hora do dia — "tons quentes" permanentes no território
+    // Orc, verde-esmeralda permanente no território Élfico — sem
+    // substituir o ciclo dia/noite em si, só tingindo por cima dele.
     _blendCityPalette(progress) {
         const order = ['dawn', 'day', 'sunset', 'night'];
         const palettes = this._cityPalettes();
@@ -1358,12 +1370,46 @@ class GraphicsEngine {
         const i1 = (i0 + 1) % order.length;
         const f = scaled - Math.floor(scaled);
         const p0 = palettes[order[i0]], p1 = palettes[order[i1]];
+        let top = this._lerpHex(p0.top, p1.top, f);
+        let mid = this._lerpHex(p0.mid, p1.mid, f);
+        let bottom = this._lerpHex(p0.bottom, p1.bottom, f);
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const tint = cityDef && cityDef.skyTint;
+        if (tint) {
+            // `_lerpHex` exige "#rrggbb" nos DOIS lados, mas `top`/`mid`/
+            // `bottom` aqui já são strings "rgb(r,g,b)" (o próprio retorno
+            // de `_lerpHex` acima) — chamá-lo de novo com esse formato
+            // quebraria o parse (`parseInt` de "gb(58,46,40)" vira NaN,
+            // virando um céu preto). `_tintRgbToward` aceita os dois
+            // formatos de entrada, só a cor-alvo (`tint.color`) precisa
+            // ser hex.
+            top = this._tintRgbToward(top, tint.color, tint.strength);
+            mid = this._tintRgbToward(mid, tint.color, tint.strength);
+            bottom = this._tintRgbToward(bottom, tint.color, tint.strength);
+        }
         return {
-            top: this._lerpHex(p0.top, p1.top, f),
-            mid: this._lerpHex(p0.mid, p1.mid, f),
-            bottom: this._lerpHex(p0.bottom, p1.bottom, f),
+            top, mid, bottom,
             sunAlpha: Utils.lerp(p0.sunAlpha, p1.sunAlpha, f)
         };
+    }
+
+    // Mistura uma cor em "#rrggbb" OU "rgb(r,g,b)" em direção a uma cor-alvo
+    // hex por `percent` (0-1) — usado só pelo tingimento de céu por cidade
+    // acima (`_blendCityPalette`), que precisa misturar por cima de uma cor
+    // já misturada (formato rgb()), diferente de `_lerpHex` (só hex-a-hex).
+    _tintRgbToward(color, targetHex, percent) {
+        let r, g, b;
+        if (color[0] === '#') {
+            const num = parseInt(color.slice(1), 16);
+            r = (num >> 16) & 0xff; g = (num >> 8) & 0xff; b = num & 0xff;
+        } else {
+            const m = color.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+            r = parseFloat(m[1]); g = parseFloat(m[2]); b = parseFloat(m[3]);
+        }
+        const tnum = parseInt(targetHex.slice(1), 16);
+        const tr = (tnum >> 16) & 0xff, tg = (tnum >> 8) & 0xff, tb = tnum & 0xff;
+        const mix = (c, t) => Math.round(c + (t - c) * percent);
+        return `rgb(${mix(r, tr)},${mix(g, tg)},${mix(b, tb)})`;
     }
 
     // 0..1 — quão "noturno" o céu está agora (usado pro brilho das estrelas).
