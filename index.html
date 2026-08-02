@@ -594,6 +594,26 @@
                 </div>
             </div>
 
+            <!-- TELA: ESTRADA (viagem manual, ver roads.js RoadSystem) —
+                 alternativa à viagem rápida acima: a distância é percorrida
+                 em etapas reais, com eventos no caminho, em vez de
+                 instantânea. -->
+            <div id="screen-road" class="screen">
+                <div class="panel road-panel">
+                    <button class="btn-close" id="btn-close-road">X</button>
+                    <div class="panel-watermark">🥾</div>
+                    <h2 class="panel-title" id="road-title">Estrada</h2>
+                    <p class="road-mode-label">Modo: <span id="road-mode" class="highlight-gold">A pé</span></p>
+                    <div class="road-progress-bar"><div id="road-progress-fill" class="road-progress-fill"></div></div>
+                    <p class="road-progress-label" id="road-progress-label">0/0</p>
+                    <div id="road-log" class="road-log"></div>
+                    <div class="road-actions">
+                        <button class="btn btn-small" id="btn-road-advance">Avançar</button>
+                        <button class="btn btn-small" id="btn-road-abandon">Abandonar Viagem</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- TELA: HALL DA FAMA -->
             <div id="screen-halloffame" class="screen">
                 <div class="panel halloffame-panel">
@@ -688,6 +708,7 @@
     <script src="js/lineages.js"></script>
     <script src="js/races.js"></script>
     <script src="js/citydatabase.js"></script>
+    <script src="js/roads.js"></script>
     <script src="js/skilltrees.js"></script>
     <script src="js/rituals.js"></script>
     <script src="js/quests.js"></script>

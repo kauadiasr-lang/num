@@ -37,6 +37,29 @@ class GameUtils {
         return (1 - amt) * start + amt * end;
     }
 
+    // Mistura duas cores hex ("#rrggbb") por canal, usando o mesmo lerp
+    // acima — usado pela transição gradual de bioma na Estrada (ver
+    // roads.js/ui.js openRoad: a cor de fundo passa a refletir o quanto do
+    // caminho já foi percorrido, em vez de trocar de paleta de uma vez ao
+    // chegar). `amt` fora de [0,1] é automaticamente limitado.
+    static lerpColor(hexA, hexB, amt) {
+        const t = this.clamp(amt, 0, 1);
+        const toRgb = (hex) => {
+            const clean = hex.replace('#', '');
+            return [
+                parseInt(clean.substring(0, 2), 16),
+                parseInt(clean.substring(2, 4), 16),
+                parseInt(clean.substring(4, 6), 16)
+            ];
+        };
+        const [r1, g1, b1] = toRgb(hexA);
+        const [r2, g2, b2] = toRgb(hexB);
+        const r = Math.round(this.lerp(r1, r2, t));
+        const g = Math.round(this.lerp(g1, g2, t));
+        const b = Math.round(this.lerp(b1, b2, t));
+        return `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+    }
+
     // Sorteia uma chave de `weights` ({chave: peso}) proporcionalmente ao seu
     // peso — usado pela demografia racial das Cidades-Hub (ver
     // CityDatabase/enemy.js), mas genérico o bastante para qualquer sorteio

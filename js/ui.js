@@ -247,6 +247,9 @@ class UIManager {
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-questboard').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-road').addEventListener('click', () => this.abandonRoad());
+        document.getElementById('btn-road-advance').addEventListener('click', () => this.advanceRoad());
+        document.getElementById('btn-road-abandon').addEventListener('click', () => this.abandonRoad());
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
             // só espiando o save mais recente), volta pro menu e descarta o
@@ -298,8 +301,26 @@ class UIManager {
 
         // --- Retorno da Tela de Resultados ---
         document.getElementById('btn-return-hub').addEventListener('click', () => {
+            const p = window.Engine.state.player;
             window.SaveManager.save(window.Engine.state);
             this.updateHubStats();
+            // Emboscada durante uma viagem por Estrada (ver roads.js): vencer
+            // retoma a viagem de onde parou; perder encerra a viagem aqui
+            // mesmo (o jogador foi obrigado a recuar) — nos dois casos nunca
+            // mostra o Hub como se nada tivesse acontecido no meio do
+            // caminho. Batalhas comuns (sem viagem em andamento) continuam
+            // indo pro Hub exatamente como antes.
+            if (p && p.roadJourney) {
+                if (this._lastBattleWasVictory) {
+                    this.openRoad();
+                } else {
+                    window.RoadSystem.abandonJourney(p);
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.MainMenu) window.MainMenu.showToast('Derrotado, você recua e abandona a viagem.', 'error');
+                    this.showScreen('screen-hub');
+                }
+                return;
+            }
             this.showScreen('screen-hub');
         });
 
@@ -1120,6 +1141,12 @@ class UIManager {
     }
 
     showBattleResults(isVictory, exp, gold, leveledUp, loot = null, newAchievements = []) {
+        // Lido pelo botão de retorno (ver btn-return-hub abaixo) pra decidir
+        // se retoma uma viagem por Estrada em andamento (ver roads.js) — uma
+        // emboscada no caminho É a próxima etapa da viagem, então vencer
+        // deve continuar de onde parou, não empurrar o jogador de volta pro
+        // Hub como qualquer batalha comum faria.
+        this._lastBattleWasVictory = isVictory;
         this.showScreen('screen-results');
 
         const title = document.getElementById('result-title');
@@ -2339,7 +2366,18 @@ class UIManager {
             } else if (isLocked) {
                 actionHtml = `<span>🔒 Requer nível ${city.unlockLevel}</span>`;
             } else {
-                actionHtml = `<button class="btn btn-small" data-city-id="${city.id}">Viajar (${city.travelCost}g)</button>`;
+                // Viagem manual (ver roads.js RoadSystem): alternativa à
+                // viagem rápida instantânea, ao lado dela — nunca a
+                // substitui. A cavalo custa uma fração da passagem (mais
+                // rápido, sem fadiga); a pé é de graça (mais lento, custa
+                // fadiga), mesma distinção mecânica real entre os dois modos
+                // pedida na auditoria de mundo vivo.
+                const horseCost = window.RoadSystem ? window.RoadSystem.getHorseCost(city) : 0;
+                actionHtml = `
+                    <button class="btn btn-small" data-city-id="${city.id}">Viagem Rápida (${city.travelCost}g)</button>
+                    <button class="btn btn-small btn-road-horse" data-city-id="${city.id}">A Cavalo (${horseCost}g)</button>
+                    <button class="btn btn-small btn-road-walk" data-city-id="${city.id}">A Pé (grátis)</button>
+                `;
             }
 
             return `
@@ -2348,16 +2386,121 @@ class UIManager {
                         <h4>${city.name}</h4>
                         <p>${city.description}</p>
                     </div>
-                    ${actionHtml}
+                    <div class="caravan-card-actions">${actionHtml}</div>
                 </div>
             `;
         }).join('');
 
-        container.querySelectorAll('button[data-city-id]').forEach(btn => {
+        container.querySelectorAll('button[data-city-id]:not(.btn-road-horse):not(.btn-road-walk)').forEach(btn => {
             btn.onclick = () => this.travelToCity(btn.dataset.cityId);
+        });
+        container.querySelectorAll('.btn-road-horse').forEach(btn => {
+            btn.onclick = () => this.startRoadJourney(btn.dataset.cityId, 'horse');
+        });
+        container.querySelectorAll('.btn-road-walk').forEach(btn => {
+            btn.onclick = () => this.startRoadJourney(btn.dataset.cityId, 'walk');
         });
 
         this.showScreen('screen-caravan');
+    }
+
+    // Inicia uma travessia manual (ver roads.js RoadSystem) a partir do
+    // Viajante do Portão — feedback amigável antes de tentar (mesmo padrão
+    // de travelToCity), delega o estado real pro RoadSystem.
+    startRoadJourney(cityId, mode) {
+        const p = window.Engine.state.player;
+        const dest = window.CityDatabase[cityId];
+        if (!dest || !window.RoadSystem) return;
+        if (mode === 'horse' && p.gold < window.RoadSystem.getHorseCost(dest)) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente para alugar um cavalo!', 'error');
+            return;
+        }
+        const started = window.RoadSystem.startJourney(p, window.getCurrentCityId(), cityId, mode);
+        if (!started) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Não foi possível iniciar a viagem agora.', 'error');
+            return;
+        }
+        window.SaveManager.save(window.Engine.state);
+        this.openRoad();
+    }
+
+    // Tela da Estrada: mostra a rota atual, o log recente de eventos e o
+    // botão de avançar — id da cidade de destino é lido de
+    // player.roadJourney (ver roads.js), nunca duplicado em outro lugar.
+    openRoad() {
+        const p = window.Engine.state.player;
+        const journey = p.roadJourney;
+        if (!journey) { this.showScreen('screen-hub'); return; }
+
+        const fromDef = window.CityDatabase[journey.fromId];
+        const toDef = window.CityDatabase[journey.toId];
+        document.getElementById('road-title').innerText = `${fromDef.name} → ${toDef.name}`;
+        document.getElementById('road-mode').innerText = journey.mode === 'horse' ? 'A cavalo' : 'A pé';
+
+        const percent = Math.floor((journey.step / journey.totalSteps) * 100);
+        document.getElementById('road-progress-fill').style.width = `${percent}%`;
+        document.getElementById('road-progress-label').innerText = `${journey.step}/${journey.totalSteps}`;
+
+        // Transição gradual de bioma (item pedido na auditoria de mundo
+        // vivo): sem arte nova, a cor de fundo da tela já faz uma mistura
+        // real entre a paleta de origem e a de destino conforme o progresso
+        // avança — não é instantâneo, mesmo sendo só uma interpolação de cor.
+        const t = journey.totalSteps > 0 ? journey.step / journey.totalSteps : 0;
+        const blended = Utils.lerpColor ? Utils.lerpColor(fromDef.accentColor, toDef.accentColor, t) : toDef.accentColor;
+        document.getElementById('screen-road').style.background = `linear-gradient(180deg, ${blended}22, #0a0a0a 70%)`;
+
+        const logEl = document.getElementById('road-log');
+        logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A estrada se estende à sua frente...</p>';
+
+        this.showScreen('screen-road');
+    }
+
+    advanceRoad() {
+        const p = window.Engine.state.player;
+        if (!window.RoadSystem || !p.roadJourney) return;
+        const result = window.RoadSystem.advance(p);
+        if (!result) return;
+        window.SaveManager.save(window.Engine.state);
+
+        if (result.ambush) {
+            // A emboscada É a próxima etapa da viagem — dispara uma batalha
+            // real (mesmo padrão de city.js _eventHunters) depois de um
+            // instante pro jogador ler o aviso na tela da Estrada; a tela de
+            // batalha assume e, ao voltar (ver btn-return-hub), retoma a
+            // Estrada sozinha se o jogador venceu (ver showBattleResults).
+            this.openRoad(); // atualiza o log com a mensagem de aviso antes da batalha começar
+            setTimeout(() => {
+                if (window.Engine.state.player === p && p.roadJourney) this.startBattle();
+            }, 1400);
+            return;
+        }
+
+        if (result.arrived) {
+            const journey = p.roadJourney;
+            const toId = journey.toId;
+            p.roadJourney = null;
+            const success = window.City.travelToCity(toId, true); // skipCost=true: a passagem já foi resolvida ao longo do caminho
+            if (success) {
+                window.AudioManager.playConfirm();
+                if (window.MainMenu) window.MainMenu.showToast(`Você chegou em ${window.CityDatabase[toId].name}!`, 'success');
+                this.updateHubStats();
+                this.showScreen('screen-hub');
+            } else {
+                this.showScreen('screen-hub');
+            }
+            return;
+        }
+
+        this.openRoad();
+    }
+
+    abandonRoad() {
+        const p = window.Engine.state.player;
+        if (window.RoadSystem) window.RoadSystem.abandonJourney(p);
+        window.SaveManager.save(window.Engine.state);
+        this.showScreen('screen-hub');
     }
 
     // Valida ouro (feedback amigável antes de tentar) e delega a troca de

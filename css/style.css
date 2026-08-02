@@ -1185,6 +1185,19 @@ html, body {
 .caravan-card-locked { opacity: 0.55; }
 .caravan-card-current { border-left-color: var(--color-gold-bright); }
 .caravan-card .btn { flex-shrink: 0; white-space: nowrap; }
+.caravan-card-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+
+/* Estrada (viagem manual, ver roads.js RoadSystem) — reaproveita a mesma
+   linguagem visual do Quadro de Missões (.quest-progress-bar/-fill) em vez
+   de inventar um padrão novo de barra de progresso. */
+.road-panel { width: 92%; max-width: 600px; position: relative; text-align: center; }
+.road-mode-label { color: var(--color-marble-dark); font-size: 0.9rem; margin-bottom: 12px; }
+.road-progress-bar { width: 100%; height: 12px; background: var(--color-stone); border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+.road-progress-fill { height: 100%; background: var(--color-gold-bright); transition: width 0.4s ease; }
+.road-progress-label { font-size: 0.85rem; color: var(--color-marble-dark); margin: 0 0 16px 0; }
+.road-log { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; text-align: left; max-height: 220px; overflow-y: auto; }
+.road-log p { margin: 0; padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.85rem; border-left: 3px solid var(--color-bronze); }
+.road-actions { display: flex; gap: 10px; justify-content: center; }
 
 /* Conquistas */
 .achievements-panel { width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; position: relative; }

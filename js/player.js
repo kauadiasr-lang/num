@@ -447,6 +447,16 @@ class Player extends Entity {
         // o personagem sempre nasce lá.
         this.visitedCityIds = [window.DEFAULT_CITY_ID || 'porto_helenico'];
 
+        // Viagem manual em andamento (ver roads.js RoadSystem) — null quando
+        // o jogador não está no meio de uma travessia por terra entre
+        // cidades. Alternativa à viagem rápida do Viajante do Portão (que
+        // continua existindo, intacta): aqui a distância é percorrida em
+        // etapas reais, com risco/eventos no caminho, em vez de instantânea.
+        // null é o padrão neutro pra saves antigos, que nunca tiveram esse
+        // campo — carregar um save assim nunca deixa o jogador "preso" numa
+        // viagem que nunca existiu.
+        this.roadJourney = null;
+
         // --- Linhagem (Mutação) — ver lineages.js/skilltrees.js/rituals.js ---
         // Sistema TOTALMENTE separado de Encantamentos (que ficam só nos
         // itens, ver enchantments.js). Uma única linhagem por personagem,

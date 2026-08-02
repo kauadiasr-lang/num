@@ -1031,15 +1031,22 @@ class CityEngine {
     // `false` se a viagem não pôde ser feita (validado de novo aqui mesmo
     // que a UI já valide antes, pra nunca depender só da tela pra manter a
     // integridade do estado).
-    travelToCity(cityId) {
+    // `skipCost` (ver roads.js RoadSystem/ui.js openRoad): a viagem manual
+    // por terra já cobra (ou não, no caso de ir a pé) o próprio custo de
+    // deslocamento AO LONGO do caminho — descontar `travelCost` de novo
+    // aqui na chegada cobraria a passagem em dobro. Default `false`
+    // preserva 100% do comportamento original pro único chamador que já
+    // existia (ui.js travelToCity, o Viajante do Portão/viagem rápida).
+    travelToCity(cityId, skipCost = false) {
         const p = window.Engine.state.player;
         const dest = window.CityDatabase ? window.CityDatabase[cityId] : null;
         if (!p || !dest) return false;
         if (cityId === window.getCurrentCityId()) return false; // já está lá
         if (p.level < dest.unlockLevel) return false; // ainda não desbloqueada
-        if (p.gold < dest.travelCost) return false; // ouro insuficiente
-
-        p.gold -= dest.travelCost;
+        if (!skipCost) {
+            if (p.gold < dest.travelCost) return false; // ouro insuficiente
+            p.gold -= dest.travelCost;
+        }
         p.currentCityId = cityId;
 
         // Registro de cidades visitadas (ver conquista 'world_explorer' em
