@@ -168,22 +168,6 @@ class CityEngine {
             { slot: 'center', xFrac: 0.56, rowOffset: 148 },
         ];
 
-        // Vegetação do lado de FORA das muralhas (pedido do usuário: "o
-        // lado de fora das muralhas deve possuir a vegetação e ambiente
-        // externo correto de acordo com o sistema de biomas já
-        // existente") — reaproveita a MESMA _drawVegetation/vegetationTypes.
-        // edge que já cerca a praça por dentro (ver `this.vegetation`
-        // acima), só com xFrac fora de [0,1] (_drawVegetation multiplica
-        // xFrac por _worldWidth() sem nenhum clamp, então funciona igual).
-        // Desenhada ANTES da muralha (ver draw()) — só as copas aparecem
-        // por cima dela, como se a mata/floresta continuasse ali fora.
-        this.exteriorVegetation = [
-            { slot: 'edge', xFrac: -0.045, rowOffset: 80, scale: 1.15 },
-            { slot: 'edge', xFrac: -0.09, rowOffset: 145, scale: 0.9 },
-            { slot: 'edge', xFrac: 1.045, rowOffset: 90, scale: 1.15 },
-            { slot: 'edge', xFrac: 1.09, rowOffset: 150, scale: 0.9 },
-        ];
-
         // Pedras de Luz (item 13 da auditoria de balanceamento): recurso do
         // Ritual da Luz (Fragmentos Sagrados, ver rituals.js) que antes só
         // existia como um evento aleatório TOTALMENTE INVISÍVEL (_eventSacredFragment,
@@ -2137,35 +2121,34 @@ class CityEngine {
         // (chão não cobria mais até o fim) que revelava o que sobrou lá
         // (bug reportado: "campo cheio de riscos" sob a praça).
         window.Camera.follow(this.player);
-        // Trava a câmera pra nunca revelar além de EXTERIOR_MARGIN de onde
-        // o chão/vegetação externa termina de ser desenhado (ver
-        // _drawExteriorGround/exteriorVegetation abaixo) — sem essa trava, o
-        // jogador perto de qualquer borda do mundo (x perto de 0 ou de
-        // _worldWidth()) revelava uma fresta sem NADA desenhado (câmera
-        // centralizada nele, mas o mundo simplesmente acaba ali), quebrando
-        // a "sensação de mundo contínuo" pedida pelo usuário mesmo com as
-        // muralhas/vegetação externa novas.
+        // Trava a câmera pra nunca revelar além de [0, _worldWidth()] — a
+        // face externa das muralhas laterais (ver graphics.js
+        // _drawCitySideWall) fica exatamente nesses dois limites, então
+        // travar a câmera ali garante que a muralha seja sempre a última
+        // coisa visível, sem nenhuma fresta vazia depois dela.
+        //
+        // Bug corrigido (relatado pelo usuário com print): esta função
+        // chegou a desenhar um chão+vegetação "externo" PRÓPRIO além da
+        // muralha — mas o jogo JÁ tinha uma paisagem de fundo pra "o que
+        // existe além da cidade" (ver GraphicsEngine.drawCityBackdrop:
+        // montanhas + linha de árvores + escadaria), só que ela é desenhada
+        // em coordenada de TELA (sempre na MESMA posição do canvas,
+        // independente de onde a câmera está — decisão de bem antes da
+        // câmera de mundo existir). Ter as DUAS camadas ao mesmo tempo (uma
+        // rolando com o mundo, outra fixa na tela) fazia a vegetação de
+        // fundo "flutuar" fora de sincronia com a muralha nova, parecendo
+        // uma muralha malposicionada com um pedaço de cenário quebrado
+        // logo atrás. A correção é simples: sem nenhum chão/vegetação
+        // extra daqui pra fora, só travar a câmera bem na muralha — o
+        // fundo de tela já cuidava (e continua cuidando) da sensação de
+        // "o mundo continua além da cidade".
         const worldW = this._worldWidth();
-        const margin = CityEngine.EXTERIOR_MARGIN;
         const halfScreen = w / 2;
-        const minCamX = halfScreen - margin, maxCamX = worldW - halfScreen + margin;
+        const minCamX = halfScreen, maxCamX = worldW - halfScreen;
         window.Camera.x = (minCamX <= maxCamX) ? Utils.clamp(window.Camera.x, minCamX, maxCamX) : worldW / 2;
         const offset = window.Camera.getOffset(w, h);
         ctx.save();
         ctx.translate(offset.dx, 0);
-
-        // Ambiente externo às muralhas (ver pedido do usuário: "o lado de
-        // fora das muralhas deve possuir a vegetação e ambiente externo
-        // correto de acordo com o sistema de biomas já existente") — mesma
-        // paleta de chão da cidade atual (CityDatabase.groundColors), só
-        // mais escura/enevoada, e a MESMA vegetação de borda
-        // (vegetationTypes.edge) que já cerca a praça por dentro, só
-        // posicionada além de x=0/x=worldWidth. Desenhado ANTES do chão da
-        // praça e da muralha, que cobrem a base dela — só as copas das
-        // árvores aparecem por cima da muralha, dando a sensação de floresta/
-        // bioma continuando ali fora, nunca uma quebra vazia.
-        this._drawExteriorGround(ctx, worldW, h, horizon, margin);
-        this.exteriorVegetation.forEach(v => this._drawVegetation(ctx, w, h, v));
 
         this._drawPlazaGround(ctx, worldW, h, horizon);
         if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, worldW, horizon, this._plazaBottom(h));
@@ -2229,26 +2212,6 @@ class CityEngine {
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
             }
         }
-    }
-
-    // Chão além das muralhas (ver pedido do usuário: "o lado de fora das
-    // muralhas deve possuir a vegetação e ambiente externo correto de
-    // acordo com o sistema de biomas já existente") — MESMA paleta de chão
-    // da cidade atual (groundColors), só escurecida/enevoada (sugere "mais
-    // longe, fora do alcance da luz da cidade"), desenhada nas duas faixas
-    // além de [0, w] até onde a câmera pode revelar (ver EXTERIOR_MARGIN).
-    // Nunca inventa uma cor nova por cidade — reaproveita o mesmo sistema de
-    // biomas que já differencia Porto Helênico/Fortaleza Orc/Santuário
-    // Élfico (ver citydatabase.js), só aplicado do lado de fora.
-    _drawExteriorGround(ctx, w, h, horizon, margin) {
-        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        const colors = (cityDef && cityDef.groundColors) || ['#8a8070', '#5a5448'];
-        const grad = ctx.createLinearGradient(0, horizon, 0, h);
-        grad.addColorStop(0, this._darkenHex(colors[0], 0.35));
-        grad.addColorStop(1, this._darkenHex(colors[1], 0.35));
-        ctx.fillStyle = grad;
-        ctx.fillRect(-margin, horizon, margin, h - horizon);
-        ctx.fillRect(w, horizon, margin, h - horizon);
     }
 
     // Cores da fonte lidas da Cidade-Hub atual (ver citydatabase.js
@@ -2528,16 +2491,6 @@ class CityEngine {
         return `rgb(${r},${g},${b})`;
     }
 
-    // Inverso de _lightenHex — escurece um hex em direção ao preto por
-    // `percent` (0-1), usado pelo chão externo às muralhas (ver
-    // _drawExteriorGround), sugerindo "mais longe, fora da luz da cidade".
-    _darkenHex(hex, percent) {
-        const num = parseInt(hex.replace('#', ''), 16);
-        const mix = c => Math.max(0, Math.round(c * (1 - percent)));
-        const r = mix((num >> 16) & 0xff), g = mix((num >> 8) & 0xff), b = mix(num & 0xff);
-        return `rgb(${r},${g},${b})`;
-    }
-
     // Prédio procedural greco-romano: base + colunas + telhado triangular +
     // porta + tochas nas laterais. As dimensões já vêm escaladas de
     // _buildingRect (telas baixas encolhem os prédios pra sempre caberem
@@ -2709,12 +2662,6 @@ class CityEngine {
     // quanto por _makeCaravanTraveler (posiciona o NPC exatamente dentro do
     // vão), pra nunca dessincronizar visual e posição de interação.
     static get GATE_XFRAC() { return 0.965; }
-
-    // Quanto além de [0, _worldWidth()] a câmera pode revelar antes de
-    // travar (ver draw()) — precisa ser MAIOR que a largura da muralha
-    // lateral (ver graphics.js _drawCitySideWall, ~3.2% do mundo) pra
-    // sempre sobrar uma faixa visível de ambiente externo além dela.
-    static get EXTERIOR_MARGIN() { return 220; }
 
     // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —
     // nunca revelam mecanismos de jogo, só reagem à fama (vitórias) do
