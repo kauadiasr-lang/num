@@ -62,6 +62,16 @@ window.RoadEngine = {
     },
     EVENT_COUNT: 6, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
+    // Entidades exclusivas da Expedição à Floresta Ancestral (Fase 5, ver
+    // _generateForestEncounter) — nunca entram no pool aleatório de
+    // _generateEvents (por isso ficam num mapa separado de EVENT_TYPES).
+    // `corruption` tem aviso de interação normal (é uma escolha narrativa,
+    // nunca uma emboscada); `nature_spirit` não tem — ele é detectado por
+    // proximidade igual a um bandido (ver _updateBandits).
+    FOREST_EVENT_TYPES: {
+        corruption: { icon: '👹', label: 'Uma presença sombria te chama' }
+    },
+
     active: false,
     fromId: null,
     toId: null,
@@ -96,17 +106,45 @@ window.RoadEngine = {
         this._nearEvent = null;
 
         const toDef = window.CityDatabase[toId];
+        // A Expedição à Floresta Ancestral (ver roads.js FOREST_EXPEDITION_ID)
+        // é um destino VIRTUAL — nunca existe em CityDatabase — então nome
+        // de zona/marco de chegada precisam de um nome próprio em vez de
+        // `toDef.name` (que seria undefined).
+        this._destLabel = toDef ? toDef.name : (toId === window.FOREST_EXPEDITION_ID ? 'Floresta Ancestral' : 'Chegada');
         this._zones = this.ZONE_TEMPLATE.map((z, i) => ({
-            name: i === this.ZONE_TEMPLATE.length - 1 ? `Arredores de ${toDef ? toDef.name : 'chegada'}` : z.name,
+            name: i === this.ZONE_TEMPLATE.length - 1 ? `Arredores de ${this._destLabel}` : z.name,
             vegDensity: z.vegDensity
         }));
         this._zoneLength = this.WORLD_LENGTH / this._zones.length;
         this._lastZoneIndex = -1;
         this._updateZoneLabel(0);
         this._generateEvents(fromId, toId);
+        // Espírito da Natureza / Corrupção (Fase 5, ver
+        // docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md)
+        // só existem fisicamente na Expedição à Floresta Ancestral — a mesma
+        // regra `isForestExpedition` que o antigo roads.js._rollEvent já usava
+        // pra garantir (em vez de sortear) esses dois eventos ali.
+        if (toId === window.FOREST_EXPEDITION_ID) this._generateForestEncounter(player);
         this._updateInteractPrompt();
 
         window.Camera.follow(this._player);
+    },
+
+    // No máximo UM dos dois pode estar disponível ao mesmo tempo na prática
+    // (Corrupção exige a Linhagem da Natureza JÁ descoberta, ver
+    // nature.js/corruption.js) — Corrupção checada primeiro só por ser mais
+    // "avançada" narrativamente, mesmo critério já usado no roads.js
+    // original. Uma vez resolvido (descoberto ou corrompido), nenhum dos
+    // dois volta a aparecer (mesmas condições de isEventReady/
+    // isDiscoveryAvailable), mas a mata continua com o pool normal de
+    // eventos (merchant/chest/bandido/etc, ver _generateEvents).
+    _generateForestEncounter(player) {
+        const x = this._zoneLength * 2.5; // meio da zona "Floresta" (a mais densa)
+        if (window.CorruptionSystem && window.CorruptionSystem.isEventReady(player)) {
+            this._events.push({ type: 'corruption', x, y: 0, spawnX: x, consumed: false });
+        } else if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player)) {
+            this._events.push({ type: 'nature_spirit', x, y: 0, spawnX: x, consumed: false });
+        }
     },
 
     // Posições determinísticas (sem Math.random) espalhadas ao longo da
@@ -241,36 +279,45 @@ window.RoadEngine = {
         this._updateInteractPrompt();
     },
 
-    // Bandidos patrulham um pequeno trecho (vai e volta) ao redor do ponto
-    // onde nasceram — puramente visual até o jogador chegar perto o
-    // bastante (ver BANDIT_DETECT_RADIUS), quando a emboscada dispara
-    // sozinha (mesmo espírito de "o jogador vê o inimigo andando pelo
-    // mapa" pedido no design, sem nenhuma mensagem de texto substituindo
-    // a cena). Ficar fora do raio (ou correr direto) é como se contorna/
-    // ignora — nenhum código extra precisa disso, só não entrar no raio.
+    // Bandidos (e o Espírito da Natureza, ver _generateForestEncounter)
+    // patrulham um pequeno trecho (vai e volta) ao redor do ponto onde
+    // nasceram — puramente visual até o jogador chegar perto o bastante
+    // (ver BANDIT_DETECT_RADIUS), quando a emboscada dispara sozinha (mesmo
+    // espírito de "o jogador vê o inimigo andando pelo mapa" pedido no
+    // design, sem nenhuma mensagem de texto substituindo a cena). Ficar
+    // fora do raio (ou correr direto) é como se contorna/ignora — nenhum
+    // código extra precisa disso, só não entrar no raio. `corruption` NÃO
+    // entra aqui — é uma escolha narrativa, nunca uma emboscada (ver
+    // _updateInteractPrompt/_resolveEvent).
     _updateBandits() {
         const p = this._player;
         for (const ev of this._events) {
-            if (ev.type !== 'bandit' || ev.consumed) continue;
+            if (ev.consumed || (ev.type !== 'bandit' && ev.type !== 'nature_spirit')) continue;
             ev.x = ev.spawnX + Math.sin(performance.now() / 1000 * 0.6 + ev.spawnX) * this.BANDIT_PATROL_RANGE;
             const dist = Math.hypot(p.x - ev.x, p.y - ev.y);
             if (dist < this.BANDIT_DETECT_RADIUS) {
                 ev.consumed = true;
-                if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter();
+                if (ev.type === 'bandit') {
+                    if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter();
+                } else if (window.UI && window.UI.onRoadWorldNatureDiscovery) {
+                    window.UI.onRoadWorldNatureDiscovery();
+                }
                 return; // a tela muda pra BATTLE agora — nada mais a fazer neste frame
             }
         }
     },
 
-    // Evento pacífico mais próximo dentro do raio de interação — mesmo
-    // padrão do aviso de "entrar em prédio" da Praça (ver city.js
-    // _updateProximity/#city-interact-prompt), reaproveitando a MESMA
-    // classe CSS (.city-interact-prompt) num elemento próprio da Estrada.
+    // Evento pacífico (ou a escolha da Corrupção) mais próximo dentro do
+    // raio de interação — mesmo padrão do aviso de "entrar em prédio" da
+    // Praça (ver city.js _updateProximity/#city-interact-prompt),
+    // reaproveitando a MESMA classe CSS (.city-interact-prompt) num
+    // elemento próprio da Estrada. `bandit`/`nature_spirit` nunca aparecem
+    // aqui — são detectados por proximidade automática (ver _updateBandits).
     _updateInteractPrompt() {
         const p = this._player;
         let nearest = null, nearestDist = this.INTERACT_RADIUS;
         for (const ev of this._events) {
-            if (ev.consumed || ev.type === 'bandit') continue;
+            if (ev.consumed || ev.type === 'bandit' || ev.type === 'nature_spirit') continue;
             const d = Math.hypot(p.x - ev.x, p.y - ev.y);
             if (d < nearestDist) { nearest = ev; nearestDist = d; }
         }
@@ -278,7 +325,7 @@ window.RoadEngine = {
         const el = document.getElementById('roadworld-interact-prompt');
         if (!el) return;
         if (nearest) {
-            const def = this.EVENT_TYPES[nearest.type];
+            const def = this.EVENT_TYPES[nearest.type] || this.FOREST_EVENT_TYPES[nearest.type];
             el.innerText = `${def.icon} ${def.label}`;
             el.classList.add('visible');
             el.onclick = () => this._resolveEvent(nearest);
@@ -299,6 +346,14 @@ window.RoadEngine = {
         if (el) el.classList.remove('visible');
         const p = this.player;
         const toast = (msg, kind = 'info') => { if (window.MainMenu) window.MainMenu.showToast(msg, kind); };
+
+        // Corrupção (ver corruption.js CorruptionSystem) — nunca uma
+        // recompensa comum, é a escolha narrativa em si (ui.js
+        // showCorruptionChoice, chamada via onRoadWorldCorruptionEvent).
+        if (ev.type === 'corruption') {
+            if (window.UI && window.UI.onRoadWorldCorruptionEvent) window.UI.onRoadWorldCorruptionEvent();
+            return;
+        }
 
         if (ev.type === 'merchant') {
             const gift = Utils.randomInt(10, 35);
@@ -346,9 +401,12 @@ window.RoadEngine = {
         const fromDef = window.CityDatabase[this.fromId];
         const toDef = window.CityDatabase[this.toId];
         const t = Utils.clamp(this._player.x / this.WORLD_LENGTH, 0, 1);
+        // Sem toDef (Expedição à Floresta Ancestral, destino virtual) a
+        // paleta cai numa mistura fixa verde-mística, condizente com a
+        // cor de fundo que a tela antiga screen-road já usava pra ela.
         const colors = Utils.lerpColor && fromDef && toDef
             ? [Utils.lerpColor(fromDef.groundColors[0], toDef.groundColors[0], t), Utils.lerpColor(fromDef.groundColors[1], toDef.groundColors[1], t)]
-            : ['#5a6a48', '#3a4530'];
+            : ['#1a3a15', '#0d1f0d'];
 
         const horizon = h * 0.4;
         const grad = ctx.createLinearGradient(0, horizon, 0, h);
@@ -367,7 +425,7 @@ window.RoadEngine = {
         // Marco de partida/chegada — só orientação visual nesta fase
         // mínima (sem props/eventos físicos ainda, ver Fase 4).
         this._drawMarker(ctx, 0, fromDef ? fromDef.name : '');
-        this._drawMarker(ctx, this.WORLD_LENGTH, toDef ? toDef.name : '');
+        this._drawMarker(ctx, this.WORLD_LENGTH, this._destLabel);
 
         // Placas de bioma (Fase 3) — um marco em cada fronteira de zona,
         // com o nome da zona que começa ali. A cor de fundo já muda de
@@ -412,14 +470,20 @@ window.RoadEngine = {
     },
 
     _drawEvent(ctx, ev) {
-        const isBandit = ev.type === 'bandit';
-        ctx.fillStyle = isBandit ? 'rgba(120,20,20,0.85)' : 'rgba(60,45,30,0.85)';
+        const fillByType = {
+            bandit: 'rgba(120,20,20,0.85)',
+            nature_spirit: 'rgba(40,110,60,0.85)',
+            corruption: 'rgba(60,20,70,0.85)'
+        };
+        const iconByType = { bandit: '⚔️', nature_spirit: '🌿' };
+        ctx.fillStyle = fillByType[ev.type] || 'rgba(60,45,30,0.85)';
         ctx.beginPath();
         ctx.arc(ev.x, ev.y, 18, 0, Math.PI * 2);
         ctx.fill();
         ctx.font = '20px sans-serif';
         ctx.textAlign = 'center';
-        const icon = isBandit ? '⚔️' : this.EVENT_TYPES[ev.type].icon;
+        const def = this.EVENT_TYPES[ev.type] || this.FOREST_EVENT_TYPES[ev.type];
+        const icon = iconByType[ev.type] || (def ? def.icon : '❓');
         ctx.fillText(icon, ev.x, ev.y + 7);
     },
 

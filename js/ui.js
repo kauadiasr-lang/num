@@ -357,8 +357,20 @@ class UIManager {
             // travessia aqui mesmo.
             if (p && p.roadWorldJourney) {
                 if (this._lastBattleWasVictory) {
-                    this.showScreen('screen-roadworld');
+                    // Descoberta da Floresta Ancestral física (Fase 5, ver
+                    // js/road.js RoadEngine._generateForestEncounter/
+                    // onRoadWorldNatureDiscovery) — mesmo princípio do bloco
+                    // roadJourney acima: a vitória contra o Espírito
+                    // corrompido É o evento de descoberta, mostra a cena
+                    // antes de retomar a Estrada.
+                    if (this._pendingNatureDiscovery) {
+                        this._pendingNatureDiscovery = false;
+                        this._resolveNatureDiscoveryVictory(p, () => this.showScreen('screen-roadworld'));
+                    } else {
+                        this.showScreen('screen-roadworld');
+                    }
                 } else {
+                    this._pendingNatureDiscovery = false;
                     p.roadWorldJourney = null;
                     if (window.RoadEngine) window.RoadEngine.abandon();
                     window.SaveManager.save(window.Engine.state);
@@ -1631,13 +1643,18 @@ class UIManager {
     // ao fechar retoma a viagem em vez de ir pra tela de resultados — a
     // vitória contra esse monstro específico É o evento de descoberta, não
     // uma batalha comum.
-    _resolveNatureDiscoveryVictory(p) {
+    // `resume` decide pra onde voltar ao fechar a cinemática — o antigo
+    // menu screen-road (openRoad, padrão) ou o Mundo da Estrada de verdade
+    // (screen-roadworld, ver Fase 5/onRoadWorldNatureDiscovery) quando a
+    // descoberta aconteceu fisicamente na Floresta Ancestral em vez de por
+    // um roll de RoadSystem.advance.
+    _resolveNatureDiscoveryVictory(p, resume = () => this.openRoad()) {
         const amulet = window.NatureSystem.grantGuardianAmulet(p);
         window.SaveManager.save(window.Engine.state);
         // Segurança: se por algum motivo a linhagem secundária já existisse
         // (nunca deveria, ver NatureSystem.isDiscoveryAvailable), nunca trava
         // o jogo numa cinemática vazia — só retoma a viagem normalmente.
-        if (!amulet) { this.openRoad(); return; }
+        if (!amulet) { resume(); return; }
 
         const lineage = window.NATURE_LINEAGE;
         const overlay = document.getElementById('lineage-awakening-overlay');
@@ -1653,7 +1670,7 @@ class UIManager {
 
         setTimeout(() => {
             overlay.classList.add('hidden');
-            this.openRoad();
+            resume();
         }, 3200);
     }
 
@@ -1663,8 +1680,10 @@ class UIManager {
     // fecha sozinho num timeout). Mostra o texto de bloqueio narrativo (sem
     // botão de aceitar) se o jogador já tiver uma Linhagem principal —
     // NUNCA sobrescreve uma linhagem já escolhida — ou a escolha real
-    // (Aceitar/Recusar) caso contrário.
-    showCorruptionChoice() {
+    // (Aceitar/Recusar) caso contrário. `resume` decide pra onde voltar ao
+    // fechar (openRoad antigo por padrão, ou screen-roadworld quando
+    // chamado via onRoadWorldCorruptionEvent — Fase 5).
+    showCorruptionChoice(resume = () => this.openRoad()) {
         const p = window.Engine.state.player;
         const overlay = document.getElementById('corruption-choice-overlay');
         const textEl = document.getElementById('corruption-choice-text');
@@ -1687,14 +1706,14 @@ class UIManager {
             overlay.classList.add('hidden');
             if (ok) {
                 window.SaveManager.save(window.Engine.state);
-                this.showLineageAwakening('sombras', () => this.openRoad());
+                this.showLineageAwakening('sombras', resume);
             } else {
-                this.openRoad();
+                resume();
             }
         };
         declineBtn.onclick = () => {
             overlay.classList.add('hidden');
-            this.openRoad();
+            resume();
         };
 
         overlay.classList.remove('hidden');
@@ -2695,6 +2714,21 @@ class UIManager {
         const p = window.Engine.state.player;
         p.roadWorldJourney = null;
         if (window.RoadEngine) window.RoadEngine.abandon();
+
+        // Expedição à Floresta Ancestral (ver roads.js FOREST_EXPEDITION_ID,
+        // Fase 5 do redesenho): "chegar" aqui não é viajar pra uma cidade
+        // nova, é só voltar pra cidade onde o jogador já estava — toId é um
+        // id virtual, nunca existe em CityDatabase, então chamar
+        // City.travelToCity com ele quebraria tudo. Nunca cobra passagem de
+        // volta, óbvio.
+        if (toId === window.FOREST_EXPEDITION_ID) {
+            window.AudioManager.playConfirm();
+            if (window.MainMenu) window.MainMenu.showToast('Você retorna da Floresta Ancestral.', 'info');
+            this.updateHubStats();
+            this.showScreen('screen-hub');
+            return;
+        }
+
         const success = window.City.travelToCity(toId, true); // skipCost=true: passagem já resolvida (a cavalo cobrado no início; a pé sempre grátis)
         if (success) {
             window.AudioManager.playConfirm();
@@ -2702,6 +2736,28 @@ class UIManager {
             this.updateHubStats();
         }
         this.showScreen('screen-hub');
+    }
+
+    // Chamado pelo RoadEngine (js/road.js _updateBandits) quando o jogador
+    // chega perto do Espírito da Natureza físico na Floresta Ancestral
+    // (Fase 5, ver _generateForestEncounter) — mesmo fluxo de sempre
+    // (startNatureDiscoveryBattle), só disparado por posição real em vez
+    // de um roll a cada etapa. Vencer mostra a cena de descoberta (ver
+    // btn-return-hub/_resolveNatureDiscoveryVictory) antes de retomar a
+    // Estrada; perder encerra a travessia como qualquer derrota na Estrada.
+    onRoadWorldNatureDiscovery() {
+        this._pendingNatureDiscovery = true;
+        window.SaveManager.save(window.Engine.state);
+        this.startNatureDiscoveryBattle();
+    }
+
+    // Chamado ao interagir com a presença física da Corrupção na Floresta
+    // Ancestral (Fase 5, ver _generateForestEncounter/_resolveEvent) —
+    // nunca uma emboscada (nenhuma batalha começa), só a escolha narrativa
+    // de sempre (ver showCorruptionChoice), retomando o Mundo da Estrada
+    // em vez do antigo menu screen-road ao fechar.
+    onRoadWorldCorruptionEvent() {
+        this.showCorruptionChoice(() => this.showScreen('screen-roadworld'));
     }
 
     // Chamado pelo RoadEngine (js/road.js _updateBandits) quando o jogador
@@ -2718,21 +2774,27 @@ class UIManager {
         this.startBattle();
     }
 
-    // Expedição direta à Floresta Ancestral pelo Portão (ver
-    // roads.js startForestExpedition) — mesmo padrão de feedback amigável
-    // de startRoadJourney acima, mas sem custo nenhum de ouro (a mata
-    // sagrada não pertence a cidade nenhuma).
+    // Expedição direta à Floresta Ancestral pelo Portão — a partir da Fase
+    // 5 do redesenho de viagem, entra no Mundo da Estrada de verdade (ver
+    // js/road.js RoadEngine _generateForestEncounter), não mais no antigo
+    // menu screen-road/RoadSystem. Sempre a pé, sempre de graça (a mata
+    // sagrada não pertence a cidade nenhuma), sempre a partir da cidade
+    // atual — voltar é pra ela mesma (ver onRoadWorldArrival).
     startForestExpedition() {
-        if (!window.RoadSystem) return;
+        if (!window.RoadEngine) return;
         const p = window.Engine.state.player;
-        const started = window.RoadSystem.startForestExpedition(p);
-        if (!started) {
+        if (p.roadWorldJourney) {
             window.AudioManager.playError();
             if (window.MainMenu) window.MainMenu.showToast('Não foi possível entrar na floresta agora.', 'error');
             return;
         }
+        const fromId = window.getCurrentCityId();
+        p.roadWorldJourney = { fromId, toId: window.FOREST_EXPEDITION_ID, mode: 'walk' };
+        window.RoadEngine.start(fromId, window.FOREST_EXPEDITION_ID, 'walk', p);
         window.SaveManager.save(window.Engine.state);
-        this.openRoad();
+        document.getElementById('roadworld-title').innerText = `${window.CityDatabase[fromId].name} → Floresta Ancestral`;
+        document.getElementById('roadworld-mode').innerText = 'A pé';
+        this.showScreen('screen-roadworld');
     }
 
     // Tela da Estrada: mostra a rota atual, o log recente de eventos e o
