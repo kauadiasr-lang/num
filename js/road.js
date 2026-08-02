@@ -168,20 +168,41 @@ window.RoadEngine = {
         ruins: { icon: '🏛️', label: 'Explorar as ruínas antigas' },
         cave: { icon: '🕳️', label: 'Entrar na caverna escura' },
         bridge: { icon: '🌉', label: 'Atravessar a ponte de pedra' },
-        shrine: { icon: '⛩️', label: 'Rezar no pequeno templo' }
+        shrine: { icon: '⛩️', label: 'Rezar no pequeno templo' },
+        // Colecionáveis (pedido explícito do usuário: "colecionáveis, pedras
+        // mágicas, livros") — nunca competem com o loot comum (chest/ruins
+        // dão equipamento, secret/cave dão ouro); a recompensa aqui é
+        // NARRATIVA (ver LORE_ENTRIES/_resolveEvent), registrada num
+        // contador permanente no Player (magicStonesFound/loreBooksFound),
+        // salvo automaticamente pelo mesmo SaveManager.save genérico que já
+        // persiste qualquer campo novo do Player sem precisar de migração.
+        magic_stone: { icon: '🔮', label: 'Recolher a pedra mágica' },
+        lore_book: { icon: '📖', label: 'Ler o livro esquecido' }
     },
     // Tipos de missão oferecidos pelo viajante — os três que já existiam em
     // QuestFactory mais próximos do pedido explícito ("escoltar", "caçar
     // uma criatura", "encontrar um objeto perdido"): ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça), RECOVERY (Item Perdido).
     TRAVELER_QUEST_TYPES: ['ESCORT', 'HUNT', 'RECOVERY'],
-    // Subiu de 6 pra 10 ao adicionar ruins/cave/bridge/shrine (agora 10
-    // tipos pacíficos + bandido = 11 no pool de _generateEvents) — mantém a
-    // MESMA densidade relativa de marcos por trecho de mundo (o custo por
-    // frame continua O(eventos visíveis), nunca O(EVENT_COUNT) sozinho),
-    // só evita que metade dos tipos nunca apareça numa viagem só por causa
-    // do sorteio ter poucos slots.
-    EVENT_COUNT: 10, // eventos pacíficos + bandidos espalhados pela travessia inteira
+    // Trechos de lore descobertos nos livros esquecidos (ver _resolveEvent)
+    // — flavor text sobre o mundo (Coliseu, Gorkhal, Sylvaneth, Floresta
+    // Ancestral), escolhido de forma determinística pela posição do livro
+    // (mesmo hash de sempre), nunca Math.random puro.
+    LORE_ENTRIES: [
+        'Um fragmento de crônica antiga fala do primeiro Campeão do Coliseu Imperial, que nunca perdeu um duelo — e desapareceu sem deixar rastro na véspera de enfrentar um desafiante desconhecido.',
+        'Uma página amarelada descreve como os orcs de Gorkhal forjam aço sobre rocha vulcânica ainda morna, dizendo que o fogo da montanha "lembra" a forma de cada lâmina.',
+        'Um verso élfico fala de Sylvaneth como um lugar onde "o tempo caminha devagar de propósito", e que quem apressa a floresta nunca aprende o que ela tem a ensinar.',
+        'Um relato sem autor descreve luzes verdes dançando entre as árvores mais antigas da Floresta Ancestral — "nem amigas, nem inimigas, só antigas demais para se importar".',
+        'Uma anotação em tinta apagada adverte: "todo amuleto guarda um preço — alguns cobram na entrega, outros esperam anos para cobrar".',
+        'Um trecho de poema fala de uma entidade profana que "só aparece pra quem já provou que não precisa de ajuda nenhuma" — e que aceitar sua oferta muda mais que a aparência.'
+    ],
+    // Subiu de 6 pra 12 ao adicionar ruins/cave/bridge/shrine/magic_stone/
+    // lore_book (agora 12 tipos pacíficos + bandido = 13 no pool de
+    // _generateEvents) — mantém a MESMA densidade relativa de marcos por
+    // trecho de mundo (o custo por frame continua O(eventos visíveis),
+    // nunca O(EVENT_COUNT) sozinho), só evita que metade dos tipos nunca
+    // apareça numa viagem só por causa do sorteio ter poucos slots.
+    EVENT_COUNT: 12, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
     // Entidades exclusivas da Expedição à Floresta Ancestral (Fase 5, ver
     // _generateForestEncounter) — nunca entram no pool aleatório de
@@ -689,6 +710,23 @@ window.RoadEngine = {
                 p.gold += soldFor;
                 toast(`As ruínas guardam ${item.name}, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
             }
+        } else if (ev.type === 'magic_stone') {
+            // Colecionável permanente (pedido do usuário: "pedras mágicas")
+            // — nunca dá ouro/item, só conta pra um contador persistido no
+            // Player (mesmo padrão de fatigue/natureSkillPoints: campo novo
+            // sem migração de save nenhuma, salvo pelo SaveManager.save
+            // genérico já chamado ao fim deste método).
+            p.magicStonesFound = (p.magicStonesFound || 0) + 1;
+            toast(`Uma pedra mágica pulsa fracamente em sua mão — ${p.magicStonesFound}ª encontrada até agora.`, 'success');
+        } else if (ev.type === 'lore_book') {
+            // Colecionável narrativo (pedido do usuário: "livros") — mesmo
+            // princípio da pedra mágica, mas com um trecho de lore do mundo
+            // escolhido deterministicamente pela posição do livro (nunca
+            // Math.random puro), então o mesmo livro sempre mostra o mesmo
+            // trecho se o jogador passar pelo mesmo ponto de novo.
+            p.loreBooksFound = (p.loreBooksFound || 0) + 1;
+            const entry = this.LORE_ENTRIES[this._hash(Math.floor(ev.x)) % this.LORE_ENTRIES.length];
+            toast(`📖 ${entry}`, 'success');
         } else if (ev.type === 'chest') {
             const cityId = this.fromId;
             const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
@@ -977,7 +1015,9 @@ window.RoadEngine = {
             ruins: 'rgba(120,110,95,0.85)',
             cave: 'rgba(25,25,30,0.9)',
             bridge: 'rgba(110,95,75,0.85)',
-            shrine: 'rgba(180,150,60,0.85)'
+            shrine: 'rgba(180,150,60,0.85)',
+            magic_stone: 'rgba(120,60,200,0.85)',
+            lore_book: 'rgba(90,70,40,0.85)'
         };
         const iconByType = { bandit: '⚔️', nature_spirit: '🌿' };
         ctx.fillStyle = fillByType[ev.type] || 'rgba(60,45,30,0.85)';
