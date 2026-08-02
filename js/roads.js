@@ -15,6 +15,15 @@ const ROAD_STEPS_WALK = 6;   // a pé: mais etapas, de graça, custa fadiga
 const ROAD_STEPS_HORSE = 4;  // a cavalo: menos etapas, custa uma fração da passagem
 const ROAD_HORSE_COST_PERCENT = 0.4;
 
+// Floresta Ancestral (ver nature.js) — item pedido: acesso DIRETO pelo
+// Portão da muralha (mesmo NPC/botão do Mestre de Caravanas, ver ui.js
+// openCaravan/startForestExpedition), sem precisar esperar o encontro
+// raro (4%) durante uma viagem comum entre cidades. `toId` é um id
+// "virtual" — nunca existe em CityDatabase, então openRoad/advanceRoad
+// (ui.js) tratam essa expedição à parte de uma viagem real entre cidades.
+const FOREST_EXPEDITION_ID = 'floresta_ancestral';
+const FOREST_EXPEDITION_STEPS = 5;
+
 // Pontos de interesse "de passagem" — flavor de progresso mostrado na
 // trilha da tela (ver ui.js openRoad) a cada etapa avançada.
 const ROAD_WAYPOINT_LABELS = [
@@ -57,6 +66,29 @@ const RoadSystem = {
         return true;
     },
 
+    // Expedição direta à Floresta Ancestral, iniciada pelo próprio Portão
+    // (ver ui.js openCaravan/startForestExpedition) — sempre a pé, sempre
+    // de graça (a mata sagrada não pertence a cidade nenhuma pra cobrar
+    // passagem), e sempre a partir da cidade atual (o retorno é pra ela
+    // mesma, nunca uma viagem real pra outra cidade — ver ui.js
+    // advanceRoad). Ainda usa a MESMA estrutura de roadJourney (reaproveita
+    // toda a tela/lógica da Estrada já testada), só marcada com
+    // `isForestExpedition:true` pra ui.js saber tratar a chegada diferente.
+    startForestExpedition(player) {
+        if (!player || player.roadJourney) return false;
+        const fromId = player.currentCityId || (window.getCurrentCityId ? window.getCurrentCityId() : null);
+        if (!fromId) return false;
+        player.roadJourney = {
+            fromId, toId: FOREST_EXPEDITION_ID,
+            mode: 'walk',
+            step: 0,
+            totalSteps: FOREST_EXPEDITION_STEPS,
+            log: [],
+            isForestExpedition: true
+        };
+        return true;
+    },
+
     // Abandonar sempre é possível e nunca penaliza além do que já foi
     // gasto pra iniciar (mesmo princípio já usado em QuestSystem.abandonQuest)
     // — o jogador simplesmente volta a estar "parado" na cidade de origem.
@@ -87,7 +119,7 @@ const RoadSystem = {
             player.fatigue = Math.min(3, (player.fatigue || 0) + 1);
         }
 
-        const result = this._rollEvent(player, label);
+        const result = this._rollEvent(player, label, !!journey.isForestExpedition);
         journey.log.unshift(result.message);
         if (journey.log.length > 5) journey.log.length = 5;
 
@@ -95,7 +127,16 @@ const RoadSystem = {
         return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite, natureDiscovery: !!result.natureDiscovery };
     },
 
-    _rollEvent(player, label) {
+    // `guaranteeDiscovery` true só na expedição direta à Floresta Ancestral
+    // (ver startForestExpedition acima) — o jogador foi lá DE PROPÓSITO,
+    // então o encontro nunca é deixado ao acaso dessa vez (ao contrário do
+    // 4% de chance durante uma viagem comum entre cidades, ver mais abaixo).
+    // Uma vez já descoberta a Linhagem, isDiscoveryAvailable já barra os dois
+    // caminhos igualmente, então visitas seguintes à Floresta caem na MESMA
+    // tabela de eventos normal (merchant/baú/segredo/emboscada...) — a mata
+    // continua sendo um lugar de verdade pra explorar, não só uma cutscene
+    // de uma vez só.
+    _rollEvent(player, label, guaranteeDiscovery) {
         // Descoberta da Floresta Ancestral (item pedido: Linhagem SECUNDÁRIA
         // da Natureza, ver nature.js) — checada ANTES da tabela normal,
         // raridade própria e separada, e só pode acontecer uma vez por
@@ -105,7 +146,7 @@ const RoadSystem = {
         // resultado), só que sinalizado como `natureDiscovery` pra ui.js
         // saber que precisa disparar a cena de descoberta na vitória, em
         // vez de só retomar a viagem normalmente.
-        if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player) && Utils.chance(4)) {
+        if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player) && (guaranteeDiscovery || Utils.chance(4))) {
             return {
                 message: `${label}: a névoa da mata se adensa — um monstro das sombras corrompe as raízes ao seu redor!`,
                 ambush: true, natureDiscovery: true
@@ -183,3 +224,4 @@ const RoadSystem = {
 };
 window.RoadSystem = RoadSystem;
 window.ROAD_WAYPOINT_LABELS = ROAD_WAYPOINT_LABELS;
+window.FOREST_EXPEDITION_ID = FOREST_EXPEDITION_ID;

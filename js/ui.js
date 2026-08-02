@@ -2468,6 +2468,23 @@ class UIManager {
         const currentDef = window.CityDatabase[currentId];
         document.getElementById('caravan-current-city').innerText = currentDef.name;
 
+        // Floresta Ancestral (ver nature.js/roads.js) — item pedido: acesso
+        // DIRETO pelo mesmo Portão da muralha, não só o encontro raro (4%)
+        // durante uma viagem comum entre cidades. Card separado das
+        // cidades reais abaixo (nunca aparece na lista de destinos —
+        // `toId` é um id virtual, nunca existe em CityDatabase), sempre
+        // disponível e de graça (a mata sagrada não pertence a cidade
+        // nenhuma pra cobrar passagem).
+        const forestCard = document.getElementById('caravan-forest-card');
+        if (forestCard) {
+            const alreadyDiscovered = window.NatureSystem && !window.NatureSystem.isDiscoveryAvailable(p);
+            forestCard.querySelector('.caravan-card-info p').innerText = alreadyDiscovered
+                ? 'A mata sagrada entre as cidades — segredos e recursos ainda esperam por quem a percorrer de novo.'
+                : 'Uma mata neutra e antiga entre as cidades. Dizem que algo ancestral espreita lá dentro.';
+            const btn = forestCard.querySelector('#btn-forest-expedition');
+            if (btn) btn.onclick = () => this.startForestExpedition();
+        }
+
         const container = document.getElementById('caravan-container');
         const cities = Object.values(window.CityDatabase);
         container.innerHTML = cities.map(city => {
@@ -2543,15 +2560,58 @@ class UIManager {
         this.openRoad();
     }
 
+    // Expedição direta à Floresta Ancestral pelo Portão (ver
+    // roads.js startForestExpedition) — mesmo padrão de feedback amigável
+    // de startRoadJourney acima, mas sem custo nenhum de ouro (a mata
+    // sagrada não pertence a cidade nenhuma).
+    startForestExpedition() {
+        if (!window.RoadSystem) return;
+        const p = window.Engine.state.player;
+        const started = window.RoadSystem.startForestExpedition(p);
+        if (!started) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Não foi possível entrar na floresta agora.', 'error');
+            return;
+        }
+        window.SaveManager.save(window.Engine.state);
+        this.openRoad();
+    }
+
     // Tela da Estrada: mostra a rota atual, o log recente de eventos e o
     // botão de avançar — id da cidade de destino é lido de
     // player.roadJourney (ver roads.js), nunca duplicado em outro lugar.
+    // Expedições à Floresta Ancestral (ver roads.js startForestExpedition,
+    // `journey.isForestExpedition`) são tratadas à parte logo no início:
+    // `journey.toId` é um id virtual que nunca existe em CityDatabase,
+    // então nunca pode passar pelo mesmo caminho de viagem entre cidades
+    // reais abaixo (toDef seria undefined e quebraria tudo).
     openRoad() {
         const p = window.Engine.state.player;
         const journey = p.roadJourney;
         if (!journey) { this.showScreen('screen-hub'); return; }
 
         const fromDef = window.CityDatabase[journey.fromId];
+
+        if (journey.isForestExpedition) {
+            document.getElementById('road-title').innerText = `${fromDef.name} → Floresta Ancestral`;
+            document.getElementById('road-mode').innerText = 'A pé';
+
+            const percent = Math.floor((journey.step / journey.totalSteps) * 100);
+            document.getElementById('road-progress-fill').style.width = `${percent}%`;
+            document.getElementById('road-progress-label').innerText = `${journey.step}/${journey.totalSteps}`;
+
+            // Paleta fixa esverdeada/mística (ver graphics.js ARENA_BIOMES
+            // floresta_ancestral) em vez de interpolar com uma cidade
+            // destino que não existe de verdade.
+            document.getElementById('screen-road').style.background = 'linear-gradient(180deg, #1a3a1522, #0a0a0a 70%)';
+
+            const logEl = document.getElementById('road-log');
+            logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A mata se fecha atrás de você...</p>';
+
+            this.showScreen('screen-road');
+            return;
+        }
+
         const toDef = window.CityDatabase[journey.toId];
         document.getElementById('road-title').innerText = `${fromDef.name} → ${toDef.name}`;
         document.getElementById('road-mode').innerText = journey.mode === 'horse' ? 'A cavalo' : 'A pé';
@@ -2607,6 +2667,22 @@ class UIManager {
 
         if (result.arrived) {
             const journey = p.roadJourney;
+
+            // Expedição à Floresta Ancestral (ver roads.js
+            // startForestExpedition): "chegar" aqui não é viajar pra uma
+            // cidade nova, é só voltar pra cidade onde o jogador já estava
+            // (journey.toId é um id virtual, nunca existe em
+            // CityDatabase — chamar City.travelToCity com ele quebraria
+            // tudo). Nunca cobra passagem de volta, óbvio.
+            if (journey.isForestExpedition) {
+                p.roadJourney = null;
+                window.AudioManager.playConfirm();
+                if (window.MainMenu) window.MainMenu.showToast('Você retorna da Floresta Ancestral.', 'info');
+                this.updateHubStats();
+                this.showScreen('screen-hub');
+                return;
+            }
+
             const toId = journey.toId;
             p.roadJourney = null;
             const success = window.City.travelToCity(toId, true); // skipCost=true: a passagem já foi resolvida ao longo do caminho

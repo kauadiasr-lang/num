@@ -595,6 +595,22 @@
                     <div class="panel-watermark">🐎</div>
                     <h2 class="panel-title">Viajante do Portão</h2>
                     <p class="caravan-sub">Você está em <span id="caravan-current-city" class="highlight-gold">Porto Helênico</span>. Escolha um destino — a passagem é cobrada em ouro na hora.</p>
+
+                    <!-- Floresta Ancestral (ver nature.js/roads.js) — acesso
+                         direto pelo mesmo Portão, separado da lista de
+                         cidades reais abaixo (preenchida via JS): nunca é
+                         um destino real de CityDatabase, então tem seu
+                         próprio card fixo aqui. -->
+                    <div id="caravan-forest-card" class="caravan-card caravan-forest-card" style="--caravan-accent:#3a7d3a">
+                        <div class="caravan-card-info">
+                            <h4>🌲 Floresta Ancestral</h4>
+                            <p>Uma mata neutra e antiga entre as cidades. Dizem que algo ancestral espreita lá dentro.</p>
+                        </div>
+                        <div class="caravan-card-actions">
+                            <button class="btn btn-small" id="btn-forest-expedition">Entrar na Floresta (a pé, grátis)</button>
+                        </div>
+                    </div>
+
                     <div id="caravan-container" class="caravan-list">
                         <!-- Cidades disponíveis, preenchido via JS -->
                     </div>
