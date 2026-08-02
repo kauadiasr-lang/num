@@ -149,14 +149,28 @@ window.RoadEngine = {
         secret: { icon: '💰', label: 'Investigar o esconderijo' },
         campfire: { icon: '🔥', label: 'Descansar na fogueira' },
         cart: { icon: '🛒', label: 'Examinar a carroça quebrada' },
-        traveler: { icon: '🧳', label: 'Conversar com o viajante' }
+        traveler: { icon: '🧳', label: 'Conversar com o viajante' },
+        // Marcos físicos explicitamente pedidos pelo usuário ("ruínas,
+        // cavernas, pontes, pequenos templos") — mesma arquitetura de
+        // evento pacífico (aviso de interação, nunca pop-up), só com
+        // recompensa/flavor própria por tipo (ver _resolveEvent).
+        ruins: { icon: '🏛️', label: 'Explorar as ruínas antigas' },
+        cave: { icon: '🕳️', label: 'Entrar na caverna escura' },
+        bridge: { icon: '🌉', label: 'Atravessar a ponte de pedra' },
+        shrine: { icon: '⛩️', label: 'Rezar no pequeno templo' }
     },
     // Tipos de missão oferecidos pelo viajante — os três que já existiam em
     // QuestFactory mais próximos do pedido explícito ("escoltar", "caçar
     // uma criatura", "encontrar um objeto perdido"): ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça), RECOVERY (Item Perdido).
     TRAVELER_QUEST_TYPES: ['ESCORT', 'HUNT', 'RECOVERY'],
-    EVENT_COUNT: 6, // eventos pacíficos + bandidos espalhados pela travessia inteira
+    // Subiu de 6 pra 10 ao adicionar ruins/cave/bridge/shrine (agora 10
+    // tipos pacíficos + bandido = 11 no pool de _generateEvents) — mantém a
+    // MESMA densidade relativa de marcos por trecho de mundo (o custo por
+    // frame continua O(eventos visíveis), nunca O(EVENT_COUNT) sozinho),
+    // só evita que metade dos tipos nunca apareça numa viagem só por causa
+    // do sorteio ter poucos slots.
+    EVENT_COUNT: 10, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
     // Entidades exclusivas da Expedição à Floresta Ancestral (Fase 5, ver
     // _generateForestEncounter) — nunca entram no pool aleatório de
@@ -618,6 +632,52 @@ window.RoadEngine = {
             }
         } else if (ev.type === 'cart') {
             toast('A carroça quebrada não guarda nada de útil — só madeira estilhaçada.', 'info');
+        } else if (ev.type === 'bridge') {
+            // Marco puramente cênico (pedido do usuário: "pontes" como
+            // ponto físico de exploração) — mesmo espírito do 'cart' acima,
+            // sem recompensa, só ambientação de travessia segura.
+            toast('A ponte de pedra range sob seus passos, mas te leva em segurança até o outro lado.', 'info');
+        } else if (ev.type === 'cave') {
+            // Recompensa em ouro, faixa maior que 'secret' — risco maior
+            // percebido ("caverna escura") justifica um prêmio melhor.
+            const gift = Utils.randomInt(50, 100);
+            p.gold += gift;
+            toast(`No fundo da caverna escura, você encontra ${gift}g perdidos há anos.`, 'success');
+        } else if (ev.type === 'shrine') {
+            // Bênção do pequeno templo (pedido do usuário) — cura fadiga E
+            // um pouco de HP, mesma lógica de "suporte" da linhagem da
+            // Natureza mas disponível pra QUALQUER jogador, sem precisar da
+            // linhagem — é só um santuário físico no caminho.
+            let healed = false;
+            if ((p.fatigue || 0) > 0) { p.cureFatigue(1); healed = true; }
+            if (p.currentHp < p.derivedStats.maxHp) {
+                p.currentHp = Utils.clamp(p.currentHp + Math.floor(p.derivedStats.maxHp * 0.15), 0, p.derivedStats.maxHp);
+                healed = true;
+            }
+            toast(healed
+                ? 'Uma bênção silenciosa do pequeno templo alivia seu corpo — fadiga e ferimentos diminuem.'
+                : 'Você reza um instante no pequeno templo, mas já está em plena forma.', 'success');
+        } else if (ev.type === 'ruins') {
+            // Item antigo, mesma mecânica do 'chest' mas com chance de
+            // raridade melhor (pedido do usuário: ruínas como marco de
+            // exploração com recompensa própria de "colecionável").
+            const cityId = this.fromId;
+            const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
+                ? window.ItemFactory._pickRandomEquipmentId(cityId, false) : null;
+            if (!picked) {
+                toast('As ruínas antigas guardam só pó e silêncio.', 'info');
+                return;
+            }
+            const rarity = Utils.chance(20) ? RARITY.RARE : (Utils.chance(35) ? RARITY.UNCOMMON : RARITY.COMMON);
+            const item = window.ItemFactory.createEquipment(picked.id, picked.category, rarity);
+            if (p.inventory.length < p.inventoryCapacity) {
+                p.inventory.push(item);
+                toast(`Entre pilares tombados, você encontra ${item.name}, esquecido há eras!`, 'success');
+            } else {
+                const soldFor = Math.floor(item.value * 0.5);
+                p.gold += soldFor;
+                toast(`As ruínas guardam ${item.name}, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
+            }
         } else if (ev.type === 'chest') {
             const cityId = this.fromId;
             const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
@@ -823,7 +883,13 @@ window.RoadEngine = {
         const fillByType = {
             bandit: 'rgba(120,20,20,0.85)',
             nature_spirit: 'rgba(40,110,60,0.85)',
-            corruption: 'rgba(60,20,70,0.85)'
+            corruption: 'rgba(60,20,70,0.85)',
+            // Marcos físicos (identidade visual própria por tipo, em vez do
+            // marrom genérico de fallback usado por merchant/chest/etc.).
+            ruins: 'rgba(120,110,95,0.85)',
+            cave: 'rgba(25,25,30,0.9)',
+            bridge: 'rgba(110,95,75,0.85)',
+            shrine: 'rgba(180,150,60,0.85)'
         };
         const iconByType = { bandit: '⚔️', nature_spirit: '🌿' };
         ctx.fillStyle = fillByType[ev.type] || 'rgba(60,45,30,0.85)';
