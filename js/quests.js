@@ -201,13 +201,42 @@ window.QuestSystem = {
     // `${cityId}::${dayCount}` (mesmo padrão de ui.js openShop `cacheKey`):
     // só sorteia de novo quando o dia muda de verdade (ver city.js
     // advanceToNewDay), nunca a cada vez que o quadro é reaberto no MESMO dia.
+    //
+    // Bug reportado pelo usuário: "a mesma missão" parecia poder ser feita
+    // duas vezes no mesmo dia. Cada instância É de fato única (instanceId
+    // próprio, nunca reaparece depois de concluída/falha — ver
+    // getBoardForCity), mas nada impedia o pool sortear DOIS tipos iguais
+    // (ex: duas "Entrega Urgente") pro mesmo dia — pro jogador isso parece
+    // idêntico a "a mesma missão duas vezes", mesmo sendo instâncias
+    // tecnicamente diferentes. Corrigido sorteando tipos DISTINTOS: embaralha
+    // a lista de tipos disponíveis e gera uma missão por tipo até ter 3 (ou
+    // esgotar a lista), descartando qualquer resultado cujo TIPO FINAL (já
+    // considerando o fallback de DELIVERY/BOUNTY pra HUNT quando a
+    // pré-condição falha) já esteja no pool.
     _proceduralCache: {},
     _getProceduralPool(cityId, player) {
         const day = window.City ? window.City.dayCount : 1;
         const key = `${cityId}::${day}`;
         if (!this._proceduralCache[key]) {
+            const allTypes = ['HUNT', 'ARENA', 'INVESTIGATION', 'COLLECT', 'ESCORT', 'RECOVERY', 'BOUNTY', 'DELIVERY'];
+            // Fisher-Yates com o gerador do próprio jogo (Utils.randomInt),
+            // nunca Math.random cru — mantém tudo determinístico com o
+            // resto do RNG do jogo.
+            const shuffled = allTypes.slice();
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Utils.randomInt(0, i);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
             const pool = [];
-            for (let i = 0; i < 3; i++) pool.push(QuestFactory.generate(cityId, player));
+            const usedTypes = new Set();
+            for (const typeId of shuffled) {
+                if (pool.length >= 3) break;
+                const quest = QuestFactory.generate(cityId, player, typeId);
+                if (usedTypes.has(quest.type)) continue; // fallback colidiu com um tipo já sorteado
+                usedTypes.add(quest.type);
+                pool.push(quest);
+            }
             this._proceduralCache[key] = pool;
         }
         return this._proceduralCache[key];
