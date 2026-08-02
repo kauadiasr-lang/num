@@ -250,6 +250,22 @@ class UIManager {
         document.getElementById('btn-close-road').addEventListener('click', () => this.abandonRoad());
         document.getElementById('btn-road-advance').addEventListener('click', () => this.advanceRoad());
         document.getElementById('btn-road-abandon').addEventListener('click', () => this.abandonRoad());
+
+        // Mundo da Estrada (Fase 2, ver js/road.js RoadEngine) — trajeto
+        // real entre cidades: WASD/setas + Shift pra correr, clique/toque
+        // pra andar até o ponto (mesma conversão de tela pra mundo via
+        // Camera já usada por city.js _handleClick).
+        document.getElementById('btn-abandon-roadworld').addEventListener('click', () => this.abandonRoadWorld());
+        window.addEventListener('keydown', (e) => { if (window.RoadEngine) window.RoadEngine.handleKey(e, true); });
+        window.addEventListener('keyup', (e) => { if (window.RoadEngine) window.RoadEngine.handleKey(e, false); });
+        document.getElementById('game-canvas').addEventListener('click', (e) => {
+            if (!window.RoadEngine || !window.RoadEngine._isActive()) return;
+            const canvas = document.getElementById('game-canvas');
+            const rect = canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+            const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
+            window.RoadEngine.handleClick(screenX - offset.dx, screenY - offset.dy);
+        });
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
             // só espiando o save mais recente), volta pro menu e descarta o
@@ -2612,26 +2628,61 @@ class UIManager {
         this.showScreen('screen-caravan');
     }
 
-    // Inicia uma travessia manual (ver roads.js RoadSystem) a partir do
-    // Viajante do Portão — feedback amigável antes de tentar (mesmo padrão
-    // de travelToCity), delega o estado real pro RoadSystem.
+    // Inicia uma travessia real entre cidades (ver js/road.js RoadEngine) —
+    // substitui o antigo RoadSystem.startJourney (dados-por-etapa) no
+    // caminho crítico (Fase 2 do redesenho de viagem: ver
+    // docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md).
+    // A Expedição à Floresta Ancestral continua em startForestExpedition/
+    // RoadSystem, intocada (migração física dela é Fase 5).
     startRoadJourney(cityId, mode) {
         const p = window.Engine.state.player;
         const dest = window.CityDatabase[cityId];
-        if (!dest || !window.RoadSystem) return;
-        if (mode === 'horse' && p.gold < window.RoadSystem.getHorseCost(dest)) {
-            window.AudioManager.playError();
-            if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente para alugar um cavalo!', 'error');
-            return;
-        }
-        const started = window.RoadSystem.startJourney(p, window.getCurrentCityId(), cityId, mode);
-        if (!started) {
+        if (!dest || !window.RoadEngine) return;
+        if (p.level < dest.unlockLevel) {
             window.AudioManager.playError();
             if (window.MainMenu) window.MainMenu.showToast('Não foi possível iniciar a viagem agora.', 'error');
             return;
         }
+        const horseCost = window.RoadSystem ? window.RoadSystem.getHorseCost(dest) : 0;
+        if (mode === 'horse' && p.gold < horseCost) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente para alugar um cavalo!', 'error');
+            return;
+        }
+        if (mode === 'horse') p.gold -= horseCost;
+
+        const fromId = window.getCurrentCityId();
+        p.roadWorldJourney = { fromId, toId: cityId, mode };
+        window.RoadEngine.start(fromId, cityId, mode, p);
         window.SaveManager.save(window.Engine.state);
-        this.openRoad();
+        document.getElementById('roadworld-title').innerText = `${window.CityDatabase[fromId].name} → ${dest.name}`;
+        document.getElementById('roadworld-mode').innerText = mode === 'horse' ? 'A cavalo' : 'A pé';
+        this.showScreen('screen-roadworld');
+    }
+
+    abandonRoadWorld() {
+        const p = window.Engine.state.player;
+        p.roadWorldJourney = null;
+        if (window.RoadEngine) window.RoadEngine.abandon();
+        window.SaveManager.save(window.Engine.state);
+        this.showScreen('screen-hub');
+    }
+
+    // Chamado pelo RoadEngine (js/road.js update()) quando o jogador chega
+    // fisicamente ao fim do mundo da Estrada — equivalente ao antigo
+    // `result.arrived` de RoadSystem.advance, só que disparado por posição
+    // real no mapa, não por contagem de etapas.
+    onRoadWorldArrival(toId) {
+        const p = window.Engine.state.player;
+        p.roadWorldJourney = null;
+        if (window.RoadEngine) window.RoadEngine.abandon();
+        const success = window.City.travelToCity(toId, true); // skipCost=true: passagem já resolvida (a cavalo cobrado no início; a pé sempre grátis)
+        if (success) {
+            window.AudioManager.playConfirm();
+            if (window.MainMenu) window.MainMenu.showToast(`Você chegou em ${window.CityDatabase[toId].name}!`, 'success');
+            this.updateHubStats();
+        }
+        this.showScreen('screen-hub');
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão (ver
