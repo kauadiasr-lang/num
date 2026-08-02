@@ -7,13 +7,22 @@
  * Curandeiro, Ladder, etc) — nenhuma dessas telas foi reescrita, só ganharam
  * uma "porta física" no mapa em vez de um botão.
  *
- * Arquitetura: sem câmera/rolagem — a praça inteira sempre cabe na tela
- * (posições em fração da largura, ancoradas ao horizonte do céu que já
- * existe em GraphicsEngine.drawArenaBackground), a mesma abordagem já usada
- * pelo fundo cinematográfico da arena/menu principal. Isso mantém o desenho
- * simples e evita construir um sistema de câmera/mundo grande só pra isso.
- * O céu, o coliseu ao fundo, a plateia, tochas e pássaros são reaproveitados
- * de GraphicsEngine — a cidade "mora" bem em frente ao próprio coliseu.
+ * Arquitetura (atualizada — ver docs/superpowers/specs/2026-08-02-
+ * explorable-world-travel-design.md, Fase 1): o mundo da Praça é mais
+ * largo que a tela (ver _worldWidth) e a câmera (window.Camera, ver
+ * js/camera.js) acompanha o jogador de verdade — antes a praça inteira
+ * sempre cabia na tela (posições em fração da largura), o que nunca dava
+ * espaço nenhum pra uma câmera existir. O CONTEÚDO da cidade não mudou em
+ * nada (nenhum prédio/NPC novo) — só o mundo ficou fisicamente maior ao
+ * redor do mesmo conteúdo de sempre, e o desenho passou a rodar através
+ * de um único ctx.translate (ver draw()) em vez de posições fixas de
+ * tela. Movimento/colisão/pathfinding vivem em js/playercontroller.js
+ * (extraído, reaproveitado também pelo mundo da Estrada na Fase 2). O
+ * céu, o coliseu ao fundo, a plateia, tochas e pássaros continuam
+ * reaproveitados de GraphicsEngine (fundo em coordenada de TELA, nunca
+ * rola com a câmera — é um degradê uniforme, sempre visualmente idêntico
+ * independente de onde a câmera estiver) — a cidade "mora" bem em frente
+ * ao próprio coliseu.
  */
 class CityEngine {
     constructor() {
@@ -246,6 +255,21 @@ class CityEngine {
 
     _horizon(h) {
         return h * 0.62;
+    }
+
+    // Largura do MUNDO caminhável da Praça — sempre maior que o canvas
+    // atual (nunca um valor fixo em pixels, senão telas grandes não teriam
+    // pra onde a câmera rolar e telas pequenas teriam mundo demais). 1.4x é
+    // deliberadamente modesto: o conteúdo da cidade continua o mesmo de
+    // sempre (nenhum prédio/NPC novo), só ganha uma margem real pra andar
+    // até as bordas e ver a câmera de fato acompanhar — ver design doc
+    // (docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md),
+    // seção "Resolução da ambiguidade". Nunca cacheado — lido fresco a
+    // cada chamada, igual a todo outro valor derivado de
+    // window.Engine.width/height neste arquivo (mesmo motivo do bug de
+    // resize documentado em handleResize acima).
+    _worldWidth() {
+        return (window.Engine ? window.Engine.width : window.innerWidth) * 1.4;
     }
 
     _isActive() {
@@ -590,7 +614,9 @@ class CityEngine {
             if (!this._isActive()) return;
             const canvas = document.getElementById('game-canvas');
             const rect = canvas.getBoundingClientRect();
-            this._mouseX = e.clientX - rect.left;
+            const screenX = e.clientX - rect.left;
+            const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
+            this._mouseX = screenX - offset.dx; // mundo, comparável a this.player.x
         });
 
         window.addEventListener('keydown', (e) => this._handleKey(e, true));
@@ -622,7 +648,9 @@ class CityEngine {
     _handleClick(clientX, clientY) {
         const canvas = document.getElementById('game-canvas');
         const rect = canvas.getBoundingClientRect();
-        const x = clientX - rect.left, y = clientY - rect.top;
+        const screenX = clientX - rect.left, screenY = clientY - rect.top;
+        const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
+        const x = screenX - offset.dx, y = screenY - offset.dy; // agora em coordenadas de MUNDO
         this._dismissHint();
 
         // Clicar num NPC manda o jogador andar até perto dele primeiro (ver
@@ -733,7 +761,7 @@ class CityEngine {
     // Posição de tela de uma Pedra de Luz — mesma convenção de xFrac/
     // rowOffset escalados por _cityScale já usada por fonte/estátuas/vegetação.
     _lightStonePos(stone) {
-        const w = window.Engine.width, h = window.Engine.height;
+        const w = this._worldWidth(), h = window.Engine.height;
         const scale = this._cityScale(h);
         return { x: stone.spot.xFrac * w, y: this._horizon(h) + stone.spot.rowOffset * scale };
     }
@@ -961,7 +989,7 @@ class CityEngine {
     }
 
     _doorPoint(building) {
-        const w = window.Engine.width, h = window.Engine.height;
+        const w = this._worldWidth(), h = window.Engine.height;
         const scale = this._cityScale(h);
         const baseY = this._horizon(h) + building.rowOffset * scale;
         return { x: building.xFrac * w, y: baseY };
@@ -1325,8 +1353,8 @@ class CityEngine {
     // montados aqui (únicos da Praça); a física de movimento em si vive
     // no controlador genérico.
     _updateMovement(dt) {
-        const h = window.Engine.height, w = window.Engine.width;
-        const bounds = { minX: 30, maxX: w - 30, minY: this._horizon(h) + 20, maxY: this._plazaBottom(h) + 30 };
+        const h = window.Engine.height;
+        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(h) + 20, maxY: this._plazaBottom(h) + 30 };
         const obstacles = this._obstacleRectsForCollision();
         PlayerController.update(this.player, this.keysHeld, dt, this.walkSpeed, bounds, obstacles);
 
@@ -1361,7 +1389,7 @@ class CityEngine {
             const r = this._buildingRect(b);
             return { left: r.left - margin, right: r.right + margin, top: r.top, bottom: r.bottom + margin * 0.6 };
         });
-        const w = window.Engine.width, h = window.Engine.height;
+        const w = this._worldWidth(), h = window.Engine.height;
         const scale = this._cityScale(h);
         rects.push({
             isCircle: true,
@@ -1380,8 +1408,8 @@ class CityEngine {
     // se preciso) e guardando os waypoints restantes na fila — delegado a
     // PlayerController.findPath (ver js/playercontroller.js).
     _setPlayerDestination(x, y) {
-        const h = window.Engine.height, w = window.Engine.width;
-        const bounds = { minX: 32, maxX: w - 32, minY: this._horizon(h) + 24, maxY: this._plazaBottom(h) + 26 };
+        const h = window.Engine.height;
+        const bounds = { minX: 32, maxX: this._worldWidth() - 32, minY: this._horizon(h) + 24, maxY: this._plazaBottom(h) + 26 };
         const path = PlayerController.findPath(this.player.x, this.player.y, x, y, this._obstacleRectsForCollision(), bounds);
         this.player.pathQueue = path.slice(1);
         const first = path[0];
@@ -1873,7 +1901,16 @@ class CityEngine {
         if (!this._initialized) return;
         const horizon = this._horizon(h);
 
+        // Fundo (céu/piso) continua em coordenada de TELA — é um degradê
+        // uniforme, nunca precisa rolar com a câmera (rolar um degradê
+        // uniforme é visualmente idêntico a não rolar).
         this._drawPlazaGround(ctx, w, h, horizon);
+
+        window.Camera.follow(this.player);
+        const offset = window.Camera.getOffset(w, h);
+        ctx.save();
+        ctx.translate(offset.dx, offset.dy);
+
         this._drawFountain(ctx, w, h);
         this.statues.forEach(s => this._drawStatue(ctx, w, h, s));
         this.vegetation.forEach(v => this._drawVegetation(ctx, w, h, v));
@@ -1902,6 +1939,8 @@ class CityEngine {
         ];
         drawables.sort((a, b) => a.y - b.y);
         drawables.forEach(d => d.draw());
+
+        ctx.restore();
     }
 
     // Cor do piso lida da Cidade-Hub atual (ver citydatabase.js
@@ -1961,7 +2000,8 @@ class CityEngine {
 
     _drawFountain(ctx, w, h) {
         const scale = this._cityScale(h);
-        const x = this.fountain.xFrac * w, y = this._horizon(h) + this.fountain.rowOffset * scale;
+        const worldW = this._worldWidth();
+        const x = this.fountain.xFrac * worldW, y = this._horizon(h) + this.fountain.rowOffset * scale;
         const r = this.fountain.r * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const colors = (cityDef && cityDef.fountainColors) || { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' };
@@ -2006,7 +2046,7 @@ class CityEngine {
 
     _drawStatue(ctx, w, h, s) {
         const scale = this._cityScale(h);
-        const x = s.xFrac * w, y = this._horizon(h) + s.rowOffset * scale;
+        const x = s.xFrac * this._worldWidth(), y = this._horizon(h) + s.rowOffset * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const color = (cityDef && cityDef.statueColor) || '#c9c2b0';
         const sprite = this._bakeStatueSprite(scale, color);
@@ -2083,7 +2123,7 @@ class CityEngine {
 
     _drawVegetation(ctx, w, h, v) {
         const scale = this._cityScale(h) * (v.scale || 1);
-        const x = v.xFrac * w, y = this._horizon(h) + v.rowOffset * scale;
+        const x = v.xFrac * this._worldWidth(), y = this._horizon(h) + v.rowOffset * scale;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const vegTypes = (cityDef && cityDef.vegetationTypes) || { edge: 'cypress', center: 'laurel' };
         const type = vegTypes[v.slot] || (v.slot === 'edge' ? 'cypress' : 'laurel');
