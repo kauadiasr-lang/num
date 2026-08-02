@@ -253,8 +253,21 @@ function validateGameData() {
             need(typeof l.locked === 'boolean', `LINEAGES['${key}']: locked ausente`);
             if (!l.locked) {
                 need(!!l.skillTreeId, `LINEAGES['${key}']: não bloqueada mas sem skillTreeId`);
-                need(!!l.ritualId, `LINEAGES['${key}']: não bloqueada mas sem ritualId`);
-                need(!!l.bossId, `LINEAGES['${key}']: não bloqueada mas sem bossId`);
+
+                // Sombras (ver corruption.js CorruptionSystem) é a primeira
+                // exceção real a essa regra: nunca desperta por um Ritual +
+                // boss como Vampirismo/Luz, só pela Corrupção do Amuleto do
+                // Guardião da Natureza — por isso NUNCA tem ritualId/bossId,
+                // de propósito (`awakensVia: 'corruption'` documenta a
+                // exceção explicitamente, pra nunca parecer um campo
+                // esquecido por engano). Toda linhagem SEM essa flag
+                // continua exigindo ritualId/bossId como sempre.
+                if (l.awakensVia !== 'corruption') {
+                    need(!!l.ritualId, `LINEAGES['${key}']: não bloqueada mas sem ritualId`);
+                    need(!!l.bossId, `LINEAGES['${key}']: não bloqueada mas sem bossId`);
+                } else {
+                    need(l.ritualId === null && l.bossId === null, `LINEAGES['${key}']: awakensVia:'corruption' mas ainda tem ritualId/bossId (deveria ser null)`);
+                }
 
                 // Bug de auditoria: skillTreeId/ritualId/bossId só eram
                 // checados quanto a "existe algo aqui", nunca quanto a "o
@@ -271,11 +284,13 @@ function validateGameData() {
                 if (typeof SKILL_TREES !== 'undefined') {
                     need(!!SKILL_TREES[l.skillTreeId], `LINEAGES['${key}']: skillTreeId '${l.skillTreeId}' não existe em SKILL_TREES`);
                 }
-                if (typeof RITUALS !== 'undefined') {
-                    need(!!RITUALS[l.ritualId], `LINEAGES['${key}']: ritualId '${l.ritualId}' não existe em RITUALS`);
-                }
-                if (typeof BOSS_DEFS !== 'undefined') {
-                    need(!!BOSS_DEFS[l.bossId], `LINEAGES['${key}']: bossId '${l.bossId}' não existe em BOSS_DEFS`);
+                if (l.awakensVia !== 'corruption') {
+                    if (typeof RITUALS !== 'undefined') {
+                        need(!!RITUALS[l.ritualId], `LINEAGES['${key}']: ritualId '${l.ritualId}' não existe em RITUALS`);
+                    }
+                    if (typeof BOSS_DEFS !== 'undefined') {
+                        need(!!BOSS_DEFS[l.bossId], `LINEAGES['${key}']: bossId '${l.bossId}' não existe em BOSS_DEFS`);
+                    }
                 }
             }
         }

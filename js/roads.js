@@ -124,19 +124,41 @@ const RoadSystem = {
         if (journey.log.length > 5) journey.log.length = 5;
 
         const arrived = journey.step >= journey.totalSteps;
-        return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite, natureDiscovery: !!result.natureDiscovery };
+        return { message: result.message, label, arrived, ambush: !!result.ambush, elite: !!result.elite, natureDiscovery: !!result.natureDiscovery, corruptionEvent: !!result.corruptionEvent };
     },
 
-    // `guaranteeDiscovery` true só na expedição direta à Floresta Ancestral
-    // (ver startForestExpedition acima) — o jogador foi lá DE PROPÓSITO,
-    // então o encontro nunca é deixado ao acaso dessa vez (ao contrário do
-    // 4% de chance durante uma viagem comum entre cidades, ver mais abaixo).
-    // Uma vez já descoberta a Linhagem, isDiscoveryAvailable já barra os dois
-    // caminhos igualmente, então visitas seguintes à Floresta caem na MESMA
-    // tabela de eventos normal (merchant/baú/segredo/emboscada...) — a mata
-    // continua sendo um lugar de verdade pra explorar, não só uma cutscene
-    // de uma vez só.
-    _rollEvent(player, label, guaranteeDiscovery) {
+    // `isForestExpedition` true só na expedição direta à Floresta Ancestral
+    // (ver startForestExpedition acima) — o jogador foi lá DE PROPÓSITO, o
+    // que muda dois comportamentos:
+    // 1) A descoberta da Linhagem da Natureza nunca é deixada ao acaso
+    //    dessa vez (garantida, em vez do 4% de chance de uma viagem comum
+    //    entre cidades, ver mais abaixo).
+    // 2) É o ÚNICO lugar onde o segredo da Corrupção (ver corruption.js
+    //    CorruptionSystem) pode se manifestar — checado logo abaixo, ANTES
+    //    até da descoberta da Natureza (as duas condições nunca coexistem
+    //    de qualquer forma: a Corrupção exige a Linhagem da Natureza JÁ
+    //    descoberta, então a ordem de checagem não importa na prática, mas
+    //    a Corrupção sendo mais "avançada" narrativamente vem primeiro).
+    // Uma vez já resolvida (descoberta ou corrompida), visitas seguintes à
+    // Floresta caem na MESMA tabela de eventos normal (merchant/baú/
+    // segredo/emboscada...) — a mata continua sendo um lugar de verdade
+    // pra explorar, não só uma cutscene de uma vez só.
+    _rollEvent(player, label, isForestExpedition) {
+        // Segredo da Corrupção (ver corruption.js CorruptionSystem) — só
+        // checado dentro da própria Floresta Ancestral, nunca durante uma
+        // viagem comum entre cidades (a entidade profana pertence à mata,
+        // não à estrada em geral). `corruptionEvent` não é uma emboscada
+        // (nenhuma batalha começa aqui) — ver ui.js advanceRoad/
+        // showCorruptionChoice, que mostra a escolha (ou o bloqueio
+        // narrativo, se o jogador já tiver uma Linhagem principal) em vez
+        // de uma tela de batalha.
+        if (isForestExpedition && window.CorruptionSystem && window.CorruptionSystem.isEventReady(player)) {
+            return {
+                message: `${label}: uma presença profana emerge da névoa, sussurrando uma oferta sombria...`,
+                corruptionEvent: true
+            };
+        }
+
         // Descoberta da Floresta Ancestral (item pedido: Linhagem SECUNDÁRIA
         // da Natureza, ver nature.js) — checada ANTES da tabela normal,
         // raridade própria e separada, e só pode acontecer uma vez por
@@ -146,7 +168,7 @@ const RoadSystem = {
         // resultado), só que sinalizado como `natureDiscovery` pra ui.js
         // saber que precisa disparar a cena de descoberta na vitória, em
         // vez de só retomar a viagem normalmente.
-        if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player) && (guaranteeDiscovery || Utils.chance(4))) {
+        if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player) && (isForestExpedition || Utils.chance(4))) {
             return {
                 message: `${label}: a névoa da mata se adensa — um monstro das sombras corrompe as raízes ao seu redor!`,
                 ambush: true, natureDiscovery: true

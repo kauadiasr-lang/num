@@ -1389,9 +1389,13 @@ html, body {
 .lineage-awakening-name {
     font-family: var(--font-display); font-size: 3rem; color: #fff; text-shadow: 0 0 20px var(--color-gold), 0 0 40px var(--color-gold);
 }
-.lineage-awakening-tagline { font-style: italic; color: var(--color-marble-dark); margin-top: 12px; font-size: 1.1rem; }
+.lineage-awakening-tagline { font-style: italic; color: var(--color-marble-dark); margin-top: 12px; font-size: 1.1rem; max-width: 560px; }
 @keyframes lineageFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes lineagePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+/* Escolha do segredo da Corrupção (ver corruption.js/ui.js showCorruptionChoice) */
+.corruption-choice-actions { display: flex; gap: 14px; justify-content: center; margin-top: 22px; }
+#btn-corruption-accept { border-color: #8a3ae0; color: #c9a3ff; }
 
 /* ==========================================================================
    Menu Principal, Slots de Save, Configurações, Créditos

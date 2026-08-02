@@ -1439,7 +1439,7 @@ class UIManager {
         if (hasLineage) {
             const lineage = window.LineageSystem.get(p.lineage);
             currentEl.innerHTML = `
-                <span class="mutations-current-icon">${lineage.id === 'vampirismo' ? '🩸' : '✨'}</span>
+                <span class="mutations-current-icon">${lineage.icon || '✨'}</span>
                 <div>
                     <div class="mutations-current-name">${lineage.name}</div>
                     <div class="mutations-current-tagline">${lineage.tagline}</div>
@@ -1513,10 +1513,22 @@ class UIManager {
             const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
             const natureInfo = window.NatureSystem.get();
             const active = window.NatureSystem.isActive(p);
+            const amulet = p.equipment && p.equipment[SLOTS.AMULET];
+            // Mensagem distinta pro caso corrompido (ver corruption.js): o
+            // amuleto está de fato equipado (pra sempre, nunca removível),
+            // só que seus poderes de Natureza NUNCA mais reativam — dizer
+            // "não equipado" nesse caso seria enganoso, já que ele nunca
+            // sai do slot.
+            let inactiveNote = '';
+            if (!active) {
+                inactiveNote = (amulet && amulet.isProfaneAmulet)
+                    ? ' <small style="color:#8a3ae0;">(Amuleto corrompido — poderes da Natureza desligados para sempre)</small>'
+                    : ' <small style="color:#e74c3c;">(Amuleto não equipado — poderes inativos)</small>';
+            }
             document.getElementById('mutations-secondary-current').innerHTML = `
                 <span class="mutations-current-icon">🌿</span>
                 <div>
-                    <div class="mutations-current-name">${natureInfo.name}${active ? '' : ' <small style="color:#e74c3c;">(Amuleto não equipado — poderes inativos)</small>'}</div>
+                    <div class="mutations-current-name">${natureInfo.name}${inactiveNote}</div>
                     <div class="mutations-current-tagline">${natureInfo.tagline}</div>
                     <div class="mutations-current-specialty">Especialidade: ${natureInfo.specialty.join(', ')}</div>
                 </div>
@@ -1608,6 +1620,50 @@ class UIManager {
             overlay.classList.add('hidden');
             this.openRoad();
         }, 3200);
+    }
+
+    // Escolha do segredo da Corrupção (ver corruption.js CorruptionSystem,
+    // roads.js _rollEvent `corruptionEvent`) — overlay PRÓPRIO (nunca o
+    // mesmo de showLineageAwakening: aqui o jogador de fato ESCOLHE, nunca
+    // fecha sozinho num timeout). Mostra o texto de bloqueio narrativo (sem
+    // botão de aceitar) se o jogador já tiver uma Linhagem principal —
+    // NUNCA sobrescreve uma linhagem já escolhida — ou a escolha real
+    // (Aceitar/Recusar) caso contrário.
+    showCorruptionChoice() {
+        const p = window.Engine.state.player;
+        const overlay = document.getElementById('corruption-choice-overlay');
+        const textEl = document.getElementById('corruption-choice-text');
+        const acceptBtn = document.getElementById('btn-corruption-accept');
+        const declineBtn = document.getElementById('btn-corruption-decline');
+        const canAccept = window.CorruptionSystem.canAccept(p);
+
+        if (canAccept) {
+            textEl.innerText = 'Uma entidade profana emerge da névoa: "Sinto o poder da Natureza em você, ainda intocado. Ofereço mais — corrompa o Amuleto do Guardião, e as Sombras serão suas para sempre."';
+            acceptBtn.classList.remove('hidden');
+            declineBtn.innerText = 'Recusar e seguir em frente';
+        } else {
+            textEl.innerText = 'A entidade profana se aproxima, mas recua ao sentir outro poder já ligado a você: "Já pertence a outra escuridão... ou luz. Não há nada aqui para mim."';
+            acceptBtn.classList.add('hidden');
+            declineBtn.innerText = 'Seguir em frente';
+        }
+
+        acceptBtn.onclick = () => {
+            const ok = window.CorruptionSystem.accept(p);
+            overlay.classList.add('hidden');
+            if (ok) {
+                window.SaveManager.save(window.Engine.state);
+                this.showLineageAwakening('sombras', () => this.openRoad());
+            } else {
+                this.openRoad();
+            }
+        };
+        declineBtn.onclick = () => {
+            overlay.classList.add('hidden');
+            this.openRoad();
+        };
+
+        overlay.classList.remove('hidden');
+        if (window.AudioManager && window.AudioManager.playConfirm) window.AudioManager.playConfirm();
     }
 
     // Soma quantos pontos de atributo já foram investidos (Criação de
@@ -1741,13 +1797,31 @@ class UIManager {
                 slotEl.classList.add('filled');
                 // Brilho na cor do elemento (ver enchantments.js) — mesmo
                 // sinal visual usado na mochila (renderBag), pra um item
-                // encantado continuar reconhecível mesmo já equipado.
-                slotEl.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
-                    ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
+                // encantado continuar reconhecível mesmo já equipado. O
+                // Amuleto Profano (ver corruption.js) nunca tem
+                // enchantmentId, mas ganha o mesmo tipo de brilho (roxo
+                // sombrio) só pra sinalizar visualmente sua identidade
+                // amaldiçoada/fundida — "muda a aparência inteiramente",
+                // como pedido.
+                if (item.isProfaneAmulet) {
+                    slotEl.style.boxShadow = '0 0 10px 3px #8a3ae0';
+                } else {
+                    slotEl.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
+                        ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
+                }
 
-                // Hover e Clique para desequipar
+                // Hover e Clique para desequipar — item fundido ao corpo
+                // (ver corruption.js `removable:false`, hoje só o Amuleto
+                // Profano) NUNCA pode ser desequipado, nem com espaço livre
+                // na mochila: o clique só avisa por quê, em vez de mover o
+                // item.
                 this.attachTooltip(slotEl, item);
                 slotEl.onclick = () => {
+                    if (item.removable === false) {
+                        window.AudioManager.playError();
+                        if (window.MainMenu) window.MainMenu.showToast(`${item.name} está fundido ao seu corpo — não pode ser removido.`, 'error');
+                        return;
+                    }
                     if (p.inventory.length < p.inventoryCapacity) {
                         p.inventory.push(item);
                         p.equipment[slotKey] = null;
@@ -2640,6 +2714,19 @@ class UIManager {
         const result = window.RoadSystem.advance(p);
         if (!result) return;
         window.SaveManager.save(window.Engine.state);
+
+        // Segredo da Corrupção (ver corruption.js CorruptionSystem) — nunca
+        // uma emboscada (nenhuma batalha começa), só uma escolha narrativa.
+        // Mostra o log de aviso primeiro (mesmo padrão do ambush abaixo),
+        // depois a cena de escolha.
+        if (result.corruptionEvent) {
+            this.openRoad();
+            setTimeout(() => {
+                if (window.Engine.state.player !== p || !p.roadJourney) return;
+                this.showCorruptionChoice();
+            }, 1400);
+            return;
+        }
 
         if (result.ambush) {
             // A emboscada É a próxima etapa da viagem — dispara uma batalha

@@ -30,7 +30,9 @@ const LINEAGES = {
         visual: { skinTone: '#e8dce8', eyeColor: '#c81e2a', accent: '#7a1030', hasFangs: true, particle: null },
         skillTreeId: 'vampirismo',
         ritualId: 'vampirismo_ritual',
-        bossId: 'conde_vampiro'
+        bossId: 'conde_vampiro',
+        awakensVia: 'ritual',
+        icon: '🩸'
     },
     luz: {
         id: 'luz',
@@ -43,20 +45,35 @@ const LINEAGES = {
         visual: { auraColor: '#fff2c0', eyeColor: '#fff6d8', accent: '#ffe9a3', hasAura: true, particle: 'light_motes' },
         skillTreeId: 'luz',
         ritualId: 'luz_ritual',
-        bossId: 'anjo_guardiao'
+        bossId: 'anjo_guardiao',
+        awakensVia: 'ritual',
+        icon: '✨'
     },
     sombras: {
         id: 'sombras',
         name: 'Sombras',
-        locked: true, // arquitetura pronta, ritual/boss ainda não implementados
+        // Diferente de Vampirismo/Luz (despertadas ao vencer o boss de um
+        // Ritual, ver rituals.js), Sombras NUNCA tem ritual/boss próprio —
+        // o único caminho é a Corrupção (ver corruption.js CorruptionSystem,
+        // nature.js NatureSystem.isCorruptionEventReady): corromper o
+        // Amuleto do Guardião da Linhagem SECUNDÁRIA da Natureza.
+        // `locked:false` é OBRIGATÓRIO pra isso funcionar — LineageSystem.
+        // awaken() abaixo recusa qualquer linhagem com locked:true, e
+        // CorruptionSystem.accept chama awaken(player, 'sombras')
+        // diretamente (nunca via ritual, já que ritualId é null e nenhuma
+        // entrada em RITUALS existe pra 'sombras' — nunca aparece como
+        // opção de Ritual em lugar nenhum, mesmo desbloqueada).
+        locked: false,
         tagline: 'O medo é a lâmina mais afiada.',
         specialty: ['Esquiva', 'Críticos', 'Medo', 'Furtividade', 'Mobilidade'],
         weaknessId: 'luz',
         weaknessName: 'Luz',
         visual: { skinTone: '#3a3040', eyeColor: '#8a3ae0', accent: '#1a1420', hasSmoke: true, particle: 'shadow_wisp' },
-        skillTreeId: null,
+        skillTreeId: 'sombras',
         ritualId: null,
-        bossId: null
+        bossId: null,
+        awakensVia: 'corruption',
+        icon: '💀'
     },
     tita: {
         id: 'tita',

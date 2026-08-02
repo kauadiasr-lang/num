@@ -56,6 +56,19 @@ const LINEAGE_IMBUES = {
             const extra = isDarkfoe ? Math.floor(attacker.derivedStats.physicalDamage * 0.25) : Math.floor(attacker.derivedStats.physicalDamage * 0.12);
             return { extraDamage: extra, healPercent: 10, particleColor: '#fff2c0' };
         }
+    },
+    // Fio Sombrio (árvore de Sombras, ver som_fio_sombrio abaixo) — dano
+    // extra de "execução": quanto mais ferido o alvo já está, mais forte o
+    // golpe, condizente com a identidade de assassino oportunista da
+    // Linhagem (nunca sustain como Vampirismo, nunca dano fixo como Luz).
+    fio_sombrio: {
+        id: 'fio_sombrio', name: 'Fio Sombrio', color: '#8a3ae0',
+        description: 'Imbuição de Sombras: cada acerto causa dano extra, tanto maior quanto mais ferido já estiver o alvo.',
+        onHit(attacker, defender) {
+            const missingPercent = 1 - Utils.clamp(defender.currentHp / defender.derivedStats.maxHp, 0, 1);
+            const extra = Math.floor(attacker.derivedStats.physicalDamage * (0.10 + missingPercent * 0.30));
+            return { extraDamage: extra, particleColor: '#8a3ae0' };
+        }
     }
 };
 window.LINEAGE_IMBUES = LINEAGE_IMBUES;
@@ -222,6 +235,80 @@ const SKILL_TREES = {
                 description: 'Desbloqueia Ira Celestial: a magia sagrada definitiva.',
                 skillDef: { id: 'ira_celestial', name: 'Ira Celestial', type: 'MAGIC', mpCost: 38, powerMulti: 3.0,
                     description: 'A magia sagrada definitiva: dano cataclísmico de longo alcance (10m).', extra: { cooldown: 5, range: 10 } } }
+        ]
+    },
+
+    // Árvore da Linhagem Sombras — só alcançável via Corrupção (ver
+    // corruption.js CorruptionSystem, nature.js NatureSystem
+    // isCorruptionEventReady), nunca por um ritual/boss como Vampirismo e
+    // Luz. Identidade própria: esquiva, críticos, medo (atordoar/amaldiçoar
+    // o inimigo) e mobilidade — nunca sustain (isso é Vampirismo) nem
+    // defesa/cura (isso é Luz). Mesmo tamanho de árvore que as outras
+    // linhagens PRINCIPAIS (5 tiers, ids com prefixo `som_`).
+    sombras: {
+        id: 'sombras', name: 'Árvore das Sombras',
+        nodes: [
+            // --- Tier 1: raízes (3 caminhos possíveis desde o início) ---
+            { id: 'som_root_esquiva', name: 'Passos Silenciosos', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Aumenta sua esquiva em 6%.', statMods: { dodgeBonusPercent: 6 } },
+            { id: 'som_root_critico', name: 'Instinto Assassino', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Com HP do inimigo baixo, seus ataques acertam crítico com mais frequência.', statMods: { critChanceLowHpBonus: 10 } },
+            { id: 'som_root_furtividade', name: 'Manto das Sombras', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Reduz em 15% a chance de efeitos negativos (atordoar/lentidão) contra você.', statMods: { negativeEffectResistPercent: 15 } },
+
+            // --- Tier 2 ---
+            { id: 'som_passo_sombrio', name: 'Passo Sombrio', tier: 2, type: 'active', cost: 1, requires: ['som_root_esquiva'],
+                description: 'Desbloqueia Passo Sombrio: dissolve-se em sombras, aumentando muito a esquiva por 2 turnos.',
+                skillDef: { id: 'passo_sombrio', name: 'Passo Sombrio', type: 'EVASION', mpCost: 12, powerMulti: 1,
+                    description: 'Dissolve-se em sombras: +22% de esquiva por 2 turnos.', extra: { evasionBonus: 22, duration: 2, cooldown: 4 } } },
+            { id: 'som_reflexos', name: 'Reflexos Felinos', tier: 2, type: 'passive', cost: 1, requires: ['som_root_esquiva'],
+                description: 'Mais 4% de esquiva (total 10%).', statMods: { dodgeBonusPercent: 4 } },
+            { id: 'som_lamina_certeira', name: 'Lâmina Certeira', tier: 2, type: 'active', cost: 1, requires: ['som_root_critico'],
+                description: 'Desbloqueia Lâmina Certeira: um golpe rápido e preciso.',
+                skillDef: { id: 'lamina_certeira', name: 'Lâmina Certeira', type: 'PHYSICAL', mpCost: 12, powerMulti: 1.6,
+                    description: 'Um golpe rápido e preciso: 160% do Dano Físico. Usa o alcance da sua arma.', extra: { cooldown: 2 } } },
+            { id: 'som_furia_sombria', name: 'Fúria Sombria', tier: 2, type: 'passive', cost: 1, requires: ['som_root_critico'],
+                description: 'Com HP abaixo de 30%, causa 15% de dano físico a mais.', statMods: { lowHpDamageBonusPercent: 15 } },
+            { id: 'som_toque_pavor', name: 'Toque do Pavor', tier: 2, type: 'active', cost: 1, requires: ['som_root_furtividade'],
+                description: 'Desbloqueia Toque do Pavor: um golpe que petrifica o inimigo de medo, fazendo-o perder o próximo turno.',
+                skillDef: { id: 'toque_do_pavor', name: 'Toque do Pavor', type: 'STUN', mpCost: 16, powerMulti: 0.8,
+                    description: 'Um golpe que petrifica o inimigo de medo. Usa o alcance da sua arma.', extra: { stunChance: 60, cooldown: 4 } } },
+            { id: 'som_passos_invisiveis', name: 'Passos Invisíveis', tier: 2, type: 'passive', cost: 1, requires: ['som_root_furtividade'],
+                description: 'Mais 15% de resistência a efeitos negativos (total 30%).', statMods: { negativeEffectResistPercent: 15 } },
+
+            // --- Tier 3 ---
+            { id: 'som_golpe_sombrio', name: 'Golpe Sombrio', tier: 3, type: 'active', cost: 2, requires: ['som_lamina_certeira'],
+                description: 'Desbloqueia Golpe Sombrio: um golpe pesado vindo direto das sombras.',
+                skillDef: { id: 'golpe_sombrio', name: 'Golpe Sombrio', type: 'PHYSICAL', mpCost: 18, powerMulti: 2.0,
+                    description: 'Um golpe pesado vindo direto das sombras: 200% do Dano Físico. Usa o alcance da sua arma.', extra: { cooldown: 3 } } },
+            { id: 'som_instinto_predador', name: 'Instinto Predador', tier: 3, type: 'passive', cost: 1, requires: ['som_furia_sombria'],
+                description: 'Mais 20% de dano físico (total 35%) com HP do inimigo baixo.', statMods: { lowHpDamageBonusPercent: 20 } },
+            { id: 'som_pavor_profundo', name: 'Pavor Profundo', tier: 3, type: 'active', cost: 1, requires: ['som_toque_pavor'],
+                description: 'Desbloqueia Pavor Profundo: amaldiçoa o inimigo com um medo paralisante, reduzindo sua Defesa por vários turnos.',
+                skillDef: { id: 'pavor_profundo', name: 'Pavor Profundo', type: 'CURSE', mpCost: 18, powerMulti: 0.7,
+                    description: 'Amaldiçoa o inimigo com um medo paralisante: causa dano e reduz sua Defesa em 25% por 3 turnos. Usa o alcance da sua arma.', extra: { curseDefensePercent: 25, duration: 3, cooldown: 3 } } },
+            { id: 'som_fio_sombrio', name: 'Fio Sombrio', tier: 3, type: 'active', cost: 1, requires: ['som_lamina_certeira'],
+                description: 'Desbloqueia Fio Sombrio: imbui sua arma com um golpe de execução por vários turnos.',
+                skillDef: { id: 'fio_sombrio_skill', name: 'Fio Sombrio', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui sua arma equipada: todo acerto físico causa dano extra, tanto maior quanto mais ferido já estiver o alvo, por 4 turnos.', extra: { imbueEnchantId: 'fio_sombrio', duration: 4, cooldown: 5 } } },
+
+            // --- Tier 4 ---
+            { id: 'som_dominio_sombras', name: 'Domínio das Sombras', tier: 4, type: 'passive', cost: 2, requires: ['som_instinto_predador', 'som_pavor_profundo'],
+                description: 'Mais 5% de esquiva e +8% de chance crítica com HP do inimigo baixo.', statMods: { dodgeBonusPercent: 5, critChanceLowHpBonus: 8 } },
+            { id: 'som_manto_impenetravel', name: 'Manto Impenetrável', tier: 4, type: 'active', cost: 2, requires: ['som_passo_sombrio'],
+                description: 'Desbloqueia Manto Impenetrável: um véu de sombras quase impossível de atingir por 2 turnos.',
+                skillDef: { id: 'manto_impenetravel', name: 'Manto Impenetrável', type: 'EVASION', mpCost: 14, powerMulti: 1,
+                    description: 'Envolve-se num véu de sombras: +35% de esquiva por 2 turnos.', extra: { evasionBonus: 35, duration: 2, cooldown: 4 } } },
+            { id: 'som_reflexo_mortal', name: 'Reflexo Mortal', tier: 4, type: 'passive', cost: 1, requires: ['som_golpe_sombrio'],
+                description: 'Mais 10% de chance crítica com HP do inimigo baixo e +3% de esquiva.', statMods: { critChanceLowHpBonus: 10, dodgeBonusPercent: 3 } },
+
+            // --- Tier 5: capstones ---
+            { id: 'som_senhor_sombras', name: 'Senhor das Sombras', tier: 5, type: 'passive', cost: 2, requires: ['som_dominio_sombras'],
+                description: 'Mais 10% de esquiva e +15% de chance crítica com HP do inimigo baixo.', statMods: { dodgeBonusPercent: 10, critChanceLowHpBonus: 15 } },
+            { id: 'som_lamina_ceifadora', name: 'Lâmina Ceifadora', tier: 5, type: 'active', cost: 2, requires: ['som_manto_impenetravel', 'som_reflexo_mortal'],
+                description: 'Desbloqueia Lâmina Ceifadora: o golpe definitivo das sombras.',
+                skillDef: { id: 'lamina_ceifadora', name: 'Lâmina Ceifadora', type: 'PHYSICAL', mpCost: 26, powerMulti: 2.7,
+                    description: 'O golpe definitivo das sombras: dano devastador. Usa o alcance da sua arma.', extra: { cooldown: 5 } } }
         ]
     },
 

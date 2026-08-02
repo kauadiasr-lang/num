@@ -321,6 +321,24 @@
                 </div>
             </div>
 
+            <!-- ESCOLHA: "UMA OFERTA SOMBRIA" — segredo da Corrupção (ver
+                 corruption.js CorruptionSystem, ui.js showCorruptionChoice),
+                 disparado durante uma expedição à Floresta Ancestral.
+                 Diferente do overlay de despertar acima, este NUNCA fecha
+                 sozinho — o jogador escolhe de verdade (ou só confirma o
+                 bloqueio narrativo, se já tiver uma Linhagem principal). -->
+            <div id="corruption-choice-overlay" class="lineage-awakening-overlay hidden">
+                <div class="lineage-awakening-content">
+                    <p class="lineage-awakening-kicker">UMA OFERTA SOMBRIA</p>
+                    <h1 class="lineage-awakening-name">Entidade Profana</h1>
+                    <p id="corruption-choice-text" class="lineage-awakening-tagline"></p>
+                    <div class="corruption-choice-actions">
+                        <button id="btn-corruption-accept" class="btn btn-small">Aceitar a Corrupção</button>
+                        <button id="btn-corruption-decline" class="btn btn-small">Recusar e seguir em frente</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- TELA: BATALHA -->
             <div id="screen-battle" class="screen">
                 <div class="battle-hud">
@@ -734,6 +752,7 @@
     <script src="js/roads.js"></script>
     <script src="js/skilltrees.js"></script>
     <script src="js/nature.js"></script>
+    <script src="js/corruption.js"></script>
     <script src="js/rituals.js"></script>
     <script src="js/quests.js"></script>
     <script src="js/player.js"></script>
