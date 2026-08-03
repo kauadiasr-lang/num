@@ -2144,8 +2144,15 @@ window.RoadEngine = {
             // vertical, mais raízes visíveis na base e um par de galhos
             // bifurcados antes da copa (a referência mostra os troncos se
             // abrindo em galhos bem antes da folhagem).
-            const trunkH = 78;
-            const trunkW = 24;
+            // Variedade de altura/grossura por árvore (pedido explícito
+            // "sistema modular sem repetição óbvia" — até este ciclo TODO
+            // tronco tinha exatamente a MESMA altura e a MESMA grossura,
+            // só o `lean` variava. Complementa a variedade de silhueta de
+            // copa já existente, Ciclo 60, e reforça "árvores grandes e
+            // grossas" com árvores genuinamente maiores/menores entre si,
+            // não só copas diferentes sobre o mesmo tronco).
+            const trunkH = 65 + (this._hash(i * 239 + 63000) % 31); // 65-95
+            const trunkW = 19 + (this._hash(i * 271 + 63500) % 16); // 19-34
             const lean = ((this._hash(i * 83 + 9600) % 21) - 10) * 0.7;
             const trunkColor = corrupted ? '#1a1410' : '#4a3624';
             ctx.fillStyle = trunkColor;
