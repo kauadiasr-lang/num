@@ -117,13 +117,14 @@ window.RoadEngine = {
 
     // Mundo vivo ambiente (Fase 6) — cada "chunk" de mundo (unidade de
     // geração/culling, não um pedaço de save) tem uma chance de conter UMA
-    // entidade decorativa entre os 4 tipos pedidos no design (viajante a
-    // pé, caravana, animal, patrulha de guarda). Nunca colide com o
-    // jogador, nunca interrompe a travessia — só "vida" ao fundo (ver
-    // _drawAmbientLife).
+    // entidade decorativa entre os tipos pedidos no design (viajante a
+    // pé, caravana, animal, patrulha de guarda, gladiador rival — este
+    // último acrescentado no Ciclo 22, "outros gladiadores podem estar
+    // viajando"). Nunca colide com o jogador, nunca interrompe a
+    // travessia — só "vida" ao fundo (ver _drawAmbientLife).
     AMBIENT_CHUNK_SIZE: 2500,
     AMBIENT_SPAWN_CHANCE: 55, // % dos chunks que têm alguma entidade (de 0 a 100, ver _hash)
-    AMBIENT_TYPES: ['npc_traveler', 'caravan', 'animal', 'patrol'],
+    AMBIENT_TYPES: ['npc_traveler', 'caravan', 'animal', 'patrol', 'rival_gladiator'],
 
     // Gabarito genérico de zonas — usado SÓ pela Expedição à Floresta
     // Ancestral (destino virtual, sem `roadFamily` — ela não pertence a
@@ -1243,6 +1244,18 @@ window.RoadEngine = {
         patrol: {
             visuals: { gender: 'Masculino', skinTone: '#c8a878', hairStyle: 3, hairColor: '#2a2418', beardStyle: 2, eyeColor: '#2a1a14', faceShape: 1 },
             equipment: {}, __teamColor: '#4a5a3a', race: 'humano'
+        },
+        // "Outros gladiadores podem estar viajando" — item explícito da
+        // lista original do usuário de "mundo vivo" que ainda não tinha
+        // ganho um tipo ambiente próprio (só existia o `npc_traveler`
+        // genérico, sem nenhuma arma). Diferença visual chave: uma arma de
+        // verdade equipada em `equipment.mainHand` (mesmo campo/pipeline
+        // que já renderiza a arma do jogador em batalha, ver graphics.js
+        // _drawFrontArm/_drawWeapon) — reconhecível como "outro lutador",
+        // não só mais um viajante comum.
+        rival_gladiator: {
+            visuals: { gender: 'Masculino', skinTone: '#b8895a', hairStyle: 6, hairColor: '#1a1410', beardStyle: 3, eyeColor: '#2a1a14', faceShape: 1 },
+            equipment: { mainHand: { id: 'w_01' } }, __teamColor: '#7a2a2a', race: 'humano'
         }
     },
 
@@ -1264,6 +1277,11 @@ window.RoadEngine = {
             entity = entityCache[ekey] || (entityCache[ekey] = this._makeTravelerEntity(chunkX, this.fromId, this.toId));
         } else if (kind === 'patrol') {
             entity = entityCache.patrol || (entityCache.patrol = this._makePatrolEntity(this.fromId, this.toId));
+        } else if (kind === 'rival_gladiator') {
+            // Mesmo princípio do viajante ambiente (chunk fixo, não a
+            // posição que oscila) — ver RIVAL_GLADIATOR_VARIANTS acima.
+            const ekey = 'rival_gladiator_' + chunkX;
+            entity = entityCache[ekey] || (entityCache[ekey] = this._makeRivalGladiatorEntity(chunkX, this.fromId, this.toId));
         }
         const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
         const key = kind + '_' + seed;
@@ -1378,15 +1396,23 @@ window.RoadEngine = {
                 const cx = chunkStart + chunkSize * 0.5;
                 x = cx + Math.sin(t * 0.4 + seed) * 180;
                 y = Math.cos(t * 0.3 + seed) * 55;
-            } else { // patrol — guarda vai-e-volta, mesmo padrão do bandido (_updateBandits) mas sem raio de detecção nenhum (nunca dispara batalha)
+            } else if (kind === 'patrol') { // guarda vai-e-volta, mesmo padrão do bandido (_updateBandits) mas sem raio de detecção nenhum (nunca dispara batalha)
                 const cx = chunkStart + chunkSize * 0.5;
                 x = cx + Math.sin(t * 0.5 + seed) * 220;
                 y = (seed % 2 === 0 ? -1 : 1) * 115;
                 facing = Math.cos(t * 0.5 + seed) >= 0 ? 1 : -1;
+            } else { // rival_gladiator — "outros gladiadores podem estar
+                // viajando" (pedido do usuário, mundo vivo) — anda
+                // continuamente dentro do próprio chunk igual o viajante
+                // comum, só que mais rápido (passo decidido, não passeio),
+                // reforçando a diferença de postura além da arma visível.
+                x = chunkStart + ((t * 55 + seed * 35) % chunkSize);
+                y = (seed % 2 === 0 ? -1 : 1) * 130;
+                facing = (seed % 2 === 0) ? 1 : -1;
             }
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
-            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkStart + chunkSize * 0.5);
+            if (kind === 'npc_traveler' || kind === 'patrol' || kind === 'rival_gladiator') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkStart + chunkSize * 0.5);
             else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y, seed);
             else this._drawAmbientAnimal(ctx, x, y, seed);
         }
@@ -1602,8 +1628,17 @@ window.RoadEngine = {
         const skinTones = raceDef && raceDef.skinTones;
         const skinTone = skinTones ? skinTones[this._hash(Math.floor(x) + hashSalt) % skinTones.length] : base.visuals.skinTone;
         return {
+            // Bug corrigido no Ciclo 22 (achado durante o design do
+            // `rival_gladiator`, ver AMBIENT_ENTITIES abaixo): antes o
+            // clone regional sempre zerava `equipment` pra `{}`, inofensivo
+            // até agora porque nenhuma base existente (bandido/viajante/
+            // comerciante/patrulha/condutor) tinha equipamento nenhum — mas
+            // silenciosamente descartaria a arma visível de qualquer base
+            // futura que tivesse. `base.equipment || {}` preserva o
+            // equipamento da base em qualquer variante, com o MESMO
+            // resultado de antes pras entidades que já não tinham nada.
             visuals: { ...base.visuals, skinTone, hairColor: variant.hairColor },
-            equipment: {}, __teamColor: base.__teamColor, race: variant.race
+            equipment: base.equipment || {}, __teamColor: base.__teamColor, race: variant.race
         };
     },
 
@@ -1637,6 +1672,18 @@ window.RoadEngine = {
     },
     _makePatrolEntity(fromId, toId) {
         return this._makeRegionalEntity(this.AMBIENT_ENTITIES.patrol, this.PATROL_VARIANTS, 0, fromId, toId, 9900);
+    },
+
+    // Identidade regional do gladiador rival ambiente (Ciclo 22) — mesmo
+    // critério de metade da travessia já usado por bandido/viajante/
+    // comerciante (posição fixa dentro do chunk, ver _drawAmbientLife).
+    RIVAL_GLADIATOR_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#1a1410' },
+        elfico: { race: 'elfo', hairColor: '#2a2a4a' }
+    },
+    _makeRivalGladiatorEntity(x, fromId, toId) {
+        return this._makeRegionalEntity(this.AMBIENT_ENTITIES.rival_gladiator, this.RIVAL_GLADIATOR_VARIANTS, x, fromId, toId, 9200);
     },
 
     // Condutor da caravana (Ciclo 21) — antes a caravana ambiente era só a
