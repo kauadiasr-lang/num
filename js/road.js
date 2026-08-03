@@ -1183,6 +1183,17 @@ window.RoadEngine = {
         }
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, w, horizon);
+
+        // Estrelas cintilantes à noite (pedido explícito da seção
+        // "Iluminação": "iluminação adaptativa dia/noite" — até este
+        // ciclo a única diferença do céu noturno era um gradiente mais
+        // escuro, sem NENHUM detalhe próprio, diferente do céu já usado
+        // na Cidade (ver graphics.js, que tem estrelas/sol/lua). Somem
+        // com a corrupção (mesmo critério de "nenhuma vida ambiente
+        // sobrevive à corrupção" já usado no resto do arquivo — a névoa
+        // doentia bloqueia até a luz das estrelas).
+        this._drawNightStars(ctx, w, horizon, corrupted, isNight);
+
         if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
         this._drawSkyClouds(ctx, w, horizon, corrupted, isNight);
 
@@ -1571,6 +1582,37 @@ window.RoadEngine = {
         // TELA (depois do ctx.restore(), cobre a cena inteira de uma vez
         // em vez de precisar tocar cada elemento individual do mundo).
         this._drawAmbientLightFlicker(ctx, w, h);
+    },
+
+    // Estrelas cintilantes à noite — quase estáticas na tela (fator de
+    // parallax bem baixo, mais distante que qualquer outra camada já
+    // existente, condizente com estarem "no infinito"), cintilação via
+    // seno determinístico sobre performance.now() (nunca Math.random),
+    // nunca amarrado a WORLD_LENGTH (pano de fundo sempre visível de
+    // qualquer ponto da travessia, mesmo princípio de _drawSkyClouds).
+    PARALLAX_STARS_FACTOR: 0.08,
+    _drawNightStars(ctx, w, horizon, corrupted, isNight) {
+        if (!isNight || corrupted) return;
+        const tile = 55;
+        const camX = this._camX * this.PARALLAX_STARS_FACTOR;
+        const firstIdx = Math.floor((camX - w) / tile);
+        const lastIdx = Math.ceil((camX + w) / tile);
+        const t = performance.now() / 1000;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            if (this._hash(i * 131 + 59000) >= 60) continue; // nem todo slot tem estrela
+            const wx = i * tile;
+            const screenX = wx - camX;
+            if (screenX < -10 || screenX > w + 10) continue;
+            const starY = this._hash(i * 97 + 59500) % Math.max(1, Math.floor(horizon - 14));
+            const speed = 0.8 + (this._hash(i * 53 + 60000) % 10) / 10;
+            const phase = (this._hash(i * 71 + 60500) % 628) / 100;
+            const twinkle = 0.5 + 0.5 * Math.sin(t * speed + phase);
+            const size = 1 + (this._hash(i * 89 + 61000) % 2);
+            ctx.fillStyle = `rgba(255,255,255,${(0.35 + 0.55 * twinkle).toFixed(2)})`;
+            ctx.beginPath();
+            ctx.arc(screenX, starY, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
     },
 
     // Nuvens à deriva no céu da Estrada (parte da correção do "fundo azul
