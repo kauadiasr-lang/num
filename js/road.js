@@ -2403,14 +2403,42 @@ window.RoadEngine = {
             ctx.ellipse(tx, ty + 6, 34, 12, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Quatro pernas de madeira em X, sustentando a plataforma.
-            ctx.strokeStyle = corrupted ? '#2a2028' : '#4a3624';
-            ctx.lineWidth = 6;
-            for (const dx of [-22, 22]) {
+            // Variedade de base (pedido "sistema modular sem repetição
+            // óbvia" — até este ciclo TODA torre de vigia tinha exatamente
+            // a MESMA base de pernas de madeira em X). Metade das torres
+            // (via _hash) ganham uma base de alvenaria maciça em vez
+            // disso — mesma plataforma/guarda-corpo/lanterna no topo,
+            // independente da variante.
+            const towerVariant = this._hash(i * 149 + 64000) % 2;
+            if (towerVariant === 0) {
+                // Quatro pernas de madeira em X, sustentando a plataforma
+                // (base original, preservada como variante 0).
+                ctx.strokeStyle = corrupted ? '#2a2028' : '#4a3624';
+                ctx.lineWidth = 6;
+                for (const dx of [-22, 22]) {
+                    ctx.beginPath();
+                    ctx.moveTo(tx + dx * 0.3, ty);
+                    ctx.lineTo(tx + dx, ty - towerH);
+                    ctx.stroke();
+                }
+            } else {
+                // Base de alvenaria maciça, afunilando pro topo.
+                ctx.fillStyle = corrupted ? '#2e2830' : '#7a7568';
                 ctx.beginPath();
-                ctx.moveTo(tx + dx * 0.3, ty);
-                ctx.lineTo(tx + dx, ty - towerH);
-                ctx.stroke();
+                ctx.moveTo(tx - 20, ty);
+                ctx.lineTo(tx - 15, ty - towerH * 0.92);
+                ctx.lineTo(tx + 15, ty - towerH * 0.92);
+                ctx.lineTo(tx + 20, ty);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = corrupted ? '#221a20' : '#605a4e';
+                ctx.lineWidth = 1.5;
+                for (const dy of [ty - 24, ty - 52, ty - 80]) {
+                    ctx.beginPath();
+                    ctx.moveTo(tx - 19, dy);
+                    ctx.lineTo(tx + 19, dy);
+                    ctx.stroke();
+                }
             }
 
             // Plataforma + guarda-corpo no topo.
