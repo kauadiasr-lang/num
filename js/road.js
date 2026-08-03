@@ -1587,6 +1587,17 @@ window.RoadEngine = {
             const gy = side * (this.LANE_HALF_HEIGHT + 70);
             if (!window.Camera.isVisible(gx, gy, w, h, 200)) continue;
 
+            // Sombra no chão (pedido do usuário: "sombras" entre os
+            // elementos de preenchimento visual da floresta — nenhum objeto
+            // do cenário projetava sombra até este ciclo, só as manchas de
+            // solo genéricas). Elipse achatada na base do tronco, sempre
+            // desenhada ANTES do tronco/copa (camada de baixo, mesmo
+            // princípio dos detalhes de solo acima).
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.35)' : 'rgba(0,0,0,0.22)';
+            ctx.beginPath();
+            ctx.ellipse(gx, gy + 4, 46, 14, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             const trunkH = 70;
             ctx.fillStyle = corrupted ? '#1a1410' : '#4a3624';
             ctx.fillRect(gx - 9, gy - trunkH, 18, trunkH);
