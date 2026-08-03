@@ -94,6 +94,7 @@ window.RoadEngine = {
     GRASS_TUFT_SPACING: 70, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
     INSECT_SWARM_SPACING: 260, // nuvens de pequenos insetos — item distinto de "borboletas" na seção Ambientação (pontos minúsculos zumbindo, não asas coloridas), visíveis de dia E de noite
     RUIN_FRAGMENT_SPACING: 1800, // fragmentos de ruínas puramente decorativos — mais raros que troncos/cogumelos, mais comuns que as árvores gigantes; cenário, nunca interativo (distinto do evento 'ruins')
+    SIDE_TRAIL_SPACING: 950, // trilhas laterais decorativas que se ramificam da estrada rumo à floresta (pedido explícito da seção "Exploração": "trilhas; atalhos") — puramente visual, sugere caminhos alternativos sem alterar a faixa caminhável real
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1425,6 +1426,16 @@ window.RoadEngine = {
         // visível independente de dia/noite/clima).
         this._drawRuinFragments(ctx, w, h, corrupted);
 
+        // Trilhas laterais que se ramificam da estrada rumo à floresta
+        // (pedido explícito da seção "Exploração": "trilhas; atalhos" —
+        // até este ciclo a estrada era um corredor único, sem NENHUMA
+        // sugestão visual de caminhos alternativos). Puramente decorativo:
+        // some gradualmente na vegetação em vez de terminar de forma
+        // abrupta, sugerindo que leva a algo fora do alcance da câmera —
+        // não abre uma faixa caminhável nova nem altera colisão nenhuma
+        // (diferente das clareiras, que já alargam LANE_HALF_HEIGHT).
+        this._drawSideTrails(ctx, w, h, corrupted);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -2288,6 +2299,56 @@ window.RoadEngine = {
                 }
                 ctx.fillStyle = mossColor;
                 ctx.beginPath(); ctx.ellipse(rx - 6, ry - 20, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    },
+
+    // Trilhas laterais decorativas — ramificam da borda da faixa
+    // caminhável (LANE_HALF_HEIGHT) em direção à floresta, curvando com um
+    // leve zigue-zague (interpolação quadrática calculada manualmente, sem
+    // usar ctx.quadraticCurveTo, pra não se confundir com a curva de folha/
+    // animação de outros sistemas em testes de captura ampla) e sumindo
+    // gradualmente (alpha decrescente por segmento) em vez de terminar de
+    // forma abrupta — reforça a sensação de "leva a algo que a câmera não
+    // alcança", sem abrir nenhuma faixa caminhável nova nem mudar colisão.
+    _drawSideTrails(ctx, w, h, corrupted) {
+        const spacing = this.SIDE_TRAIL_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const tx = i * spacing;
+            if (tx < 500 || tx > this.WORLD_LENGTH - 500) continue;
+            if (this._hash(i * 167 + 49000) >= 45) continue; // nem todo slot tem uma trilha lateral
+            const side = (this._hash(i * 61 + 49500) % 2 === 0) ? -1 : 1;
+            const length = 160 + (this._hash(i * 37 + 50000) % 120); // 160-280
+            const sway = (this._hash(i * 89 + 50500) % 81) - 40; // -40..40, desvio lateral no fim da trilha
+            const p0x = tx, p0y = side * this.LANE_HALF_HEIGHT;
+            if (!window.Camera.isVisible(tx, p0y, w, h, length + 60)) continue;
+
+            const p2x = tx + sway, p2y = side * (this.LANE_HALF_HEIGHT + length);
+            const p1x = tx + sway * 0.5 + side * 24, p1y = side * (this.LANE_HALF_HEIGHT + length * 0.5);
+
+            // Pequena mancha de terra batida onde a trilha sai da estrada,
+            // ancorando visualmente o início do ramal (mesmo princípio das
+            // outras manchas de chão do arquivo).
+            ctx.fillStyle = corrupted ? 'rgba(30,22,28,0.4)' : 'rgba(122,100,64,0.4)';
+            ctx.beginPath(); ctx.ellipse(p0x, p0y, 18, 7, 0, 0, Math.PI * 2); ctx.fill();
+
+            const SEGMENTS = 6;
+            let prevX = p0x, prevY = p0y;
+            for (let s = 1; s <= SEGMENTS; s++) {
+                const t = s / SEGMENTS;
+                const it = 1 - t;
+                const x = it * it * p0x + 2 * it * t * p1x + t * t * p2x;
+                const y = it * it * p0y + 2 * it * t * p1y + t * t * p2y;
+                const alpha = 0.45 * (1 - t * 0.8);
+                ctx.strokeStyle = corrupted ? `rgba(30,22,28,${alpha.toFixed(2)})` : `rgba(122,100,64,${alpha.toFixed(2)})`;
+                ctx.lineWidth = 9 - t * 6;
+                ctx.beginPath();
+                ctx.moveTo(prevX, prevY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                prevX = x; prevY = y;
             }
         }
     },
