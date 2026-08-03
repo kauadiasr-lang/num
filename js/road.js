@@ -75,7 +75,6 @@ window.RoadEngine = {
     INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
     BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
     BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
-    RIVAL_GREET_RADIUS: 140, // distância pra revelar o nome do gladiador rival ambiente, mais generosa que BANDIT_DETECT_RADIUS por ser só flavor, nunca um perigo
 
     // Marcos de terreno puramente visuais (pedido explícito do usuário na
     // seção "EXPLORAÇÃO ENTRE CIDADES": "rios", "árvores gigantes" — o mapa
@@ -890,19 +889,31 @@ window.RoadEngine = {
 
     // Identidade nomeada do gladiador rival ambiente (pendência explícita
     // desde o Ciclo 22, "mundo vivo": "outros gladiadores podem estar
-    // viajando" ganhou a aparência, mas nunca um nome). Reaproveita EXATAMENTE
-    // a mesma fórmula de posição usada em _drawAmbientLife pro tipo
-    // `rival_gladiator` (chunk/seed/t), já que a posição nunca é guardada em
-    // nenhum array persistido — recalculada aqui, em update(), só pros chunks
-    // próximos do jogador, mesmo princípio de "cenário vs. lógica" já usado
-    // por _updateBandits. Ao entrar no raio pela primeira vez, revela um nome
-    // sorteado (determinístico por chunk) do MESMO RivalDatabase usado pela
-    // Ladder de Rivais (ver enemy.js) — reforça a sensação de mundo
-    // conectado ("você pode cruzar, na estrada, com quem um dia vai
-    // enfrentar na arena"), sem duplicar nenhum banco de nomes novo. Puramente
-    // flavor: nunca dispara batalha, nunca consome nada de `_events`. Some
-    // junto com o resto da vida ambiente à noite/corrupção (mesmos critérios
-    // de _drawAmbientLife/_isForestCorrupted), pra nunca saudar um gladiador
+    // viajando" ganhou a aparência, mas nunca um nome).
+    //
+    // Bug corrigido nesta revisão (Ciclo 74, achado no próprio spot-check de
+    // regressão do início do ciclo): a primeira versão (Ciclo 72) comparava
+    // a distância do jogador contra a posição EXATA e instantânea do
+    // gladiador ambiente (que varre o chunk inteiro em função de
+    // `performance.now()`, ver _drawAmbientLife). Como os dois lados do
+    // encontro se movem, a saudação só disparava se a fase exata do
+    // vaivém do gladiador coincidisse com o instante em que o jogador
+    // estava perto o bastante — na prática, um "cara ou coroa" de tempo
+    // real que podia falhar silenciosamente até pra um jogador andando bem
+    // devagar por cima do gladiador (reproduzido de forma determinística
+    // rodando o mesmo teste duas vezes: uma saudação, outra nenhuma).
+    // Correção: em vez de perseguir uma posição móvel, a saudação agora só
+    // depende do CHUNK em que o jogador está (mesmo chunk que decide se
+    // existe um `rival_gladiator` ali, ver _drawAmbientLife) — assim que o
+    // jogador entra num chunk com um gladiador rival ativo, a saudação
+    // dispara uma vez, garantido, sem depender de `performance.now()` nem
+    // de nenhuma coincidência de fase. Continua reaproveitando o MESMO
+    // RivalDatabase da Ladder de Rivais (ver enemy.js) pra sortear o nome —
+    // reforça a sensação de mundo conectado ("você pode cruzar, na estrada,
+    // com quem um dia vai enfrentar na arena"). Puramente flavor: nunca
+    // dispara batalha, nunca consome nada de `_events`. Some junto com o
+    // resto da vida ambiente à noite/corrupção (mesmos critérios de
+    // _drawAmbientLife/_isForestCorrupted), pra nunca saudar um gladiador
     // que nem está sendo desenhado na tela.
     _updateRivalGladiatorGreetings() {
         if (this._isForestCorrupted()) return;
@@ -910,27 +921,17 @@ window.RoadEngine = {
         if (timeOfDay === 'night') return;
         const p = this._player;
         const chunkSize = this.AMBIENT_CHUNK_SIZE;
-        const firstChunk = Math.max(0, Math.floor((p.x - 400) / chunkSize) - 1);
-        const lastChunk = Math.ceil((p.x + 400) / chunkSize) + 1;
-        const t = performance.now() / 1000;
-        for (let c = firstChunk; c <= lastChunk; c++) {
-            if (this._rivalGreeted[c]) continue;
-            if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) continue;
-            const kind = this.AMBIENT_TYPES[this._hash(c * 29 + 6000) % this.AMBIENT_TYPES.length];
-            if (kind !== 'rival_gladiator') continue;
-            const seed = this._hash(c * 47 + 7000);
-            const chunkStart = c * chunkSize;
-            const x = chunkStart + ((t * 55 + seed * 35) % chunkSize);
-            const y = (seed % 2 === 0 ? -1 : 1) * 130;
-            const dist = Math.hypot(p.x - x, p.y - y);
-            if (dist >= this.RIVAL_GREET_RADIUS) continue;
-            this._rivalGreeted[c] = true;
-            if (!window.RivalDatabase) continue;
-            const pool = this._rivalNamePool || (this._rivalNamePool = window.RivalDatabase.leagues.flatMap(l => l.rivals));
-            if (pool.length === 0) continue;
-            const rival = pool[this._hash(c * 61 + 71000) % pool.length];
-            if (window.MainMenu) window.MainMenu.showToast(`Você cruza com ${rival.name}, também rumo a ${this._destLabel}.`, 'info');
-        }
+        const c = Math.floor(p.x / chunkSize);
+        if (this._rivalGreeted[c]) return;
+        if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) return;
+        const kind = this.AMBIENT_TYPES[this._hash(c * 29 + 6000) % this.AMBIENT_TYPES.length];
+        if (kind !== 'rival_gladiator') return;
+        this._rivalGreeted[c] = true;
+        if (!window.RivalDatabase) return;
+        const pool = this._rivalNamePool || (this._rivalNamePool = window.RivalDatabase.leagues.flatMap(l => l.rivals));
+        if (pool.length === 0) return;
+        const rival = pool[this._hash(c * 61 + 71000) % pool.length];
+        if (window.MainMenu) window.MainMenu.showToast(`Você cruza com ${rival.name}, também rumo a ${this._destLabel}.`, 'info');
     },
 
     // Evento pacífico (ou a escolha da Corrupção) mais próximo dentro do
