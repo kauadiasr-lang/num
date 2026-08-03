@@ -1317,7 +1317,7 @@ window.RoadEngine = {
         // Árvores gigantes (pedido do usuário) — marcos raros e bem mais
         // esparsos que a vegetação normal acima, sempre fora da faixa
         // caminhável (nunca bloqueiam nem colidem).
-        this._drawGiantTrees(ctx, w, h, corrupted);
+        this._drawGiantTrees(ctx, w, h, corrupted, isNight);
 
         // Acampamentos abandonados (pedido do usuário: "acampamentos" — o
         // mapa não deve parecer um corredor) — marco de terreno puramente
@@ -1782,7 +1782,7 @@ window.RoadEngine = {
     // (LANE_HALF_HEIGHT + 70)`), nunca colide, nunca aparece perto demais
     // dos portões de cidade (evita competir visualmente com a cena de
     // chegada/partida).
-    _drawGiantTrees(ctx, w, h, corrupted) {
+    _drawGiantTrees(ctx, w, h, corrupted, isNight) {
         const spacing = this.GIANT_TREE_SPACING;
         const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
         const lastIdx = Math.ceil((this._player.x + w) / spacing);
@@ -1864,6 +1864,42 @@ window.RoadEngine = {
             ctx.beginPath(); ctx.arc(cx + 18, canopyY - 20, 28, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.35)' : 'rgba(60,110,55,0.35)';
             ctx.beginPath(); ctx.arc(cx - 10, canopyY - 14, 26, 0, Math.PI * 2); ctx.fill();
+
+            // Raios de luz atravessando a copa (pedido explícito da
+            // reformulação: "raios de luz atravessando as copas", na seção
+            // de Iluminação). A escuridão da corrupção bloqueia a luz --
+            // mesmo critério de "nenhuma vida ambiente sobrevive à
+            // corrupção" já usado no resto do arquivo -- então some junto
+            // com tudo mais quando `corrupted`.
+            if (!corrupted) this._drawCanopyLightRays(ctx, cx, canopyY, i, isNight);
+        }
+    },
+
+    // Feixes finos e translúcidos descendo da copa até o chão, tonalidade
+    // quente/dourada de dia e fria/prateada à noite -- "durante a noite,
+    // adaptar automaticamente a iluminação" pedido na mesma diretriz.
+    // Determinístico por árvore (via _hash), nunca `Math.random`.
+    _drawCanopyLightRays(ctx, cx, canopyY, i, isNight) {
+        const rayCount = 2 + (this._hash(i * 131 + 30000) % 2); // 2 ou 3 raios
+        const color = isNight ? 'rgba(180,200,255,' : 'rgba(255,240,180,';
+        const baseOpacity = isNight ? 0.05 : 0.10;
+        for (let r = 0; r < rayCount; r++) {
+            const offset = ((this._hash(i * 173 + 31000 + r * 37) % 41) - 20);
+            const width = 10 + (this._hash(i * 191 + 32000 + r * 37) % 8);
+            const length = 130 + (this._hash(i * 211 + 33000 + r * 37) % 60);
+            const topX = cx + offset;
+            const topY = canopyY - 6;
+            const grad = ctx.createLinearGradient(topX, topY, topX, topY + length);
+            grad.addColorStop(0, color + (baseOpacity * 1.6) + ')');
+            grad.addColorStop(1, color + '0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(topX - width * 0.25, topY);
+            ctx.lineTo(topX + width * 0.25, topY);
+            ctx.lineTo(topX + width, topY + length);
+            ctx.lineTo(topX - width, topY + length);
+            ctx.closePath();
+            ctx.fill();
         }
     },
 
