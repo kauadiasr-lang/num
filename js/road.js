@@ -93,6 +93,7 @@ window.RoadEngine = {
     LEAF_DECAL_SPACING: 150, // folhas caídas no chão — mais comuns ainda que troncos/cogumelos (clutter de chão, não marco), podem cair dentro da faixa caminhável inteira (pedido explícito da seção "Caminho": "folhas caídas")
     GRASS_TUFT_SPACING: 70, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
     INSECT_SWARM_SPACING: 260, // nuvens de pequenos insetos — item distinto de "borboletas" na seção Ambientação (pontos minúsculos zumbindo, não asas coloridas), visíveis de dia E de noite
+    RUIN_FRAGMENT_SPACING: 1800, // fragmentos de ruínas puramente decorativos — mais raros que troncos/cogumelos, mais comuns que as árvores gigantes; cenário, nunca interativo (distinto do evento 'ruins')
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1413,6 +1414,17 @@ window.RoadEngine = {
         // luz/clima, então sempre desenhados independente de dia/noite.
         this._drawFallenLogsAndMushrooms(ctx, w, h, corrupted);
 
+        // Fragmentos de ruínas antigas puramente decorativos (pedido
+        // explícito da seção "Objetos": "ruínas antigas ... podem servir
+        // tanto para decoração quanto para exploração" — até este ciclo só
+        // existia a versão INTERATIVA, o evento `ruins`, que dá recompensa
+        // e exige aproximação. Este marco aqui é só cenário, nunca gera
+        // aviso de interação nem entra em `_events` — colunas quebradas de
+        // pedra espalhadas pela paisagem, mesmo princípio das árvores
+        // gigantes/acampamentos/torres (objeto físico do mundo, sempre
+        // visível independente de dia/noite/clima).
+        this._drawRuinFragments(ctx, w, h, corrupted);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -2217,6 +2229,65 @@ window.RoadEngine = {
                     ctx.closePath();
                     ctx.fill();
                 }
+            }
+        }
+    },
+
+    // Fragmentos de ruínas antigas puramente decorativos (pedido explícito
+    // da seção "Objetos": "ruínas antigas ... podem servir tanto para
+    // decoração quanto para exploração"). Distinto do evento INTERATIVO
+    // `ruins` (que dá recompensa e exige aproximação) — este marco é só
+    // paisagem: coluna quebrada em pé (com os tambores/anéis visíveis) ou
+    // caída de lado, cobertas de musgo (tingido de roxo doentio durante
+    // corrupção, mesmo critério do resto do arquivo), nunca entra em
+    // `_events`.
+    _drawRuinFragments(ctx, w, h, corrupted) {
+        const spacing = this.RUIN_FRAGMENT_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const rx = i * spacing;
+            if (rx < 600 || rx > this.WORLD_LENGTH - 600) continue;
+            if (this._hash(i * 223 + 47000) >= 40) continue; // marco raro, nem todo slot tem um
+            const side = (this._hash(i * 149 + 47500) % 2 === 0) ? -1 : 1;
+            const ry = side * (this.LANE_HALF_HEIGHT + 50 + (this._hash(i * 83 + 48000) % 40));
+            if (!window.Camera.isVisible(rx, ry, w, h, 150)) continue;
+
+            const fallen = this._hash(i * 71 + 48500) % 2 === 0;
+            const stoneColor = corrupted ? '#3a3038' : '#8a8578';
+            const mossColor = corrupted ? 'rgba(70,40,90,0.5)' : 'rgba(90,120,60,0.5)';
+
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.28)' : 'rgba(0,0,0,0.18)';
+            ctx.beginPath(); ctx.ellipse(rx, ry + 8, fallen ? 40 : 22, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+            if (fallen) {
+                // Coluna caída, deitada de lado — tambores em linha.
+                ctx.fillStyle = stoneColor;
+                for (const dx of [-28, 0, 26]) {
+                    ctx.beginPath();
+                    ctx.ellipse(rx + dx, ry, 16, 11, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = mossColor;
+                ctx.beginPath(); ctx.ellipse(rx - 10, ry - 4, 10, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Coluna quebrada em pé, topo irregular.
+                ctx.fillStyle = stoneColor;
+                ctx.beginPath();
+                ctx.moveTo(rx - 14, ry + 6);
+                ctx.lineTo(rx - 12, ry - 48);
+                ctx.lineTo(rx - 3, ry - 58);
+                ctx.lineTo(rx + 8, ry - 50);
+                ctx.lineTo(rx + 13, ry + 6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = corrupted ? '#221a20' : '#605a4e';
+                ctx.lineWidth = 1.5;
+                for (const dy of [-10, -26, -42]) {
+                    ctx.beginPath(); ctx.moveTo(rx - 13, ry + dy); ctx.lineTo(rx + 12, ry + dy); ctx.stroke();
+                }
+                ctx.fillStyle = mossColor;
+                ctx.beginPath(); ctx.ellipse(rx - 6, ry - 20, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
             }
         }
     },
