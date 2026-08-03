@@ -1198,6 +1198,21 @@ window.RoadEngine = {
         // com seu próprio deslocamento parcial calculado manualmente.
         this._drawDistantTreeline(ctx, w, horizon, corrupted, isNight);
 
+        // Arbustos a meia distância (nova camada de parallax — pedido
+        // explícito "múltiplas camadas de parallax" da reformulação, que
+        // até este ciclo só tinha 4 velocidades distintas: céu/montanhas
+        // fixos (0), linha de árvores distante (0.35), cenário principal
+        // (1.0) e folhagem em primeiro plano (1.8) — faltava uma camada
+        // INTERMEDIÁRIA entre o fundo distante e o cenário principal,
+        // deixando o salto de profundidade entre elas abrupto demais).
+        // Mesmo princípio de _drawDistantTreeline (coordenada de TELA,
+        // ladrilho infinito determinístico via _hash, nunca Math.random),
+        // só com velocidade PRÓPRIA entre as duas (0.62) e ancorada um
+        // pouco mais abaixo no horizonte, criando uma sensação real de 3
+        // planos de profundidade na floresta (longe/meio/perto) em vez de
+        // só 2.
+        this._drawMidgroundBushes(ctx, w, horizon, corrupted, isNight);
+
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
         // suavização (desfazendo o trabalho todo), então draw() só LÊ o
@@ -1608,6 +1623,36 @@ window.RoadEngine = {
             ctx.quadraticCurveTo(screenX - 22, horizon - treeH * 1.05, screenX, horizon - treeH);
             ctx.quadraticCurveTo(screenX + 22, horizon - treeH * 1.05, screenX + 44, horizon + 2);
             ctx.closePath();
+            ctx.fill();
+        }
+    },
+
+    // Arbustos a meia distância — camada de parallax INTERMEDIÁRIA entre
+    // a linha de árvores distante (PARALLAX_TREELINE_FACTOR, 0.35) e o
+    // cenário principal (velocidade 1.0, dentro do ctx.translate). Mesma
+    // arquitetura de _drawDistantTreeline (coordenada de TELA, ladrilho
+    // infinito via _hash, nunca amarrado a WORLD_LENGTH), só que ancorada
+    // um pouco mais abaixo no horizonte (mais perto da câmera) e com um
+    // ladrilho menor (silhuetas mais numerosas e mais próximas entre si
+    // que a linha de árvores, condizente com estar mais perto da câmera).
+    PARALLAX_MIDGROUND_FACTOR: 0.62,
+    _drawMidgroundBushes(ctx, w, horizon, corrupted, isNight) {
+        const tile = 90;
+        const camX = this._camX * this.PARALLAX_MIDGROUND_FACTOR;
+        const firstIdx = Math.floor((camX - w) / tile);
+        const lastIdx = Math.ceil((camX + w) / tile);
+        ctx.fillStyle = corrupted ? 'rgba(55,30,70,0.6)' : (isNight ? 'rgba(10,22,14,0.65)' : 'rgba(22,48,26,0.6)');
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const wx = i * tile;
+            const screenX = wx - camX;
+            if (screenX < -60 || screenX > w + 60) continue;
+            const bushH = 14 + (this._hash(i * 53 + 57000) % 16);
+            const bushW = 26 + (this._hash(i * 89 + 57500) % 14);
+            const baseY = horizon + 14 + (this._hash(i * 31 + 58000) % 10);
+            ctx.beginPath();
+            ctx.arc(screenX - bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
+            ctx.arc(screenX + bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
+            ctx.arc(screenX, baseY - bushH * 0.3, bushH * 0.7, 0, Math.PI * 2);
             ctx.fill();
         }
     },
