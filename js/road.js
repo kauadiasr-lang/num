@@ -243,12 +243,19 @@ window.RoadEngine = {
         'Um trecho de poema fala de uma entidade profana que "só aparece pra quem já provou que não precisa de ajuda nenhuma" — e que aceitar sua oferta muda mais que a aparência.'
     ],
     // Subiu de 6 pra 12 ao adicionar ruins/cave/bridge/shrine/magic_stone/
-    // lore_book (agora 12 tipos pacíficos + bandido = 13 no pool de
-    // _generateEvents) — mantém a MESMA densidade relativa de marcos por
+    // lore_book (12 tipos pacíficos + bandido = 13 no pool de
+    // _generateEvents), depois de 12 pra 14 no Ciclo 25 ao perceber que
+    // wounded_gladiator (Ciclo 17) e rare_animal (Ciclo 23) elevaram o
+    // pool pra 14 tipos pacíficos + bandido = 15 sem nenhum ajuste
+    // correspondente aqui — a MESMA regressão que motivou o bump anterior:
+    // confirmado deterministicamente que a travessia porto_helenico →
+    // fortaleza_orc não sorteava NENHUM bandido com o pool diluído (12
+    // slots pra 15 tipos). Mantém a MESMA densidade relativa de marcos por
     // trecho de mundo (o custo por frame continua O(eventos visíveis),
-    // nunca O(EVENT_COUNT) sozinho), só evita que metade dos tipos nunca
-    // apareça numa viagem só por causa do sorteio ter poucos slots.
-    EVENT_COUNT: 12, // eventos pacíficos + bandidos espalhados pela travessia inteira
+    // nunca O(EVENT_COUNT) sozinho), só evita que um tipo inteiro (incluindo
+    // o bandido) nunca apareça numa viagem só por causa do sorteio ter
+    // poucos slots pro tamanho do pool.
+    EVENT_COUNT: 14, // eventos pacíficos + bandidos espalhados pela travessia inteira
 
     // Entidades exclusivas da Expedição à Floresta Ancestral (Fase 5, ver
     // _generateForestEncounter) — nunca entram no pool aleatório de
@@ -415,6 +422,21 @@ window.RoadEngine = {
             else if (type === 'traveler') ev.entity = this._makeTravelerEntity(x, fromId, toId);
             else if (type === 'merchant') ev.entity = this._makeMerchantEntity(x, fromId, toId);
             this._events.push(ev);
+        }
+        // Garante pelo menos 1 bandido por travessia (achado no Ciclo 25:
+        // medindo a distribuição real do sorteio acima, ~40% das
+        // travessias não tinham NENHUM bandido, mesmo depois de subir
+        // EVENT_COUNT de 12 pra 14 — "bandidos esperando emboscada" é item
+        // explícito da lista original do usuário, não pode ficar 100%
+        // sujeito à sorte do hash). Só força a conversão quando o sorteio
+        // normal não gerou nenhum; a posição forçada é ela própria
+        // determinística (baseada no seed da travessia, nunca um índice
+        // fixo) pra não criar um padrão óbvio de "o evento X é sempre
+        // bandido".
+        if (!this._events.some(ev => ev.type === 'bandit')) {
+            const forced = this._events[this._hash(seed + 99999) % this.EVENT_COUNT];
+            forced.type = 'bandit';
+            forced.entity = this._makeBanditEntity(forced.x, fromId, toId);
         }
     },
 
