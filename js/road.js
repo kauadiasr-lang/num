@@ -88,6 +88,7 @@ window.RoadEngine = {
     GIANT_TREE_SPACING: 2600, // bem mais esparso que a vegetação normal (220) — são marcos raros, não decoração de fundo
     CAMP_SPACING: 5200, // acampamentos — mais esparsos ainda que as árvores gigantes (cenário raro, não repetitivo)
     CLEARING_SPACING: 4400, // clareiras — trechos de chão mais claro/aberto entre a vegetação, pedido explícito ("clareiras")
+    TOWER_SPACING: 7800, // torres de vigia de fronteira — mais raras ainda que os acampamentos, marco único por travessia na maioria das rotas curtas
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1250,6 +1251,11 @@ window.RoadEngine = {
         // fora da faixa caminhável, cullado por Camera.isVisible).
         this._drawTravelCamps(ctx, w, h, corrupted, isNight);
 
+        // Torres de vigia de fronteira — mesmo princípio dos acampamentos
+        // acima, marco físico raro que dá corpo ao lore já existente sobre
+        // guardas de fronteira (ver LORE_ENTRIES).
+        this._drawWatchtowers(ctx, w, h, corrupted, isNight);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -1665,6 +1671,66 @@ window.RoadEngine = {
                 ctx.closePath();
                 ctx.fill();
             }
+        }
+    },
+
+    // Torres de vigia de fronteira (pedido de "mundo vivo" — o lore já
+    // menciona guardas de fronteira patrulhando à noite, ver LORE_ENTRIES em
+    // _resolveEvent, mas nenhuma estrutura física correspondia a isso, só a
+    // patrulha móvel `AMBIENT_ENTITIES.patrol`) — marco de terreno raro,
+    // mesmo princípio determinístico/cullado de _drawGiantTrees/
+    // _drawTravelCamps, sempre fora da faixa caminhável, nunca colide.
+    // Torre de madeira simples com plataforma no topo; lanterna acesa à
+    // noite (mesma linguagem visual da tocha de _drawCityGate) e sombra na
+    // base (mesmo padrão já usado pelas árvores gigantes/acampamentos).
+    _drawWatchtowers(ctx, w, h, corrupted, isNight) {
+        const spacing = this.TOWER_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const tx = i * spacing;
+            if (tx < 600 || tx > this.WORLD_LENGTH - 600) continue;
+            if (this._hash(i * 113 + 13000) >= 45) continue; // torre rara, nem todo slot tem uma
+            const side = (this._hash(i * 67 + 13500) % 2 === 0) ? -1 : 1;
+            const ty = side * (this.LANE_HALF_HEIGHT + 90);
+            if (!window.Camera.isVisible(tx, ty, w, h, 220)) continue;
+
+            const towerH = 130;
+
+            // Sombra no chão, antes de qualquer parte da torre.
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.3)' : 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(tx, ty + 6, 34, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Quatro pernas de madeira em X, sustentando a plataforma.
+            ctx.strokeStyle = corrupted ? '#2a2028' : '#4a3624';
+            ctx.lineWidth = 6;
+            for (const dx of [-22, 22]) {
+                ctx.beginPath();
+                ctx.moveTo(tx + dx * 0.3, ty);
+                ctx.lineTo(tx + dx, ty - towerH);
+                ctx.stroke();
+            }
+
+            // Plataforma + guarda-corpo no topo.
+            ctx.fillStyle = corrupted ? '#3a2c30' : '#6b5a3a';
+            ctx.fillRect(tx - 30, ty - towerH - 10, 60, 12);
+            ctx.fillStyle = corrupted ? '#2a2028' : '#42352a';
+            ctx.fillRect(tx - 30, ty - towerH - 26, 6, 16);
+            ctx.fillRect(tx + 24, ty - towerH - 26, 6, 16);
+
+            // Lanterna acesa à noite, mesma linguagem visual da tocha de
+            // _drawCityGate — nunca some, só apaga o brilho de dia.
+            if (isNight && !corrupted) {
+                const glow = ctx.createRadialGradient(tx, ty - towerH - 32, 0, tx, ty - towerH - 32, 55);
+                glow.addColorStop(0, 'rgba(255,200,90,0.35)');
+                glow.addColorStop(1, 'rgba(255,200,90,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(tx, ty - towerH - 32, 55, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = isNight && !corrupted ? '#ffd27a' : '#8a7a5a';
+            ctx.beginPath(); ctx.arc(tx, ty - towerH - 32, 6, 0, Math.PI * 2); ctx.fill();
         }
     },
 
