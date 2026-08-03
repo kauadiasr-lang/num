@@ -1047,7 +1047,7 @@ window.RoadEngine = {
         // fogem" enquanto a floresta estiver corrompida (pedido do
         // usuário) — nenhuma vida ambiente aparece até o monstro das
         // sombras ser derrotado.
-        if (!corrupted) this._drawAmbientLife(ctx, w, h);
+        if (!corrupted) this._drawAmbientLife(ctx, w, h, isNight);
         else this._drawCorruptionMist(ctx, w, h);
 
         this._drawPlayer(ctx);
@@ -1168,7 +1168,7 @@ window.RoadEngine = {
         ctx.restore();
     },
 
-    _drawAmbientLife(ctx, w, h) {
+    _drawAmbientLife(ctx, w, h, isNight) {
         const chunkSize = this.AMBIENT_CHUNK_SIZE;
         const px = this._player.x;
         const firstChunk = Math.max(0, Math.floor((px - w) / chunkSize) - 1);
@@ -1178,6 +1178,11 @@ window.RoadEngine = {
         for (let c = firstChunk; c <= lastChunk; c++) {
             if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) continue;
             const kind = this.AMBIENT_TYPES[this._hash(c * 29 + 6000) % this.AMBIENT_TYPES.length];
+            // À noite só a patrulha da guarda continua (mesmo princípio já
+            // usado na Praça, ver CityEngine._nightVisibleNpcs/"NPCs somem
+            // à noite" — viajante comum, caravana de comércio e animais não
+            // ficam expostos na estrada escura, só a ronda da guarda).
+            if (isNight && kind !== 'patrol') continue;
             const seed = this._hash(c * 47 + 7000);
             const chunkStart = c * chunkSize;
             let x, y, facing = 1;
