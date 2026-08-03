@@ -1291,6 +1291,20 @@ window.RoadEngine = {
         // só 2.
         this._drawMidgroundBushes(ctx, w, horizon, corrupted, isNight);
 
+        // Parede densa de árvores de fundo — pedido direto do usuário: "a
+        // floresta está muito irreal, árvores pequenas e inconsistentes; o
+        // cenário deve conter muito mais árvores ao ponto de tampar o
+        // fundo". Terceira e mais próxima camada de parallax de árvores
+        // (entre os arbustos a meia distância, 0.62, e o cenário
+        // principal, 1.0), com silhuetas de árvore de verdade (tronco +
+        // copa, bem maiores que os arbustos) numa grade bem mais apertada,
+        // com densidade escalando pela vegDensity da zona ATUAL do
+        // jogador (mesmo princípio já usado pela vegetação pequena) — em
+        // Campos ainda dá pra ver claros entre elas, mas a partir do
+        // Bosque a cobertura já é praticamente total, formando uma parede
+        // contínua que bloqueia visualmente o horizonte ao fundo.
+        this._drawForestWall(ctx, w, horizon, corrupted, isNight);
+
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
         // suavização (desfazendo o trabalho todo), então draw() só LÊ o
@@ -1818,6 +1832,54 @@ window.RoadEngine = {
             ctx.arc(screenX + bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
             ctx.arc(screenX, baseY - bushH * 0.3, bushH * 0.7, 0, Math.PI * 2);
             ctx.fill();
+        }
+    },
+
+    // Parede densa de árvores de fundo — pedido direto do usuário: "a
+    // floresta está muito irreal, árvores pequenas e inconsistentes; o
+    // cenário deve conter muito mais árvores ao ponto de tampar o fundo".
+    // Camada de parallax MAIS PRÓXIMA da câmera entre os arbustos a meia
+    // distância (0.62) e o cenário principal (1.0) — silhuetas de árvore
+    // de verdade (tronco + copa em 4 lóbulos sobrepostos), bem maiores
+    // que os arbustos, numa grade apertada (tile 58, menor que a largura
+    // média das copas) pra que se sobreponham e formem uma parede visual
+    // quase contínua. Densidade escala pela vegDensity da zona ATUAL do
+    // jogador (mesmo princípio já usado pela vegetação pequena dentro da
+    // faixa caminhável, ver zone.vegDensity abaixo) — em Campos (vegDensity
+    // 1.0) ainda sobra ~78% de cobertura com alguns claros visíveis, mas a
+    // partir do Bosque (vegDensity >= 1.4) o limiar já ultrapassa o máximo
+    // do hash (0-99), garantindo cobertura de 100%, uma parede de verdade
+    // bloqueando o horizonte. Alterna entre 2 tons de copa por posição
+    // (nunca Math.random) pra dar textura sem virar um carimbo repetido.
+    PARALLAX_FORESTWALL_FACTOR: 0.78,
+    _drawForestWall(ctx, w, horizon, corrupted, isNight) {
+        const tile = 58;
+        const camX = this._camX * this.PARALLAX_FORESTWALL_FACTOR;
+        const firstIdx = Math.floor((camX - w) / tile);
+        const lastIdx = Math.ceil((camX + w) / tile);
+        const zone = this._zones && this._zones[this._zoneIndexAt(this._player.x)];
+        const density = zone ? zone.vegDensity : 1.0;
+        const trunkColor = corrupted ? '#241f28' : (isNight ? '#1a1410' : '#3a2a1a');
+        const canopyColorA = corrupted ? 'rgba(60,35,80,0.88)' : (isNight ? 'rgba(10,20,12,0.9)' : 'rgba(18,42,20,0.88)');
+        const canopyColorB = corrupted ? 'rgba(75,45,95,0.88)' : (isNight ? 'rgba(14,26,16,0.9)' : 'rgba(24,52,26,0.88)');
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            if (this._hash(i * 149 + 76000) >= 78 * density) continue; // clareiras raras quanto mais densa a zona
+            const wx = i * tile;
+            const screenX = wx - camX;
+            if (screenX < -70 || screenX > w + 70) continue;
+            const treeH = 70 + (this._hash(i * 83 + 76500) % 55); // 70-125
+            const treeW = 46 + (this._hash(i * 61 + 77000) % 26); // 46-72
+            const baseY = horizon + 20 + (this._hash(i * 37 + 77500) % 14);
+            const topY = baseY - treeH;
+
+            ctx.fillStyle = trunkColor;
+            ctx.fillRect(screenX - treeW * 0.08, baseY - treeH * 0.35, treeW * 0.16, treeH * 0.35);
+
+            ctx.fillStyle = this._hash(i * 29 + 78000) % 2 === 0 ? canopyColorA : canopyColorB;
+            ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(screenX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(screenX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.18, treeW * 0.3, 0, Math.PI * 2); ctx.fill();
         }
     },
 
