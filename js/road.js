@@ -1300,17 +1300,39 @@ window.RoadEngine = {
             // roxo doentio por cima de qualquer família (prioridade da
             // corrupção sobre a identidade normal da zona).
             const detailType = this._hash(i * 83 + 15000) % 4;
+
+            // Revisão de "sistema modular" (Reformulação da Floresta):
+            // antes desta fatia, toda pedra tinha o EXATO mesmo tamanho de
+            // toda outra pedra, todo arbusto o mesmo tamanho de todo outro
+            // arbusto — só o TIPO variava (Ciclo original), nunca a escala
+            // nem a inclinação de cada instância. Escala (0.75x-1.25x) e
+            // leve rotação (±0.3 rad) determinísticas por slot, aplicadas
+            // via `ctx.scale`/`ctx.rotate` num sistema de coordenadas
+            // local transladado pra (vx,vy), evitam que duas pedras/arbustos
+            // vizinhos pareçam clones exatos um do outro — mesmo princípio
+            // já usado no `lean` das árvores gigantes (Ciclo 44), agora
+            // estendido à vegetação pequena. A sombra (desenhada ANTES
+            // deste bloco, ver acima) fica de fora de propósito: continua
+            // com raio fixo (13,4) pra não quebrar a identificação exata
+            // já usada por testes existentes, e o desalinhamento sutil
+            // entre sombra e objeto escalado é imperceptível no jogo.
+            const scale = 0.75 + (this._hash(i * 173 + 40000) % 51) / 100;
+            const rot = ((this._hash(i * 67 + 40500) % 21) - 10) * 0.03;
+            ctx.save();
+            ctx.translate(vx, vy);
+            ctx.rotate(rot);
+            ctx.scale(scale, scale);
             if (detailType === 1) {
                 // Pedra — cor neutra de rocha, nunca muda por zona/família
                 // (pedras são inertes, não fazem parte da identidade de
                 // bioma como a vegetação faz).
                 ctx.fillStyle = corrupted ? 'rgba(40,35,45,0.75)' : 'rgba(110,105,98,0.85)';
                 ctx.beginPath();
-                ctx.moveTo(vx - 10, vy + 6);
-                ctx.lineTo(vx - 5, vy - 6);
-                ctx.lineTo(vx + 7, vy - 8);
-                ctx.lineTo(vx + 11, vy + 3);
-                ctx.lineTo(vx + 2, vy + 9);
+                ctx.moveTo(-10, 6);
+                ctx.lineTo(-5, -6);
+                ctx.lineTo(7, -8);
+                ctx.lineTo(11, 3);
+                ctx.lineTo(2, 9);
                 ctx.closePath();
                 ctx.fill();
             } else if (detailType === 2 && !corrupted) {
@@ -1319,23 +1341,24 @@ window.RoadEngine = {
                 ctx.fillStyle = 'rgba(230,190,90,0.85)';
                 for (const [fx, fy] of [[-8, -4], [8, -4], [0, -10], [-4, 4], [4, 4]]) {
                     ctx.beginPath();
-                    ctx.arc(vx + fx, vy + fy, 3, 0, Math.PI * 2);
+                    ctx.arc(fx, fy, 3, 0, Math.PI * 2);
                     ctx.fill();
                 }
             } else if (detailType === 3) {
                 // Arbusto — trio de círculos baixos, cor de zona (mais
                 // largo/baixo que a planta padrão, dá variedade de silhueta).
                 ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
-                ctx.beginPath(); ctx.arc(vx - 8, vy + 4, 9, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(vx + 8, vy + 4, 9, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(vx, vy - 2, 10, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(-8, 4, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(8, 4, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0, -2, 10, 0, Math.PI * 2); ctx.fill();
             } else {
                 // Planta padrão (elipse original).
                 ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
                 ctx.beginPath();
-                ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, 0, 14, 22, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
+            ctx.restore();
         }
 
         // Árvores gigantes (pedido do usuário) — marcos raros e bem mais
