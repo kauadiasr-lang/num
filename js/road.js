@@ -91,6 +91,7 @@ window.RoadEngine = {
     TOWER_SPACING: 7800, // torres de vigia de fronteira — mais raras ainda que os acampamentos, marco único por travessia na maioria das rotas curtas
     LOG_MUSHROOM_SPACING: 480, // troncos caídos/cogumelos — mais comuns que os marcos raros acima, decoram o caminho sem virar repetição (pedido explícito: "espalhe naturalmente pelo caminho: troncos caídos; cogumelos")
     LEAF_DECAL_SPACING: 150, // folhas caídas no chão — mais comuns ainda que troncos/cogumelos (clutter de chão, não marco), podem cair dentro da faixa caminhável inteira (pedido explícito da seção "Caminho": "folhas caídas")
+    GRASS_TUFT_SPACING: 70, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1263,6 +1264,10 @@ window.RoadEngine = {
         // _drawFallenLeaves abaixo).
         this._drawFallenLeaves(ctx, w, h, corrupted);
 
+        // Tufos de grama variada (pedido explícito da seção "Estilo
+        // visual": "grama variada" — ver _drawGrassTufts abaixo).
+        this._drawGrassTufts(ctx, w, h, corrupted);
+
         // Vegetação esparsa, só decorativa — gerada de forma determinística
         // (sem array guardado em memória, sem Math.random) e cullada via
         // Camera.isVisible, então o custo por frame não cresce com
@@ -2300,6 +2305,44 @@ window.RoadEngine = {
             ctx.closePath();
             ctx.fill();
             ctx.restore();
+        }
+    },
+
+    // Tufos de grama variada (pedido explícito da seção "Estilo visual":
+    // "grama variada"). Diferente da vegetação esparsa comum (pedra/
+    // planta/arbusto/flor, restrita às laterais da faixa), estes são
+    // traços finos de grama espalhados densamente pelo CHÃO inteiro,
+    // inclusive dentro da faixa caminhável — textura de base, não marco
+    // decorativo. "Variada" vem da variação de tom: mesmo RGB da zona (ou
+    // do roxo de corrupção), mas com um fator de opacidade determinístico
+    // por instância (0.6x-1.3x), então tufos vizinhos nunca têm o EXATO
+    // mesmo verde, dando profundidade sem precisar de uma paleta nova.
+    _drawGrassTufts(ctx, w, h, corrupted) {
+        const spacing = this.GRASS_TUFT_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const baseColor = corrupted ? 'rgba(45,20,55,0.6)' : null;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const gx = i * spacing;
+            if (gx < 0 || gx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(gx)];
+            if (this._hash(i * 211 + 43000) >= 45 * zone.vegDensity) continue; // nem todo slot tem tufo
+            const gy = (this._hash(i * 131 + 43500) % (this.LANE_HALF_HEIGHT * 2)) - this.LANE_HALF_HEIGHT;
+            if (!window.Camera.isVisible(gx, gy, w, h)) continue;
+
+            const zoneColor = baseColor || zone.vegColor;
+            const m = zoneColor.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+            const shadeFactor = 0.6 + (this._hash(i * 61 + 44000) % 71) / 100;
+            const alpha = Math.min(1, parseFloat(m[4]) * shadeFactor);
+            ctx.strokeStyle = `rgba(${m[1]},${m[2]},${m[3]},${alpha.toFixed(2)})`;
+            ctx.lineWidth = 1.5;
+            const bladeH = 5 + (this._hash(i * 37 + 44500) % 6);
+            for (const bdx of [-3, 0, 3]) {
+                ctx.beginPath();
+                ctx.moveTo(gx + bdx, gy + 3);
+                ctx.lineTo(gx + bdx * 1.3, gy + 3 - bladeH);
+                ctx.stroke();
+            }
         }
     },
 
