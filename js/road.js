@@ -1458,26 +1458,68 @@ window.RoadEngine = {
         }
     },
 
+    // Espécies do animal ambiente comum (pedido "animais devem circular" —
+    // até este ciclo, SEMPRE a mesma silhueta de cervo genérico se repetia
+    // por toda a Estrada, só alternando presença de chifres; mesma classe
+    // de repetição já corrigida em lore/flavor text nos Ciclos 26/27/34,
+    // agora aplicada à silhueta em vez de texto). `seed % 3` escolhe a
+    // espécie de forma determinística (sem Math.random), mesmo princípio
+    // de todo o resto do arquivo.
     _drawAmbientAnimal(ctx, x, y, seed) {
+        const species = seed % 3;
         ctx.save();
         ctx.translate(x, y);
-        ctx.fillStyle = '#7a5a3a';
-        ctx.beginPath();
-        ctx.ellipse(0, 4, 16, 9, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(14, -4, 7, 6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#5a3e26';
-        ctx.lineWidth = 2;
-        for (const lx of [-8, 8]) {
-            ctx.beginPath(); ctx.moveTo(lx, 10); ctx.lineTo(lx, 18); ctx.stroke();
-        }
-        if (seed % 2 === 0) {
+        if (species === 1) {
+            // Coelho — corpo pequeno e baixo, orelhas compridas, sem pernas
+            // visíveis (bicho rasteiro, não um mamífero de porte médio).
+            ctx.fillStyle = '#9a8a6a';
             ctx.beginPath();
-            ctx.moveTo(16, -9); ctx.lineTo(19, -15);
-            ctx.moveTo(20, -9); ctx.lineTo(23, -15);
+            ctx.ellipse(0, 6, 11, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(9, 1, 5, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(6, -8, 2, 8, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(11, -8, 2, 8, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (species === 2) {
+            // Pássaro voando — silhueta em V simples, sem corpo/pernas no
+            // chão (a posição (x,y) já oscila livremente acima/abaixo da
+            // faixa, ver _drawAmbientLife, então "voar" é só desenhar
+            // diferente na mesma posição, sem lógica de movimento nova).
+            ctx.strokeStyle = '#3a3428';
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-12, 0); ctx.quadraticCurveTo(-4, -8, 0, 0);
+            ctx.quadraticCurveTo(4, -8, 12, 0);
             ctx.stroke();
+        } else {
+            // Cervo/mamífero genérico (silhueta original) — chifres
+            // continuam alternando por seed, agora usando um hash diferente
+            // do que decide a espécie (senão todo cervo teria sempre
+            // chifres ou nunca, já que os dois usariam o mesmo `seed % 3`).
+            ctx.fillStyle = '#7a5a3a';
+            ctx.beginPath();
+            ctx.ellipse(0, 4, 16, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(14, -4, 7, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#5a3e26';
+            ctx.lineWidth = 2;
+            for (const lx of [-8, 8]) {
+                ctx.beginPath(); ctx.moveTo(lx, 10); ctx.lineTo(lx, 18); ctx.stroke();
+            }
+            if (Math.floor(seed / 3) % 2 === 0) {
+                ctx.beginPath();
+                ctx.moveTo(16, -9); ctx.lineTo(19, -15);
+                ctx.moveTo(20, -9); ctx.lineTo(23, -15);
+                ctx.stroke();
+            }
         }
         ctx.restore();
     },
