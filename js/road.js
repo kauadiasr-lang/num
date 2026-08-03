@@ -1156,6 +1156,18 @@ window.RoadEngine = {
         if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
         this._drawSkyClouds(ctx, w, horizon, corrupted, isNight);
 
+        // Reformulação da Floresta (nova diretriz do usuário) — fundação de
+        // PARALLAX real: até este ciclo só existiam 2 velocidades de scroll,
+        // 0 (céu/montanhas/nuvens, fixos na tela) e 1.0 (tudo dentro do
+        // ctx.translate(offset.dx,...) logo abaixo). Esta linha de árvores
+        // distantes na altura do horizonte se move a uma FRAÇÃO da
+        // velocidade do mundo (ver _drawDistantTreeline), criando uma 3ª
+        // camada de profundidade entre o fundo totalmente fixo e o cenário
+        // principal — exatamente o "cada camada deve mover-se em velocidade
+        // diferente" pedido. Desenhada ANTES do ctx.translate (como o céu),
+        // com seu próprio deslocamento parcial calculado manualmente.
+        this._drawDistantTreeline(ctx, w, horizon, corrupted, isNight);
+
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
         // suavização (desfazendo o trabalho todo), então draw() só LÊ o
@@ -1360,6 +1372,39 @@ window.RoadEngine = {
                 ctx.ellipse(cx + off * 28 * scale, cy + Math.abs(off) * 4 * scale, 32 * scale, 14 * scale, 0, 0, Math.PI * 2);
                 ctx.fill();
             });
+        }
+    },
+
+    // Linha de árvores distantes (Reformulação da Floresta — nova diretriz
+    // do usuário: "árvores ao fundo; floresta distante", múltiplas camadas
+    // de parallax se movendo a velocidades diferentes). Desenhada em
+    // coordenada de TELA (como o céu/nuvens), mas com deslocamento PRÓPRIO
+    // igual a uma FRAÇÃO de `this._camX` (PARALLAX_TREELINE_FACTOR) — bem
+    // mais lento que o cenário principal (que se move 1:1 com a câmera
+    // dentro do ctx.translate logo abaixo), criando a sensação real de
+    // profundidade que faltava. Silhuetas simples e translúcidas (neblina
+    // atmosférica de distância), posições determinísticas via _hash (nunca
+    // Math.random), padrão de "ladrilho infinito" — não amarrado a
+    // WORLD_LENGTH como o resto do cenário, já que é um pano de fundo
+    // sempre visível de qualquer ponto da travessia, igual ao céu.
+    PARALLAX_TREELINE_FACTOR: 0.35,
+    _drawDistantTreeline(ctx, w, horizon, corrupted, isNight) {
+        const tile = 130;
+        const camX = this._camX * this.PARALLAX_TREELINE_FACTOR;
+        const firstIdx = Math.floor((camX - w) / tile);
+        const lastIdx = Math.ceil((camX + w) / tile);
+        ctx.fillStyle = corrupted ? 'rgba(70,40,95,0.5)' : (isNight ? 'rgba(15,28,20,0.55)' : 'rgba(30,60,35,0.5)');
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const wx = i * tile;
+            const screenX = wx - camX;
+            if (screenX < -70 || screenX > w + 70) continue;
+            const treeH = 36 + (this._hash(i * 71 + 20000) % 34);
+            ctx.beginPath();
+            ctx.moveTo(screenX - 44, horizon + 2);
+            ctx.quadraticCurveTo(screenX - 22, horizon - treeH * 1.05, screenX, horizon - treeH);
+            ctx.quadraticCurveTo(screenX + 22, horizon - treeH * 1.05, screenX + 44, horizon + 2);
+            ctx.closePath();
+            ctx.fill();
         }
     },
 
