@@ -1213,6 +1213,20 @@ window.RoadEngine = {
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
             if (!window.Camera.isVisible(vx, vy, w, h)) continue;
 
+            // Sombra no chão (pedido do usuário: "sombras" entre os
+            // elementos de preenchimento visual da floresta) — última peça
+            // do trio iniciado nas árvores gigantes (Ciclo 31) e nos
+            // acampamentos (Ciclo 32): a vegetação pequena (pedra/planta/
+            // arbusto/flor) é o elemento mais numeroso do cenário e ainda
+            // não tinha sombra própria, só os marcos raros tinham. Elipse
+            // BEM menor que as dos marcos (objeto rasteiro, sombra discreta),
+            // desenhada antes de qualquer detalhe, mesmo custo de 1 forma a
+            // mais por slot já visível (sem slot novo, sem hash novo).
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.25)' : 'rgba(0,0,0,0.16)';
+            ctx.beginPath();
+            ctx.ellipse(vx, vy + 10, 13, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             // Cor da vegetação varia por zona/família de bioma (identidade
             // visual por par-de-cidade, ver ZONE_FAMILY_STAGES) — exceto
             // enquanto a floresta estiver corrompida, quando SEMPRE vira
