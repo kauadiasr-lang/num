@@ -1366,6 +1366,25 @@ window.RoadEngine = {
             // entre sombra e objeto escalado é imperceptível no jogo.
             const scale = 0.75 + (this._hash(i * 173 + 40000) % 51) / 100;
             const rot = ((this._hash(i * 67 + 40500) % 21) - 10) * 0.03;
+
+            // Variação de tom por instância na cor de zona (pedido
+            // "sistema modular sem repetição óbvia" — arbusto/moita/
+            // planta padrão eram os últimos tipos de vegetação pequena
+            // ainda usando exatamente a MESMA cor de zona em toda
+            // instância, sem nenhuma variação, ao contrário dos tufos de
+            // grama (Ciclo 53, que já tem `shadeFactor`) e das pedras/
+            // flores/copas já com variedade própria). Multiplica só o
+            // alfa (0.7x-1.3x), mesmo princípio de _drawGrassTufts —
+            // nunca muda o matiz da zona, só a intensidade, então a
+            // identidade visual por família de bioma continua intacta.
+            // Não se aplica durante corrupção (cores fixas continuam
+            // uniformes, mesmo critério já usado nas pedras).
+            const shadeFactor = 0.7 + (this._hash(i * 191 + 62000) % 61) / 100;
+            const zoneMatch = zone.vegColor.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+            const shadedVegColor = zoneMatch
+                ? `rgba(${zoneMatch[1]},${zoneMatch[2]},${zoneMatch[3]},${Math.min(1, parseFloat(zoneMatch[4]) * shadeFactor).toFixed(2)})`
+                : zone.vegColor;
+
             ctx.save();
             ctx.translate(vx, vy);
             ctx.rotate(rot);
@@ -1443,7 +1462,7 @@ window.RoadEngine = {
             } else if (detailType === 3) {
                 // Arbusto — trio de círculos baixos, cor de zona (mais
                 // largo/baixo que a planta padrão, dá variedade de silhueta).
-                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : shadedVegColor;
                 ctx.beginPath(); ctx.arc(-8, 4, 9, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(8, 4, 9, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(0, -2, 10, 0, Math.PI * 2); ctx.fill();
@@ -1452,14 +1471,14 @@ window.RoadEngine = {
                 // círculos sobrepostos, vs. 3), mato rasteiro fechado,
                 // baixo e largo, cor de zona (tingida de roxo doentio
                 // durante corrupção, mesmo critério do arbusto acima).
-                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.65)' : zone.vegColor;
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.65)' : shadedVegColor;
                 const spots = [[-14, 5], [-6, 7], [3, 6], [12, 5], [-9, -1], [1, -2], [10, -1]];
                 for (const [mx, my] of spots) {
                     ctx.beginPath(); ctx.arc(mx, my, 8, 0, Math.PI * 2); ctx.fill();
                 }
             } else {
                 // Planta padrão (elipse original).
-                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : shadedVegColor;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 14, 22, 0, 0, Math.PI * 2);
                 ctx.fill();
