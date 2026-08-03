@@ -196,11 +196,19 @@ window.RoadEngine = {
         magic_stone: { icon: '🔮', label: 'Recolher a pedra mágica' },
         lore_book: { icon: '📖', label: 'Ler o livro esquecido' }
     },
-    // Tipos de missão oferecidos pelo viajante — os três que já existiam em
-    // QuestFactory mais próximos do pedido explícito ("escoltar", "caçar
-    // uma criatura", "encontrar um objeto perdido"): ESCORT (Proteção de
-    // Comboio), HUNT (Contrato de Caça), RECOVERY (Item Perdido).
-    TRAVELER_QUEST_TYPES: ['ESCORT', 'HUNT', 'RECOVERY'],
+    // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
+    // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
+    // pedido explícito ("escoltar", "caçar uma criatura", "encontrar um
+    // objeto perdido"); COLLECT (Acúmulo de Glória), ARENA (Duelo Marcado),
+    // BOUNTY (Recompensa) e DELIVERY (Entrega Urgente) foram adicionados
+    // depois pra dar mais variedade — todos completam via duelo/chegada em
+    // cidade (nunca "conversar com N habitantes DA CIDADE", que é como
+    // INVESTIGATION funciona — não faz sentido narrativo vindo de um
+    // viajante encontrado NA ESTRADA, por isso NUNCA entra nesta lista).
+    // BOUNTY sem Rival disponível e DELIVERY sem cidade alcançável já caem
+    // em HUNT sozinhos dentro de QuestFactory.generate, sem risco de oferta
+    // quebrada.
+    TRAVELER_QUEST_TYPES: ['ESCORT', 'HUNT', 'RECOVERY', 'COLLECT', 'ARENA', 'BOUNTY', 'DELIVERY'],
     // Trechos de lore descobertos nos livros esquecidos (ver _resolveEvent)
     // — flavor text sobre o mundo (Coliseu, Gorkhal, Sylvaneth, Floresta
     // Ancestral), escolhido de forma determinística pela posição do livro
