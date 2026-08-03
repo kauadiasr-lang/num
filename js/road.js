@@ -1352,6 +1352,20 @@ window.RoadEngine = {
         this._drawMount(ctx);
         this._drawPlayer(ctx);
         ctx.restore();
+
+        // Reformulação da Floresta — camada de PRIMEIRO plano (completa o
+        // par de parallax junto com _drawDistantTreeline, Ciclo 43): galhos
+        // com folhagem pendurados da borda de cima da tela, bem mais
+        // próximos da câmera que qualquer coisa dentro do ctx.translate
+        // principal. Desenhada em coordenada de TELA, DEPOIS do
+        // ctx.restore() (por cima de tudo, inclusive do jogador — exatamente
+        // como "folhas próximas da câmera" deveriam aparecer, passando na
+        // frente da cena). Se move mais RÁPIDO que o mundo
+        // (PARALLAX_FOREGROUND_FACTOR > 1), o oposto da linha de árvores
+        // distantes (que se move mais devagar) — junto, as duas estabelecem
+        // 4 velocidades de scroll distintas nesta tela (0 pro céu, 0.35 pro
+        // fundo, 1.0 pro mundo principal, 1.8 pro primeiro plano).
+        this._drawForegroundLeaves(ctx, w, h, corrupted, isNight);
     },
 
     // Nuvens à deriva no céu da Estrada (parte da correção do "fundo azul
@@ -1403,6 +1417,36 @@ window.RoadEngine = {
             ctx.moveTo(screenX - 44, horizon + 2);
             ctx.quadraticCurveTo(screenX - 22, horizon - treeH * 1.05, screenX, horizon - treeH);
             ctx.quadraticCurveTo(screenX + 22, horizon - treeH * 1.05, screenX + 44, horizon + 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+    },
+
+    // Folhagem em primeiro plano (Reformulação da Floresta, Ciclo 45) —
+    // completa o par de parallax junto com _drawDistantTreeline acima:
+    // galhos com folhas pendurados da borda de cima da tela, se movendo
+    // MAIS RÁPIDO que o mundo (fator > 1, o oposto da linha de árvores
+    // distantes, que é mais lenta) — dá a sensação de galhos bem próximos
+    // da câmera passando por cima da cena, "folhas próximas da câmera"
+    // pedido explicitamente. Mesmo padrão de ladrilho infinito determinístico
+    // (_hash, nunca Math.random) da linha de árvores distantes, só que
+    // ancorado na borda SUPERIOR da tela em vez do horizonte.
+    PARALLAX_FOREGROUND_FACTOR: 1.8,
+    _drawForegroundLeaves(ctx, w, h, corrupted, isNight) {
+        const tile = 260;
+        const camX = this._camX * this.PARALLAX_FOREGROUND_FACTOR;
+        const firstIdx = Math.floor((camX - w) / tile);
+        const lastIdx = Math.ceil((camX + w) / tile);
+        ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.55)' : (isNight ? 'rgba(6,14,8,0.6)' : 'rgba(10,28,10,0.55)');
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const wx = i * tile;
+            const screenX = wx - camX;
+            if (screenX < -180 || screenX > w + 180) continue;
+            const dropH = 70 + (this._hash(i * 61 + 24000) % 50);
+            ctx.beginPath();
+            ctx.moveTo(screenX - 90, 0);
+            ctx.quadraticCurveTo(screenX - 40, dropH * 0.5, screenX, dropH);
+            ctx.quadraticCurveTo(screenX + 40, dropH * 0.5, screenX + 90, 0);
             ctx.closePath();
             ctx.fill();
         }
