@@ -2571,6 +2571,11 @@ class UIManager {
             { label: 'Livros Encontrados', value: p.loreBooksFound || 0 },
             { label: 'Pedras Mágicas', value: p.magicStonesFound || 0 },
             { label: 'Animais Raros Avistados', value: p.rareAnimalsSighted || 0 },
+            // visitedCityIds (city.js travelToCity) já alimenta a conquista
+            // world_explorer (ver player.js AchievementDB) desde antes desta
+            // sessão, mas nunca aparecia como estatística própria em nenhuma
+            // tela — mesma lacuna dos 3 contadores de exploração acima.
+            { label: 'Cidades Visitadas', value: `${(p.visitedCityIds || []).length} / ${Object.keys(window.CityDatabase || {}).length}` },
         ];
         statsContainer.innerHTML = stats.map(s => `
             <div class="house-stat-card">
