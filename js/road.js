@@ -1258,6 +1258,14 @@ window.RoadEngine = {
         if (!corrupted) this._drawAmbientLife(ctx, w, h, isNight);
         else this._drawCorruptionMist(ctx, w, h);
 
+        // Vagalumes noturnos (pedido do usuário: floresta "viva", preenchida
+        // — reforça o mesmo objetivo de _drawAmbientLife, só que ligado ao
+        // ciclo dia/noite já existente em vez de à vida ambiente). Some
+        // durante o dia e enquanto a floresta estiver corrompida (mesmo
+        // critério de "animais fogem" já usado por _drawAmbientLife acima —
+        // nenhuma vida ambiente, nem vagalume, sobrevive à corrupção).
+        if (isNight && !corrupted) this._drawFireflies(ctx, w, h);
+
         this._drawMount(ctx);
         this._drawPlayer(ctx);
         ctx.restore();
@@ -1637,6 +1645,48 @@ window.RoadEngine = {
                 ctx.closePath();
                 ctx.fill();
             }
+        }
+    },
+
+    // Vagalumes noturnos (pedido do usuário: "floresta viva", mesma faixa de
+    // slots/hash/culling já usada pela vegetação em draw() acima, só que
+    // escalada por zone.vegDensity — Bosque/Floresta ganham bem mais
+    // vagalumes que Campos, reforçando a mesma diferença de densidade já
+    // usada pra vegetação/árvores gigantes). Nunca guarda array próprio: a
+    // posição de cada vagalume é determinística (_hash do índice do slot) e
+    // só o brilho pulsa com performance.now(), mesmo princípio das nuvens
+    // (_drawSkyClouds) — puramente decorativo, sem colisão, fora de _events.
+    _drawFireflies(ctx, w, h) {
+        const spacing = 140;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const fx = i * spacing;
+            if (fx < 0 || fx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(fx)];
+            if (this._hash(i * 137 + 21000) >= 22 * zone.vegDensity) continue;
+            const side = (this._hash(i * 61 + 21500) % 2 === 0) ? -1 : 1;
+            const fy = side * (this.LANE_HALF_HEIGHT - 30) - (this._hash(i * 29 + 22000) % 40);
+            if (!window.Camera.isVisible(fx, fy, w, h)) continue;
+
+            // Cada vagalume tem sua própria fase/altura de flutuação (a
+            // partir do próprio índice do slot, sem estado guardado) pra não
+            // piscarem todos em sincronia — flutuação vertical leve +
+            // pulsação de opacidade, igual um inseto real de verdade voando.
+            const phase = (i * 2.399) % (Math.PI * 2);
+            const floatY = Math.sin(t * 1.3 + phase) * 8;
+            const pulse = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.6 + phase * 1.7));
+            const gx = fx + Math.cos(t * 0.7 + phase) * 6;
+            const gy = fy + floatY;
+
+            const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, 9);
+            glow.addColorStop(0, `rgba(210,255,140,${pulse})`);
+            glow.addColorStop(1, 'rgba(210,255,140,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(gx, gy, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = `rgba(255,255,220,${Math.min(1, pulse + 0.3)})`;
+            ctx.beginPath(); ctx.arc(gx, gy, 1.6, 0, Math.PI * 2); ctx.fill();
         }
     },
 
