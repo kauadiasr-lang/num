@@ -208,7 +208,14 @@ window.RoadEngine = {
         // ganho um evento próprio. Reaproveita GFX.drawGladiator com anim
         // 'hurt' (mesma pose já usada em batalha, ver _drawEventIcon) em
         // vez de inventar uma pose nova — nunca um emoji/placeholder.
-        wounded_gladiator: { icon: '🩹', label: 'Ajudar o gladiador ferido' }
+        wounded_gladiator: { icon: '🩹', label: 'Ajudar o gladiador ferido' },
+        // "Animal raro" — último item ainda pendente da lista original de
+        // eventos do usuário. Diferente do 'animal' AMBIENT_TYPES comum
+        // (genérico, some ao fundo, nunca interativo), este é um evento
+        // físico de verdade: geometria própria (cervo pálido/dourado com
+        // brilho, ver _drawEventIcon) e recompensa narrativa, nunca um
+        // emoji/placeholder.
+        rare_animal: { icon: '🦌', label: 'Observar o animal raro' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -955,6 +962,15 @@ window.RoadEngine = {
             const xp = Utils.randomInt(20, 40);
             p.gainExp(xp);
             toast(`Você presta socorro ao gladiador ferido. Grato, ele compartilha truques de combate antes de seguir para a cidade mais próxima. +${xp} XP.`, 'success');
+        } else if (ev.type === 'rare_animal') {
+            // "Animal raro" — último item pendente da lista original de
+            // eventos do usuário. Colecionável narrativo, mesmo padrão de
+            // magicStonesFound/loreBooksFound (contador permanente no
+            // Player, sem migração de save, salvo pelo SaveManager.save
+            // genérico já chamado ao fim deste método) — nunca compete com
+            // o loot comum de chest/clearing_treasure.
+            p.rareAnimalsSighted = (p.rareAnimalsSighted || 0) + 1;
+            toast(`Um animal raríssimo observa você por um instante antes de desaparecer na vegetação — ${p.rareAnimalsSighted}ª vez que você avista um assim.`, 'success');
         }
         window.SaveManager.save(window.Engine.state);
     },
@@ -1899,6 +1915,38 @@ window.RoadEngine = {
                 ctx.beginPath(); ctx.arc(gx, gy, 4, 0, Math.PI * 2); ctx.fill();
                 ctx.globalAlpha = 1;
             });
+        } else if (t === 'rare_animal') {
+            // "Animal raro" (último item pendente da lista original) —
+            // reaproveita a MESMA silhueta de cervo já usada pelo 'animal'
+            // ambiente comum (_drawAmbientAnimal), mas com pelagem
+            // pálida/dourada em vez de castanha comum, chifres SEMPRE
+            // presentes (o ambiente comum só tem chifre em metade dos
+            // casos) e um brilho suave pulsante ao redor — a diferença
+            // visual precisa ser clara à distância pra "raro" significar
+            // algo, nunca só um animal comum reaproveitado sem alteração.
+            const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 500);
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 40);
+            glow.addColorStop(0, `rgba(255,230,150,${0.28 * pulse})`);
+            glow.addColorStop(1, 'rgba(255,230,150,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#e8d8a8';
+            ctx.beginPath();
+            ctx.ellipse(0, 4, 16, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(14, -4, 7, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#c8a868';
+            ctx.lineWidth = 2;
+            for (const lx of [-8, 8]) {
+                ctx.beginPath(); ctx.moveTo(lx, 10); ctx.lineTo(lx, 18); ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.moveTo(16, -9); ctx.lineTo(19, -15);
+            ctx.moveTo(20, -9); ctx.lineTo(23, -15);
+            ctx.moveTo(17, -10); ctx.lineTo(21, -13);
+            ctx.stroke();
         } else {
             // Fallback pra qualquer tipo futuro sem ícone próprio ainda —
             // um marcador neutro simples, nunca um emoji.
