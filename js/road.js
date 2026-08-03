@@ -1031,7 +1031,7 @@ window.RoadEngine = {
         // forma contínua (mistura acima) — isso só rotula fisicamente as
         // seções, nunca troca o cenário de uma vez.
         for (let i = 1; i < this._zones.length; i++) {
-            this._drawMarker(ctx, i * this._zoneLength, this._zones[i].name);
+            this._drawMarker(ctx, i * this._zoneLength, this._zones[i].name, this._zones[i].vegColor);
         }
 
         // Eventos físicos (Fase 4) — mercador/baú/esconderijo/fogueira/
@@ -1627,9 +1627,18 @@ window.RoadEngine = {
         this._drawEventIcon(ctx, ev, corrupted, isNight);
     },
 
-    _drawMarker(ctx, x, label) {
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    // Placa de fronteira de zona — a barra agora usa a MESMA vegColor da
+    // zona que começa ali (ver ZONE_FAMILY_STAGES/citydatabase.js) em vez
+    // de branco genérico sempre, dando uma pista de identidade regional já
+    // na própria placa (nunca só no texto) — mesmo princípio do HUD com
+    // --road-accent (Ciclo 10), agora dentro do próprio mundo. Alpha
+    // forçado alto (0.9) pra continuar legível independente da opacidade
+    // original da cor (vegColor normalmente é bem translúcida, pensada pra
+    // tingir vegetação, não pra ser uma barra sólida).
+    _drawMarker(ctx, x, label, tintColor) {
+        ctx.fillStyle = tintColor ? tintColor.replace(/[\d.]+\)$/, '0.9)') : 'rgba(255,255,255,0.85)';
         ctx.fillRect(x - 3, -this.LANE_HALF_HEIGHT, 6, this.LANE_HALF_HEIGHT * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(label, x, -this.LANE_HALF_HEIGHT - 12);
