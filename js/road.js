@@ -95,6 +95,7 @@ window.RoadEngine = {
     INSECT_SWARM_SPACING: 260, // nuvens de pequenos insetos — item distinto de "borboletas" na seção Ambientação (pontos minúsculos zumbindo, não asas coloridas), visíveis de dia E de noite
     RUIN_FRAGMENT_SPACING: 1800, // fragmentos de ruínas puramente decorativos — mais raros que troncos/cogumelos, mais comuns que as árvores gigantes; cenário, nunca interativo (distinto do evento 'ruins')
     SIDE_TRAIL_SPACING: 950, // trilhas laterais decorativas que se ramificam da estrada rumo à floresta (pedido explícito da seção "Exploração": "trilhas; atalhos") — puramente visual, sugere caminhos alternativos sem alterar a faixa caminhável real
+    CAVE_ENTRANCE_SPACING: 2100, // afloramentos rochosos com boca de caverna, puramente decorativos — complementa o evento interativo `cave` (que só mostra um ícone pequeno de perto) com um marco de terreno visível de longe, mesmo princípio dos fragmentos de ruínas (Ciclo 58) pro evento `ruins`
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1436,6 +1437,15 @@ window.RoadEngine = {
         // (diferente das clareiras, que já alargam LANE_HALF_HEIGHT).
         this._drawSideTrails(ctx, w, h, corrupted);
 
+        // Entradas de caverna decorativas — complementa o evento
+        // interativo `cave` (que só mostra um ícone pequeno de perto, ver
+        // _drawEventIcon) com um afloramento rochoso visível de LONGE,
+        // mesmo princípio já usado pelos fragmentos de ruínas (Ciclo 58)
+        // pro evento `ruins`. Atende ao pedido explícito da seção
+        // "Exploração": "cavernas" — puramente cenário, nunca entra em
+        // `_events`.
+        this._drawCaveEntrances(ctx, w, h, corrupted);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -2391,6 +2401,78 @@ window.RoadEngine = {
                 ctx.stroke();
                 prevX = x; prevY = y;
             }
+        }
+    },
+
+    // Entradas de caverna decorativas — afloramento rochoso irregular
+    // (nunca um retângulo perfeito) com uma boca escura na base, visível
+    // de LONGE, sempre fora da faixa caminhável. Complementa o evento
+    // interativo `cave` (ver _drawEventIcon, `t === 'cave'`), que só
+    // mostra um ícone pequeno quando o jogador já está perto o bastante
+    // pro aviso de interação — mesmo princípio de "cenário vs. evento"
+    // já usado pelos fragmentos de ruínas (Ciclo 58) em relação ao
+    // evento `ruins`. Nunca entra em `_events`.
+    _drawCaveEntrances(ctx, w, h, corrupted) {
+        const spacing = this.CAVE_ENTRANCE_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const cx = i * spacing;
+            if (cx < 700 || cx > this.WORLD_LENGTH - 700) continue;
+            if (this._hash(i * 179 + 53000) >= 35) continue; // marco raro, nem todo slot tem uma
+            const side = (this._hash(i * 71 + 53500) % 2 === 0) ? -1 : 1;
+            const cy = side * (this.LANE_HALF_HEIGHT + 60 + (this._hash(i * 41 + 54000) % 50));
+            if (!window.Camera.isVisible(cx, cy, w, h, 140)) continue;
+
+            const rockColor = corrupted ? '#241f26' : '#6a6258';
+            const rockShade = corrupted ? '#1a1620' : '#524a42';
+
+            // Sombra no chão da formação rochosa.
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.3)' : 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.ellipse(cx, cy + 10, 66, 16, 0, 0, Math.PI * 2); ctx.fill();
+
+            // Afloramento rochoso irregular servindo de base pra boca da
+            // caverna.
+            ctx.fillStyle = rockColor;
+            ctx.beginPath();
+            ctx.moveTo(cx - 60, cy + 8);
+            ctx.lineTo(cx - 52, cy - 38);
+            ctx.lineTo(cx - 24, cy - 58);
+            ctx.lineTo(cx + 10, cy - 62);
+            ctx.lineTo(cx + 44, cy - 44);
+            ctx.lineTo(cx + 58, cy - 6);
+            ctx.lineTo(cx + 50, cy + 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // Sombreado na face da rocha, dando volume.
+            ctx.fillStyle = rockShade;
+            ctx.beginPath();
+            ctx.moveTo(cx + 10, cy - 62);
+            ctx.lineTo(cx + 44, cy - 44);
+            ctx.lineTo(cx + 58, cy - 6);
+            ctx.lineTo(cx + 50, cy + 8);
+            ctx.lineTo(cx + 14, cy + 4);
+            ctx.closePath();
+            ctx.fill();
+
+            // Boca da caverna: arco escuro na base da rocha, sempre visível
+            // de longe -- reforça "isso pode ser explorado" como marco de
+            // terreno físico, mesmo princípio já usado pra "árvore oca"
+            // (Ciclo 50).
+            ctx.fillStyle = '#0c0a0e';
+            ctx.beginPath();
+            ctx.moveTo(cx - 22, cy + 6);
+            ctx.lineTo(cx - 20, cy - 14);
+            ctx.quadraticCurveTo(cx, cy - 30, cx + 20, cy - 14);
+            ctx.lineTo(cx + 22, cy + 6);
+            ctx.closePath();
+            ctx.fill();
+
+            // Musgo/vegetação nas bordas da rocha.
+            ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.4)' : 'rgba(70,110,55,0.4)';
+            ctx.beginPath(); ctx.ellipse(cx - 40, cy - 20, 12, 7, 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(cx + 34, cy - 30, 10, 6, -0.3, 0, Math.PI * 2); ctx.fill();
         }
     },
 
