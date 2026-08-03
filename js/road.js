@@ -393,6 +393,7 @@ window.RoadEngine = {
             const y = side * 70;
             const ev = { type, x, y, spawnX: x, consumed: false };
             if (type === 'bandit') ev.entity = this._makeBanditEntity(x, fromId, toId);
+            else if (type === 'traveler') ev.entity = this._makeTravelerEntity(x, fromId, toId);
             this._events.push(ev);
         }
     },
@@ -1233,9 +1234,21 @@ window.RoadEngine = {
         }
     },
 
-    _drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight) {
+    _drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkX) {
         if (!window.GFX || !window.GFX.drawGladiator) return;
-        const entity = this.AMBIENT_ENTITIES[kind];
+        // Viajante ambiente ganha a mesma identidade racial regional do
+        // evento interativo `traveler` (ver TRAVELER_VARIANTS/
+        // _makeTravelerEntity, Ciclo 18) — usa `chunkX` (posição FIXA do
+        // chunk, não a posição de desenho que oscila dentro dele) pra
+        // decidir a família, cacheada por chunk pra nunca recalcular por
+        // quadro. Patrulha continua sempre humana (guarda local, não muda
+        // com a região da travessia).
+        const entityCache = this._ambientEntityCache || (this._ambientEntityCache = {});
+        let entity = this.AMBIENT_ENTITIES[kind];
+        if (kind === 'npc_traveler') {
+            const ekey = 'npc_traveler_' + chunkX;
+            entity = entityCache[ekey] || (entityCache[ekey] = this._makeTravelerEntity(chunkX, this.fromId, this.toId));
+        }
         const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
         const key = kind + '_' + seed;
         const anim = cache[key] || (cache[key] = { type: 'walk', start: performance.now(), duration: 0 });
@@ -1342,7 +1355,7 @@ window.RoadEngine = {
             }
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
-            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight);
+            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkStart + chunkSize * 0.5);
             else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y);
             else this._drawAmbientAnimal(ctx, x, y, seed);
         }
@@ -1530,27 +1543,50 @@ window.RoadEngine = {
         elfico: { race: 'elfo', hairColor: '#2a3a1a' }
     },
 
-    // Gera um bandido com a identidade regional certa (ver
-    // BANDIT_VARIANTS acima) — primeira metade da travessia usa a família
-    // da cidade de ORIGEM, segunda metade a de DESTINO, mesmo critério já
-    // usado pra nomear/colorir as zonas (ver start()/ZONE_FAMILY_STAGES).
-    // Sem variante pra família (natureza, ou destino virtual sem
-    // roadFamily), cai no CREATURE_ENTITIES.bandit de sempre, sem clonar
-    // nada — comportamento antigo 100% preservado nesse caso.
-    _makeBanditEntity(x, fromId, toId) {
-        const base = this.CREATURE_ENTITIES.bandit;
+    // Mesmo princípio acima, agora pro viajante comum (evento interativo
+    // `traveler` E o `npc_traveler` ambiente que só passa andando, ver
+    // _drawAmbientLife) — pendência explícita deixada no Ciclo 16
+    // ("considerar estender BANDIT_VARIANTS pra outros encontros"). Um
+    // viajante rumo à Fortaleza Orc ou saindo dela faz mais sentido sendo
+    // um orc de verdade do que sempre a mesma humana fixa.
+    TRAVELER_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#2a2010' },
+        elfico: { race: 'elfo', hairColor: '#3a2a4a' }
+    },
+
+    // Helper compartilhado por _makeBanditEntity/_makeTravelerEntity — dada
+    // uma entidade base + mapa de variantes por família, decide a família
+    // certa (primeira metade da travessia = cidade de ORIGEM, segunda
+    // metade = DESTINO, mesmo critério de zonas/BANDIT_VARIANTS) e monta
+    // uma cópia só quando existe variante; sem variante, retorna a MESMA
+    // referência da base, preservando 100% o comportamento antigo.
+    _makeRegionalEntity(base, variants, x, fromId, toId, hashSalt) {
         const familyId = x < this.WORLD_LENGTH / 2
             ? ((window.CityDatabase[fromId] && window.CityDatabase[fromId].roadFamily) || 'natureza')
             : ((window.CityDatabase[toId] && window.CityDatabase[toId].roadFamily) || 'natureza');
-        const variant = this.BANDIT_VARIANTS[familyId];
+        const variant = variants[familyId];
         if (!variant) return base;
         const raceDef = window.RACES && window.RACES[variant.race];
         const skinTones = raceDef && raceDef.skinTones;
-        const skinTone = skinTones ? skinTones[this._hash(Math.floor(x) + 9100) % skinTones.length] : base.visuals.skinTone;
+        const skinTone = skinTones ? skinTones[this._hash(Math.floor(x) + hashSalt) % skinTones.length] : base.visuals.skinTone;
         return {
             visuals: { ...base.visuals, skinTone, hairColor: variant.hairColor },
             equipment: {}, __teamColor: base.__teamColor, race: variant.race
         };
+    },
+
+    // Gera um bandido com a identidade regional certa (ver
+    // BANDIT_VARIANTS/_makeRegionalEntity acima).
+    _makeBanditEntity(x, fromId, toId) {
+        return this._makeRegionalEntity(this.CREATURE_ENTITIES.bandit, this.BANDIT_VARIANTS, x, fromId, toId, 9100);
+    },
+
+    // Gera um viajante com a identidade regional certa (ver
+    // TRAVELER_VARIANTS/_makeRegionalEntity acima) — usado tanto pelo
+    // evento interativo `traveler` quanto pelo `npc_traveler` ambiente.
+    _makeTravelerEntity(x, fromId, toId) {
+        return this._makeRegionalEntity(this.AMBIENT_ENTITIES.npc_traveler, this.TRAVELER_VARIANTS, x, fromId, toId, 9400);
     },
 
     _drawCreature(ctx, ev) {
@@ -1580,7 +1616,7 @@ window.RoadEngine = {
     _drawEventIcon(ctx, ev, corrupted, isNight) {
         const t = ev.type;
         if (t === 'traveler') {
-            const entity = this.AMBIENT_ENTITIES.npc_traveler;
+            const entity = ev.entity || this.AMBIENT_ENTITIES.npc_traveler;
             if (window.GFX && window.GFX.drawGladiator) {
                 const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
                 ctx.save();
