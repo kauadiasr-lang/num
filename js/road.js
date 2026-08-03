@@ -105,6 +105,16 @@ window.RoadEngine = {
     // Praça — nunca um personagem diferente ou desproporcional.
     PLAYER_SCALE: 0.4,
 
+    // Paletas de céu por horário (mesmas 4 fases do relógio global, ver
+    // CityEngine.dayPhases/window.GFX.arenaTime) — antes o céu da Estrada
+    // era sempre a mesma cor de dia fixa, mesmo viajando de noite.
+    SKY_PALETTES: {
+        dawn: ['#2b3a67', '#f2b866'],
+        day: ['#5f96d9', '#9fc3e8'],
+        sunset: ['#1b1035', '#e8843f'],
+        night: ['#04050f', '#1c2140']
+    },
+
     // Mundo vivo ambiente (Fase 6) — cada "chunk" de mundo (unidade de
     // geração/culling, não um pedaço de save) tem uma chance de conter UMA
     // entidade decorativa entre os 4 tipos pedidos no design (viajante a
@@ -831,6 +841,17 @@ window.RoadEngine = {
             ? [Utils.lerpColor(fromDef.groundColors[0], toDef.groundColors[0], t), Utils.lerpColor(fromDef.groundColors[1], toDef.groundColors[1], t)]
             : ['#1a3a15', '#0d1f0d'];
 
+        // Ciclo dia/noite (pedido "mundo vivo" da mega-diretiva): o Mundo da
+        // Estrada sempre desenhava um céu de dia fixo, mesmo que o jogador
+        // tivesse saído da cidade de noite — quebrava a consistência com o
+        // ciclo dia/noite já estabelecido na Praça (ver CityEngine, que
+        // escreve em window.GFX.arenaTime). Lê o MESMO relógio global
+        // (congelado no horário de quando a viagem começou, já que
+        // CityEngine.update — dono do avanço do relógio — não roda fora da
+        // Praça) em vez de inventar um relógio próprio só pra Estrada.
+        const timeOfDay = (window.GFX && window.GFX.arenaTime) || 'day';
+        const isNight = timeOfDay === 'night';
+
         const horizon = h * 0.4;
         const grad = ctx.createLinearGradient(0, horizon, 0, h);
         // Impacto visual da corrupção (pedido do usuário): enquanto o
@@ -840,9 +861,14 @@ window.RoadEngine = {
         // volta ao normal sozinho assim que o evento `nature_spirit` for
         // consumido (vitória), sem precisar de nenhum estado extra
         // persistido (a checagem já é sempre fresca a partir de _events).
+        // Corrupção sempre tem prioridade sobre o horário (narrativamente é
+        // uma névoa doentia, não muda com o relógio).
         if (corrupted) {
             grad.addColorStop(0, '#2a1230');
             grad.addColorStop(1, '#0a0510');
+        } else if (isNight && Utils.lerpColor) {
+            grad.addColorStop(0, Utils.lerpColor(colors[0], '#000000', 0.45));
+            grad.addColorStop(1, Utils.lerpColor(colors[1], '#000000', 0.45));
         } else {
             grad.addColorStop(0, colors[0]);
             grad.addColorStop(1, colors[1]);
@@ -864,13 +890,14 @@ window.RoadEngine = {
             skyGrad.addColorStop(0, '#120a18');
             skyGrad.addColorStop(1, '#241830');
         } else {
-            skyGrad.addColorStop(0, '#5f96d9');
-            skyGrad.addColorStop(1, '#9fc3e8');
+            const pal = this.SKY_PALETTES[timeOfDay] || this.SKY_PALETTES.day;
+            skyGrad.addColorStop(0, pal[0]);
+            skyGrad.addColorStop(1, pal[1]);
         }
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, w, horizon);
         if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
-        this._drawSkyClouds(ctx, w, horizon, corrupted);
+        this._drawSkyClouds(ctx, w, horizon, corrupted, isNight);
 
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
@@ -1032,9 +1059,9 @@ window.RoadEngine = {
     // (não fazem parte do mundo), deslocamento baseado só no tempo
     // (performance.now()) pra nunca depender de estado extra guardado nem
     // de onde o jogador está no mundo.
-    _drawSkyClouds(ctx, w, horizon, corrupted) {
+    _drawSkyClouds(ctx, w, horizon, corrupted, isNight) {
         const t = performance.now() / 1000;
-        ctx.fillStyle = corrupted ? 'rgba(120,90,150,0.22)' : 'rgba(255,255,255,0.32)';
+        ctx.fillStyle = corrupted ? 'rgba(120,90,150,0.22)' : (isNight ? 'rgba(150,160,200,0.16)' : 'rgba(255,255,255,0.32)');
         for (let i = 0; i < 5; i++) {
             const speed = 5 + (i % 3) * 3;
             const cx = ((i * 340 + t * speed) % (w + 500)) - 250;
