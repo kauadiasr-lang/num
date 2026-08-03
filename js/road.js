@@ -1215,12 +1215,24 @@ window.RoadEngine = {
         }
     },
 
-    _drawAmbientHuman(ctx, x, y, kind, seed, facing) {
+    _drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight) {
         if (!window.GFX || !window.GFX.drawGladiator) return;
         const entity = this.AMBIENT_ENTITIES[kind];
         const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
         const key = kind + '_' + seed;
         const anim = cache[key] || (cache[key] = { type: 'walk', start: performance.now(), duration: 0 });
+        // Lanterna da patrulha à noite (ver Ciclo 9: "só a patrulha da
+        // guarda continua rondando à noite") — reforça visualmente POR QUE
+        // ela é a única presença ainda de pé no escuro, mesma linguagem de
+        // luz quente já usada em fogueiras/tochas, só que se movendo junto
+        // com o guarda em vez de fixa num poste.
+        if (kind === 'patrol' && isNight) {
+            const glow = ctx.createRadialGradient(x, y - 30, 0, x, y - 30, 55);
+            glow.addColorStop(0, 'rgba(255,200,120,0.28)');
+            glow.addColorStop(1, 'rgba(255,200,120,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(x, y - 30, 55, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(this.PLAYER_SCALE * 0.85, this.PLAYER_SCALE * 0.85);
@@ -1312,7 +1324,7 @@ window.RoadEngine = {
             }
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
-            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing);
+            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight);
             else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y);
             else this._drawAmbientAnimal(ctx, x, y, seed);
         }
