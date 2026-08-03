@@ -87,6 +87,7 @@ window.RoadEngine = {
     RIVER_X_FRAC: 0.55, // fração do WORLD_LENGTH onde o rio cruza a estrada
     GIANT_TREE_SPACING: 2600, // bem mais esparso que a vegetação normal (220) — são marcos raros, não decoração de fundo
     CAMP_SPACING: 5200, // acampamentos — mais esparsos ainda que as árvores gigantes (cenário raro, não repetitivo)
+    CLEARING_SPACING: 4400, // clareiras — trechos de chão mais claro/aberto entre a vegetação, pedido explícito ("clareiras")
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -808,6 +809,12 @@ window.RoadEngine = {
         // CHÃO, não um objeto flutuando por cima.
         this._drawRiverCrossing(ctx, w, h);
 
+        // Clareiras (pedido do usuário: "clareiras" — o mapa deve
+        // incentivar exploração) — trechos de chão mais claro/aberto,
+        // também desenhados cedo (parte do CHÃO), pra a vegetação normal
+        // que vem depois parecer realmente "rarear" ali.
+        this._drawClearings(ctx, w, h, corrupted);
+
         // Placas de bioma (Fase 3) — um marco em cada fronteira de zona,
         // com o nome da zona que começa ali. A cor de fundo já muda de
         // forma contínua (mistura acima) — isso só rotula fisicamente as
@@ -977,6 +984,35 @@ window.RoadEngine = {
             ctx.moveTo(rx - bridgeW / 2, py);
             ctx.lineTo(rx + bridgeW / 2, py);
             ctx.stroke();
+        }
+    },
+
+    // Clareiras esparsas (pedido do usuário: "clareiras" — o mapa deve
+    // incentivar exploração, não parecer um corredor uniforme) — um brilho
+    // suave e largo no chão (gradiente radial) sugerindo um trecho mais
+    // aberto/iluminado entre a vegetação, mesmo princípio determinístico
+    // (sem array guardado, cullado por Camera.isVisible) dos outros marcos
+    // de terreno acima. Tingido de roxo doentio (em vez do dourado normal
+    // de luz solar) quando a Floresta Ancestral estiver corrompida.
+    _drawClearings(ctx, w, h, corrupted) {
+        const spacing = this.CLEARING_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const clx = i * spacing;
+            if (clx < 300 || clx > this.WORLD_LENGTH - 300) continue;
+            if (this._hash(i * 61 + 13000) >= 45) continue; // nem todo slot vira clareira
+            if (!window.Camera.isVisible(clx, 0, w, h, 260)) continue;
+
+            const radius = 220;
+            const rgb = corrupted ? '90,60,120' : '255,244,200';
+            const grad = ctx.createRadialGradient(clx, 0, 0, clx, 0, radius);
+            grad.addColorStop(0, `rgba(${rgb},0.35)`);
+            grad.addColorStop(1, `rgba(${rgb},0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(clx, 0, radius, this.LANE_HALF_HEIGHT + 60, 0, 0, Math.PI * 2);
+            ctx.fill();
         }
     },
 
