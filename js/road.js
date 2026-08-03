@@ -1051,6 +1051,20 @@ window.RoadEngine = {
             p.rareAnimalsSighted = (p.rareAnimalsSighted || 0) + 1;
             toast(`Um animal raríssimo observa você por um instante antes de desaparecer na vegetação — ${p.rareAnimalsSighted}ª vez que você avista um assim.`, 'success');
         }
+
+        // Conquistas de exploração (Ciclo 38 — 'bookworm'/'stone_collector'/
+        // 'naturalist' em player.js AchievementDB) — chamado incondicionalmente
+        // aqui, não só dentro de cada branch acima, porque checkAchievements()
+        // já é idempotente (unlockAchievement só desbloqueia uma vez) e barato
+        // (só leitura de contadores); mais simples que replicar a chamada nos
+        // 3 branches (magic_stone/lore_book/rare_animal) que podem tê-la
+        // desbloqueado. Nenhum outro tipo de evento tem contador nenhum, então
+        // nunca desbloqueia nada indevido pros outros tipos.
+        if (p.checkAchievements) {
+            const unlocked = p.checkAchievements();
+            unlocked.forEach(a => toast(`🏆 Conquista desbloqueada: ${a.name}!`, 'success'));
+        }
+
         window.SaveManager.save(window.Engine.state);
     },
 

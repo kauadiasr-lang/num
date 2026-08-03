@@ -710,6 +710,9 @@ class Player extends Entity {
         if (context.awakenedLineage) tryUnlock('lineage_awakened');
         if (context.defeatedElite) tryUnlock('elite_hunter');
         if (context.visitedAllCities) tryUnlock('world_explorer');
+        if ((this.loreBooksFound || 0) >= 5) tryUnlock('bookworm');
+        if ((this.magicStonesFound || 0) >= 5) tryUnlock('stone_collector');
+        if ((this.rareAnimalsSighted || 0) >= 5) tryUnlock('naturalist');
 
         return unlocked;
     }
@@ -734,7 +737,16 @@ const AchievementDB = {
     // única conquista que não é checada em checkAchievements(context) vindo
     // de uma batalha, e sim diretamente de travelToCity, já que viajar não
     // acontece em combate nenhum.
-    world_explorer: { id: 'world_explorer', name: 'Explorador do Mundo', description: 'Visite todas as Cidades-Hub conhecidas.', rarity: 'épico', icon: '🗺️', goal: Object.keys(window.CityDatabase || {}).length || 1, progress: p => (p.visitedCityIds || []).length }
+    world_explorer: { id: 'world_explorer', name: 'Explorador do Mundo', description: 'Visite todas as Cidades-Hub conhecidas.', rarity: 'épico', icon: '🗺️', goal: Object.keys(window.CityDatabase || {}).length || 1, progress: p => (p.visitedCityIds || []).length },
+    // Estatísticas de exploração da Estrada (ver road.js _resolveEvent
+    // 'lore_book'/'magic_stone'/'rare_animal', já exibidas na Casa do
+    // Jogador desde o Ciclo 37) — até este ciclo eram puramente
+    // cosméticas, sem nenhuma Conquista associada. checkAchievements() é
+    // chamado direto de road.js logo após cada contador incrementar (não
+    // só depois de batalha/viagem, como as outras).
+    bookworm: { id: 'bookworm', name: 'Bibliófilo', description: 'Encontre 5 livros esquecidos pela Estrada.', rarity: 'comum', icon: '📖', goal: 5, progress: p => p.loreBooksFound || 0 },
+    stone_collector: { id: 'stone_collector', name: 'Colecionador de Pedras', description: 'Encontre 5 pedras mágicas pela Estrada.', rarity: 'comum', icon: '🔮', goal: 5, progress: p => p.magicStonesFound || 0 },
+    naturalist: { id: 'naturalist', name: 'Naturalista', description: 'Aviste 5 animais raros pela Estrada.', rarity: 'comum', icon: '🦌', goal: 5, progress: p => p.rareAnimalsSighted || 0 }
 };
 
 window.AchievementDB = AchievementDB;
