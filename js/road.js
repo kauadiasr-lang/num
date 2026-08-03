@@ -233,14 +233,24 @@ window.RoadEngine = {
     // Trechos de lore descobertos nos livros esquecidos (ver _resolveEvent)
     // — flavor text sobre o mundo (Coliseu, Gorkhal, Sylvaneth, Floresta
     // Ancestral), escolhido de forma determinística pela posição do livro
-    // (mesmo hash de sempre), nunca Math.random puro.
+    // (mesmo hash de sempre), nunca Math.random puro. Ciclo 26 acrescentou
+    // mais 6 trechos (mesmo motivo já usado no Ciclo 11 pra
+    // TRAVELER_QUEST_TYPES: "mais variedade" reduz a repetição óbvia em
+    // travessias longas ou replays) — nenhum outro código precisa mudar,
+    // `_hash(...) % LORE_ENTRIES.length` já escala sozinho com o array.
     LORE_ENTRIES: [
         'Um fragmento de crônica antiga fala do primeiro Campeão do Coliseu Imperial, que nunca perdeu um duelo — e desapareceu sem deixar rastro na véspera de enfrentar um desafiante desconhecido.',
         'Uma página amarelada descreve como os orcs de Gorkhal forjam aço sobre rocha vulcânica ainda morna, dizendo que o fogo da montanha "lembra" a forma de cada lâmina.',
         'Um verso élfico fala de Sylvaneth como um lugar onde "o tempo caminha devagar de propósito", e que quem apressa a floresta nunca aprende o que ela tem a ensinar.',
         'Um relato sem autor descreve luzes verdes dançando entre as árvores mais antigas da Floresta Ancestral — "nem amigas, nem inimigas, só antigas demais para se importar".',
         'Uma anotação em tinta apagada adverte: "todo amuleto guarda um preço — alguns cobram na entrega, outros esperam anos para cobrar".',
-        'Um trecho de poema fala de uma entidade profana que "só aparece pra quem já provou que não precisa de ajuda nenhuma" — e que aceitar sua oferta muda mais que a aparência.'
+        'Um trecho de poema fala de uma entidade profana que "só aparece pra quem já provou que não precisa de ajuda nenhuma" — e que aceitar sua oferta muda mais que a aparência.',
+        'Um manual de arquivista de Porto Helênico observa que o Coliseu Imperial nunca foi reconstruído duas vezes da mesma forma — cada incêndio ou cerco vira desculpa pra uma arquibancada nova, "como se a cidade tivesse vergonha de ficar parada".',
+        'Um diário de caravaneiro registra a mesma frase repetida em três entradas diferentes: "a estrada muda quem anda por ela nem que seja só um pouco — ninguém chega igual a como saiu".',
+        'Uma nota de guarda de fronteira reclama que patrulhar a estrada à noite é "vigiar o escuro pra ninguém em particular", já que os bandidos conhecem os horários de ronda melhor que os próprios guardas novatos.',
+        'Um pergaminho élfico meio-traduzido descreve como Sylvaneth cresceu ao redor de uma raiz só, tão antiga que "nenhum élfico vivo se lembra de plantá-la nem de vê-la ser plantada".',
+        'Um relato desconjuntado de um gladiador aposentado diz que a Ladder de Rivais existe há mais tempo do que qualquer campeão que já a venceu — "os nomes mudam, o topo continua vazio esperando o próximo".',
+        'Uma inscrição gasta perto de Gorkhal afirma que todo orc nascido perto da montanha carrega "o calor da forja no sangue", e que por isso raramente sentem frio mesmo em noites de neve.'
     ],
     // Subiu de 6 pra 12 ao adicionar ruins/cave/bridge/shrine/magic_stone/
     // lore_book (12 tipos pacíficos + bandido = 13 no pool de
