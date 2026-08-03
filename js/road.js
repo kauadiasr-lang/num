@@ -394,6 +394,7 @@ window.RoadEngine = {
             const ev = { type, x, y, spawnX: x, consumed: false };
             if (type === 'bandit') ev.entity = this._makeBanditEntity(x, fromId, toId);
             else if (type === 'traveler') ev.entity = this._makeTravelerEntity(x, fromId, toId);
+            else if (type === 'merchant') ev.entity = this._makeMerchantEntity(x, fromId, toId);
             this._events.push(ev);
         }
     },
@@ -1606,12 +1607,33 @@ window.RoadEngine = {
     // Cada tipo agora tem uma forma própria 100% desenhada à mão, no MESMO
     // estilo já usado pelo resto do arquivo (rio, árvores gigantes,
     // acampamentos) — nunca um ícone de fonte, sempre geometria real.
-    // `traveler` e `wounded_gladiator` são as exceções: representam uma
-    // PESSOA de verdade, então usam o mesmo GFX.drawGladiator() de
-    // _drawCreature/_drawAmbientHuman em vez de um objeto.
+    // `traveler` e `wounded_gladiator` são PESSOA pura (GFX.drawGladiator()
+    // de _drawCreature/_drawAmbientHuman em vez de um objeto); `merchant` é
+    // híbrido — mantém a barraca/tenda desenhada à mão E ganha um
+    // comerciante de verdade ao lado dela (ver MERCHANT_ENTITY abaixo).
     WOUNDED_GLADIATOR_ENTITY: {
         visuals: { gender: 'Masculino', skinTone: '#d8a878', hairStyle: 8, hairColor: '#3a2a1a', beardStyle: 1, eyeColor: '#2a1a14', faceShape: 1 },
         equipment: {}, __teamColor: '#6b2a2a', race: 'humano'
+    },
+
+    // Comerciante da estrada (evento `merchant`) — antes só a barraca/tenda
+    // era desenhada, sem NENHUMA pessoa ao lado, mesmo o toast de
+    // _resolveEvent falando de "o comerciante compra uma bugiganga sua"
+    // (implica alguém ali, não só um móvel vazio). Ganha identidade regional
+    // igual bandido/viajante (Ciclos 16/18, mesmo helper _makeRegionalEntity)
+    // — um comerciante rumo à Fortaleza Orc faz mais sentido sendo um orc de
+    // verdade do que sempre a mesma humana fixa.
+    MERCHANT_ENTITY: {
+        visuals: { gender: 'Feminino', skinTone: '#e0b088', hairStyle: 7, hairColor: '#6a3a1a', beardStyle: 0, eyeColor: '#2a1a14', faceShape: 1 },
+        equipment: {}, __teamColor: '#8a5a2a', race: 'humano'
+    },
+    MERCHANT_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#1a1410' },
+        elfico: { race: 'elfo', hairColor: '#4a3a1a' }
+    },
+    _makeMerchantEntity(x, fromId, toId) {
+        return this._makeRegionalEntity(this.MERCHANT_ENTITY, this.MERCHANT_VARIANTS, x, fromId, toId, 9700);
     },
     _drawEventIcon(ctx, ev, corrupted, isNight) {
         const t = ev.type;
@@ -1661,6 +1683,18 @@ window.RoadEngine = {
             ctx.beginPath();
             ctx.moveTo(-16, 2); ctx.lineTo(0, -14); ctx.lineTo(16, 2);
             ctx.closePath(); ctx.fill();
+            // Comerciante em pessoa, parado ao lado da própria barraca (ver
+            // MERCHANT_ENTITY/_makeMerchantEntity acima) — antes só a
+            // tenda/móvel aparecia, sem ninguém ali pra negociar de verdade.
+            const merchantEntity = ev.entity || this.MERCHANT_ENTITY;
+            if (window.GFX && window.GFX.drawGladiator) {
+                const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
+                ctx.save();
+                ctx.translate(28, 8);
+                ctx.scale(this.PLAYER_SCALE * 0.8, this.PLAYER_SCALE * 0.8);
+                window.GFX.drawGladiator(ctx, 0, 0, merchantEntity, false, anim, null);
+                ctx.restore();
+            }
         } else if (t === 'chest') {
             ctx.fillStyle = '#6b4a2a';
             ctx.fillRect(-14, -4, 28, 14);
