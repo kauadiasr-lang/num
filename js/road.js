@@ -1628,6 +1628,15 @@ window.RoadEngine = {
             const cy = side * (this.LANE_HALF_HEIGHT + 60);
             if (!window.Camera.isVisible(cx, cy, w, h, 200)) continue;
 
+            // Sombra no chão (pedido do usuário: "sombras" entre os
+            // elementos de preenchimento visual da floresta — mesmo
+            // princípio já aplicado às árvores gigantes em
+            // _drawGiantTrees, aqui alargada pra cobrir as duas tendas).
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.3)' : 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 6, 62, 16, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             // Halo de luz quente à noite (mesmo princípio do campfire de
             // _drawEventIcon — um acampamento aceso deve iluminar o entorno
             // à noite, não só ter uma brasa desenhada num fundo escuro).
