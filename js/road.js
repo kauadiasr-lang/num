@@ -2361,15 +2361,46 @@ window.RoadEngine = {
             ctx.fillStyle = corrupted ? 'rgba(90,40,110,0.5)' : 'rgba(255,120,40,0.5)';
             ctx.beginPath(); ctx.arc(cx, cy - 4, 12, 0, Math.PI * 2); ctx.fill();
 
-            // Duas tendas triangulares simples, uma de cada lado da fogueira.
-            ctx.fillStyle = corrupted ? '#2a2028' : '#6b5a3a';
-            for (const dx of [-38, 34]) {
+            // Variedade de layout (pedido "sistema modular sem repetição
+            // óbvia" — até este ciclo TODO acampamento tinha exatamente o
+            // MESMO par de tendas). Metade dos acampamentos (via _hash)
+            // ganham um layout mais provisório/apressado em vez disso —
+            // mesma fogueira/sombra/halo noturno, só o que está montado ao
+            // redor muda.
+            const campVariant = this._hash(i * 97 + 65000) % 2;
+            if (campVariant === 0) {
+                // Duas tendas triangulares, uma de cada lado da fogueira
+                // (layout original, preservado como variante 0).
+                ctx.fillStyle = corrupted ? '#2a2028' : '#6b5a3a';
+                for (const dx of [-38, 34]) {
+                    ctx.beginPath();
+                    ctx.moveTo(cx + dx, cy + 4);
+                    ctx.lineTo(cx + dx + 20, cy + 4);
+                    ctx.lineTo(cx + dx + 10, cy - 34);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            } else {
+                // Uma tenda só + barril e caixote de suprimentos
+                // espalhados — acampamento mais provisório, de passagem.
+                ctx.fillStyle = corrupted ? '#2a2028' : '#6b5a3a';
                 ctx.beginPath();
-                ctx.moveTo(cx + dx, cy + 4);
-                ctx.lineTo(cx + dx + 20, cy + 4);
-                ctx.lineTo(cx + dx + 10, cy - 34);
+                ctx.moveTo(cx - 40, cy + 4);
+                ctx.lineTo(cx - 20, cy + 4);
+                ctx.lineTo(cx - 30, cy - 34);
                 ctx.closePath();
                 ctx.fill();
+
+                ctx.fillStyle = corrupted ? '#241c22' : '#5a4630';
+                ctx.beginPath(); ctx.ellipse(cx + 32, cy - 6, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = corrupted ? '#1a1418' : '#3a2e20';
+                ctx.lineWidth = 1.5;
+                for (const dy of [-10, -2]) {
+                    ctx.beginPath(); ctx.moveTo(cx + 22, cy + dy); ctx.lineTo(cx + 42, cy + dy); ctx.stroke();
+                }
+
+                ctx.fillStyle = corrupted ? '#2e2830' : '#6b5a3a';
+                ctx.fillRect(cx + 46, cy - 12, 16, 14);
             }
         }
     },
