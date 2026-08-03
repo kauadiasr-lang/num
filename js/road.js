@@ -1287,7 +1287,7 @@ window.RoadEngine = {
         ctx.restore();
     },
 
-    _drawAmbientCaravan(ctx, x, y) {
+    _drawAmbientCaravan(ctx, x, y, seed) {
         ctx.save();
         ctx.translate(x, y);
         ctx.fillStyle = '#6b4a2a';
@@ -1300,6 +1300,21 @@ window.RoadEngine = {
         ctx.beginPath(); ctx.arc(-16, 10, 7, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(16, 10, 7, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
+        // Condutor em pessoa, sentado na frente da carroça (ver
+        // CARAVAN_DRIVER_ENTITY/_makeCaravanDriverEntity acima) — raça
+        // recalculada pela posição MUNDIAL real (x, não relativa à
+        // carroça), já que a caravana atravessa o mundo inteiro.
+        if (window.GFX && window.GFX.drawGladiator) {
+            const driverEntity = this._makeCaravanDriverEntity(x, this.fromId, this.toId);
+            const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
+            const key = 'caravan_driver_' + seed;
+            const anim = cache[key] || (cache[key] = { type: 'idle', start: performance.now(), duration: 0 });
+            ctx.save();
+            ctx.translate(x + 22, y - 4);
+            ctx.scale(this.PLAYER_SCALE * 0.55, this.PLAYER_SCALE * 0.55);
+            window.GFX.drawGladiator(ctx, 0, 0, driverEntity, true, anim, null);
+            ctx.restore();
+        }
     },
 
     _drawAmbientAnimal(ctx, x, y, seed) {
@@ -1372,7 +1387,7 @@ window.RoadEngine = {
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
             if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkStart + chunkSize * 0.5);
-            else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y);
+            else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y, seed);
             else this._drawAmbientAnimal(ctx, x, y, seed);
         }
     },
@@ -1622,6 +1637,30 @@ window.RoadEngine = {
     },
     _makePatrolEntity(fromId, toId) {
         return this._makeRegionalEntity(this.AMBIENT_ENTITIES.patrol, this.PATROL_VARIANTS, 0, fromId, toId, 9900);
+    },
+
+    // Condutor da caravana (Ciclo 21) — antes a caravana ambiente era só a
+    // carroça desenhada à mão, sem NENHUMA pessoa a conduzindo, mesmo
+    // atravessando o mundo inteiro continuamente ("caravanas devem
+    // viajar", pedido do usuário). Ao contrário de bandido/viajante/
+    // comerciante (posição FIXA, família decidida uma vez na geração do
+    // evento) e da patrulha (família fixa na origem), a caravana se move
+    // pelo MUNDO INTEIRO em loop (ver _drawAmbientLife), então sua
+    // identidade regional é recalculada A CADA QUADRO a partir da posição
+    // atual — o condutor muda de aparência conforme a caravana atravessa
+    // cada metade da travessia, reforçando visualmente a mesma transição
+    // de região já usada em zonas/placas/bandidos.
+    CARAVAN_DRIVER_ENTITY: {
+        visuals: { gender: 'Masculino', skinTone: '#c8a068', hairStyle: 2, hairColor: '#4a3018', beardStyle: 2, eyeColor: '#2a1a14', faceShape: 1 },
+        equipment: {}, __teamColor: '#6b4a2a', race: 'humano'
+    },
+    CARAVAN_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#1a1410' },
+        elfico: { race: 'elfo', hairColor: '#3a2a4a' }
+    },
+    _makeCaravanDriverEntity(x, fromId, toId) {
+        return this._makeRegionalEntity(this.CARAVAN_DRIVER_ENTITY, this.CARAVAN_VARIANTS, x, fromId, toId, 9600);
     },
 
     _drawCreature(ctx, ev) {
