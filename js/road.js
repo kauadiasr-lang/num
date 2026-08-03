@@ -2582,9 +2582,14 @@ window.RoadEngine = {
             if (isLog) {
                 // Tronco caído — cor de casca neutra, como as pedras (não
                 // muda com corrupção; é madeira morta/inerte, não "vida
-                // ambiente" que foge/desaparece).
+                // ambiente" que foge/desaparece). Variedade de tom de
+                // casca (mesmo princípio já usado nos chapéus de cogumelo
+                // acima) sugere espécies/idades de árvore diferentes --
+                // tom original preservado como variante 0.
+                const barkColors = ['#5a4530', '#6b5540', '#4a4038', '#7a5a3a'];
+                const barkColor = barkColors[this._hash(i * 67 + 74000) % barkColors.length];
                 const lean = ((this._hash(i * 89 + 38000) % 21) - 10);
-                ctx.fillStyle = '#5a4530';
+                ctx.fillStyle = barkColor;
                 ctx.beginPath();
                 ctx.moveTo(px - 34, py + 6 + lean * 0.2);
                 ctx.lineTo(px + 34, py - 6 - lean * 0.2);
@@ -2595,7 +2600,7 @@ window.RoadEngine = {
                 // Topo cortado, mostrando os anéis do tronco.
                 ctx.fillStyle = '#7a6142';
                 ctx.beginPath(); ctx.ellipse(px + 34, py - 6 - lean * 0.2, 8, 6, -0.4, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = '#5a4530';
+                ctx.strokeStyle = barkColor;
                 ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.ellipse(px + 34, py - 6 - lean * 0.2, 4, 3, -0.4, 0, Math.PI * 2); ctx.stroke();
             } else {
