@@ -1464,6 +1464,17 @@ window.RoadEngine = {
         // 4 velocidades de scroll distintas nesta tela (0 pro céu, 0.35 pro
         // fundo, 1.0 pro mundo principal, 1.8 pro primeiro plano).
         this._drawForegroundLeaves(ctx, w, h, corrupted, isNight);
+
+        // Leves variações de luminosidade (item explícito da seção
+        // "Iluminação" da Reformulação da Floresta) — uma oscilação BEM
+        // sutil e lenta de brilho/escurecimento por cima da cena inteira,
+        // simulando nuvens variando a intensidade da luz que passa. Nunca
+        // substitui o ciclo dia/noite (Ciclo 6) nem a tonalidade da
+        // corrupção — só uma variação fina adicional, sempre ativa
+        // independente do estado (dia/noite/corrompido), em coordenada de
+        // TELA (depois do ctx.restore(), cobre a cena inteira de uma vez
+        // em vez de precisar tocar cada elemento individual do mundo).
+        this._drawAmbientLightFlicker(ctx, w, h);
     },
 
     // Nuvens à deriva no céu da Estrada (parte da correção do "fundo azul
@@ -1547,6 +1558,28 @@ window.RoadEngine = {
             ctx.quadraticCurveTo(screenX + 40, dropH * 0.5, screenX + 90, 0);
             ctx.closePath();
             ctx.fill();
+        }
+    },
+
+    // Leves variações de luminosidade (Reformulação da Floresta, seção
+    // "Iluminação": "leves variações de luminosidade"). Combina 2
+    // frequências bem lentas (períodos de ~42s e ~119s) pra uma oscilação
+    // orgânica, nunca um piscar mecânico perceptível de "liga/desliga".
+    // Amplitude BEM sutil (no máximo ~6% de opacidade) — clareia ou
+    // escurece a cena inteira de leve, nunca o suficiente pra atrapalhar a
+    // leitura visual do jogo. Cobre a tela inteira em coordenada de TELA
+    // (0,0,w,h), a única forma no arquivo que faz isso — nunca se confunde
+    // com o gradiente de céu/chão (que cobrem só metade da tela cada).
+    _drawAmbientLightFlicker(ctx, w, h) {
+        const t = performance.now() / 1000;
+        const wave = Math.sin(t * 0.15) * 0.5 + Math.sin(t * 0.053 + 1.7) * 0.5;
+        const intensity = wave * 0.06;
+        if (intensity > 0.002) {
+            ctx.fillStyle = `rgba(255,250,230,${intensity.toFixed(3)})`;
+            ctx.fillRect(0, 0, w, h);
+        } else if (intensity < -0.002) {
+            ctx.fillStyle = `rgba(0,0,10,${(-intensity).toFixed(3)})`;
+            ctx.fillRect(0, 0, w, h);
         }
     },
 
