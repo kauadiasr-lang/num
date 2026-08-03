@@ -1197,6 +1197,7 @@ window.RoadEngine = {
         if (!corrupted) this._drawAmbientLife(ctx, w, h, isNight);
         else this._drawCorruptionMist(ctx, w, h);
 
+        this._drawMount(ctx);
         this._drawPlayer(ctx);
         ctx.restore();
     },
@@ -2054,6 +2055,65 @@ window.RoadEngine = {
         ctx.translate(p.x, p.y);
         ctx.scale(scale, scale);
         window.GFX.drawGladiator(ctx, 0, 0, this.player, (p.facing || 1) > 0, anim, null);
+        ctx.restore();
+    },
+
+    // Montaria (pedido explícito da mega-diretiva: "utilizar montarias
+    // quando desbloqueadas") — `mode === 'horse'` já existia (afeta
+    // velocidade/fadiga, ver start()/_updateMovement) mas o jogador
+    // continuava visualmente IDÊNTICO a pé ou a cavalo, sem nenhum cavalo
+    // desenhado. Camada 100% separada, desenhada ANTES de `_drawPlayer`
+    // (nunca dentro dela) pra jamais tocar em `GFX.drawGladiator` — o
+    // código que corrigiu o bug de aparência do jogador nas florestas
+    // (bug #1) é sensível demais pra arriscar qualquer alteração aqui.
+    _drawMount(ctx) {
+        if (this.mode !== 'horse') return;
+        const p = this._player;
+        const scale = this.PLAYER_SCALE;
+        const facing = (p.facing || 1) > 0 ? 1 : -1;
+        const t = performance.now() / 1000;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(scale * facing, scale);
+        // Corpo
+        ctx.fillStyle = '#5a3a24';
+        ctx.beginPath();
+        ctx.ellipse(-6, -18, 34, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Pescoço + cabeça, esticados na direção do movimento
+        ctx.beginPath();
+        ctx.moveTo(20, -28);
+        ctx.quadraticCurveTo(38, -34, 44, -50);
+        ctx.quadraticCurveTo(46, -54, 42, -56);
+        ctx.quadraticCurveTo(32, -50, 24, -38);
+        ctx.quadraticCurveTo(18, -30, 18, -22);
+        ctx.closePath();
+        ctx.fill();
+        // Crina
+        ctx.strokeStyle = '#2a1c10';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(26, -42); ctx.lineTo(18, -30);
+        ctx.moveTo(33, -46); ctx.lineTo(25, -34);
+        ctx.stroke();
+        // Rabo
+        ctx.beginPath();
+        ctx.moveTo(-38, -22);
+        ctx.quadraticCurveTo(-50, -8, -44, 8);
+        ctx.stroke();
+        // Pernas — passada alternada só quando o jogador está de fato
+        // andando (mesmo campo `p.moving` que já controla a animação de
+        // caminhada do jogador em _drawPlayer, nunca duplicando estado).
+        ctx.strokeStyle = '#3a2415';
+        ctx.lineWidth = 6;
+        const legX = [-22, -8, 8, 20];
+        legX.forEach((lx, i) => {
+            const swing = p.moving ? Math.sin(t * 10 + i * Math.PI / 2) * 6 : 0;
+            ctx.beginPath();
+            ctx.moveTo(lx, -6);
+            ctx.lineTo(lx + swing, 18);
+            ctx.stroke();
+        });
         ctx.restore();
     }
 };
