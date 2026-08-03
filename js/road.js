@@ -275,6 +275,25 @@ window.RoadEngine = {
         'Escondido atrás de pedras soltas, você encontra {gift}g que alguém preferiu esquecer a arriscar buscar de volta.',
         'Um pequeno buraco disfarçado no barranco guarda {gift}g — provavelmente a poupança de alguém que nunca voltou.'
     ],
+    // Ciclo 34 — mesma lacuna do Ciclo 27, só que em 'cave'/'shrine':
+    // 'cave' sempre mostrava o MESMO toast (com {gift} variável, mas o
+    // texto ao redor nunca mudava); 'shrine' já alternava por estado
+    // (curado/não-curado) mas cada estado tinha só UMA linha fixa.
+    CAVE_LINES: [
+        'No fundo da caverna escura, você encontra {gift}g perdidos há anos.',
+        'Entre as pedras úmidas da caverna, uma bolsa apodrecida ainda guarda {gift}g.',
+        'O eco da caverna escura esconde um pequeno tesouro esquecido: {gift}g.'
+    ],
+    SHRINE_HEALED_LINES: [
+        'Uma bênção silenciosa do pequeno templo alivia seu corpo — fadiga e ferimentos diminuem.',
+        'O ar parado do templo antigo traz um alívio inesperado ao seu corpo cansado.',
+        'Uma luz fraca no altar do templo aquece seus ferimentos e sua exaustão por um instante.'
+    ],
+    SHRINE_FULL_LINES: [
+        'Você reza um instante no pequeno templo, mas já está em plena forma.',
+        'O templo antigo permanece silencioso — seu corpo já não precisa de bênção nenhuma agora.',
+        'Uma pausa breve diante do altar, mas você já chega aqui em plena forma.'
+    ],
     // Escolhe uma variante de forma determinística pela posição do evento
     // (mesmo hash de sempre) — o mesmo ponto do mapa sempre mostra a MESMA
     // variante, mas pontos diferentes tendem a mostrar variantes diferentes.
@@ -916,7 +935,7 @@ window.RoadEngine = {
             // percebido ("caverna escura") justifica um prêmio melhor.
             const gift = Utils.randomInt(50, 100);
             p.gold += gift;
-            toast(`No fundo da caverna escura, você encontra ${gift}g perdidos há anos.`, 'success');
+            toast(this._pickFlavor(this.CAVE_LINES, ev.x, 9600).replace('{gift}', gift), 'success');
         } else if (ev.type === 'shrine') {
             // Bênção do pequeno templo (pedido do usuário) — cura fadiga E
             // um pouco de HP, mesma lógica de "suporte" da linhagem da
@@ -928,9 +947,7 @@ window.RoadEngine = {
                 p.currentHp = Utils.clamp(p.currentHp + Math.floor(p.derivedStats.maxHp * 0.15), 0, p.derivedStats.maxHp);
                 healed = true;
             }
-            toast(healed
-                ? 'Uma bênção silenciosa do pequeno templo alivia seu corpo — fadiga e ferimentos diminuem.'
-                : 'Você reza um instante no pequeno templo, mas já está em plena forma.', 'success');
+            toast(this._pickFlavor(healed ? this.SHRINE_HEALED_LINES : this.SHRINE_FULL_LINES, ev.x, 9900), 'success');
         } else if (ev.type === 'ruins') {
             // Item antigo, mesma mecânica do 'chest' mas com chance de
             // raridade melhor (pedido do usuário: ruínas como marco de
