@@ -237,6 +237,11 @@ window.RoadEngine = {
     _lastZoneIndex: -1,
     _events: null,
     _nearEvent: null,
+    _weather: 'clear',
+    _weatherTimer: 0,
+    _isStorm: false,
+    _rainSpawnTimer: 0,
+    _lightningTimer: 0,
 
     // Inicia a travessia. `mode` é 'walk' ou 'horse' (custo do cavalo já
     // cobrado por quem chama, ver ui.js startRoadJourney — igual ao
@@ -255,6 +260,14 @@ window.RoadEngine = {
         this._nearEvent = null;
         this._playerAnim = null;
         this._lastProgressPct = -1;
+        // Clima da travessia (mundo vivo pedido pela mega-diretiva) — mesmo
+        // sistema de chuva/tempestade da Praça (ver CityEngine._updateWeather),
+        // sempre parte limpo no início de cada viagem.
+        this._weather = 'clear';
+        this._weatherTimer = Utils.randomFloat(45, 90);
+        this._isStorm = false;
+        this._rainSpawnTimer = 0;
+        this._lightningTimer = 0;
         // A câmera parte já centrada na posição inicial do jogador (nunca em
         // 0,0) — evita um "salto"/slide-in visível no primeiro frame da
         // travessia (ponto inicial da cidade de origem precisa continuar
@@ -470,6 +483,57 @@ window.RoadEngine = {
         this._updateBandits();
         this._updateInteractPrompt();
         this._updateProgressLabel();
+        this._updateWeather(dt);
+    },
+
+    // Clima da Estrada (mundo vivo pedido pela mega-diretiva) — mesmo
+    // sistema de chuva/tempestade já usado na Praça (ver
+    // CityEngine._updateWeather), agora também durante a travessia entre
+    // cidades, nunca só na cidade parada. Usa o clima da cidade de DESTINO
+    // (rainChance/stormChance, ver citydatabase.js) — viajar rumo ao
+    // Santuário Élfico já pode começar a chover antes de chegar lá. Sem
+    // cidade de destino real (Expedição à Floresta Ancestral, toDef
+    // undefined), cai nos valores originais fixos (35%/30%), o mesmo
+    // fallback usado em CityEngine e no resto deste arquivo.
+    _updateWeather(dt) {
+        this._weatherTimer -= dt;
+        if (this._weatherTimer <= 0) {
+            const toDef = window.CityDatabase[this.toId];
+            const rainChance = (toDef && toDef.weather && typeof toDef.weather.rainChance === 'number') ? toDef.weather.rainChance : 35;
+            const stormChance = (toDef && toDef.weather && typeof toDef.weather.stormChance === 'number') ? toDef.weather.stormChance : 30;
+            if (this._weather === 'clear') {
+                this._weather = Utils.chance(rainChance) ? 'rain' : 'clear';
+                this._weatherTimer = this._weather === 'rain' ? Utils.randomFloat(30, 55) : Utils.randomFloat(45, 90);
+                if (this._weather === 'rain') {
+                    this._isStorm = Utils.chance(stormChance);
+                    this._lightningTimer = Utils.randomFloat(6, 14);
+                    if (window.MainMenu) window.MainMenu.showToast(this._isStorm ? 'O céu escurece de vez — uma tempestade se aproxima!' : 'Nuvens escuras cobrem o caminho — começa a chover.', 'info');
+                }
+            } else {
+                this._weather = 'clear';
+                this._isStorm = false;
+                this._weatherTimer = Utils.randomFloat(45, 90);
+                if (window.MainMenu) window.MainMenu.showToast('A chuva passa e o sol volta a espiar entre as nuvens.', 'info');
+            }
+        }
+
+        if (this._weather === 'rain' && window.GFX) {
+            this._rainSpawnTimer -= dt;
+            if (this._rainSpawnTimer <= 0) {
+                this._rainSpawnTimer = 0.02;
+                const w = window.Engine.width;
+                window.GFX.spawnRainDrop(Utils.randomFloat(0, w), -10);
+            }
+        }
+
+        if (this._weather === 'rain' && this._isStorm) {
+            this._lightningTimer -= dt;
+            if (this._lightningTimer <= 0) {
+                this._lightningTimer = Utils.randomFloat(8, 20);
+                if (window.GFX) window.GFX.triggerLightningFlash();
+                if (window.AudioManager) window.AudioManager.playThunder();
+            }
+        }
     },
 
     // Move current em direção a target, no máximo maxDelta por chamada —
