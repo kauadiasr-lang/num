@@ -1353,6 +1353,10 @@ window.RoadEngine = {
         // flutuando, não a partícula que emite luz própria), então só
         // desliga durante corrupção, igual todo o resto da vida ambiente.
         if (!corrupted) this._drawDustMotes(ctx, w, h);
+        // Borboletas: só fazem sentido de dia (ao contrário dos vagalumes,
+        // que brilham no escuro) e não voam debaixo de chuva/tempestade,
+        // mesmo critério de coerência climática já usado nos vagalumes.
+        if (!isNight && !corrupted && this._weather !== 'rain') this._drawButterflies(ctx, w, h);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
@@ -2095,6 +2099,49 @@ window.RoadEngine = {
             ctx.beginPath();
             ctx.arc(mx + floatX, my + floatY, 1.8, 0, Math.PI * 2);
             ctx.fill();
+        }
+    },
+
+    // Borboletas (Reformulação da Floresta — pedido explícito: "borboletas"
+    // na lista de ambientação viva, ao lado de pássaros e insetos). Só faz
+    // sentido de dia -- ao contrário dos vagalumes, que brilham no escuro --
+    // e não voa debaixo de chuva/tempestade (mesmo critério de coerência
+    // climática já usado no resto do arquivo). Par de asas em elipses que
+    // abrem/fecham com o tempo (`sin`) simulando o bater de asas, cor
+    // variando por índice (determinístico via _hash, nunca Math.random)
+    // entre 3 paletas comuns de borboleta. Trajetória "esvoaçante" -- soma
+    // de senos/cossenos em frequências diferentes -- deliberadamente mais
+    // errática que a deriva lenta e suave da poeira/pólen acima.
+    _drawButterflies(ctx, w, h) {
+        const spacing = 210;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const bx = i * spacing;
+            if (bx < 0 || bx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(bx)];
+            if (this._hash(i * 157 + 34000) >= 14 * zone.vegDensity) continue;
+            const side = (this._hash(i * 89 + 34500) % 2 === 0) ? -1 : 1;
+            const by0 = side * (this._hash(i * 47 + 35000) % this.LANE_HALF_HEIGHT);
+
+            const phase = (i * 3.11) % (Math.PI * 2);
+            const flitX = Math.sin(t * 0.9 + phase) * 26 + Math.cos(t * 2.1 + phase * 1.6) * 8;
+            const flitY = Math.cos(t * 0.6 + phase * 1.3) * 18;
+            const bxPos = bx + flitX;
+            const byPos = by0 + flitY;
+            if (!window.Camera.isVisible(bxPos, byPos, w, h)) continue;
+
+            const palette = this._hash(i * 71 + 35500) % 3;
+            const wingColor = palette === 0 ? 'rgba(255,170,40,0.85)' : (palette === 1 ? 'rgba(255,255,255,0.85)' : 'rgba(120,170,255,0.85)');
+            const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 8 + phase));
+            const wingW = 5 + flap * 3;
+
+            ctx.fillStyle = wingColor;
+            ctx.beginPath(); ctx.ellipse(bxPos - wingW * 0.5, byPos, wingW, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(bxPos + wingW * 0.5, byPos, wingW, 4, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(40,30,20,0.8)';
+            ctx.beginPath(); ctx.arc(bxPos, byPos, 1.2, 0, Math.PI * 2); ctx.fill();
         }
     },
 
