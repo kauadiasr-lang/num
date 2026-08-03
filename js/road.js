@@ -2716,7 +2716,8 @@ window.RoadEngine = {
             if (!window.Camera.isVisible(rx, ry, w, h, 150)) continue;
 
             const fallen = this._hash(i * 71 + 48500) % 2 === 0;
-            const stoneColor = corrupted ? '#3a3038' : '#8a8578';
+            const ruinStoneColors = ['#8a8578', '#78766e', '#9a8f6a', '#7d8878'];
+            const stoneColor = corrupted ? '#3a3038' : ruinStoneColors[this._hash(i * 197 + 79000) % ruinStoneColors.length];
             const mossColor = corrupted ? 'rgba(70,40,90,0.5)' : 'rgba(90,120,60,0.5)';
 
             ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.28)' : 'rgba(0,0,0,0.18)';
@@ -2734,6 +2735,8 @@ window.RoadEngine = {
                 ctx.beginPath(); ctx.ellipse(rx - 10, ry - 4, 10, 5, 0.3, 0, Math.PI * 2); ctx.fill();
             } else {
                 // Coluna quebrada em pé, topo irregular.
+                const ruinStrokeColors = ['#605a4e', '#504e48', '#6b6048', '#4f5850'];
+                const strokeColor = corrupted ? '#221a20' : ruinStrokeColors[this._hash(i * 197 + 79000) % ruinStrokeColors.length];
                 ctx.fillStyle = stoneColor;
                 ctx.beginPath();
                 ctx.moveTo(rx - 14, ry + 6);
@@ -2743,7 +2746,7 @@ window.RoadEngine = {
                 ctx.lineTo(rx + 13, ry + 6);
                 ctx.closePath();
                 ctx.fill();
-                ctx.strokeStyle = corrupted ? '#221a20' : '#605a4e';
+                ctx.strokeStyle = strokeColor;
                 ctx.lineWidth = 1.5;
                 for (const dy of [-10, -26, -42]) {
                     ctx.beginPath(); ctx.moveTo(rx - 13, ry + dy); ctx.lineTo(rx + 12, ry + dy); ctx.stroke();
