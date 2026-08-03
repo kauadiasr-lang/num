@@ -90,6 +90,7 @@ window.RoadEngine = {
     CLEARING_SPACING: 4400, // clareiras — trechos de chão mais claro/aberto entre a vegetação, pedido explícito ("clareiras")
     TOWER_SPACING: 7800, // torres de vigia de fronteira — mais raras ainda que os acampamentos, marco único por travessia na maioria das rotas curtas
     LOG_MUSHROOM_SPACING: 480, // troncos caídos/cogumelos — mais comuns que os marcos raros acima, decoram o caminho sem virar repetição (pedido explícito: "espalhe naturalmente pelo caminho: troncos caídos; cogumelos")
+    LEAF_DECAL_SPACING: 150, // folhas caídas no chão — mais comuns ainda que troncos/cogumelos (clutter de chão, não marco), podem cair dentro da faixa caminhável inteira (pedido explícito da seção "Caminho": "folhas caídas")
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1258,6 +1259,10 @@ window.RoadEngine = {
             ctx.fill();
         }
 
+        // Folhas caídas no chão (pedido explícito da seção "Caminho": ver
+        // _drawFallenLeaves abaixo).
+        this._drawFallenLeaves(ctx, w, h, corrupted);
+
         // Vegetação esparsa, só decorativa — gerada de forma determinística
         // (sem array guardado em memória, sem Math.random) e cullada via
         // Camera.isVisible, então o custo por frame não cresce com
@@ -2254,6 +2259,47 @@ window.RoadEngine = {
             ctx.beginPath(); ctx.ellipse(bxPos + wingW * 0.5, byPos, wingW, 4, 0.3, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = 'rgba(40,30,20,0.8)';
             ctx.beginPath(); ctx.arc(bxPos, byPos, 1.2, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Folhas caídas no chão (Reformulação da Floresta — pedido explícito na
+    // seção "Caminho": "folhas caídas"). Diferente da folhagem em parallax
+    // pendurada dos galhos (_drawForegroundLeaves, Ciclo 45, sempre em
+    // coordenada de TELA, nunca no mundo), estas são decalques PLANOS no
+    // CHÃO de verdade — podem cair dentro da faixa caminhável inteira (não
+    // só nas laterais como a vegetação esparsa comum), já que folha caída
+    // não bloqueia passagem. Sempre estáticas (folha no chão não flutua,
+    // ao contrário das borboletas/vagalumes acima) e tingidas de roxo
+    // doentio durante corrupção, mesmo critério já usado no resto do
+    // arquivo.
+    _drawFallenLeaves(ctx, w, h, corrupted) {
+        const spacing = this.LEAF_DECAL_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const palette = corrupted
+            ? ['rgba(70,35,85,0.55)', 'rgba(55,25,70,0.5)', 'rgba(85,45,100,0.6)']
+            : ['rgba(200,120,40,0.55)', 'rgba(180,60,40,0.5)', 'rgba(210,170,50,0.55)'];
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const lx = i * spacing;
+            if (lx < 0 || lx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(lx)];
+            if (this._hash(i * 179 + 41000) >= 30 * zone.vegDensity) continue; // nem todo slot tem folha
+            const ly = (this._hash(i * 97 + 41500) % (this.LANE_HALF_HEIGHT * 2)) - this.LANE_HALF_HEIGHT;
+            if (!window.Camera.isVisible(lx, ly, w, h)) continue;
+
+            const colorIdx = this._hash(i * 53 + 42000) % palette.length;
+            const rot = (this._hash(i * 29 + 42500) % 63) * 0.1;
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(rot);
+            ctx.fillStyle = palette[colorIdx];
+            ctx.beginPath();
+            ctx.moveTo(0, -5);
+            ctx.quadraticCurveTo(4, 0, 0, 5);
+            ctx.quadraticCurveTo(-4, 0, 0, -5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
         }
     },
 
