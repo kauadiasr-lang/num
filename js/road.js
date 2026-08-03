@@ -852,11 +852,37 @@ window.RoadEngine = {
             this._drawEvent(ctx, ev);
         }
 
+        // Detalhes de solo (pedido do usuário: "florestas praticamente
+        // vazias... detalhes de solo" — precisa de mais que só vegetação
+        // esparsa) — manchas escuras sutis quebrando a uniformidade do
+        // gradiente de chão, desenhadas ANTES da vegetação (camada de
+        // baixo). Mesmo princípio determinístico/cullado de todo o resto
+        // do arquivo, espaçamento próprio (mais raro que a vegetação) pra
+        // não custar praticamente nada extra por frame.
+        const groundSpacing = 340;
+        const gFirst = Math.max(0, Math.floor((this._player.x - w) / groundSpacing));
+        const gLast = Math.ceil((this._player.x + w) / groundSpacing);
+        for (let i = gFirst; i <= gLast; i++) {
+            const gx = i * groundSpacing;
+            if (gx < 0 || gx > this.WORLD_LENGTH) continue;
+            if (this._hash(i * 19 + 17000) >= 55) continue;
+            const gy = (this._hash(i * 23 + 17500) % 2 === 0 ? -1 : 1) * (this.LANE_HALF_HEIGHT * 0.5);
+            if (!window.Camera.isVisible(gx, gy, w, h)) continue;
+            ctx.fillStyle = corrupted ? 'rgba(20,10,25,0.25)' : 'rgba(0,0,0,0.12)';
+            ctx.beginPath();
+            ctx.ellipse(gx, gy, 30, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // Vegetação esparsa, só decorativa — gerada de forma determinística
         // (sem array guardado em memória, sem Math.random) e cullada via
         // Camera.isVisible, então o custo por frame não cresce com
         // WORLD_LENGTH. A densidade varia por zona (Bosque/Floresta têm
-        // mais chance de planta por slot que Campos) via _hash().
+        // mais chance de planta por slot que Campos) via _hash(). Cada slot
+        // sorteia UM de 4 tipos de detalhe (pedido do usuário: "vegetação,
+        // arbustos, pedras, flores" — a floresta não pode ter só um tipo de
+        // planta repetido) em vez de sempre a mesma elipse — mesmo custo
+        // por frame de antes (1 forma por slot), só mais variedade visual.
         const spacing = 220;
         const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
         const lastIdx = Math.ceil((this._player.x + w) / spacing);
@@ -869,15 +895,49 @@ window.RoadEngine = {
             const side = (i % 2 === 0) ? -1 : 1;
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
             if (!window.Camera.isVisible(vx, vy, w, h)) continue;
+
             // Cor da vegetação varia por zona/família de bioma (identidade
             // visual por par-de-cidade, ver ZONE_FAMILY_STAGES) — exceto
             // enquanto a floresta estiver corrompida, quando SEMPRE vira
             // roxo doentio por cima de qualquer família (prioridade da
             // corrupção sobre a identidade normal da zona).
-            ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
-            ctx.beginPath();
-            ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
-            ctx.fill();
+            const detailType = this._hash(i * 83 + 15000) % 4;
+            if (detailType === 1) {
+                // Pedra — cor neutra de rocha, nunca muda por zona/família
+                // (pedras são inertes, não fazem parte da identidade de
+                // bioma como a vegetação faz).
+                ctx.fillStyle = corrupted ? 'rgba(40,35,45,0.75)' : 'rgba(110,105,98,0.85)';
+                ctx.beginPath();
+                ctx.moveTo(vx - 10, vy + 6);
+                ctx.lineTo(vx - 5, vy - 6);
+                ctx.lineTo(vx + 7, vy - 8);
+                ctx.lineTo(vx + 11, vy + 3);
+                ctx.lineTo(vx + 2, vy + 9);
+                ctx.closePath();
+                ctx.fill();
+            } else if (detailType === 2 && !corrupted) {
+                // Flores — não sobrevivem à corrupção (cai no tipo padrão
+                // abaixo quando corrompido, já tingido de roxo doentio).
+                ctx.fillStyle = 'rgba(230,190,90,0.85)';
+                for (const [fx, fy] of [[-8, -4], [8, -4], [0, -10], [-4, 4], [4, 4]]) {
+                    ctx.beginPath();
+                    ctx.arc(vx + fx, vy + fy, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (detailType === 3) {
+                // Arbusto — trio de círculos baixos, cor de zona (mais
+                // largo/baixo que a planta padrão, dá variedade de silhueta).
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
+                ctx.beginPath(); ctx.arc(vx - 8, vy + 4, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(vx + 8, vy + 4, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(vx, vy - 2, 10, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Planta padrão (elipse original).
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
+                ctx.beginPath();
+                ctx.ellipse(vx, vy, 14, 22, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         // Árvores gigantes (pedido do usuário) — marcos raros e bem mais
