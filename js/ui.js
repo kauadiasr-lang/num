@@ -2563,6 +2563,14 @@ class UIManager {
             { label: 'Ouro Total', value: (p.gold || 0) + (p.bankGold || 0) },
             { label: 'Conquistas', value: `${p.achievements.length} / ${Object.keys(window.AchievementDB).length}` },
             { label: 'Horas Jogadas', value: `${Math.round(((p.playTimeSeconds || 0) / 3600) * 10) / 10}h` },
+            // Contadores de exploração da Estrada (ver road.js _resolveEvent
+            // 'lore_book'/'magic_stone'/'rare_animal') — existiam desde os
+            // Ciclos 23/26 mas nunca apareciam em NENHUMA tela do jogo, só
+            // de relance no toast do momento da coleta. Reaproveita o MESMO
+            // grid de estatísticas já existente aqui, sem criar tela nova.
+            { label: 'Livros Encontrados', value: p.loreBooksFound || 0 },
+            { label: 'Pedras Mágicas', value: p.magicStonesFound || 0 },
+            { label: 'Animais Raros Avistados', value: p.rareAnimalsSighted || 0 },
         ];
         statsContainer.innerHTML = stats.map(s => `
             <div class="house-stat-card">
