@@ -1309,7 +1309,15 @@ window.RoadEngine = {
             // enquanto a floresta estiver corrompida, quando SEMPRE vira
             // roxo doentio por cima de qualquer família (prioridade da
             // corrupção sobre a identidade normal da zona).
-            const detailType = this._hash(i * 83 + 15000) % 4;
+            // "Moitas" é item explícito e distinto de "arbustos" na lista
+            // de estilo visual pedida ("arbustos; moitas; pedras...") —
+            // até este ciclo só existia o tipo "arbusto" (Ciclo original),
+            // moita nunca tinha ganho geometria própria. 5 tipos agora
+            // (era 4): moita entra como o novo detailType 4, um cluster
+            // BEM mais denso/largo de círculos que o arbusto (7 círculos
+            // sobrepostos vs. 3), silhueta claramente distinta — mato
+            // rasteiro fechado, não um arbusto isolado.
+            const detailType = this._hash(i * 83 + 15000) % 5;
 
             // Revisão de "sistema modular" (Reformulação da Floresta):
             // antes desta fatia, toda pedra tinha o EXATO mesmo tamanho de
@@ -1361,6 +1369,16 @@ window.RoadEngine = {
                 ctx.beginPath(); ctx.arc(-8, 4, 9, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(8, 4, 9, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(0, -2, 10, 0, Math.PI * 2); ctx.fill();
+            } else if (detailType === 4) {
+                // Moita — cluster BEM mais denso/largo que o arbusto (7
+                // círculos sobrepostos, vs. 3), mato rasteiro fechado,
+                // baixo e largo, cor de zona (tingida de roxo doentio
+                // durante corrupção, mesmo critério do arbusto acima).
+                ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.65)' : zone.vegColor;
+                const spots = [[-14, 5], [-6, 7], [3, 6], [12, 5], [-9, -1], [1, -2], [10, -1]];
+                for (const [mx, my] of spots) {
+                    ctx.beginPath(); ctx.arc(mx, my, 8, 0, Math.PI * 2); ctx.fill();
+                }
             } else {
                 // Planta padrão (elipse original).
                 ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.6)' : zone.vegColor;
