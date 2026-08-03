@@ -194,7 +194,13 @@ window.RoadEngine = {
         // salvo automaticamente pelo mesmo SaveManager.save genérico que já
         // persiste qualquer campo novo do Player sem precisar de migração.
         magic_stone: { icon: '🔮', label: 'Recolher a pedra mágica' },
-        lore_book: { icon: '📖', label: 'Ler o livro esquecido' }
+        lore_book: { icon: '📖', label: 'Ler o livro esquecido' },
+        // Tesouro escondido — SÓ existe na parte alargada de uma clareira
+        // (ver _laneHalfHeightAt/Ciclo 12), nunca na faixa normal da
+        // estrada. Recompensa própria (melhor que os equivalentes comuns)
+        // como incentivo de verdade pra "sair da estrada" pedido pelo
+        // usuário, não só decoração — ver _generateClearingTreasures.
+        clearing_treasure: { icon: '💎', label: 'Cavar o tesouro escondido' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -325,6 +331,7 @@ window.RoadEngine = {
         this._lastZoneIndex = -1;
         this._updateZoneLabel(0);
         this._generateEvents(fromId, toId);
+        this._generateClearingTreasures();
         // Espírito da Natureza / Corrupção (Fase 5, ver
         // docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md)
         // só existem fisicamente na Expedição à Floresta Ancestral — a mesma
@@ -361,7 +368,14 @@ window.RoadEngine = {
     // Santuário Élfico.
     _generateEvents(fromId, toId) {
         const seed = this._stringHash(fromId + '->' + toId);
-        const types = Object.keys(this.EVENT_TYPES).concat(['bandit']);
+        // `clearing_treasure` fica de fora do sorteio comum de propósito —
+        // ele só pode nascer numa clareira de verdade, na parte ALARGADA da
+        // faixa (ver _generateClearingTreasures/_laneHalfHeightAt), nunca
+        // na faixa normal onde este sorteio posiciona seus eventos (y=±70,
+        // sempre dentro de LANE_HALF_HEIGHT). Continuar no pool geral
+        // colocaria o mesmo "tesouro exclusivo de quem sai da estrada" bem
+        // no meio do caminho normal, contradizendo o propósito dele.
+        const types = Object.keys(this.EVENT_TYPES).filter(t => t !== 'clearing_treasure').concat(['bandit']);
         const segment = this.WORLD_LENGTH / this.EVENT_COUNT;
         this._events = [];
         for (let i = 0; i < this.EVENT_COUNT; i++) {
@@ -488,6 +502,28 @@ window.RoadEngine = {
         if (this._hash(i * 61 + 13000) >= 45) return this.LANE_HALF_HEIGHT;
         if (Math.abs(x - clx) > 220) return this.LANE_HALF_HEIGHT;
         return this.LANE_HALF_HEIGHT + 60;
+    },
+
+    // Tesouro escondido nas clareiras (incentivo real de exploração, ver
+    // _laneHalfHeightAt acima) — varre os MESMOS índices de clareira que
+    // _drawClearings/_laneHalfHeightAt usam (nunca reinventa o sorteio),
+    // mas só uma fração delas (hash extra) ganha um tesouro de verdade,
+    // senão toda clareira teria uma recompensa igual e deixaria de parecer
+    // uma descoberta. Posicionado a y = ±(LANE_HALF_HEIGHT+40) — DENTRO da
+    // faixa alargada da clareira, mas ALÉM da faixa normal (140), então só
+    // é alcançável saindo mesmo da linha central da estrada.
+    _generateClearingTreasures() {
+        const spacing = this.CLEARING_SPACING;
+        const lastIdx = Math.floor((this.WORLD_LENGTH - 300) / spacing);
+        for (let i = 1; i <= lastIdx; i++) {
+            const clx = i * spacing;
+            if (clx < 300 || clx > this.WORLD_LENGTH - 300) continue;
+            if (this._hash(i * 61 + 13000) >= 45) continue; // não é uma clareira válida
+            if (this._hash(i * 83 + 14500) >= 40) continue; // só ~40% das clareiras têm tesouro
+            const side = (this._hash(i * 97 + 15200) % 2 === 0) ? -1 : 1;
+            const y = side * (this.LANE_HALF_HEIGHT + 40);
+            this._events.push({ type: 'clearing_treasure', x: clx, y, spawnX: clx, consumed: false });
+        }
     },
 
     update(dt) {
@@ -860,6 +896,32 @@ window.RoadEngine = {
                 const soldFor = Math.floor(item.value * 0.5);
                 p.gold += soldFor;
                 toast(`Um baú guarda ${item.name}, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
+            }
+        } else if (ev.type === 'clearing_treasure') {
+            // Recompensa melhor que os equivalentes comuns (chest/secret) —
+            // incentivo de verdade pra ter saído da faixa normal da estrada
+            // (ver _laneHalfHeightAt/_generateClearingTreasures, Ciclo 12),
+            // nunca alcançável sem realmente entrar na parte alargada da
+            // clareira. Sempre tenta dar um item primeiro (rariedade melhor
+            // que 'chest'), só cai pra ouro se ItemFactory não retornar nada.
+            const cityId = this.fromId;
+            const picked = window.ItemFactory && window.ItemFactory._pickRandomEquipmentId
+                ? window.ItemFactory._pickRandomEquipmentId(cityId, false) : null;
+            if (!picked) {
+                const gift = Utils.randomInt(60, 120);
+                p.gold += gift;
+                toast(`Longe da estrada, você desenterra ${gift}g escondidos sob raízes antigas.`, 'success');
+                return;
+            }
+            const rarity = Utils.chance(30) ? RARITY.RARE : (Utils.chance(50) ? RARITY.UNCOMMON : RARITY.COMMON);
+            const item = window.ItemFactory.createEquipment(picked.id, picked.category, rarity);
+            if (p.inventory.length < p.inventoryCapacity) {
+                p.inventory.push(item);
+                toast(`Longe da estrada, escondido na clareira, você encontra ${item.name}!`, 'success');
+            } else {
+                const soldFor = Math.floor(item.value * 0.6);
+                p.gold += soldFor;
+                toast(`Você encontra ${item.name} na clareira, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
             }
         }
         window.SaveManager.save(window.Engine.state);
@@ -1535,6 +1597,22 @@ window.RoadEngine = {
             ctx.fillStyle = '#8a6a3a';
             ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-14, -4); ctx.lineTo(-14, 8); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
             ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(14, -4); ctx.lineTo(14, 8); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
+        } else if (t === 'clearing_treasure') {
+            // Montinho de terra revirada + gemas brilhando pra fora — visual
+            // distinto de 'secret' (esconderijo comum, na faixa normal da
+            // estrada), sinalizando "isso só existe porque você saiu do
+            // caminho". Brilho pulsante (seno do tempo) chama atenção de
+            // longe, incentivo real de ir até a beirada da clareira.
+            const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 260);
+            ctx.fillStyle = '#4a3a28';
+            ctx.beginPath(); ctx.ellipse(0, 8, 18, 7, 0, 0, Math.PI * 2); ctx.fill();
+            const gems = [[-8, 0, '#8a3ae0'], [0, -4, '#3ac0e0'], [8, 1, '#e0a83a']];
+            gems.forEach(([gx, gy, color]) => {
+                ctx.fillStyle = color;
+                ctx.globalAlpha = pulse;
+                ctx.beginPath(); ctx.arc(gx, gy, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1;
+            });
         } else {
             // Fallback pra qualquer tipo futuro sem ícone próprio ainda —
             // um marcador neutro simples, nunca um emoji.
