@@ -252,6 +252,34 @@ window.RoadEngine = {
         'Um relato desconjuntado de um gladiador aposentado diz que a Ladder de Rivais existe há mais tempo do que qualquer campeão que já a venceu — "os nomes mudam, o topo continua vazio esperando o próximo".',
         'Uma inscrição gasta perto de Gorkhal afirma que todo orc nascido perto da montanha carrega "o calor da forja no sangue", e que por isso raramente sentem frio mesmo em noites de neve.'
     ],
+
+    // Variantes de flavor text (Ciclo 27) — mesmo princípio de LORE_ENTRIES
+    // acima e de TRAVELER_QUEST_TYPES (Ciclo 11): cart/bridge/secret
+    // sempre mostravam o MESMO toast, palavra por palavra, em toda
+    // travessia (diferente de shrine/campfire, que já alternam por
+    // estado). Escolhidas de forma determinística por posição (ver
+    // _pickFlavor abaixo), nunca Math.random puro.
+    CART_LINES: [
+        'A carroça quebrada não guarda nada de útil — só madeira estilhaçada.',
+        'Um eixo partido e rodas cobertas de mato: essa carroça está aqui há muito mais tempo do que parece.',
+        'Restos de uma carga qualquer se perderam entre as tábuas quebradas — nada que valha a pena carregar.'
+    ],
+    BRIDGE_LINES: [
+        'A ponte de pedra range sob seus passos, mas te leva em segurança até o outro lado.',
+        'Musgo cobre metade das pedras da ponte, mas a estrutura ainda aguenta seu peso sem hesitar.',
+        'De cima da ponte, dá pra ver a água correndo bem mais rápido do que parecia da margem.'
+    ],
+    SECRET_LINES: [
+        'Um esconderijo secreto guarda {gift}g abandonados há muito tempo.',
+        'Escondido atrás de pedras soltas, você encontra {gift}g que alguém preferiu esquecer a arriscar buscar de volta.',
+        'Um pequeno buraco disfarçado no barranco guarda {gift}g — provavelmente a poupança de alguém que nunca voltou.'
+    ],
+    // Escolhe uma variante de forma determinística pela posição do evento
+    // (mesmo hash de sempre) — o mesmo ponto do mapa sempre mostra a MESMA
+    // variante, mas pontos diferentes tendem a mostrar variantes diferentes.
+    _pickFlavor(lines, x, salt) {
+        return lines[this._hash(Math.floor(x) + salt) % lines.length];
+    },
     // Subiu de 6 pra 12 ao adicionar ruins/cave/bridge/shrine/magic_stone/
     // lore_book (12 tipos pacíficos + bandido = 13 no pool de
     // _generateEvents), depois de 12 pra 14 no Ciclo 25 ao perceber que
@@ -866,7 +894,8 @@ window.RoadEngine = {
         } else if (ev.type === 'secret') {
             const gift = Utils.randomInt(40, 80);
             p.gold += gift;
-            toast(`Um esconderijo secreto guarda ${gift}g abandonados há muito tempo.`, 'success');
+            const line = this._pickFlavor(this.SECRET_LINES, ev.x, 9800).replace('{gift}', gift);
+            toast(line, 'success');
         } else if (ev.type === 'campfire') {
             if ((p.fatigue || 0) > 0) {
                 p.cureFatigue(1);
@@ -875,12 +904,12 @@ window.RoadEngine = {
                 toast('A fogueira ainda aquece, mas você não sente nenhum cansaço agora.', 'info');
             }
         } else if (ev.type === 'cart') {
-            toast('A carroça quebrada não guarda nada de útil — só madeira estilhaçada.', 'info');
+            toast(this._pickFlavor(this.CART_LINES, ev.x, 9500), 'info');
         } else if (ev.type === 'bridge') {
             // Marco puramente cênico (pedido do usuário: "pontes" como
             // ponto físico de exploração) — mesmo espírito do 'cart' acima,
             // sem recompensa, só ambientação de travessia segura.
-            toast('A ponte de pedra range sob seus passos, mas te leva em segurança até o outro lado.', 'info');
+            toast(this._pickFlavor(this.BRIDGE_LINES, ev.x, 9700), 'info');
         } else if (ev.type === 'cave') {
             // Recompensa em ouro, faixa maior que 'secret' — risco maior
             // percebido ("caverna escura") justifica um prêmio melhor.
