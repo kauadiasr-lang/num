@@ -1348,13 +1348,46 @@ window.RoadEngine = {
                 // Pedra — cor neutra de rocha, nunca muda por zona/família
                 // (pedras são inertes, não fazem parte da identidade de
                 // bioma como a vegetação faz).
-                ctx.fillStyle = corrupted ? 'rgba(40,35,45,0.75)' : 'rgba(110,105,98,0.85)';
+                //
+                // Variedade de forma/tom por instância (pedido "sistema
+                // modular sem repetição óbvia" — até este ciclo TODA pedra
+                // tinha exatamente a MESMA silhueta E o MESMO tom, sem
+                // nenhuma variação). 3 variantes via _hash, com a
+                // silhueta/tom originais preservados como variante 0
+                // (mesmo princípio já usado nas flores, Ciclo 62, e na
+                // copa das árvores gigantes, Ciclo 60). O tom durante
+                // corrupção continua ÚNICO entre as 3 variantes de
+                // propósito — pedras corrompidas não ganham a mesma
+                // variedade de tom que as normais, mantendo o critério já
+                // estabelecido de "corrupção sempre uniformiza" usado no
+                // resto do arquivo.
+                const rockVariant = this._hash(i * 149 + 56000) % 3;
+                const rockColors = ['rgba(110,105,98,0.85)', 'rgba(120,95,80,0.85)', 'rgba(95,105,100,0.85)'];
+                ctx.fillStyle = corrupted ? 'rgba(40,35,45,0.75)' : rockColors[rockVariant];
                 ctx.beginPath();
-                ctx.moveTo(-10, 6);
-                ctx.lineTo(-5, -6);
-                ctx.lineTo(7, -8);
-                ctx.lineTo(11, 3);
-                ctx.lineTo(2, 9);
+                if (rockVariant === 0) {
+                    ctx.moveTo(-10, 6);
+                    ctx.lineTo(-5, -6);
+                    ctx.lineTo(7, -8);
+                    ctx.lineTo(11, 3);
+                    ctx.lineTo(2, 9);
+                } else if (rockVariant === 1) {
+                    // Achatada e larga.
+                    ctx.moveTo(-13, 5);
+                    ctx.lineTo(-9, -3);
+                    ctx.lineTo(2, -6);
+                    ctx.lineTo(13, -1);
+                    ctx.lineTo(10, 6);
+                    ctx.lineTo(-2, 8);
+                } else {
+                    // Alta e angulosa.
+                    ctx.moveTo(-7, 7);
+                    ctx.lineTo(-8, -4);
+                    ctx.lineTo(-1, -12);
+                    ctx.lineTo(6, -7);
+                    ctx.lineTo(9, 2);
+                    ctx.lineTo(3, 8);
+                }
                 ctx.closePath();
                 ctx.fill();
             } else if (detailType === 2 && !corrupted) {
