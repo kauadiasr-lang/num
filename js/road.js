@@ -940,7 +940,7 @@ window.RoadEngine = {
         for (const ev of this._events) {
             if (ev.consumed) continue;
             if (!window.Camera.isVisible(ev.x, ev.y, w, h, 150)) continue;
-            this._drawEvent(ctx, ev, corrupted);
+            this._drawEvent(ctx, ev, corrupted, isNight);
         }
 
         // Detalhes de solo (pedido do usuário: "florestas praticamente
@@ -1040,7 +1040,7 @@ window.RoadEngine = {
         // mapa não deve parecer um corredor) — marco de terreno puramente
         // decorativo, mesmo princípio de _drawGiantTrees (determinístico,
         // fora da faixa caminhável, cullado por Camera.isVisible).
-        this._drawTravelCamps(ctx, w, h, corrupted);
+        this._drawTravelCamps(ctx, w, h, corrupted, isNight);
 
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
@@ -1315,7 +1315,7 @@ window.RoadEngine = {
     // colidem. Puramente cênico (distinto do evento `campfire`, que É
     // interativo — aqui não há aviso de interação nenhum, é só paisagem
     // "alguém acampou aqui recentemente").
-    _drawTravelCamps(ctx, w, h, corrupted) {
+    _drawTravelCamps(ctx, w, h, corrupted, isNight) {
         const spacing = this.CAMP_SPACING;
         const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
         const lastIdx = Math.ceil((this._player.x + w) / spacing);
@@ -1326,6 +1326,17 @@ window.RoadEngine = {
             const side = (this._hash(i * 41 + 11500) % 2 === 0) ? -1 : 1;
             const cy = side * (this.LANE_HALF_HEIGHT + 60);
             if (!window.Camera.isVisible(cx, cy, w, h, 200)) continue;
+
+            // Halo de luz quente à noite (mesmo princípio do campfire de
+            // _drawEventIcon — um acampamento aceso deve iluminar o entorno
+            // à noite, não só ter uma brasa desenhada num fundo escuro).
+            if (isNight && !corrupted) {
+                const glow = ctx.createRadialGradient(cx, cy - 4, 0, cx, cy - 4, 70);
+                glow.addColorStop(0, 'rgba(255,150,50,0.3)');
+                glow.addColorStop(1, 'rgba(255,150,50,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(cx, cy - 4, 70, 0, Math.PI * 2); ctx.fill();
+            }
 
             // Brasas ainda vivas no meio do acampamento — mesmo tom
             // avermelhado usado no resto do jogo pra fogo, tingido de roxo
@@ -1391,7 +1402,7 @@ window.RoadEngine = {
     // `traveler` é a única exceção: representa uma PESSOA de verdade, então
     // usa o mesmo GFX.drawGladiator() de _drawCreature/_drawAmbientHuman
     // em vez de um objeto.
-    _drawEventIcon(ctx, ev, corrupted) {
+    _drawEventIcon(ctx, ev, corrupted, isNight) {
         const t = ev.type;
         if (t === 'traveler') {
             const entity = this.AMBIENT_ENTITIES.npc_traveler;
@@ -1427,6 +1438,18 @@ window.RoadEngine = {
             ctx.fillStyle = 'rgba(255,220,120,0.9)';
             ctx.beginPath(); ctx.arc(2, 0, 4, 0, Math.PI * 2); ctx.fill();
         } else if (t === 'campfire') {
+            // Halo de luz quente (pedido "mundo vivo": uma fogueira à noite
+            // deve parecer ACESA, iluminando o entorno, não só ter uma
+            // chama desenhada em cima de um fundo escuro) — só de noite e
+            // só sem corrupção (fogueira corrompida já é "apagando
+            // sozinha", ver _drawTravelCamps).
+            if (isNight && !corrupted) {
+                const glow = ctx.createRadialGradient(0, -2, 0, 0, -2, 46);
+                glow.addColorStop(0, 'rgba(255,150,50,0.35)');
+                glow.addColorStop(1, 'rgba(255,150,50,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(0, -2, 46, 0, Math.PI * 2); ctx.fill();
+            }
             ctx.fillStyle = '#4a4a4a';
             [[-10, 4], [10, 4], [0, 9]].forEach(([sx, sy]) => { ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill(); });
             ctx.fillStyle = '#ff8a1e';
@@ -1479,9 +1502,9 @@ window.RoadEngine = {
         ctx.restore();
     },
 
-    _drawEvent(ctx, ev, corrupted) {
+    _drawEvent(ctx, ev, corrupted, isNight) {
         if (this.CREATURE_ENTITIES[ev.type]) { this._drawCreature(ctx, ev); return; }
-        this._drawEventIcon(ctx, ev, corrupted);
+        this._drawEventIcon(ctx, ev, corrupted, isNight);
     },
 
     _drawMarker(ctx, x, label) {
