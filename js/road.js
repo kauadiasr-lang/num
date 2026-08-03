@@ -2753,45 +2753,75 @@ window.RoadEngine = {
             ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.3)' : 'rgba(0,0,0,0.2)';
             ctx.beginPath(); ctx.ellipse(cx, cy + 10, 66, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-            // Afloramento rochoso irregular servindo de base pra boca da
-            // caverna.
-            ctx.fillStyle = rockColor;
-            ctx.beginPath();
-            ctx.moveTo(cx - 60, cy + 8);
-            ctx.lineTo(cx - 52, cy - 38);
-            ctx.lineTo(cx - 24, cy - 58);
-            ctx.lineTo(cx + 10, cy - 62);
-            ctx.lineTo(cx + 44, cy - 44);
-            ctx.lineTo(cx + 58, cy - 6);
-            ctx.lineTo(cx + 50, cy + 8);
-            ctx.closePath();
-            ctx.fill();
+            // Variedade de silhueta (mesmo princípio já usado em pedras/
+            // copas/torres/acampamentos): variante 0 preserva o afloramento
+            // irregular original; variante 1 é uma nova pilha de 3
+            // pedregulhos arredondados ao redor da mesma boca escura.
+            const caveVariant = this._hash(i * 137 + 72000) % 2;
+            if (caveVariant === 0) {
+                // Afloramento rochoso irregular servindo de base pra boca da
+                // caverna.
+                ctx.fillStyle = rockColor;
+                ctx.beginPath();
+                ctx.moveTo(cx - 60, cy + 8);
+                ctx.lineTo(cx - 52, cy - 38);
+                ctx.lineTo(cx - 24, cy - 58);
+                ctx.lineTo(cx + 10, cy - 62);
+                ctx.lineTo(cx + 44, cy - 44);
+                ctx.lineTo(cx + 58, cy - 6);
+                ctx.lineTo(cx + 50, cy + 8);
+                ctx.closePath();
+                ctx.fill();
 
-            // Sombreado na face da rocha, dando volume.
-            ctx.fillStyle = rockShade;
-            ctx.beginPath();
-            ctx.moveTo(cx + 10, cy - 62);
-            ctx.lineTo(cx + 44, cy - 44);
-            ctx.lineTo(cx + 58, cy - 6);
-            ctx.lineTo(cx + 50, cy + 8);
-            ctx.lineTo(cx + 14, cy + 4);
-            ctx.closePath();
-            ctx.fill();
+                // Sombreado na face da rocha, dando volume.
+                ctx.fillStyle = rockShade;
+                ctx.beginPath();
+                ctx.moveTo(cx + 10, cy - 62);
+                ctx.lineTo(cx + 44, cy - 44);
+                ctx.lineTo(cx + 58, cy - 6);
+                ctx.lineTo(cx + 50, cy + 8);
+                ctx.lineTo(cx + 14, cy + 4);
+                ctx.closePath();
+                ctx.fill();
 
-            // Boca da caverna: arco escuro na base da rocha, sempre visível
-            // de longe -- reforça "isso pode ser explorado" como marco de
-            // terreno físico, mesmo princípio já usado pra "árvore oca"
-            // (Ciclo 50).
-            ctx.fillStyle = '#0c0a0e';
-            ctx.beginPath();
-            ctx.moveTo(cx - 22, cy + 6);
-            ctx.lineTo(cx - 20, cy - 14);
-            ctx.quadraticCurveTo(cx, cy - 30, cx + 20, cy - 14);
-            ctx.lineTo(cx + 22, cy + 6);
-            ctx.closePath();
-            ctx.fill();
+                // Boca da caverna: arco escuro na base da rocha, sempre
+                // visível de longe -- reforça "isso pode ser explorado" como
+                // marco de terreno físico, mesmo princípio já usado pra
+                // "árvore oca" (Ciclo 50).
+                ctx.fillStyle = '#0c0a0e';
+                ctx.beginPath();
+                ctx.moveTo(cx - 22, cy + 6);
+                ctx.lineTo(cx - 20, cy - 14);
+                ctx.quadraticCurveTo(cx, cy - 30, cx + 20, cy - 14);
+                ctx.lineTo(cx + 22, cy + 6);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // Pilha de 3 pedregulhos arredondados (elipses sobrepostas)
+                // ao redor de uma boca de caverna deslocada, dando uma
+                // silhueta bem mais "amontoada" que o afloramento anguloso
+                // da variante 0.
+                ctx.fillStyle = rockColor;
+                ctx.beginPath(); ctx.ellipse(cx - 34, cy - 14, 26, 30, 0.15, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(cx + 10, cy - 30, 30, 26, -0.2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(cx + 42, cy - 8, 22, 24, 0.3, 0, Math.PI * 2); ctx.fill();
 
-            // Musgo/vegetação nas bordas da rocha.
+                ctx.fillStyle = rockShade;
+                ctx.beginPath(); ctx.ellipse(cx + 16, cy - 34, 18, 15, -0.2, 0, Math.PI * 2); ctx.fill();
+
+                ctx.fillStyle = '#0c0a0e';
+                ctx.beginPath();
+                ctx.moveTo(cx - 16, cy + 4);
+                ctx.lineTo(cx - 14, cy - 18);
+                ctx.quadraticCurveTo(cx + 4, cy - 32, cx + 22, cy - 16);
+                ctx.lineTo(cx + 24, cy + 4);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Musgo/vegetação nas bordas da rocha (comum a qualquer
+            // variante, mesmo princípio de "só a silhueta muda" já usado em
+            // torres de vigia/acampamentos).
             ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.4)' : 'rgba(70,110,55,0.4)';
             ctx.beginPath(); ctx.ellipse(cx - 40, cy - 20, 12, 7, 0.4, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.ellipse(cx + 34, cy - 30, 10, 6, -0.3, 0, Math.PI * 2); ctx.fill();
