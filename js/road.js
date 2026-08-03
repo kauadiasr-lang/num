@@ -1881,10 +1881,30 @@ window.RoadEngine = {
             ctx.fillRect(screenX - treeW * 0.08, baseY - treeH * 0.35, treeW * 0.16, treeH * 0.35);
 
             ctx.fillStyle = canopyPalette[this._hash(i * 29 + 78000) % canopyPalette.length];
-            ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(screenX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(screenX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.18, treeW * 0.3, 0, Math.PI * 2); ctx.fill();
+            // Silhueta da copa: arredondada (variante 0, original) ou cônica
+            // tipo conífera (variante 1, nova) — reforça o pedido original
+            // "árvores grossas/irregulares" da diretriz da Reformulação da
+            // Floresta, evitando que toda a parede pareça a mesma espécie.
+            if (this._hash(i * 43 + 79500) % 2 === 0) {
+                ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(screenX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(screenX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.18, treeW * 0.3, 0, Math.PI * 2); ctx.fill();
+            } else {
+                const layers = [
+                    { y: topY + treeH * 0.75, halfW: treeW * 0.42 },
+                    { y: topY + treeH * 0.45, halfW: treeW * 0.32 },
+                    { y: topY + treeH * 0.15, halfW: treeW * 0.20 },
+                ];
+                for (const layer of layers) {
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, layer.y - treeH * 0.32);
+                    ctx.lineTo(screenX - layer.halfW, layer.y);
+                    ctx.lineTo(screenX + layer.halfW, layer.y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
         }
     },
 
