@@ -294,6 +294,14 @@ window.RoadEngine = {
         'O templo antigo permanece silencioso — seu corpo já não precisa de bênção nenhuma agora.',
         'Uma pausa breve diante do altar, mas você já chega aqui em plena forma.'
     ],
+    // Ciclo 39 — mesma lacuna do Ciclo 34, só que em 'wounded_gladiator':
+    // sempre mostrava o MESMO toast fixo (com {xp} variável, mas o texto ao
+    // redor nunca mudava).
+    WOUNDED_GLADIATOR_LINES: [
+        'Você presta socorro ao gladiador ferido. Grato, ele compartilha truques de combate antes de seguir para a cidade mais próxima. +{xp} XP.',
+        'O gladiador ferido aceita sua ajuda em silêncio. Antes de partir, ensina uma manobra que aprendeu duramente na Arena. +{xp} XP.',
+        'Você amarra um curativo improvisado no gladiador ferido. Ele agradece com um conselho de combate que só quem já sangrou na Arena conhece. +{xp} XP.'
+    ],
     // Escolhe uma variante de forma determinística pela posição do evento
     // (mesmo hash de sempre) — o mesmo ponto do mapa sempre mostra a MESMA
     // variante, mas pontos diferentes tendem a mostrar variantes diferentes.
@@ -1040,7 +1048,7 @@ window.RoadEngine = {
             // o tom de shrine (bênção) em vez de chest/clearing_treasure.
             const xp = Utils.randomInt(20, 40);
             p.gainExp(xp);
-            toast(`Você presta socorro ao gladiador ferido. Grato, ele compartilha truques de combate antes de seguir para a cidade mais próxima. +${xp} XP.`, 'success');
+            toast(this._pickFlavor(this.WOUNDED_GLADIATOR_LINES, ev.x, 10100).replace('{xp}', xp), 'success');
         } else if (ev.type === 'rare_animal') {
             // "Animal raro" — último item pendente da lista original de
             // eventos do usuário. Colecionável narrativo, mesmo padrão de
