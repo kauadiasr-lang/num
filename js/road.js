@@ -96,6 +96,7 @@ window.RoadEngine = {
     RUIN_FRAGMENT_SPACING: 1800, // fragmentos de ruínas puramente decorativos — mais raros que troncos/cogumelos, mais comuns que as árvores gigantes; cenário, nunca interativo (distinto do evento 'ruins')
     SIDE_TRAIL_SPACING: 950, // trilhas laterais decorativas que se ramificam da estrada rumo à floresta (pedido explícito da seção "Exploração": "trilhas; atalhos") — puramente visual, sugere caminhos alternativos sem alterar a faixa caminhável real
     CAVE_ENTRANCE_SPACING: 2100, // afloramentos rochosos com boca de caverna, puramente decorativos — complementa o evento interativo `cave` (que só mostra um ícone pequeno de perto) com um marco de terreno visível de longe, mesmo princípio dos fragmentos de ruínas (Ciclo 58) pro evento `ruins`
+    ALTAR_SPACING: 2600, // pedestais de pedra antigos, puramente decorativos — o mais raro dos marcos de "cenário vs. evento" (mais raro que ruínas/cavernas), complementa o evento interativo `shrine`
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1551,6 +1552,18 @@ window.RoadEngine = {
         // `_events`.
         this._drawCaveEntrances(ctx, w, h, corrupted);
 
+        // Altares antigos decorativos — complementa o evento interativo
+        // `shrine` (que só mostra um ícone pequeno de perto, ver
+        // _drawEventIcon) com um pedestal de pedra visível de LONGE, mesmo
+        // princípio já usado pelos fragmentos de ruínas (Ciclo 58) pro
+        // evento `ruins` e pelas entradas de caverna (Ciclo 61) pro evento
+        // `cave`. Atende ao pedido explícito da seção "Objetos espalhados":
+        // "altares" — puramente cenário, nunca entra em `_events`. Ganha
+        // brilho místico violeta à noite (linguagem visual já usada por
+        // `magic_stone`), fechando também um pedaço de "Iluminação
+        // adaptativa dia/noite".
+        this._drawAncientAltars(ctx, w, h, corrupted, isNight);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -2729,6 +2742,72 @@ window.RoadEngine = {
             ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.4)' : 'rgba(70,110,55,0.4)';
             ctx.beginPath(); ctx.ellipse(cx - 40, cy - 20, 12, 7, 0.4, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.ellipse(cx + 34, cy - 30, 10, 6, -0.3, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Altares antigos decorativos — pedestal de pedra desgastado com taça
+    // de oferenda no topo, sempre fora da faixa caminhável. Complementa o
+    // evento interativo `shrine` (ver _drawEventIcon, `t === 'shrine'`),
+    // que só mostra um ícone pequeno quando o jogador já está perto o
+    // bastante pro aviso de interação — mesmo princípio de "cenário vs.
+    // evento" já usado pelos fragmentos de ruínas (Ciclo 58, evento
+    // `ruins`) e pelas entradas de caverna (Ciclo 61, evento `cave`).
+    // Ganha um brilho místico violeta suave à noite (mesma cor de
+    // `magic_stone`, distinta do laranja usado por fogueiras/tochas/
+    // lanternas, pra ler como "magia" em vez de "fogo"), nunca de dia nem
+    // durante a corrupção. Nunca entra em `_events`.
+    _drawAncientAltars(ctx, w, h, corrupted, isNight) {
+        const spacing = this.ALTAR_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const ax = i * spacing;
+            if (ax < 700 || ax > this.WORLD_LENGTH - 700) continue;
+            if (this._hash(i * 191 + 68000) >= 35) continue; // marco raro, nem todo slot tem um
+            const side = (this._hash(i * 61 + 68500) % 2 === 0) ? -1 : 1;
+            const ay = side * (this.LANE_HALF_HEIGHT + 55 + (this._hash(i * 43 + 69000) % 45));
+            if (!window.Camera.isVisible(ax, ay, w, h, 90)) continue;
+
+            const stoneColor = corrupted ? '#362a38' : '#7d7566';
+            const slabColor = corrupted ? '#443648' : '#8f8878';
+            const mossColor = corrupted ? 'rgba(70,40,90,0.45)' : 'rgba(90,120,60,0.45)';
+
+            // Sombra no chão.
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.28)' : 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.ellipse(ax, ay + 10, 30, 9, 0, 0, Math.PI * 2); ctx.fill();
+
+            // Pedestal (base trapezoidal, mais larga embaixo).
+            ctx.fillStyle = stoneColor;
+            ctx.beginPath();
+            ctx.moveTo(ax - 22, ay + 8);
+            ctx.lineTo(ax - 16, ay - 18);
+            ctx.lineTo(ax + 16, ay - 18);
+            ctx.lineTo(ax + 22, ay + 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // Laje horizontal no topo, saliente dos dois lados.
+            ctx.fillStyle = slabColor;
+            ctx.fillRect(ax - 26, ay - 24, 52, 8);
+
+            // Musgo na base do pedestal.
+            ctx.fillStyle = mossColor;
+            ctx.beginPath(); ctx.ellipse(ax - 14, ay, 7, 4, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(ax + 12, ay + 4, 6, 3, -0.2, 0, Math.PI * 2); ctx.fill();
+
+            // Taça de oferenda em cima da laje.
+            ctx.fillStyle = corrupted ? '#241c28' : '#4a4438';
+            ctx.beginPath(); ctx.ellipse(ax, ay - 28, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+            if (isNight && !corrupted) {
+                const t = performance.now() / 1000;
+                const flicker = 0.5 + 0.5 * Math.sin(t * 1.3 + i);
+                const glow = ctx.createRadialGradient(ax, ay - 26, 0, ax, ay - 26, 34);
+                glow.addColorStop(0, `rgba(170,110,230,${(0.28 + 0.18 * flicker).toFixed(2)})`);
+                glow.addColorStop(1, 'rgba(170,110,230,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(ax, ay - 26, 34, 0, Math.PI * 2); ctx.fill();
+            }
         }
     },
 
