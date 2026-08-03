@@ -1860,8 +1860,13 @@ window.RoadEngine = {
         const zone = this._zones && this._zones[this._zoneIndexAt(this._player.x)];
         const density = zone ? zone.vegDensity : 1.0;
         const trunkColor = corrupted ? '#241f28' : (isNight ? '#1a1410' : '#3a2a1a');
-        const canopyColorA = corrupted ? 'rgba(60,35,80,0.88)' : (isNight ? 'rgba(10,20,12,0.9)' : 'rgba(18,42,20,0.88)');
-        const canopyColorB = corrupted ? 'rgba(75,45,95,0.88)' : (isNight ? 'rgba(14,26,16,0.9)' : 'rgba(24,52,26,0.88)');
+        // Paleta de copa expandida (era só A/B) — mais variedade de tom pra
+        // evitar repetição óbvia numa parede tão densa quanto essa camada.
+        const canopyPalette = corrupted
+            ? ['rgba(60,35,80,0.88)', 'rgba(75,45,95,0.88)', 'rgba(50,28,68,0.88)', 'rgba(85,52,105,0.88)']
+            : (isNight
+                ? ['rgba(10,20,12,0.9)', 'rgba(14,26,16,0.9)', 'rgba(8,16,10,0.9)', 'rgba(16,28,18,0.9)']
+                : ['rgba(18,42,20,0.88)', 'rgba(24,52,26,0.88)', 'rgba(14,36,22,0.88)', 'rgba(28,48,18,0.88)']);
         for (let i = firstIdx; i <= lastIdx; i++) {
             if (this._hash(i * 149 + 76000) >= 78 * density) continue; // clareiras raras quanto mais densa a zona
             const wx = i * tile;
@@ -1875,7 +1880,7 @@ window.RoadEngine = {
             ctx.fillStyle = trunkColor;
             ctx.fillRect(screenX - treeW * 0.08, baseY - treeH * 0.35, treeW * 0.16, treeH * 0.35);
 
-            ctx.fillStyle = this._hash(i * 29 + 78000) % 2 === 0 ? canopyColorA : canopyColorB;
+            ctx.fillStyle = canopyPalette[this._hash(i * 29 + 78000) % canopyPalette.length];
             ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(screenX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(screenX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
