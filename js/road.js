@@ -1331,8 +1331,11 @@ window.RoadEngine = {
         // ciclo dia/noite já existente em vez de à vida ambiente). Some
         // durante o dia e enquanto a floresta estiver corrompida (mesmo
         // critério de "animais fogem" já usado por _drawAmbientLife acima —
-        // nenhuma vida ambiente, nem vagalume, sobrevive à corrupção).
-        if (isNight && !corrupted) this._drawFireflies(ctx, w, h);
+        // nenhuma vida ambiente, nem vagalume, sobrevive à corrupção). Ciclo
+        // 42: também some durante chuva/tempestade — inseto nenhum voa
+        // debaixo de chuva, mesmo princípio de coerência com o clima
+        // dinâmico já usado no resto do arquivo (ver _weather).
+        if (isNight && !corrupted && this._weather !== 'rain') this._drawFireflies(ctx, w, h);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
