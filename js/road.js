@@ -849,7 +849,7 @@ window.RoadEngine = {
         for (const ev of this._events) {
             if (ev.consumed) continue;
             if (!window.Camera.isVisible(ev.x, ev.y, w, h, 150)) continue;
-            this._drawEvent(ctx, ev);
+            this._drawEvent(ctx, ev, corrupted);
         }
 
         // Detalhes de solo (pedido do usuário: "florestas praticamente
@@ -1291,27 +1291,106 @@ window.RoadEngine = {
         ctx.restore();
     },
 
-    _drawEvent(ctx, ev) {
+    // Ícones de objetos físicos (bug corrigido: chest/bridge/shrine/etc.
+    // eram só um círculo colorido com um emoji em cima — "eventos
+    // aleatórios ainda representados por emojis", pedido do usuário).
+    // Cada tipo agora tem uma forma própria 100% desenhada à mão, no MESMO
+    // estilo já usado pelo resto do arquivo (rio, árvores gigantes,
+    // acampamentos) — nunca um ícone de fonte, sempre geometria real.
+    // `traveler` é a única exceção: representa uma PESSOA de verdade, então
+    // usa o mesmo GFX.drawGladiator() de _drawCreature/_drawAmbientHuman
+    // em vez de um objeto.
+    _drawEventIcon(ctx, ev, corrupted) {
+        const t = ev.type;
+        if (t === 'traveler') {
+            const entity = this.AMBIENT_ENTITIES.npc_traveler;
+            if (window.GFX && window.GFX.drawGladiator) {
+                const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
+                ctx.save();
+                ctx.translate(ev.x, ev.y);
+                ctx.scale(this.PLAYER_SCALE * 0.85, this.PLAYER_SCALE * 0.85);
+                window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
+                ctx.restore();
+            }
+            return;
+        }
+        ctx.save();
+        ctx.translate(ev.x, ev.y);
+        if (t === 'merchant') {
+            ctx.fillStyle = '#8a5a2a';
+            ctx.fillRect(-14, 2, 28, 8);
+            ctx.fillStyle = corrupted ? '#5a3a4a' : '#c9445a';
+            ctx.beginPath();
+            ctx.moveTo(-16, 2); ctx.lineTo(0, -14); ctx.lineTo(16, 2);
+            ctx.closePath(); ctx.fill();
+        } else if (t === 'chest') {
+            ctx.fillStyle = '#6b4a2a';
+            ctx.fillRect(-14, -4, 28, 14);
+            ctx.fillStyle = '#8a6a3a';
+            ctx.beginPath(); ctx.ellipse(0, -4, 14, 6, 0, Math.PI, 0, true); ctx.fill();
+            ctx.fillStyle = '#d4af37';
+            ctx.fillRect(-3, -6, 6, 6);
+        } else if (t === 'secret') {
+            ctx.fillStyle = '#5a4a34';
+            ctx.beginPath(); ctx.ellipse(0, 6, 16, 7, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,220,120,0.9)';
+            ctx.beginPath(); ctx.arc(2, 0, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (t === 'campfire') {
+            ctx.fillStyle = '#4a4a4a';
+            [[-10, 4], [10, 4], [0, 9]].forEach(([sx, sy]) => { ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2); ctx.fill(); });
+            ctx.fillStyle = '#ff8a1e';
+            ctx.beginPath();
+            ctx.moveTo(0, 6); ctx.quadraticCurveTo(-6, -4, 0, -14); ctx.quadraticCurveTo(6, -4, 0, 6);
+            ctx.fill();
+        } else if (t === 'cart') {
+            ctx.save();
+            ctx.rotate(0.25);
+            ctx.fillStyle = '#5a3e26';
+            ctx.fillRect(-16, -6, 32, 14);
+            ctx.restore();
+            ctx.fillStyle = '#2a1c10';
+            ctx.beginPath(); ctx.arc(-12, 10, 6, 0, Math.PI * 2); ctx.fill();
+        } else if (t === 'ruins') {
+            ctx.fillStyle = corrupted ? '#4a4038' : '#a89a82';
+            ctx.fillRect(-14, -10, 6, 20);
+            ctx.fillRect(2, -4, 6, 14);
+            ctx.fillRect(-4, -16, 6, 26);
+        } else if (t === 'cave') {
+            ctx.fillStyle = '#1a1a1e';
+            ctx.beginPath();
+            ctx.moveTo(-14, 10); ctx.lineTo(-14, -2); ctx.quadraticCurveTo(0, -16, 14, -2); ctx.lineTo(14, 10);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#3a352e'; ctx.lineWidth = 3; ctx.stroke();
+        } else if (t === 'bridge') {
+            ctx.strokeStyle = '#7a7264'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(0, 10, 14, Math.PI, 0); ctx.stroke();
+        } else if (t === 'shrine') {
+            ctx.fillStyle = '#c9a876';
+            ctx.fillRect(-10, -2, 20, 10);
+            ctx.fillRect(-6, -12, 12, 10);
+            ctx.fillStyle = 'rgba(180,150,60,0.9)';
+            ctx.beginPath(); ctx.arc(0, -14, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (t === 'magic_stone') {
+            ctx.fillStyle = 'rgba(150,80,220,0.9)';
+            ctx.beginPath();
+            ctx.moveTo(0, -14); ctx.lineTo(8, -2); ctx.lineTo(4, 12); ctx.lineTo(-4, 12); ctx.lineTo(-8, -2);
+            ctx.closePath(); ctx.fill();
+        } else if (t === 'lore_book') {
+            ctx.fillStyle = '#8a6a3a';
+            ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-14, -4); ctx.lineTo(-14, 8); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(14, -4); ctx.lineTo(14, 8); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
+        } else {
+            // Fallback pra qualquer tipo futuro sem ícone próprio ainda —
+            // um marcador neutro simples, nunca um emoji.
+            ctx.fillStyle = 'rgba(60,45,30,0.85)';
+            ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    },
+
+    _drawEvent(ctx, ev, corrupted) {
         if (this.CREATURE_ENTITIES[ev.type]) { this._drawCreature(ctx, ev); return; }
-        const fillByType = {
-            // Marcos físicos (identidade visual própria por tipo, em vez do
-            // marrom genérico de fallback usado por merchant/chest/etc.).
-            ruins: 'rgba(120,110,95,0.85)',
-            cave: 'rgba(25,25,30,0.9)',
-            bridge: 'rgba(110,95,75,0.85)',
-            shrine: 'rgba(180,150,60,0.85)',
-            magic_stone: 'rgba(120,60,200,0.85)',
-            lore_book: 'rgba(90,70,40,0.85)'
-        };
-        ctx.fillStyle = fillByType[ev.type] || 'rgba(60,45,30,0.85)';
-        ctx.beginPath();
-        ctx.arc(ev.x, ev.y, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = '20px sans-serif';
-        ctx.textAlign = 'center';
-        const def = this.EVENT_TYPES[ev.type] || this.FOREST_EVENT_TYPES[ev.type];
-        const icon = def ? def.icon : '❓';
-        ctx.fillText(icon, ev.x, ev.y + 7);
+        this._drawEventIcon(ctx, ev, corrupted);
     },
 
     _drawMarker(ctx, x, label) {
