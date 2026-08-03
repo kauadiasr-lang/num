@@ -1348,6 +1348,11 @@ window.RoadEngine = {
         // debaixo de chuva, mesmo princípio de coerência com o clima
         // dinâmico já usado no resto do arquivo (ver _weather).
         if (isNight && !corrupted && this._weather !== 'rain') this._drawFireflies(ctx, w, h);
+        // Poeira/pólen: diferente dos vagalumes acima, faz sentido de dia E
+        // de noite (é a luz — solar ou lunar — que revela a partícula
+        // flutuando, não a partícula que emite luz própria), então só
+        // desliga durante corrupção, igual todo o resto da vida ambiente.
+        if (!corrupted) this._drawDustMotes(ctx, w, h);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
@@ -2019,6 +2024,41 @@ window.RoadEngine = {
             ctx.beginPath(); ctx.arc(gx, gy, 9, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = `rgba(255,255,220,${Math.min(1, pulse + 0.3)})`;
             ctx.beginPath(); ctx.arc(gx, gy, 1.6, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Poeira/pólen flutuando (Reformulação da Floresta — pedido explícito:
+    // "partículas de poeira e pólen"). Diferente dos vagalumes acima (só à
+    // noite), poeira/pólen faz sentido o dia INTEIRO — a luz do sol é que
+    // faz esse tipo de partícula ficar visível, então aparece de dia e de
+    // noite, sem depender do relógio. Especks pálidos/dourados bem
+    // pequenos, deriva lenta senoidal (mesmo princípio de fase própria por
+    // índice, sem estado guardado, dos vagalumes) — bem mais sutil (raio
+    // menor, opacidade mais baixa) já que é poeira, não um inseto
+    // brilhando.
+    _drawDustMotes(ctx, w, h) {
+        const spacing = 95;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const mx = i * spacing;
+            if (mx < 0 || mx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(mx)];
+            if (this._hash(i * 149 + 27000) >= 16 * zone.vegDensity) continue;
+            const side = (this._hash(i * 79 + 27500) % 2 === 0) ? -1 : 1;
+            const my = side * (this._hash(i * 37 + 28000) % this.LANE_HALF_HEIGHT);
+            if (!window.Camera.isVisible(mx, my, w, h)) continue;
+
+            const phase = (i * 1.847) % (Math.PI * 2);
+            const floatY = Math.sin(t * 0.35 + phase) * 22;
+            const floatX = Math.cos(t * 0.22 + phase * 1.4) * 14;
+            const opacity = 0.14 + 0.14 * (0.5 + 0.5 * Math.sin(t * 0.6 + phase * 0.9));
+
+            ctx.fillStyle = `rgba(255,240,200,${opacity})`;
+            ctx.beginPath();
+            ctx.arc(mx + floatX, my + floatY, 1.8, 0, Math.PI * 2);
+            ctx.fill();
         }
     },
 
