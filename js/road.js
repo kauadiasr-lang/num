@@ -912,8 +912,8 @@ window.RoadEngine = {
         // uma linha nua, atendendo ao pedido "cidades devem ter
         // limites/bordas claras, com áreas de transição entre estrada,
         // campo e cidade".
-        this._drawCityGate(ctx, 0, fromDef ? fromDef.name : '');
-        this._drawCityGate(ctx, this.WORLD_LENGTH, this._destLabel);
+        this._drawCityGate(ctx, 0, fromDef ? fromDef.name : '', isNight);
+        this._drawCityGate(ctx, this.WORLD_LENGTH, this._destLabel, isNight);
 
         // Rio atravessando a estrada (pedido do usuário: "rios" — o mapa
         // não deve parecer um corredor uniforme) — feição de terreno fixa,
@@ -1521,7 +1521,7 @@ window.RoadEngine = {
     // a sensação de atravessar um limite de verdade em vez de uma linha
     // nua. Fronteiras internas de bioma (Campos/Bosque/Floresta) continuam
     // usando o _drawMarker simples — só início/fim de cidade ganham o portão.
-    _drawCityGate(ctx, x, label) {
+    _drawCityGate(ctx, x, label, isNight) {
         const half = this.LANE_HALF_HEIGHT;
         const r = this.GATE_ZONE_RADIUS;
 
@@ -1538,6 +1538,30 @@ window.RoadEngine = {
         ctx.fillRect(x + postGap - postW / 2, -postH, postW, postH * 2);
         ctx.fillStyle = '#42352a';
         ctx.fillRect(x - postGap - postW / 2 - 4, -postH - 16, postGap * 2 + postW + 8, 16);
+
+        // Tochas nos dois postes (pedido "mundo vivo"/identidade visual: o
+        // portão da Praça já é todo iluminado à noite, ver
+        // CityEngine._drawCityWall/_drawTorch — o portão da Estrada, a
+        // MESMA estrutura vista do lado de fora, ficava sempre apagado,
+        // mesma linguagem visual do halo já usado em fogueiras/acampamentos
+        // (ver _drawEventIcon/_drawTravelCamps), só que fixo no poste em
+        // vez de tremular junto com uma chama animada — mantém o custo por
+        // frame mínimo (sem Particle/flicker extra, só um brilho radial).
+        const torchY = -postH * 0.55; // meio do poste, longe da viga de cima e do chão
+        for (const side of [-1, 1]) {
+            const tx = x + side * (postGap + postW / 2 + 8); // colada na face externa de cada poste, nunca sobre a madeira
+            if (isNight) {
+                const glow = ctx.createRadialGradient(tx, torchY, 0, tx, torchY, 40);
+                glow.addColorStop(0, 'rgba(255,160,60,0.32)');
+                glow.addColorStop(1, 'rgba(255,160,60,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(tx, torchY, 40, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = '#ff8a1e';
+            ctx.beginPath(); ctx.ellipse(tx, torchY, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffe08a';
+            ctx.beginPath(); ctx.ellipse(tx, torchY + 1, 3, 6, 0, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.font = 'bold 16px sans-serif';
