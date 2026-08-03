@@ -451,14 +451,43 @@ window.RoadEngine = {
     // objetos físicos colidíveis) — só clampa dentro da faixa caminhável.
     handleClick(worldX, worldY) {
         if (!this._isActive()) return;
-        const bounds = this._bounds();
+        // Valida contra a faixa NO PONTO CLICADO (nunca a faixa de onde o
+        // jogador está agora) — clicar bem no meio de uma clareira distante
+        // pra ficar em pé na beirada alargada dela (y até LANE_HALF_HEIGHT+60,
+        // ver _laneHalfHeightAt) não pode ser recusado só porque a faixa é
+        // mais estreita perto de onde o jogador está parado agora; o
+        // trajeto em si continua clampado quadro a quadro pela faixa de
+        // cada ponto percorrido (ver _updateMovement), então nunca atravessa
+        // uma parede invisível no meio do caminho.
+        const bounds = this._bounds(worldX);
         this._player.targetX = Utils.clamp(worldX, bounds.minX, bounds.maxX);
         this._player.targetY = Utils.clamp(worldY, bounds.minY, bounds.maxY);
         this._player.pathQueue = [];
     },
 
-    _bounds() {
-        return { minX: 0, maxX: this.WORLD_LENGTH, minY: -this.LANE_HALF_HEIGHT, maxY: this.LANE_HALF_HEIGHT };
+    _bounds(x = this._player.x) {
+        const half = this._laneHalfHeightAt(x);
+        return { minX: 0, maxX: this.WORLD_LENGTH, minY: -half, maxY: half };
+    },
+
+    // Clareiras alargam a faixa caminhável DE VERDADE (pedido do usuário:
+    // "sair da estrada, entrar na floresta" durante a exploração) — antes
+    // eram só decoração visual (um brilho mais largo que a faixa andável,
+    // ver _drawClearings), sem nenhum efeito em onde o jogador podia
+    // realmente pisar; a faixa ficava sempre com a mesma largura fixa
+    // (LANE_HALF_HEIGHT) o mapa inteiro. Reaproveita o MESMO cálculo
+    // determinístico de _drawClearings (mesmo spacing/hash/raio), então a
+    // faixa alargada sempre corresponde exatamente ao brilho já desenhado
+    // no chão — nunca um espaço "invisível" liberado nem uma parte do
+    // brilho que continua bloqueada.
+    _laneHalfHeightAt(x) {
+        const spacing = this.CLEARING_SPACING;
+        const i = Math.round(x / spacing);
+        const clx = i * spacing;
+        if (clx < 300 || clx > this.WORLD_LENGTH - 300) return this.LANE_HALF_HEIGHT;
+        if (this._hash(i * 61 + 13000) >= 45) return this.LANE_HALF_HEIGHT;
+        if (Math.abs(x - clx) > 220) return this.LANE_HALF_HEIGHT;
+        return this.LANE_HALF_HEIGHT + 60;
     },
 
     update(dt) {
