@@ -343,7 +343,17 @@ class CityEngine {
         const w = this._worldWidth(), h = window.Engine.height;
         const gateX = w * CityEngine.GATE_XFRAC;
         const gateY = this._horizon(h) + 45;
-        const skinTones = ['#ffcc99', '#e0a878', '#a86b3f', '#7a4a2a'];
+        // Raça ponderada pela demografia da Cidade-Hub atual (Ciclo 28 —
+        // mesmo mecanismo já usado por _makeNpc, ver _pickNpcRace acima).
+        // Achado nesta revisão: o Viajante do Portão ficou pra trás quando
+        // _makeNpc ganhou essa coerência (comentário lá já documenta "faz a
+        // praça REALMENTE parecer outro povo ao viajar") — continuava com
+        // um pool de pele genérico fixo e SEM `race` nenhuma, então nunca
+        // aparecia como orc/elfo/anão mesmo chegando na Fortaleza Orc ou no
+        // Santuário Élfico. Já era seguro (GFX cai em fallback humano
+        // quando `race` está ausente, nunca lançava exceção), mas visualmente
+        // incoerente com todo o resto da praça.
+        const npcRace = this._pickNpcRace();
         const hairColors = ['#2a1c10', '#5a3a1a', '#1a1a1a', '#8a5a2b'];
         return {
             x: gateX, y: gateY, targetX: gateX, targetY: gateY,
@@ -354,13 +364,14 @@ class CityEngine {
             entity: {
                 visuals: {
                     gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
-                    skinTone: skinTones[Utils.randomInt(0, skinTones.length - 1)],
+                    skinTone: window.RaceSystem ? window.RaceSystem.pickSkinTone(npcRace) : '#ffcc99',
                     hairStyle: Utils.randomInt(1, 15),
                     hairColor: hairColors[Utils.randomInt(0, hairColors.length - 1)],
                     beardStyle: 0, eyeColor: '#1a1a1a', faceShape: 1
                 },
                 equipment: {},
-                __teamColor: '#4a3a2a' // manto de viagem, cor terrosa de estrada
+                __teamColor: '#4a3a2a', // manto de viagem, cor terrosa de estrada
+                race: npcRace
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
