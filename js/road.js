@@ -89,6 +89,7 @@ window.RoadEngine = {
     CAMP_SPACING: 5200, // acampamentos — mais esparsos ainda que as árvores gigantes (cenário raro, não repetitivo)
     CLEARING_SPACING: 4400, // clareiras — trechos de chão mais claro/aberto entre a vegetação, pedido explícito ("clareiras")
     TOWER_SPACING: 7800, // torres de vigia de fronteira — mais raras ainda que os acampamentos, marco único por travessia na maioria das rotas curtas
+    LOG_MUSHROOM_SPACING: 480, // troncos caídos/cogumelos — mais comuns que os marcos raros acima, decoram o caminho sem virar repetição (pedido explícito: "espalhe naturalmente pelo caminho: troncos caídos; cogumelos")
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1330,6 +1331,13 @@ window.RoadEngine = {
         // guardas de fronteira (ver LORE_ENTRIES).
         this._drawWatchtowers(ctx, w, h, corrupted, isNight);
 
+        // Troncos caídos e cogumelos — mais comuns que os marcos acima,
+        // decoram o caminho de perto (pedido explícito da reformulação, na
+        // seção "Objetos": "espalhe naturalmente pelo caminho ... troncos
+        // caídos; cogumelos"). Objetos físicos de cenário, não efeito de
+        // luz/clima, então sempre desenhados independente de dia/noite.
+        this._drawFallenLogsAndMushrooms(ctx, w, h, corrupted);
+
         // Mundo vivo ambiente (Fase 6) — viajantes, caravanas, animais e
         // patrulhas caminhando ao fundo, puramente decorativos. "Animais
         // fogem" enquanto a floresta estiver corrompida (pedido do
@@ -2022,6 +2030,64 @@ window.RoadEngine = {
             }
             ctx.fillStyle = isNight && !corrupted ? '#ffd27a' : '#8a7a5a';
             ctx.beginPath(); ctx.arc(tx, ty - towerH - 32, 6, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Troncos caídos e cogumelos (Reformulação da Floresta — pedido
+    // explícito na seção "Objetos": "espalhe naturalmente pelo caminho ...
+    // troncos caídos; cogumelos"). Mais comuns que os marcos raros acima
+    // (árvores gigantes/acampamentos/torres), mas ainda esparsos o
+    // suficiente pra não virarem repetição óbvia. Determinístico via
+    // _hash, nunca Math.random.
+    _drawFallenLogsAndMushrooms(ctx, w, h, corrupted) {
+        const spacing = this.LOG_MUSHROOM_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const px = i * spacing;
+            if (px < 0 || px > this.WORLD_LENGTH) continue;
+            if (this._hash(i * 101 + 36000) >= 45) continue; // nem todo slot tem um objeto
+            const side = (this._hash(i * 59 + 36500) % 2 === 0) ? -1 : 1;
+            const py = side * (this.LANE_HALF_HEIGHT + 30 + (this._hash(i * 43 + 37000) % 30));
+            if (!window.Camera.isVisible(px, py, w, h, 60)) continue;
+
+            const isLog = this._hash(i * 71 + 37500) % 2 === 0;
+            if (isLog) {
+                // Tronco caído — cor de casca neutra, como as pedras (não
+                // muda com corrupção; é madeira morta/inerte, não "vida
+                // ambiente" que foge/desaparece).
+                const lean = ((this._hash(i * 89 + 38000) % 21) - 10);
+                ctx.fillStyle = '#5a4530';
+                ctx.beginPath();
+                ctx.moveTo(px - 34, py + 6 + lean * 0.2);
+                ctx.lineTo(px + 34, py - 6 - lean * 0.2);
+                ctx.lineTo(px + 32, py + 2 - lean * 0.2);
+                ctx.lineTo(px - 32, py + 14 + lean * 0.2);
+                ctx.closePath();
+                ctx.fill();
+                // Topo cortado, mostrando os anéis do tronco.
+                ctx.fillStyle = '#7a6142';
+                ctx.beginPath(); ctx.ellipse(px + 34, py - 6 - lean * 0.2, 8, 6, -0.4, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#5a4530';
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.ellipse(px + 34, py - 6 - lean * 0.2, 4, 3, -0.4, 0, Math.PI * 2); ctx.stroke();
+            } else {
+                // Cogumelos — cluster de 3, tingidos de roxo doentio quando
+                // a floresta estiver corrompida (fungo prospera na
+                // escuridão, mesmo princípio de "corrupção tinge tudo de
+                // roxo" já usado em flores/arbustos/plantas).
+                const capColor = corrupted ? 'rgba(90,40,110,0.85)' : 'rgba(190,60,50,0.85)';
+                for (const [mdx, mdy, scale] of [[-6, 4, 1], [6, 5, 0.8], [0, -2, 1.2]]) {
+                    const r = 5 * scale;
+                    ctx.fillStyle = '#e8dcc8';
+                    ctx.fillRect(px + mdx - 1, py + mdy, 2, 5 * scale);
+                    ctx.fillStyle = capColor;
+                    ctx.beginPath();
+                    ctx.arc(px + mdx, py + mdy, r, Math.PI, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
         }
     },
 
