@@ -947,21 +947,89 @@ window.RoadEngine = {
     // 7 — o mesmo princípio de chunking/culling que já vale pra vegetação
     // acima, aplicado a NPCs): o custo por frame nunca cresce com
     // WORLD_LENGTH, só com o quanto cabe na tela.
+    // Entidades humanas da vida ambiente (bug corrigido: viajante/patrulha
+    // eram só um emoji 🚶/🛡️ flutuando, nunca um personagem de verdade —
+    // mesmo motivo/mesma solução de CREATURE_ENTITIES acima, reaproveitando
+    // GFX.drawGladiator). Caravana/animal não são humanoides — ganharam
+    // formas procedurais próprias (_drawAmbientCaravan/_drawAmbientAnimal)
+    // em vez de um emoji, no mesmo estilo 100% desenhado à mão já usado
+    // pelo resto do arquivo (árvores gigantes, acampamentos, rio).
+    AMBIENT_ENTITIES: {
+        npc_traveler: {
+            visuals: { gender: 'Feminino', skinTone: '#d8b088', hairStyle: 5, hairColor: '#5a3a1a', beardStyle: 0, eyeColor: '#3a2a1a', faceShape: 1 },
+            equipment: {}, __teamColor: '#7a6a4a', race: 'humano'
+        },
+        patrol: {
+            visuals: { gender: 'Masculino', skinTone: '#c8a878', hairStyle: 3, hairColor: '#2a2418', beardStyle: 2, eyeColor: '#2a1a14', faceShape: 1 },
+            equipment: {}, __teamColor: '#4a5a3a', race: 'humano'
+        }
+    },
+
+    _drawAmbientHuman(ctx, x, y, kind, seed, facing) {
+        if (!window.GFX || !window.GFX.drawGladiator) return;
+        const entity = this.AMBIENT_ENTITIES[kind];
+        const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
+        const key = kind + '_' + seed;
+        const anim = cache[key] || (cache[key] = { type: 'walk', start: performance.now(), duration: 0 });
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(this.PLAYER_SCALE * 0.85, this.PLAYER_SCALE * 0.85);
+        window.GFX.drawGladiator(ctx, 0, 0, entity, facing > 0, anim, null);
+        ctx.restore();
+    },
+
+    _drawAmbientCaravan(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = '#6b4a2a';
+        ctx.fillRect(-26, -14, 52, 22);
+        ctx.fillStyle = '#c9b48a';
+        ctx.beginPath();
+        ctx.ellipse(0, -18, 28, 12, 0, Math.PI, 0, true);
+        ctx.fill();
+        ctx.fillStyle = '#2a1c10';
+        ctx.beginPath(); ctx.arc(-16, 10, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(16, 10, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    },
+
+    _drawAmbientAnimal(ctx, x, y, seed) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = '#7a5a3a';
+        ctx.beginPath();
+        ctx.ellipse(0, 4, 16, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(14, -4, 7, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#5a3e26';
+        ctx.lineWidth = 2;
+        for (const lx of [-8, 8]) {
+            ctx.beginPath(); ctx.moveTo(lx, 10); ctx.lineTo(lx, 18); ctx.stroke();
+        }
+        if (seed % 2 === 0) {
+            ctx.beginPath();
+            ctx.moveTo(16, -9); ctx.lineTo(19, -15);
+            ctx.moveTo(20, -9); ctx.lineTo(23, -15);
+            ctx.stroke();
+        }
+        ctx.restore();
+    },
+
     _drawAmbientLife(ctx, w, h) {
         const chunkSize = this.AMBIENT_CHUNK_SIZE;
         const px = this._player.x;
         const firstChunk = Math.max(0, Math.floor((px - w) / chunkSize) - 1);
         const lastChunk = Math.min(Math.ceil(this.WORLD_LENGTH / chunkSize), Math.ceil((px + w) / chunkSize) + 1);
         const t = performance.now() / 1000;
-        ctx.font = '22px sans-serif';
-        ctx.textAlign = 'center';
 
         for (let c = firstChunk; c <= lastChunk; c++) {
             if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) continue;
             const kind = this.AMBIENT_TYPES[this._hash(c * 29 + 6000) % this.AMBIENT_TYPES.length];
             const seed = this._hash(c * 47 + 7000);
             const chunkStart = c * chunkSize;
-            let x, y, icon;
+            let x, y, facing = 1;
 
             if (kind === 'caravan') {
                 // Atravessa o MUNDO INTEIRO (não só o chunk) e reaparece do
@@ -969,7 +1037,6 @@ window.RoadEngine = {
                 // verdade, sem precisar guardar posição entre frames.
                 x = (t * 90 + seed * 500) % this.WORLD_LENGTH;
                 y = -40;
-                icon = '🚚';
             } else if (kind === 'npc_traveler') {
                 // Anda continuamente numa direção dentro do próprio chunk
                 // (módulo do tempo), nunca oscila vai-e-volta como
@@ -977,21 +1044,22 @@ window.RoadEngine = {
                 // de um lugar a outro, não só decorando o mesmo ponto.
                 x = chunkStart + ((t * 40 + seed * 25) % chunkSize);
                 y = (seed % 2 === 0 ? -1 : 1) * 95;
-                icon = '🚶';
+                facing = (seed % 2 === 0) ? 1 : -1;
             } else if (kind === 'animal') {
                 const cx = chunkStart + chunkSize * 0.5;
                 x = cx + Math.sin(t * 0.4 + seed) * 180;
                 y = Math.cos(t * 0.3 + seed) * 55;
-                icon = '🦌';
             } else { // patrol — guarda vai-e-volta, mesmo padrão do bandido (_updateBandits) mas sem raio de detecção nenhum (nunca dispara batalha)
                 const cx = chunkStart + chunkSize * 0.5;
                 x = cx + Math.sin(t * 0.5 + seed) * 220;
                 y = (seed % 2 === 0 ? -1 : 1) * 115;
-                icon = '🛡️';
+                facing = Math.cos(t * 0.5 + seed) >= 0 ? 1 : -1;
             }
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
-            ctx.fillText(icon, x, y + 8);
+            if (kind === 'npc_traveler' || kind === 'patrol') this._drawAmbientHuman(ctx, x, y, kind, seed, facing);
+            else if (kind === 'caravan') this._drawAmbientCaravan(ctx, x, y);
+            else this._drawAmbientAnimal(ctx, x, y, seed);
         }
     },
 
@@ -1128,11 +1196,44 @@ window.RoadEngine = {
         }
     },
 
+    // Entidades "de verdade" (bug corrigido: bandido/Espírito da Natureza/
+    // presença da Corrupção eram só um círculo colorido com um emoji em
+    // cima, nunca um personagem — "NPCs, criaturas... representados por
+    // emojis", pedido do usuário). Reaproveita o MESMO GFX.drawGladiator()
+    // usado pelo jogador/NPCs da Praça, com um `entity` sintético mínimo
+    // (visuals/equipment/raça) — nunca lutam como Entity de verdade (o
+    // combate continua disparado por proximidade, ver _updateBandits), só
+    // agora têm a MESMA linguagem visual do resto do jogo em vez de um
+    // ícone flutuando sobre uma bolinha.
+    CREATURE_ENTITIES: {
+        bandit: {
+            visuals: { gender: 'Masculino', skinTone: '#c89a72', hairStyle: 4, hairColor: '#1a1410', beardStyle: 3, eyeColor: '#2a1414', faceShape: 1 },
+            equipment: {}, __teamColor: '#3a2e26', race: 'humano'
+        },
+        nature_spirit: {
+            visuals: { gender: 'Feminino', skinTone: '#9ee8ac', hairStyle: 6, hairColor: '#2a6a34', beardStyle: 0, eyeColor: '#d8ffe0', faceShape: 1 },
+            equipment: {}, __teamColor: '#3a6a44', race: 'elfo'
+        },
+        corruption: {
+            visuals: { gender: 'Masculino', skinTone: '#4a2050', hairStyle: 2, hairColor: '#1a0a20', beardStyle: 0, eyeColor: '#c020e0', faceShape: 1 },
+            equipment: {}, __teamColor: '#2a1030', race: 'humano'
+        }
+    },
+
+    _drawCreature(ctx, ev) {
+        const entity = this.CREATURE_ENTITIES[ev.type];
+        if (!entity || !window.GFX || !window.GFX.drawGladiator) return;
+        const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
+        ctx.save();
+        ctx.translate(ev.x, ev.y);
+        ctx.scale(this.PLAYER_SCALE, this.PLAYER_SCALE);
+        window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
+        ctx.restore();
+    },
+
     _drawEvent(ctx, ev) {
+        if (this.CREATURE_ENTITIES[ev.type]) { this._drawCreature(ctx, ev); return; }
         const fillByType = {
-            bandit: 'rgba(120,20,20,0.85)',
-            nature_spirit: 'rgba(40,110,60,0.85)',
-            corruption: 'rgba(60,20,70,0.85)',
             // Marcos físicos (identidade visual própria por tipo, em vez do
             // marrom genérico de fallback usado por merchant/chest/etc.).
             ruins: 'rgba(120,110,95,0.85)',
@@ -1142,7 +1243,6 @@ window.RoadEngine = {
             magic_stone: 'rgba(120,60,200,0.85)',
             lore_book: 'rgba(90,70,40,0.85)'
         };
-        const iconByType = { bandit: '⚔️', nature_spirit: '🌿' };
         ctx.fillStyle = fillByType[ev.type] || 'rgba(60,45,30,0.85)';
         ctx.beginPath();
         ctx.arc(ev.x, ev.y, 18, 0, Math.PI * 2);
@@ -1150,7 +1250,7 @@ window.RoadEngine = {
         ctx.font = '20px sans-serif';
         ctx.textAlign = 'center';
         const def = this.EVENT_TYPES[ev.type] || this.FOREST_EVENT_TYPES[ev.type];
-        const icon = iconByType[ev.type] || (def ? def.icon : '❓');
+        const icon = def ? def.icon : '❓';
         ctx.fillText(icon, ev.x, ev.y + 7);
     },
 
