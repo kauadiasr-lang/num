@@ -217,7 +217,13 @@ window.RoadEngine = {
         // físico de verdade: geometria própria (cervo pálido/dourado com
         // brilho, ver _drawEventIcon) e recompensa narrativa, nunca um
         // emoji/placeholder.
-        rare_animal: { icon: '🦌', label: 'Observar o animal raro' }
+        rare_animal: { icon: '🦌', label: 'Observar o animal raro' },
+        // "Árvore oca" — item explícito da lista de objetos da Reformulação
+        // da Floresta ("árvores ocas, ruínas antigas, altares esquecidos");
+        // ruins/shrine já existiam, árvore oca ainda faltava. Geometria
+        // própria (tronco grosso com um buraco escuro na base, ver
+        // _drawEventIcon) — nunca um emoji/placeholder.
+        hollow_tree: { icon: '🌳', label: 'Explorar a árvore oca' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -275,6 +281,14 @@ window.RoadEngine = {
         'Um esconderijo secreto guarda {gift}g abandonados há muito tempo.',
         'Escondido atrás de pedras soltas, você encontra {gift}g que alguém preferiu esquecer a arriscar buscar de volta.',
         'Um pequeno buraco disfarçado no barranco guarda {gift}g — provavelmente a poupança de alguém que nunca voltou.'
+    ],
+    // "Árvore oca" (Ciclo 50) — já nasce com variedade desde o início (mesmo
+    // princípio de CART_LINES/BRIDGE_LINES/SECRET_LINES, ver _pickFlavor),
+    // sem precisar de um ciclo futuro só pra corrigir isso depois.
+    HOLLOW_TREE_LINES: [
+        'Dentro do tronco oco, você encontra {gift}g escondidos entre as raízes ressecadas.',
+        'Um esquilo foge assustado quando você enfia a mão no oco da árvore e encontra {gift}g esquecidos ali dentro.',
+        'O interior apodrecido da árvore guarda uma bolsinha de couro com {gift}g, intacta apesar dos anos.'
     ],
     // Ciclo 34 — mesma lacuna do Ciclo 27, só que em 'cave'/'shrine':
     // 'cave' sempre mostrava o MESMO toast (com {gift} variável, mas o
@@ -1068,6 +1082,15 @@ window.RoadEngine = {
             // o loot comum de chest/clearing_treasure.
             p.rareAnimalsSighted = (p.rareAnimalsSighted || 0) + 1;
             toast(`Um animal raríssimo observa você por um instante antes de desaparecer na vegetação — ${p.rareAnimalsSighted}ª vez que você avista um assim.`, 'success');
+        } else if (ev.type === 'hollow_tree') {
+            // "Árvore oca" — item explícito da lista de objetos da
+            // Reformulação da Floresta. Recompensa em ouro modesta (achado
+            // casual escondido dentro do tronco, tom mais parecido com
+            // 'secret'/'cave' do que com o saque de equipamento de
+            // chest/clearing_treasure).
+            const gift = Utils.randomInt(10, 25);
+            p.gold += gift;
+            toast(this._pickFlavor(this.HOLLOW_TREE_LINES, ev.x, 10400).replace('{gift}', gift), 'success');
         }
 
         // Conquistas de exploração (Ciclo 38 — 'bookworm'/'stone_collector'/
@@ -2523,6 +2546,25 @@ window.RoadEngine = {
             ctx.fillRect(-6, -12, 12, 10);
             ctx.fillStyle = 'rgba(180,150,60,0.9)';
             ctx.beginPath(); ctx.arc(0, -14, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (t === 'hollow_tree') {
+            // "Árvore oca" — tronco grosso e curto (reaproveita a mesma
+            // linguagem visual orgânica das árvores gigantes, ver
+            // _drawGiantTrees) com um buraco escuro na base, sempre
+            // visível mesmo de longe, sinalizando "isso pode ser
+            // explorado" antes do jogador chegar perto o bastante pro
+            // aviso de interação normal aparecer.
+            ctx.fillStyle = corrupted ? '#241c14' : '#4a3624';
+            ctx.beginPath();
+            ctx.moveTo(-16, 14);
+            ctx.quadraticCurveTo(-18, -6, -8, -18);
+            ctx.lineTo(8, -18);
+            ctx.quadraticCurveTo(18, -6, 16, 14);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = corrupted ? '#0d0810' : '#1a1410';
+            ctx.beginPath();
+            ctx.ellipse(0, 8, 7, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
         } else if (t === 'magic_stone') {
             ctx.fillStyle = 'rgba(150,80,220,0.9)';
             ctx.beginPath();
