@@ -302,6 +302,15 @@ window.RoadEngine = {
         'O gladiador ferido aceita sua ajuda em silêncio. Antes de partir, ensina uma manobra que aprendeu duramente na Arena. +{xp} XP.',
         'Você amarra um curativo improvisado no gladiador ferido. Ele agradece com um conselho de combate que só quem já sangrou na Arena conhece. +{xp} XP.'
     ],
+    // Ciclo 41 — pendência explícita do Ciclo 27: o único toast que
+    // sobrava 100% estático (zero conteúdo dinâmico, nem valor numérico)
+    // no arquivo inteiro era a "conversa fiada" do viajante quando não há
+    // oferta de missão disponível.
+    TRAVELER_SMALLTALK_LINES: [
+        'O viajante só quer trocar algumas palavras antes de seguir seu caminho.',
+        'O viajante comenta o clima da estrada e segue adiante, sem nada de especial a pedir.',
+        'Vocês trocam um aceno e algumas palavras sobre a viagem — o viajante segue seu caminho logo em seguida.'
+    ],
     // Escolhe uma variante de forma determinística pela posição do evento
     // (mesmo hash de sempre) — o mesmo ponto do mapa sempre mostra a MESMA
     // variante, mas pontos diferentes tendem a mostrar variantes diferentes.
@@ -909,7 +918,7 @@ window.RoadEngine = {
             if (offer && window.QuestSystem && window.QuestSystem.acceptQuest(p, offer)) {
                 toast(`Nova missão de um viajante: ${offer.name}. ${offer.description}`, 'success');
             } else {
-                toast('O viajante só quer trocar algumas palavras antes de seguir seu caminho.', 'info');
+                toast(this._pickFlavor(this.TRAVELER_SMALLTALK_LINES, ev.x, 10300), 'info');
             }
             window.SaveManager.save(window.Engine.state);
             return;
