@@ -1197,6 +1197,18 @@ window.RoadEngine = {
         if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
         this._drawSkyClouds(ctx, w, horizon, corrupted, isNight);
 
+        // Pássaros cruzando o céu de dia (seção "Ambientação viva" —
+        // a Cidade já tem pássaros no céu, ver graphics.js, mas a Estrada
+        // nunca tinha ganho o mesmo elemento; complementa borboletas/
+        // insetos/vagalumes já existentes com fauna numa camada bem mais
+        // distante/alta, em vez de perto da vegetação). Mesmo padrão sem
+        // estado guardado de _drawSkyClouds (posição calculada a partir
+        // de performance.now(), nunca um array de pássaros persistido) —
+        // some à noite (vagalumes assumem esse papel) e durante a
+        // corrupção, mesmo critério de "nenhuma vida ambiente sobrevive à
+        // névoa doentia" já usado no resto do arquivo.
+        this._drawSkyBirds(ctx, w, horizon, corrupted, isNight);
+
         // Reformulação da Floresta (nova diretriz do usuário) — fundação de
         // PARALLAX real: até este ciclo só existiam 2 velocidades de scroll,
         // 0 (céu/montanhas/nuvens, fixos na tela) e 1.0 (tudo dentro do
@@ -1652,6 +1664,30 @@ window.RoadEngine = {
                 ctx.ellipse(cx + off * 28 * scale, cy + Math.abs(off) * 4 * scale, 32 * scale, 14 * scale, 0, 0, Math.PI * 2);
                 ctx.fill();
             });
+        }
+    },
+
+    // Pássaros cruzando o céu — silhuetas em "V" simples (duas curvas
+    // quadráticas por pássaro, sem nenhum array guardado em memória),
+    // posição horizontal calculada a partir de performance.now() módulo a
+    // largura da tela (mesmo princípio de _drawSkyClouds), batida de asa
+    // via seno. Só de dia — some à noite (vagalumes assumem o papel de
+    // fauna noturna) e durante a corrupção.
+    _drawSkyBirds(ctx, w, horizon, corrupted, isNight) {
+        if (corrupted || isNight) return;
+        const t = performance.now() / 1000;
+        ctx.strokeStyle = 'rgba(45,38,32,0.55)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            const speed = 70 + i * 18;
+            const bx = ((i * 260 + t * speed) % (w + 300)) - 150;
+            const by = horizon * (0.18 + 0.13 * i);
+            const flap = Math.sin(t * 6 + i * 2) * 6;
+            ctx.beginPath();
+            ctx.moveTo(bx - 10, by + flap);
+            ctx.quadraticCurveTo(bx - 4, by - 5, bx, by);
+            ctx.quadraticCurveTo(bx + 4, by - 5, bx + 10, by + flap);
+            ctx.stroke();
         }
     },
 
