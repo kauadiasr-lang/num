@@ -384,7 +384,9 @@ window.RoadEngine = {
             const x = Utils.clamp(i * segment + segment * 0.5 + (h % 400) - 200, 400, this.WORLD_LENGTH - 400);
             const side = (i % 2 === 0) ? -1 : 1;
             const y = side * 70;
-            this._events.push({ type, x, y, spawnX: x, consumed: false });
+            const ev = { type, x, y, spawnX: x, consumed: false };
+            if (type === 'bandit') ev.entity = this._makeBanditEntity(x, fromId, toId);
+            this._events.push(ev);
         }
     },
 
@@ -1498,8 +1500,45 @@ window.RoadEngine = {
         }
     },
 
+    // Identidade regional do bandido (pedido "identidade visual" da
+    // mega-diretiva) — antes TODO bandido usava exatamente a mesma raça/
+    // aparência humana fixa (CREATURE_ENTITIES.bandit), não importa se a
+    // travessia era rumo à Fortaleza Orc ou ao Santuário Élfico, ao
+    // contrário do Duelo Rápido (que já pondera raça pelo raceDemographics
+    // da cidade, ver enemy.js). `null` = mantém a aparência humana padrão
+    // (natureza/cidade sem roadFamily ainda). Tons de pele lidos de
+    // window.RACES (races.js) — nunca duplica a paleta, só referencia.
+    BANDIT_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#1a1410' },
+        elfico: { race: 'elfo', hairColor: '#2a3a1a' }
+    },
+
+    // Gera um bandido com a identidade regional certa (ver
+    // BANDIT_VARIANTS acima) — primeira metade da travessia usa a família
+    // da cidade de ORIGEM, segunda metade a de DESTINO, mesmo critério já
+    // usado pra nomear/colorir as zonas (ver start()/ZONE_FAMILY_STAGES).
+    // Sem variante pra família (natureza, ou destino virtual sem
+    // roadFamily), cai no CREATURE_ENTITIES.bandit de sempre, sem clonar
+    // nada — comportamento antigo 100% preservado nesse caso.
+    _makeBanditEntity(x, fromId, toId) {
+        const base = this.CREATURE_ENTITIES.bandit;
+        const familyId = x < this.WORLD_LENGTH / 2
+            ? ((window.CityDatabase[fromId] && window.CityDatabase[fromId].roadFamily) || 'natureza')
+            : ((window.CityDatabase[toId] && window.CityDatabase[toId].roadFamily) || 'natureza');
+        const variant = this.BANDIT_VARIANTS[familyId];
+        if (!variant) return base;
+        const raceDef = window.RACES && window.RACES[variant.race];
+        const skinTones = raceDef && raceDef.skinTones;
+        const skinTone = skinTones ? skinTones[this._hash(Math.floor(x) + 9100) % skinTones.length] : base.visuals.skinTone;
+        return {
+            visuals: { ...base.visuals, skinTone, hairColor: variant.hairColor },
+            equipment: {}, __teamColor: base.__teamColor, race: variant.race
+        };
+    },
+
     _drawCreature(ctx, ev) {
-        const entity = this.CREATURE_ENTITIES[ev.type];
+        const entity = ev.entity || this.CREATURE_ENTITIES[ev.type];
         if (!entity || !window.GFX || !window.GFX.drawGladiator) return;
         const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
         ctx.save();
