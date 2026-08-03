@@ -1360,7 +1360,22 @@ window.RoadEngine = {
             } else if (detailType === 2 && !corrupted) {
                 // Flores — não sobrevivem à corrupção (cai no tipo padrão
                 // abaixo quando corrompido, já tingido de roxo doentio).
-                ctx.fillStyle = 'rgba(230,190,90,0.85)';
+                //
+                // Variedade de cor por instância (pedido "sistema modular
+                // sem repetição óbvia" — até este ciclo TODA flor da
+                // floresta tinha exatamente a mesma cor amarela, sem
+                // nenhuma variação). Paleta de 4 cores, com a cor original
+                // preservada como a primeira opção (mesmo princípio já
+                // usado na variedade de copa das árvores gigantes, Ciclo
+                // 60 — o visual clássico continua existindo, só deixa de
+                // ser o ÚNICO).
+                const flowerColors = [
+                    'rgba(230,190,90,0.85)',  // amarelo (cor original)
+                    'rgba(235,235,240,0.85)', // branco
+                    'rgba(200,120,190,0.85)', // rosa/lilás
+                    'rgba(220,90,70,0.85)',   // vermelho-alaranjado
+                ];
+                ctx.fillStyle = flowerColors[this._hash(i * 211 + 55000) % flowerColors.length];
                 for (const [fx, fy] of [[-8, -4], [8, -4], [0, -10], [-4, 4], [4, 4]]) {
                     ctx.beginPath();
                     ctx.arc(fx, fy, 3, 0, Math.PI * 2);
