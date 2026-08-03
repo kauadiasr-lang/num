@@ -489,10 +489,16 @@ class CityEngine {
     // com isTravelingMerchant (pra _talkToNpc abrir a loja especial em vez
     // de puxar uma fala genérica) e despawnTimer (ver _updateTravelingMerchant).
     // Manto roxo vistoso o distingue à distância dos NPCs comuns da praça.
+    // Raça ponderada pela demografia da Cidade-Hub atual (Ciclo 29, mesmo
+    // achado/correção do Viajante do Portão no Ciclo 28) — diferente do
+    // Vampiro noturno acima (identidade visual FIXA da Linhagem
+    // Vampirismo, nunca deve variar por cidade), o Mercador Viajante é só
+    // uma pessoa comum sem motivo nenhum pra sempre ter a mesma pele.
     _makeTravelingMerchant() {
         const w = window.Engine.width, h = window.Engine.height;
         const x = Utils.randomFloat(w * 0.15, w * 0.85);
         const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        const npcRace = this._pickNpcRace();
         return {
             x, y, targetX: x, targetY: y, pin: null,
             waitTimer: Utils.randomFloat(1, 3),
@@ -502,12 +508,14 @@ class CityEngine {
             entity: {
                 visuals: {
                     gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
-                    skinTone: '#c99a6a', hairStyle: Utils.randomInt(1, 15),
+                    skinTone: window.RaceSystem ? window.RaceSystem.pickSkinTone(npcRace) : '#c99a6a',
+                    hairStyle: Utils.randomInt(1, 15),
                     hairColor: '#2a1c10', beardStyle: Utils.chance(60) ? Utils.randomInt(1, 4) : 0,
                     eyeColor: '#1a1a1a', faceShape: 1
                 },
                 equipment: {},
-                __teamColor: '#7a2a8a'
+                __teamColor: '#7a2a8a',
+                race: npcRace
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
