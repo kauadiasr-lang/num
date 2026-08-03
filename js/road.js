@@ -2602,8 +2602,18 @@ window.RoadEngine = {
                 // Cogumelos — cluster de 3, tingidos de roxo doentio quando
                 // a floresta estiver corrompida (fungo prospera na
                 // escuridão, mesmo princípio de "corrupção tinge tudo de
-                // roxo" já usado em flores/arbustos/plantas).
-                const capColor = corrupted ? 'rgba(90,40,110,0.85)' : 'rgba(190,60,50,0.85)';
+                // roxo" já usado em flores/arbustos/plantas). Variedade de
+                // cor do chapéu (mesmo princípio já usado nas flores, Ciclo
+                // 62) sugere espécies diferentes — vermelho original
+                // preservado como variante 0, corrupção sempre fixa (a
+                // cor doentia da corrupção não muda com a espécie).
+                const mushroomColors = [
+                    'rgba(190,60,50,0.85)',  // vermelho (cor original)
+                    'rgba(150,110,70,0.85)', // castanho
+                    'rgba(220,215,200,0.9)', // branco pálido
+                    'rgba(210,170,60,0.85)', // dourado
+                ];
+                const capColor = corrupted ? 'rgba(90,40,110,0.85)' : mushroomColors[this._hash(i * 173 + 73000) % mushroomColors.length];
                 for (const [mdx, mdy, scale] of [[-6, 4, 1], [6, 5, 0.8], [0, -2, 1.2]]) {
                     const r = 5 * scale;
                     ctx.fillStyle = '#e8dcc8';
