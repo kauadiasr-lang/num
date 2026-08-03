@@ -92,6 +92,7 @@ window.RoadEngine = {
     LOG_MUSHROOM_SPACING: 480, // troncos caídos/cogumelos — mais comuns que os marcos raros acima, decoram o caminho sem virar repetição (pedido explícito: "espalhe naturalmente pelo caminho: troncos caídos; cogumelos")
     LEAF_DECAL_SPACING: 150, // folhas caídas no chão — mais comuns ainda que troncos/cogumelos (clutter de chão, não marco), podem cair dentro da faixa caminhável inteira (pedido explícito da seção "Caminho": "folhas caídas")
     GRASS_TUFT_SPACING: 70, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
+    INSECT_SWARM_SPACING: 260, // nuvens de pequenos insetos — item distinto de "borboletas" na seção Ambientação (pontos minúsculos zumbindo, não asas coloridas), visíveis de dia E de noite
 
     // Movimento suave (pedido do usuário: "evitar mudanças instantâneas de
     // direção") — a velocidade REAL (p.vx/p.vy) persegue a velocidade-alvo
@@ -1439,6 +1440,12 @@ window.RoadEngine = {
         // que brilham no escuro) e não voam debaixo de chuva/tempestade,
         // mesmo critério de coerência climática já usado nos vagalumes.
         if (!isNight && !corrupted && this._weather !== 'rain') this._drawButterflies(ctx, w, h);
+        // Nuvens de pequenos insetos: item distinto de "borboletas" na
+        // mesma lista de ambientação viva. Ao contrário das borboletas,
+        // fazem sentido de dia E de noite (insetos zumbindo não dependem
+        // de luz, diferente do brilho autônomo dos vagalumes) -- só some
+        // durante corrupção/chuva, mesmo critério das borboletas acima.
+        if (!corrupted && this._weather !== 'rain') this._drawInsectSwarms(ctx, w, h);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
@@ -2282,6 +2289,40 @@ window.RoadEngine = {
             ctx.beginPath(); ctx.ellipse(bxPos + wingW * 0.5, byPos, wingW, 4, 0.3, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = 'rgba(40,30,20,0.8)';
             ctx.beginPath(); ctx.arc(bxPos, byPos, 1.2, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Nuvens de pequenos insetos (Reformulação da Floresta — item distinto
+    // de "borboletas" na mesma lista de ambientação viva: "borboletas;
+    // insetos"). Cada nuvem é um grupo de 3-5 pontos minúsculos escuros
+    // vibrando erraticamente ao redor de um centro comum -- bem menos
+    // vistoso que a borboleta (sem asas coloridas, sem bater visível),
+    // mas visível de dia E de noite (insetos não dependem de luz pra
+    // existir, diferente do brilho autônomo dos vagalumes).
+    _drawInsectSwarms(ctx, w, h) {
+        const spacing = this.INSECT_SWARM_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const sx = i * spacing;
+            if (sx < 0 || sx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(sx)];
+            if (this._hash(i * 191 + 45000) >= 18 * zone.vegDensity) continue;
+            const side = (this._hash(i * 113 + 45500) % 2 === 0) ? -1 : 1;
+            const sy = side * (this._hash(i * 61 + 46000) % this.LANE_HALF_HEIGHT);
+            if (!window.Camera.isVisible(sx, sy, w, h)) continue;
+
+            const count = 3 + (this._hash(i * 41 + 46500) % 3); // 3-5 insetos por nuvem
+            ctx.fillStyle = 'rgba(20,20,15,0.75)';
+            for (let k = 0; k < count; k++) {
+                const phase = (i * 5.2 + k * 2.3) % (Math.PI * 2);
+                const jx = sx + Math.sin(t * 6 + phase) * 10;
+                const jy = sy + Math.cos(t * 7.3 + phase * 1.5) * 10;
+                ctx.beginPath();
+                ctx.arc(jx, jy, 1.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     },
 
