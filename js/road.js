@@ -1887,6 +1887,22 @@ window.RoadEngine = {
             const gy = side * (this.LANE_HALF_HEIGHT + 70);
             if (!window.Camera.isVisible(gx, gy, w, h, 200)) continue;
 
+            // Sombra da COPA (item explícito e distinto da seção
+            // "Iluminação": "sombras das copas") — mancha larga e
+            // mosqueada no chão ao redor da árvore, bem mais ampla e mais
+            // suave que a sombra do tronco abaixo, representando a copa
+            // densa bloqueando a luz por cima de uma área bem maior que só
+            // a base. 3 elipses translúcidas sobrepostas em posições
+            // levemente deslocadas (nunca um círculo único perfeito) dão o
+            // efeito "mosqueado"/desigual, em vez de uma sombra sólida
+            // uniforme. Raio BEM maior (95, 30) que qualquer sombra
+            // existente no arquivo (tronco 46/14, acampamento 62/16, torre
+            // 34/12, vegetação pequena 13/4) — nunca se confunde com elas.
+            ctx.fillStyle = corrupted ? 'rgba(10,5,15,0.14)' : 'rgba(0,0,0,0.1)';
+            ctx.beginPath(); ctx.ellipse(gx, gy + 6, 95, 30, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(gx - 30, gy + 10, 60, 20, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(gx + 34, gy + 8, 55, 18, 0, 0, Math.PI * 2); ctx.fill();
+
             // Sombra no chão (pedido do usuário: "sombras" entre os
             // elementos de preenchimento visual da floresta — nenhum objeto
             // do cenário projetava sombra até este ciclo, só as manchas de
