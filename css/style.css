@@ -478,6 +478,14 @@ html, body {
    ficam sobre os cantos superiores do Hub; reserva-se espaço nos dois
    lados pra não cobrir nome/nível nem ouro/exp/fadiga. */
 #screen-hub .hud-top { padding-left: 60px; padding-right: 60px; }
+/* Identidade visual da cidade de destino durante a travessia (pedido
+   "mundo vivo"/identidade visual regional) — a barra superior da Estrada
+   usava sempre a mesma borda dourada fixa da Praça, sem nenhuma pista de
+   qual região o jogador está indo (ver js/ui.js startRoadJourney/
+   startForestExpedition, que escrevem --road-accent com accentColor da
+   cidade de destino, ver citydatabase.js). Cai no dourado padrão quando a
+   variável não foi definida ainda (primeiro frame antes do JS rodar). */
+#screen-roadworld .hud-top { border-bottom-color: var(--road-accent, var(--color-gold)); }
 /* Nome da Cidade-Hub atual (ver Cidades-Hub Regionais) — discreto, abaixo do
    nível, sem competir visualmente com nome/nível do jogador. */
 .city-location { font-size: 0.8rem; color: var(--color-marble-dark); margin-top: 2px; }

@@ -2695,6 +2695,12 @@ class UIManager {
         window.SaveManager.save(window.Engine.state);
         document.getElementById('roadworld-title').innerText = `${window.CityDatabase[fromId].name} → ${dest.name}`;
         document.getElementById('roadworld-mode').innerText = mode === 'horse' ? 'A cavalo' : 'A pé';
+        // Identidade visual da cidade de destino na barra do HUD (ver
+        // css/style.css #screen-roadworld .hud-top) — viajar rumo à
+        // Fortaleza Orc já mostra a borda avermelhada da cidade antes
+        // mesmo de chegar lá, mesmo princípio já usado por accentColor em
+        // outros lugares da UI (ui.js caravan-card, guide.js).
+        document.getElementById('screen-roadworld').style.setProperty('--road-accent', dest.accentColor);
         this.showScreen('screen-roadworld');
     }
 
@@ -2794,6 +2800,10 @@ class UIManager {
         window.SaveManager.save(window.Engine.state);
         document.getElementById('roadworld-title').innerText = `${window.CityDatabase[fromId].name} → Floresta Ancestral`;
         document.getElementById('roadworld-mode').innerText = 'A pé';
+        // Floresta Ancestral não existe em CityDatabase (destino virtual,
+        // sem accentColor próprio) — verde mística fixa, mesma identidade
+        // de cor já usada pelas zonas de floresta em road.js/citydatabase.js.
+        document.getElementById('screen-roadworld').style.setProperty('--road-accent', '#4a8a5a');
         this.showScreen('screen-roadworld');
     }
 
