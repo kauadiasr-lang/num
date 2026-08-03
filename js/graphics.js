@@ -1613,6 +1613,47 @@ class GraphicsEngine {
             ctx.restore();
         }
 
+        // Torres de canto nas pontas do mundo (x=0 e x=w) — bug reportado
+        // pelo usuário: "não é possível visualizar o fim das muralhas...
+        // corrija para que seja possível enxergar claramente suas
+        // extremidades". As muralhas laterais (_drawCitySideWall, logo
+        // abaixo) já fechavam o perímetro estruturalmente, mas eram só um
+        // bloco reto raso na MESMA cor/altura da muralha de fundo — sem
+        // nenhum marco alto e distinto, dava a impressão de "a muralha
+        // continua pra sempre" fora da tela, especialmente do lado
+        // ESQUERDO (o portão, perto de GATE_XFRAC=0.965, já dá esse marco
+        // de graça pro lado direito). Uma torre de canto (MESMO estilo das
+        // torres do portão, com tocha) deixa claro, sem ambiguidade, onde a
+        // muralha termina.
+        const gateTowerRightEdge = gateX + gateW / 2 + towerW;
+        ctx.fillStyle = wallColors.tower;
+        ctx.fillRect(0, horizon - towerH, towerW, towerH);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(0, horizon - towerH, towerW, 8);
+        if (this._drawTorch) {
+            const tClock = this._torchClock || 0;
+            ctx.save();
+            ctx.translate(towerW / 2, horizon - towerH + 14);
+            this._drawTorch(ctx, 0, 0, tClock, 0.9);
+            ctx.restore();
+        }
+        // Torre de canto DIREITA — só desenhada se não colidir com a torre
+        // do portão (que já fica bem perto da ponta direita do mundo com o
+        // GATE_XFRAC atual); evita duas estruturas se sobrepondo.
+        if (w - towerW > gateTowerRightEdge) {
+            ctx.fillStyle = wallColors.tower;
+            ctx.fillRect(w - towerW, horizon - towerH, towerW, towerH);
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(w - towerW, horizon - towerH, towerW, 8);
+            if (this._drawTorch) {
+                const tClock = this._torchClock || 0;
+                ctx.save();
+                ctx.translate(w - towerW / 2, horizon - towerH + 14);
+                this._drawTorch(ctx, 0, 0, tClock, 0.9);
+                ctx.restore();
+            }
+        }
+
         // Muralhas laterais — fecham os dois lados do mundo caminhável
         // (x=0 e x=w) descendo do horizonte até o rodapé da praça, na
         // MESMA pedra/cor da muralha de fundo acima. Bug reportado pelo

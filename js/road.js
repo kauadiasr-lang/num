@@ -98,7 +98,12 @@ window.RoadEngine = {
     DECEL: 1400, // px/s² ao soltar as teclas/chegar no alvo — freia mais rápido do que acelera, sensação mais natural
     CAMERA_SMOOTH_TIME: 0.12, // constante de tempo da câmera suavizada (ver update()) — quanto menor, mais "grudada" no jogador
     GATE_ZONE_RADIUS: 130, // largura da área de transição desenhada em volta de cada portão de cidade (ver _drawCityGate)
-    WALK_CYCLE_SPEED_DIVISOR: 35, // converte px/s de movimento real em rad/s do ciclo de passada (ver _drawPlayer)
+    // Escala do personagem na Estrada (ver _drawPlayer) — mesmo valor
+    // PLAYER_EXTRA_SHRINK usado por city.js na Praça (ver
+    // CityEngine.PLAYER_EXTRA_SHRINK), garantindo que o jogador tenha
+    // exatamente o mesmo "tamanho visual" andando pela Estrada ou pela
+    // Praça — nunca um personagem diferente ou desproporcional.
+    PLAYER_SCALE: 0.4,
 
     // Mundo vivo ambiente (Fase 6) — cada "chunk" de mundo (unidade de
     // geração/culling, não um pedaço de save) tem uma chance de conter UMA
@@ -248,7 +253,7 @@ window.RoadEngine = {
         this._arrived = false;
         this.active = true;
         this._nearEvent = null;
-        this._walkCycle = 0;
+        this._playerAnim = null;
         this._lastProgressPct = -1;
         // A câmera parte já centrada na posição inicial do jogador (nunca em
         // 0,0) — evita um "salto"/slide-in visível no primeiro frame da
@@ -525,10 +530,6 @@ window.RoadEngine = {
         p.x = Utils.clamp(p.x + p.vx * dt, bounds.minX, bounds.maxX);
         p.y = Utils.clamp(p.y + p.vy * dt, bounds.minY, bounds.maxY);
 
-        // Ciclo de passada avança com a velocidade REAL (pós-suavização), não
-        // a velocidade-alvo — perna acompanha o corpo acelerando/freando de
-        // verdade, nunca troca de fase instantaneamente ao parar/começar.
-        if (p.moving) this._walkCycle += dt * (realSpeed / this.WALK_CYCLE_SPEED_DIVISOR);
     },
 
     // Câmera suavizada (exponencial, independente de FPS) — bypassa
@@ -784,8 +785,28 @@ window.RoadEngine = {
         }
         ctx.fillStyle = grad;
         ctx.fillRect(0, horizon, w, h - horizon);
-        ctx.fillStyle = corrupted ? '#241830' : '#7fa8d9';
+
+        // Céu (bug corrigido nesta iteração: era uma cor sólida ÚNICA sem
+        // absolutamente nada mais, dando a sensação de cenário vazio/
+        // incompleto reportada pelo usuário, "fundo azul sólido"). Agora um
+        // gradiente + montanhas distantes (reaproveita o MESMO desenho já
+        // usado pela Cidade, ver graphics.js _drawMountains — consistência
+        // visual com o resto do jogo, sem inventar um estilo próprio) +
+        // nuvens à deriva, tudo em coordenada de TELA (fundo infinitamente
+        // distante, mesmo princípio de drawCityBackdrop — não faz parte do
+        // mundo/colisão, só ambientação).
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+        if (corrupted) {
+            skyGrad.addColorStop(0, '#120a18');
+            skyGrad.addColorStop(1, '#241830');
+        } else {
+            skyGrad.addColorStop(0, '#5f96d9');
+            skyGrad.addColorStop(1, '#9fc3e8');
+        }
+        ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, w, horizon);
+        if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
+        this._drawSkyClouds(ctx, w, horizon, corrupted);
 
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
@@ -880,6 +901,27 @@ window.RoadEngine = {
 
         this._drawPlayer(ctx);
         ctx.restore();
+    },
+
+    // Nuvens à deriva no céu da Estrada (parte da correção do "fundo azul
+    // sólido" reportado pelo usuário) — puramente decorativas, tela-fixa
+    // (não fazem parte do mundo), deslocamento baseado só no tempo
+    // (performance.now()) pra nunca depender de estado extra guardado nem
+    // de onde o jogador está no mundo.
+    _drawSkyClouds(ctx, w, horizon, corrupted) {
+        const t = performance.now() / 1000;
+        ctx.fillStyle = corrupted ? 'rgba(120,90,150,0.22)' : 'rgba(255,255,255,0.32)';
+        for (let i = 0; i < 5; i++) {
+            const speed = 5 + (i % 3) * 3;
+            const cx = ((i * 340 + t * speed) % (w + 500)) - 250;
+            const cy = horizon * (0.12 + 0.14 * (i % 3));
+            const scale = 0.7 + (i % 3) * 0.35;
+            [-1, 0, 1].forEach(off => {
+                ctx.beginPath();
+                ctx.ellipse(cx + off * 28 * scale, cy + Math.abs(off) * 4 * scale, 32 * scale, 14 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
     },
 
     // Névoa roxa da corrupção (pedido do usuário: "névoa roxa, espíritos
@@ -1150,45 +1192,28 @@ window.RoadEngine = {
         ctx.fillText(label, x, -postH - 26);
     },
 
-    // Figura animada de bastão (sem sprites, mesmo estilo 100% procedural
-    // do resto do jogo) — pernas/braços balançam com _walkCycle (avança de
-    // acordo com a velocidade REAL de _updateMovement, então andar mais
-    // rápido = passada mais rápida) e um leve "bob" vertical enquanto anda,
-    // atendendo ao pedido "criar uma animação de caminhada fluida" /
-    // "fazer o personagem parecer que realmente está andando".
+    // Personagem de verdade (pedido do usuário: "a aparência deve
+    // permanecer exatamente a mesma em qualquer ambiente") — bug corrigido
+    // nesta iteração: a Estrada NUNCA usava o mesmo GFX.drawGladiator() da
+    // Praça/Arena, desenhava um boneco de bastão genérico próprio (linhas +
+    // um círculo de cor de pele fixa), então o jogador literalmente TROCAVA
+    // de aparência (perdia raça, cabelo, equipamento visível, tudo) assim
+    // que entrava numa travessia — incluindo a Floresta Ancestral. Agora
+    // reaproveita `this.player` (o Player REAL, com visuals/equipment/raça
+    // — nunca `this._player`, que é só o estado de movimento local x/y/vx/
+    // vy) exatamente como city.js _drawPlayer já faz na Praça, com a MESMA
+    // escala (PLAYER_SCALE = CityEngine.PLAYER_EXTRA_SHRINK) pra nunca
+    // parecer um personagem "diferente" de tamanho ao viajar.
     _drawPlayer(ctx) {
         const p = this._player;
-        const swing = p.moving ? Math.sin(this._walkCycle) * 14 : 0;
-        const bob = p.moving ? Math.abs(Math.sin(this._walkCycle)) * 3 : 0;
-        const cx = p.x, cy = p.y - bob;
-        const facing = p.facing || 1;
-
-        ctx.strokeStyle = '#3a2c1e';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-
-        ctx.beginPath();
-        ctx.moveTo(cx, cy + 6);
-        ctx.lineTo(cx + swing * 0.5, cy + 26);
-        ctx.moveTo(cx, cy + 6);
-        ctx.lineTo(cx - swing * 0.5, cy + 26);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 6);
-        ctx.lineTo(cx - swing * 0.4, cy + 12);
-        ctx.moveTo(cx, cy - 6);
-        ctx.lineTo(cx + swing * 0.4, cy + 12);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 6);
-        ctx.lineTo(cx, cy + 8);
-        ctx.stroke();
-
-        ctx.fillStyle = '#e8c99b';
-        ctx.beginPath();
-        ctx.arc(cx + facing * 2, cy - 16, 12, 0, Math.PI * 2);
-        ctx.fill();
+        if (!this.player || !window.GFX || !window.GFX.drawGladiator) return;
+        const anim = this._playerAnim || (this._playerAnim = { type: 'idle', start: performance.now(), duration: 0 });
+        anim.type = p.moving ? 'walk' : 'idle';
+        const scale = this.PLAYER_SCALE;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(scale, scale);
+        window.GFX.drawGladiator(ctx, 0, 0, this.player, (p.facing || 1) > 0, anim, null);
+        ctx.restore();
     }
 };
