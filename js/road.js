@@ -299,6 +299,17 @@ window.RoadEngine = {
         this._isStorm = false;
         this._rainSpawnTimer = 0;
         this._lightningTimer = 0;
+        // Bug corrigido no Ciclo 20 (achado nesta revisão, introduzido pelo
+        // próprio Ciclo 18): `_ambientEntityCache` guarda a entidade racial
+        // regional do `npc_traveler` ambiente por índice de chunk (ver
+        // _drawAmbientHuman), mas nunca era limpo aqui — abandonar uma
+        // viagem rumo à Fortaleza Orc e iniciar outra rumo ao Santuário
+        // Élfico deixava viajantes ambiente da NOVA travessia com a raça
+        // ORC "vazada" da viagem anterior, sempre que o índice de chunk
+        // colidisse (bem provável, já que AMBIENT_CHUNK_SIZE é uma
+        // constante fixa, independente do WORLD_LENGTH de cada travessia).
+        this._ambientEntityCache = {};
+        this._ambientAnimCache = {};
         // A câmera parte já centrada na posição inicial do jogador (nunca em
         // 0,0) — evita um "salto"/slide-in visível no primeiro frame da
         // travessia (ponto inicial da cidade de origem precisa continuar
@@ -1242,13 +1253,17 @@ window.RoadEngine = {
         // _makeTravelerEntity, Ciclo 18) — usa `chunkX` (posição FIXA do
         // chunk, não a posição de desenho que oscila dentro dele) pra
         // decidir a família, cacheada por chunk pra nunca recalcular por
-        // quadro. Patrulha continua sempre humana (guarda local, não muda
-        // com a região da travessia).
+        // quadro. Patrulha (Ciclo 20) ganha a identidade da cidade de
+        // ORIGEM (ver PATROL_VARIANTS/_makePatrolEntity acima) — uma
+        // única entrada de cache pra travessia inteira, já que nunca
+        // varia com a posição (ao contrário do viajante).
         const entityCache = this._ambientEntityCache || (this._ambientEntityCache = {});
         let entity = this.AMBIENT_ENTITIES[kind];
         if (kind === 'npc_traveler') {
             const ekey = 'npc_traveler_' + chunkX;
             entity = entityCache[ekey] || (entityCache[ekey] = this._makeTravelerEntity(chunkX, this.fromId, this.toId));
+        } else if (kind === 'patrol') {
+            entity = entityCache.patrol || (entityCache.patrol = this._makePatrolEntity(this.fromId, this.toId));
         }
         const cache = this._ambientAnimCache || (this._ambientAnimCache = {});
         const key = kind + '_' + seed;
@@ -1588,6 +1603,25 @@ window.RoadEngine = {
     // evento interativo `traveler` quanto pelo `npc_traveler` ambiente.
     _makeTravelerEntity(x, fromId, toId) {
         return this._makeRegionalEntity(this.AMBIENT_ENTITIES.npc_traveler, this.TRAVELER_VARIANTS, x, fromId, toId, 9400);
+    },
+
+    // Identidade regional da PATRULHA (pendência explícita deixada no
+    // Ciclo 18: "se um dia fizer sentido variar a patrulha por cidade de
+    // ORIGEM apenas") — ao contrário de bandido/viajante/comerciante
+    // (que trocam de família na METADE da travessia, ver
+    // _makeRegionalEntity), a patrulha representa a guarda da cidade de
+    // ORIGEM escoltando a própria estrada de saída, então usa SEMPRE a
+    // família de `fromId`, do início ao fim da travessia, nunca a de
+    // destino. Reaproveita _makeRegionalEntity passando x=0 (sempre cai
+    // no ramo "primeira metade" = origem) em vez de duplicar a lógica de
+    // seleção de família.
+    PATROL_VARIANTS: {
+        natureza: null,
+        orc: { race: 'orc', hairColor: '#1a1410' },
+        elfico: { race: 'elfo', hairColor: '#2a3a2a' }
+    },
+    _makePatrolEntity(fromId, toId) {
+        return this._makeRegionalEntity(this.AMBIENT_ENTITIES.patrol, this.PATROL_VARIANTS, 0, fromId, toId, 9900);
     },
 
     _drawCreature(ctx, ev) {
