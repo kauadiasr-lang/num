@@ -200,7 +200,14 @@ window.RoadEngine = {
         // estrada. Recompensa própria (melhor que os equivalentes comuns)
         // como incentivo de verdade pra "sair da estrada" pedido pelo
         // usuário, não só decoração — ver _generateClearingTreasures.
-        clearing_treasure: { icon: '💎', label: 'Cavar o tesouro escondido' }
+        clearing_treasure: { icon: '💎', label: 'Cavar o tesouro escondido' },
+        // "Gladiador ferido" — item explícito da lista original de eventos
+        // do usuário ("carroça quebrada, comerciante parado, ..., gladiador
+        // ferido, altar antigo, animal raro, ...") que ainda não tinha
+        // ganho um evento próprio. Reaproveita GFX.drawGladiator com anim
+        // 'hurt' (mesma pose já usada em batalha, ver _drawEventIcon) em
+        // vez de inventar uma pose nova — nunca um emoji/placeholder.
+        wounded_gladiator: { icon: '🩹', label: 'Ajudar o gladiador ferido' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -925,6 +932,15 @@ window.RoadEngine = {
                 p.gold += soldFor;
                 toast(`Você encontra ${item.name} na clareira, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
             }
+        } else if (ev.type === 'wounded_gladiator') {
+            // "Gladiador ferido" — item explícito da lista original de
+            // eventos do usuário. Recompensa em experiência (p.gainExp,
+            // ver player.js), não em ouro/item, já que a ajuda aqui é
+            // narrativa (curar/socorrer), não um saque — consistente com
+            // o tom de shrine (bênção) em vez de chest/clearing_treasure.
+            const xp = Utils.randomInt(20, 40);
+            p.gainExp(xp);
+            toast(`Você presta socorro ao gladiador ferido. Grato, ele compartilha truques de combate antes de seguir para a cidade mais próxima. +${xp} XP.`, 'success');
         }
         window.SaveManager.save(window.Engine.state);
     },
@@ -1554,9 +1570,13 @@ window.RoadEngine = {
     // Cada tipo agora tem uma forma própria 100% desenhada à mão, no MESMO
     // estilo já usado pelo resto do arquivo (rio, árvores gigantes,
     // acampamentos) — nunca um ícone de fonte, sempre geometria real.
-    // `traveler` é a única exceção: representa uma PESSOA de verdade, então
-    // usa o mesmo GFX.drawGladiator() de _drawCreature/_drawAmbientHuman
-    // em vez de um objeto.
+    // `traveler` e `wounded_gladiator` são as exceções: representam uma
+    // PESSOA de verdade, então usam o mesmo GFX.drawGladiator() de
+    // _drawCreature/_drawAmbientHuman em vez de um objeto.
+    WOUNDED_GLADIATOR_ENTITY: {
+        visuals: { gender: 'Masculino', skinTone: '#d8a878', hairStyle: 8, hairColor: '#3a2a1a', beardStyle: 1, eyeColor: '#2a1a14', faceShape: 1 },
+        equipment: {}, __teamColor: '#6b2a2a', race: 'humano'
+    },
     _drawEventIcon(ctx, ev, corrupted, isNight) {
         const t = ev.type;
         if (t === 'traveler') {
@@ -1569,6 +1589,31 @@ window.RoadEngine = {
                 window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
                 ctx.restore();
             }
+            return;
+        }
+        if (t === 'wounded_gladiator') {
+            // Item explícito da lista original do usuário ("gladiador
+            // ferido") — pose 'hurt' fixa (nunca idle/walk, ele não está
+            // de pé) reaproveita a MESMA animação de dano já usada em
+            // batalha, sem precisar desenhar uma pose nova do zero. Cruz
+            // vermelha simples flutuando acima sinaliza "precisa de ajuda"
+            // à distância, antes do jogador chegar perto o bastante pro
+            // aviso de interação normal aparecer.
+            const entity = this.WOUNDED_GLADIATOR_ENTITY;
+            if (window.GFX && window.GFX.drawGladiator) {
+                const anim = ev._anim || (ev._anim = { type: 'hurt', start: performance.now(), duration: 0 });
+                ctx.save();
+                ctx.translate(ev.x, ev.y);
+                ctx.scale(this.PLAYER_SCALE * 0.85, this.PLAYER_SCALE * 0.85);
+                window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
+                ctx.restore();
+            }
+            ctx.save();
+            ctx.translate(ev.x, ev.y - 55);
+            ctx.fillStyle = 'rgba(220,50,50,0.9)';
+            ctx.fillRect(-2, -8, 4, 16);
+            ctx.fillRect(-8, -2, 16, 4);
+            ctx.restore();
             return;
         }
         ctx.save();
