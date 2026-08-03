@@ -2017,18 +2017,59 @@ window.RoadEngine = {
             // volume, blobs sobrepostos de tamanhos variados, e um realce
             // translúcido por cima simulando luz filtrada pelas folhas —
             // "iluminação filtrada pelas folhas" pedida na reformulação).
+            //
+            // Variedade de silhueta (pedido explícito "sistema modular sem
+            // repetição óbvia" — até este ciclo TODA árvore gigante usava
+            // exatamente a mesma configuração de blobs, só o tronco variava
+            // via `lean`; o marco decorativo mais proeminente da floresta
+            // repetia sempre a mesma silhueta). `cx`/`canopyY` continuam
+            // EXATAMENTE iguais em qualquer variante (mesmo ponto de
+            // ancoragem pro tronco/raízes/galhos já desenhados acima e pra
+            // _drawCanopyLightRays logo abaixo), só a disposição dos blobs
+            // muda.
             const canopyY = gy - trunkH - 14;
             const cx = gx + lean;
-            ctx.fillStyle = corrupted ? 'rgba(25,10,32,0.85)' : 'rgba(14,38,15,0.85)';
-            ctx.beginPath(); ctx.arc(cx, canopyY + 6, 50, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = corrupted ? 'rgba(35,15,45,0.85)' : 'rgba(20,55,20,0.85)';
-            ctx.beginPath(); ctx.arc(cx, canopyY, 48, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(cx - 36, canopyY + 16, 34, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(cx + 38, canopyY + 12, 36, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(cx - 14, canopyY - 22, 30, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(cx + 18, canopyY - 20, 28, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.35)' : 'rgba(60,110,55,0.35)';
-            ctx.beginPath(); ctx.arc(cx - 10, canopyY - 14, 26, 0, Math.PI * 2); ctx.fill();
+            const darkFill = corrupted ? 'rgba(25,10,32,0.85)' : 'rgba(14,38,15,0.85)';
+            const midFill = corrupted ? 'rgba(35,15,45,0.85)' : 'rgba(20,55,20,0.85)';
+            const highlightFill = corrupted ? 'rgba(70,40,90,0.35)' : 'rgba(60,110,55,0.35)';
+            const canopyVariant = this._hash(i * 239 + 51000) % 3;
+            if (canopyVariant === 0) {
+                // Redonda cheia (silhueta clássica, já existia antes desta
+                // fatia) — copa larga e uniforme em todas as direções.
+                ctx.fillStyle = darkFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY + 6, 50, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = midFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY, 48, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx - 36, canopyY + 16, 34, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 38, canopyY + 12, 36, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx - 14, canopyY - 22, 30, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 18, canopyY - 20, 28, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = highlightFill;
+                ctx.beginPath(); ctx.arc(cx - 10, canopyY - 14, 26, 0, Math.PI * 2); ctx.fill();
+            } else if (canopyVariant === 1) {
+                // Cônica alta — blobs empilhados verticalmente, afinando
+                // pro topo, dando uma silhueta mais alta e estreita.
+                ctx.fillStyle = darkFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY + 20, 46, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = midFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY + 2, 38, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx, canopyY - 24, 30, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx, canopyY - 46, 19, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = highlightFill;
+                ctx.beginPath(); ctx.arc(cx - 6, canopyY - 20, 18, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Desgrenhada/assimétrica — puxada pra um lado (vento),
+                // com um tufo solto separado do corpo principal.
+                const windDir = (this._hash(i * 257 + 52000) % 2 === 0) ? -1 : 1;
+                ctx.fillStyle = darkFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY + 8, 42, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = midFill;
+                ctx.beginPath(); ctx.arc(cx, canopyY, 40, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + windDir * 46, canopyY + 6, 26, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + windDir * 74, canopyY + 10, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = highlightFill;
+                ctx.beginPath(); ctx.arc(cx - windDir * 10, canopyY - 16, 22, 0, Math.PI * 2); ctx.fill();
+            }
 
             // Raios de luz atravessando a copa (pedido explícito da
             // reformulação: "raios de luz atravessando as copas", na seção
