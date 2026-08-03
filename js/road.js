@@ -1756,15 +1756,65 @@ window.RoadEngine = {
             ctx.ellipse(gx, gy + 4, 46, 14, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            const trunkH = 70;
-            ctx.fillStyle = corrupted ? '#1a1410' : '#4a3624';
-            ctx.fillRect(gx - 9, gy - trunkH, 18, trunkH);
+            // Reformulação da Floresta (nova diretriz do usuário: "árvores
+            // grandes e grossas", "troncos com formatos naturais e
+            // irregulares", "raízes aparentes", "copas densas formando um
+            // teto verde") — o tronco reto/fino de antes (um retângulo só)
+            // vira uma forma orgânica mais grossa, com leve inclinação
+            // determinística por árvore (`lean`, via _hash — nunca duas
+            // árvores gigantes idênticas) em vez de sempre perfeitamente
+            // vertical, mais raízes visíveis na base e um par de galhos
+            // bifurcados antes da copa (a referência mostra os troncos se
+            // abrindo em galhos bem antes da folhagem).
+            const trunkH = 78;
+            const trunkW = 24;
+            const lean = ((this._hash(i * 83 + 9600) % 21) - 10) * 0.7;
+            const trunkColor = corrupted ? '#1a1410' : '#4a3624';
+            ctx.fillStyle = trunkColor;
+            ctx.beginPath();
+            ctx.moveTo(gx - trunkW / 2, gy);
+            ctx.quadraticCurveTo(gx - trunkW / 2 - 5, gy - trunkH * 0.55, gx - trunkW / 2 + lean, gy - trunkH);
+            ctx.lineTo(gx + trunkW / 2 + lean, gy - trunkH);
+            ctx.quadraticCurveTo(gx + trunkW / 2 + 5, gy - trunkH * 0.55, gx + trunkW / 2, gy);
+            ctx.closePath();
+            ctx.fill();
 
-            const canopyY = gy - trunkH - 10;
+            // Raízes aparentes na base, torcendo pro chão dos dois lados.
+            ctx.strokeStyle = trunkColor;
+            ctx.lineWidth = 5;
+            for (const rdx of [-16, 16]) {
+                ctx.beginPath();
+                ctx.moveTo(gx + rdx * 0.25, gy - 6);
+                ctx.lineTo(gx + rdx, gy + 9);
+                ctx.stroke();
+            }
+
+            // Galhos bifurcados, logo antes da copa começar.
+            const branchY = gy - trunkH + 16;
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(gx + lean * 0.5, branchY);
+            ctx.lineTo(gx + lean - 24, branchY - 28);
+            ctx.moveTo(gx + lean * 0.5, branchY);
+            ctx.lineTo(gx + lean + 22, branchY - 24);
+            ctx.stroke();
+
+            // Copa densa em camadas (base escura sob os blobs pra dar peso/
+            // volume, blobs sobrepostos de tamanhos variados, e um realce
+            // translúcido por cima simulando luz filtrada pelas folhas —
+            // "iluminação filtrada pelas folhas" pedida na reformulação).
+            const canopyY = gy - trunkH - 14;
+            const cx = gx + lean;
+            ctx.fillStyle = corrupted ? 'rgba(25,10,32,0.85)' : 'rgba(14,38,15,0.85)';
+            ctx.beginPath(); ctx.arc(cx, canopyY + 6, 50, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = corrupted ? 'rgba(35,15,45,0.85)' : 'rgba(20,55,20,0.85)';
-            ctx.beginPath(); ctx.arc(gx, canopyY, 46, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(gx - 32, canopyY + 14, 32, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(gx + 34, canopyY + 10, 34, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, canopyY, 48, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx - 36, canopyY + 16, 34, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 38, canopyY + 12, 36, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx - 14, canopyY - 22, 30, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 18, canopyY - 20, 28, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.35)' : 'rgba(60,110,55,0.35)';
+            ctx.beginPath(); ctx.arc(cx - 10, canopyY - 14, 26, 0, Math.PI * 2); ctx.fill();
         }
     },
 
