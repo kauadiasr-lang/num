@@ -1938,16 +1938,29 @@ window.RoadEngine = {
             ctx.fillStyle = trunkColor;
             ctx.fillRect(screenX - treeW * 0.08, baseY - treeH * 0.35, treeW * 0.16, treeH * 0.35);
 
+            // Vento movimentando árvores (mesmo princípio já aplicado às
+            // árvores gigantes: fase e amplitude determinísticas por árvore
+            // via `_hash`, nunca em uníssono). Amplitude bem menor (2-4px)
+            // que a das árvores gigantes (5-9px) — a parede de fundo é
+            // formada por árvores mais distantes/finas, um balanço grande
+            // demais destoaria da escala. Só a copa balança (o tronco,
+            // fino e rente à base, fica parado — mesma diferença de rigidez
+            // copa/galho já usada em _drawGiantTrees).
+            const wallWindPhase = (this._hash(i * 347 + 91000) % 100) / 100 * Math.PI * 2;
+            const wallSwayAmp = 2 + (this._hash(i * 359 + 91500) % 3); // 2-4px
+            const wallSway = Math.sin(performance.now() / 1000 * 0.7 + wallWindPhase) * wallSwayAmp;
+            const canopyX = screenX + wallSway;
+
             ctx.fillStyle = canopyPalette[this._hash(i * 29 + 78000) % canopyPalette.length];
             // Silhueta da copa: arredondada (variante 0, original) ou cônica
             // tipo conífera (variante 1, nova) — reforça o pedido original
             // "árvores grossas/irregulares" da diretriz da Reformulação da
             // Floresta, evitando que toda a parede pareça a mesma espécie.
             if (this._hash(i * 43 + 79500) % 2 === 0) {
-                ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(screenX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(screenX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(screenX, topY + treeH * 0.18, treeW * 0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(canopyX, topY + treeH * 0.42, treeW * 0.42, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(canopyX - treeW * 0.28, topY + treeH * 0.6, treeW * 0.34, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(canopyX + treeW * 0.3, topY + treeH * 0.58, treeW * 0.32, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(canopyX, topY + treeH * 0.18, treeW * 0.3, 0, Math.PI * 2); ctx.fill();
             } else {
                 const layers = [
                     { y: topY + treeH * 0.75, halfW: treeW * 0.42 },
@@ -1956,9 +1969,9 @@ window.RoadEngine = {
                 ];
                 for (const layer of layers) {
                     ctx.beginPath();
-                    ctx.moveTo(screenX, layer.y - treeH * 0.32);
-                    ctx.lineTo(screenX - layer.halfW, layer.y);
-                    ctx.lineTo(screenX + layer.halfW, layer.y);
+                    ctx.moveTo(canopyX, layer.y - treeH * 0.32);
+                    ctx.lineTo(canopyX - layer.halfW, layer.y);
+                    ctx.lineTo(canopyX + layer.halfW, layer.y);
                     ctx.closePath();
                     ctx.fill();
                 }
