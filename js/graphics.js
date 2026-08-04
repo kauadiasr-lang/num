@@ -30,8 +30,27 @@ class Particle {
     }
     draw(ctx) {
         ctx.globalAlpha = Math.max(0, this.life);
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.size, this.size);
+        // Pingo de chuva ganha um risco fino na direção da queda em vez do
+        // quadradinho genérico usado por todo o resto do sistema de
+        // partículas (faísca/poeira/sangue/brasa/neve) — loop de qualidade
+        // visual da floresta, Iteração 12, item "chuva" da seção "Adicionar
+        // clima": até este ciclo a chuva já existia (spawnRainDrop, clima da
+        // Praça reaproveitado na Estrada) mas parecia confete quadrado
+        // caindo, não chuva de verdade. Nenhuma outra partícula muda —
+        // `isRain` só é true nas instâncias criadas por spawnRainDrop.
+        if (this.isRain) {
+            const streakLen = 1.4;
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.size * 0.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x - this.vx * streakLen, this.y - this.vy * streakLen);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+        }
         ctx.globalAlpha = 1.0;
     }
 }
@@ -437,6 +456,7 @@ class GraphicsEngine {
         p.vx = Utils.randomFloat(0.3, 0.7);
         p.vy = Utils.randomFloat(9, 13);
         p.decay = 0.012;
+        p.isRain = true;
         this.particles.push(p);
     }
 
