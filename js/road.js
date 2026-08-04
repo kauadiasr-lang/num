@@ -3457,7 +3457,16 @@ window.RoadEngine = {
             if (cx < 700 || cx > this.WORLD_LENGTH - 700) continue;
             if (this._hash(i * 179 + 53000) >= 35) continue; // marco raro, nem todo slot tem uma
             const side = (this._hash(i * 71 + 53500) % 2 === 0) ? -1 : 1;
-            const cy = side * (this.LANE_HALF_HEIGHT + 60 + (this._hash(i * 41 + 54000) % 50));
+            // Bug de auditoria final (iteração 24): mesma classe de bug já
+            // corrigida em _drawFallenLogsAndMushrooms e _drawRuinFragments
+            // — +60..+109 colocava a entrada de caverna na mesma
+            // profundidade reservada a marcos grandes de fundo (árvores
+            // gigantes a +70), mas sem chão visível por baixo. Desta vez
+            // bem visível a olho nu (a cor bege/marrom da rocha contrasta
+            // com o céu azul): a formação inteira, com sua sombra no chão,
+            // aparecia flutuando acima da linha das montanhas. Corrigido pro
+            // mesmo princípio: sempre dentro da faixa caminhável.
+            const cy = side * (this.LANE_HALF_HEIGHT - 60 - (this._hash(i * 41 + 54000) % 50));
             if (!window.Camera.isVisible(cx, cy, w, h, 140)) continue;
 
             const rockColor = corrupted ? '#241f26' : '#6a6258';
@@ -3562,7 +3571,14 @@ window.RoadEngine = {
             if (ax < 700 || ax > this.WORLD_LENGTH - 700) continue;
             if (this._hash(i * 191 + 68000) >= 35) continue; // marco raro, nem todo slot tem um
             const side = (this._hash(i * 61 + 68500) % 2 === 0) ? -1 : 1;
-            const ay = side * (this.LANE_HALF_HEIGHT + 55 + (this._hash(i * 43 + 69000) % 45));
+            // Bug de auditoria final (iteração 24): mesma classe de bug já
+            // corrigida em _drawFallenLogsAndMushrooms, _drawRuinFragments
+            // e _drawCaveEntrances — +55..+99 colocava o altar na mesma
+            // profundidade de marcos grandes de fundo, sem chão visível por
+            // baixo, flutuando acima da linha das montanhas (bem visível a
+            // olho nu, sombra incluída). Corrigido pro mesmo princípio:
+            // sempre dentro da faixa caminhável.
+            const ay = side * (this.LANE_HALF_HEIGHT - 55 - (this._hash(i * 43 + 69000) % 45));
             if (!window.Camera.isVisible(ax, ay, w, h, 90)) continue;
 
             const stoneColor = corrupted ? '#362a38' : '#7d7566';
