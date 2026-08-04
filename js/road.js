@@ -1317,6 +1317,22 @@ window.RoadEngine = {
         // contínua que bloqueia visualmente o horizonte ao fundo.
         this._drawForestWall(ctx, w, horizon, corrupted, isNight);
 
+        // Névoa leve entre as camadas de parallax (auditoria da Iteração 4
+        // do loop de qualidade visual: item explícito da lista mestra,
+        // seção "Adicionar profundidade real" — "névoa leve entre
+        // camadas". Técnica clássica de perspectiva aérea em background 2D
+        // ilustrado: uma faixa translúcida perto do horizonte, desenhada
+        // DEPOIS da parede de árvores (a camada mais distante do mundo)
+        // e ANTES de qualquer conteúdo em espaço de mundo (chão, árvores
+        // gigantes, jogador) — os elementos distantes ficam sutilmente
+        // "véus", os próximos cortam a névoa por cima sem nenhuma
+        // mudança na ordem de desenho deles. Nunca se confunde com a
+        // névoa doentia da corrupção (_isForestCorrupted, propósito
+        // narrativo diferente, paleta roxa) nem com a bruma de tempo
+        // (chuva/neblina climática, ainda não implementada) — é sempre
+        // presente, sutil, e só muda de tom pelo horário do dia.
+        this._drawAtmosphericFog(ctx, w, horizon, corrupted, timeOfDay);
+
         // A câmera já foi suavizada em update()/_updateCamera — chamar
         // Camera.follow() aqui de novo seria um hard-snap por cima da
         // suavização (desfazendo o trabalho todo), então draw() só LÊ o
@@ -1937,6 +1953,40 @@ window.RoadEngine = {
                 }
             }
         }
+    },
+
+    // Névoa atmosférica leve entre camadas de parallax (loop de qualidade
+    // visual, Iteração 5 — item explícito da lista mestra ainda pendente:
+    // "névoa leve entre camadas"). Uma faixa horizontal translúcida
+    // ancorada no horizonte (mesmo princípio de "fixo na tela, não faz
+    // parte do mundo" já usado por céu/nuvens/estrelas), mais espessa bem
+    // no horizonte e esmaecendo tanto pra cima (em direção ao céu) quanto
+    // pra baixo (em direção ao primeiro plano) via gradiente linear —
+    // sugere profundidade/perspectiva aérea sem esconder nenhum elemento
+    // do mundo (chão/árvores gigantes/jogador continuam desenhados por
+    // cima, sempre nítidos). Tom muda com o horário do dia (mesma fonte
+    // de paleta que o céu, `SKY_PALETTES`): esbranquiçado frio de dia,
+    // dourado suave no amanhecer/pôr do sol, azul escuro à noite. Durante
+    // a corrupção, a névoa doentia já existente (_isForestCorrupted,
+    // propósito narrativo distinto) substitui esta camada por completo —
+    // nunca as duas ao mesmo tempo.
+    FOG_PALETTES: {
+        dawn: 'rgba(240,200,150,ALPHA)',
+        day: 'rgba(220,230,240,ALPHA)',
+        sunset: 'rgba(230,150,110,ALPHA)',
+        night: 'rgba(40,55,90,ALPHA)'
+    },
+    _drawAtmosphericFog(ctx, w, horizon, corrupted, timeOfDay) {
+        if (corrupted) return;
+        const template = this.FOG_PALETTES[timeOfDay] || this.FOG_PALETTES.day;
+        const fogColor = (alpha) => template.replace('ALPHA', alpha.toFixed(2));
+        const bandHalfH = 60;
+        const grad = ctx.createLinearGradient(0, horizon - bandHalfH, 0, horizon + bandHalfH);
+        grad.addColorStop(0, fogColor(0));
+        grad.addColorStop(0.5, fogColor(0.22));
+        grad.addColorStop(1, fogColor(0));
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, horizon - bandHalfH, w, bandHalfH * 2);
     },
 
     // Folhagem em primeiro plano (Reformulação da Floresta, Ciclo 45) —
