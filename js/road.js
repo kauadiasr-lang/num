@@ -75,6 +75,14 @@ window.RoadEngine = {
     INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
     BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
     BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
+    // Raio de acerto pra clicar direto numa estrutura física (mercador/
+    // baú/esconderijo/fogueira/carroça/viajante/ruína/altar/caverna/ponte
+    // etc.) e resolver a interação na hora (pedido do usuário: "clicar em
+    // estruturas a acessa imediatamente, não sendo necessário caminhar até
+    // elas") — ver handleClick. Mais generoso que INTERACT_RADIUS (que é
+    // sobre PROXIMIDADE do jogador) porque aqui é sobre ACERTAR o ícone
+    // clicado, então cobre uma área folgada ao redor dele.
+    EVENT_CLICK_RADIUS: 50,
 
     // Marcos de terreno puramente visuais (pedido explícito do usuário na
     // seção "EXPLORAÇÃO ENTRE CIDADES": "rios", "árvores gigantes" — o mapa
@@ -428,12 +436,13 @@ window.RoadEngine = {
         // _updateRivalGladiatorGreetings). Reseta a cada nova travessia, mesmo
         // princípio do bug corrigido no Ciclo 20 pro _ambientEntityCache.
         this._rivalGreeted = {};
-        // A câmera parte já centrada na posição inicial do jogador (nunca em
-        // 0,0) — evita um "salto"/slide-in visível no primeiro frame da
-        // travessia (ponto inicial da cidade de origem precisa continuar
-        // exatamente onde o jogador está, sem bug de câmera).
+        // A câmera parte já centrada na posição inicial do jogador no eixo
+        // X (nunca em 0) — evita um "salto"/slide-in visível no primeiro
+        // frame da travessia (ponto inicial da cidade de origem precisa
+        // continuar exatamente onde o jogador está, sem bug de câmera). O
+        // eixo Y da câmera fica sempre travado em 0 (ver _updateCamera).
         this._camX = this._player.x;
-        this._camY = this._player.y;
+        this._camY = 0;
 
         const fromDef = window.CityDatabase[fromId];
         const toDef = window.CityDatabase[toId];
@@ -690,6 +699,27 @@ window.RoadEngine = {
     // objetos físicos colidíveis) — só clampa dentro da faixa caminhável.
     handleClick(worldX, worldY) {
         if (!this._isActive()) return;
+
+        // Clicar direto numa estrutura física resolve a interação NA HORA
+        // (pedido do usuário: "clicar em estruturas a acessa imediatamente,
+        // não sendo necessário caminhar até elas") — sem exigir que o
+        // jogador ande até lá primeiro. Mesma lista de tipos clicáveis já
+        // usada por `_updateInteractPrompt` (o aviso de proximidade normal):
+        // bandido/espírito da natureza ficam de fora, são encontros
+        // hostis/narrativos disparados por proximidade automática, nunca
+        // por clique direto. `_resolveEvent` já não depende da posição do
+        // jogador (só lê `ev`), então chamar direto aqui é seguro.
+        let clickedEvent = null, clickedDist = this.EVENT_CLICK_RADIUS;
+        for (const ev of this._events) {
+            if (ev.consumed || ev.type === 'bandit' || ev.type === 'nature_spirit') continue;
+            const d = Math.hypot(worldX - ev.x, worldY - ev.y);
+            if (d < clickedDist) { clickedEvent = ev; clickedDist = d; }
+        }
+        if (clickedEvent) {
+            this._resolveEvent(clickedEvent);
+            return;
+        }
+
         // Valida contra a faixa NO PONTO CLICADO (nunca a faixa de onde o
         // jogador está agora) — clicar bem no meio de uma clareira distante
         // pra ficar em pé na beirada alargada dela (y até LANE_HALF_HEIGHT+60,
@@ -929,10 +959,25 @@ window.RoadEngine = {
     // continua igual) e escreve Camera.x/y direto, só pra este mundo. Ver
     // pedido do usuário: "a câmera deve acompanhar suavemente o jogador, sem
     // travamentos ou movimentos bruscos".
+    //
+    // Só o eixo X acompanha o jogador (pedido do usuário: "talvez a câmera
+    // não deva mudar em y") — o eixo Y sempre fica travado em 0. Antes,
+    // `_camY` seguia `p.y` (a posição do jogador DENTRO da faixa
+    // caminhável, pra cima/baixo), o que deslocava verticalmente o cenário
+    // PRINCIPAL (chão/árvores gigantes/jogador, via ctx.translate(offset.dx,
+    // offset.dy)) mas NUNCA as 4 camadas de parallax de fundo (linha de
+    // árvores distante, arbustos, parede de árvores, folhagem de primeiro
+    // plano — todas fixas no horizonte, sem ler `_camY`) — criando o bug
+    // relatado ("árvores no fundo são fixas e seguem o jogador ao invés de
+    // ficar no lugar" ao mover-se verticalmente na faixa). Travar o eixo Y
+    // da câmera em 0 resolve na raiz: agora NADA desloca verticalmente com
+    // `p.y`, cenário principal e fundo continuam consistentes entre si, e o
+    // próprio jogador passa a se mover visivelmente pra cima/baixo dentro
+    // da faixa (em vez da câmera re-centralizar nele o tempo todo) — leitura
+    // mais clara de profundidade "perto/longe" na faixa.
     _updateCamera(p, dt) {
         const factor = 1 - Math.exp(-dt / this.CAMERA_SMOOTH_TIME);
         this._camX += (p.x - this._camX) * factor;
-        this._camY += (p.y - this._camY) * factor;
         window.Camera.x = this._camX;
         window.Camera.y = this._camY;
     },
@@ -1846,19 +1891,13 @@ window.RoadEngine = {
         this._drawPlayer(ctx);
         ctx.restore();
 
-        // Reformulação da Floresta — camada de PRIMEIRO plano (completa o
-        // par de parallax junto com _drawDistantTreeline, Ciclo 43): galhos
-        // com folhagem pendurados da borda de cima da tela, bem mais
-        // próximos da câmera que qualquer coisa dentro do ctx.translate
-        // principal. Desenhada em coordenada de TELA, DEPOIS do
-        // ctx.restore() (por cima de tudo, inclusive do jogador — exatamente
-        // como "folhas próximas da câmera" deveriam aparecer, passando na
-        // frente da cena). Se move mais RÁPIDO que o mundo
-        // (PARALLAX_FOREGROUND_FACTOR > 1), o oposto da linha de árvores
-        // distantes (que se move mais devagar) — junto, as duas estabelecem
-        // 4 velocidades de scroll distintas nesta tela (0 pro céu, 0.35 pro
-        // fundo, 1.0 pro mundo principal, 1.8 pro primeiro plano).
-        this._drawForegroundLeaves(ctx, w, h, corrupted, isNight);
+        // Bug reportado pelo usuário ("manchas verdes no topo do céu"):
+        // a camada de folhagem pendurada de primeiro plano
+        // (_drawForegroundLeaves, removida) desenhava silhuetas grandes e
+        // pouco convincentes coladas na borda de cima da tela, lendo como
+        // manchas artificiais em vez de galhos — removida por completo em
+        // vez de retrabalhada (função e constante de parallax também
+        // removidas logo abaixo).
 
         // Leves variações de luminosidade (item explícito da seção
         // "Iluminação" da Reformulação da Floresta) — uma oscilação BEM
@@ -2222,128 +2261,6 @@ window.RoadEngine = {
         grad.addColorStop(1, fogColor(0));
         ctx.fillStyle = grad;
         ctx.fillRect(0, horizon - bandHalfH, w, bandHalfH * 2);
-    },
-
-    // Folhagem em primeiro plano (Reformulação da Floresta, Ciclo 45) —
-    // completa o par de parallax junto com _drawDistantTreeline acima:
-    // galhos com folhas pendurados da borda de cima da tela, se movendo
-    // MAIS RÁPIDO que o mundo (fator > 1, o oposto da linha de árvores
-    // distantes, que é mais lenta) — dá a sensação de galhos bem próximos
-    // da câmera passando por cima da cena, "folhas próximas da câmera"
-    // pedido explicitamente. Mesmo padrão de ladrilho infinito determinístico
-    // (_hash, nunca Math.random) da linha de árvores distantes, só que
-    // ancorado na borda SUPERIOR da tela em vez do horizonte.
-    PARALLAX_FOREGROUND_FACTOR: 1.8,
-    // Bug de auditoria final (fase de revisão, iteração 20): a camada de
-    // primeiro plano acima desenhava a MESMA forma (uma única curva em V
-    // perfeitamente simétrica) em TODO slot de 260 unidades, sem falhas nem
-    // variação — o resultado era uma fileira contínua e uniforme de "dentes"
-    // geométricos pendurados no topo da tela, que a cor escura (~rgba(10,28,10))
-    // misturada com o azul do céu lia visualmente como triângulos artificiais
-    // cortando o horizonte — exatamente o "cenário simples feito com formas
-    // geométricas e elementos repetitivos" que o objetivo final desta lista
-    // proíbe explicitamente. Reescrita para: (1) pular ~32% dos slots (nem
-    // todo galho existe, evitando a fileira contínua), (2) espalhar a posição
-    // horizontal com jitter (quebra o alinhamento perfeitamente regular),
-    // (3) alternar entre 3 variantes de silhueta (folha única com bordas
-    // irregulares, cacho de folhas com lóbulos sobrepostos, vinha fina com
-    // tufo na ponta) em vez de repetir sempre a mesma forma, e (4) variar
-    // cor/alpha por instância (evita uma silhueta plana idêntica em toda a
-    // fileira). O balanço do vento (leafSway) e o fator de parallax > 1 são
-    // preservados como antes.
-    _drawForegroundLeaves(ctx, w, h, corrupted, isNight) {
-        const tile = 260;
-        const camX = this._camX * this.PARALLAX_FOREGROUND_FACTOR;
-        const firstIdx = Math.floor((camX - w) / tile);
-        const lastIdx = Math.ceil((camX + w) / tile);
-        const baseColor = this._blendWithCurrentZoneColor(
-            corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]),
-            corrupted
-        );
-        const baseAlpha = corrupted ? 0.55 : (isNight ? 0.6 : 0.55);
-        for (let i = firstIdx; i <= lastIdx; i++) {
-            if (this._hash(i * 613 + 97000) < 32) continue; // ~32% dos slots ficam vazios
-
-            const wx = i * tile;
-            const jitterX = (this._hash(i * 71 + 97500) % 81) - 40; // -40..40, quebra o alinhamento regular
-            const screenX = wx - camX + jitterX;
-            if (screenX < -200 || screenX > w + 200) continue;
-            const dropH = 60 + (this._hash(i * 61 + 24000) % 100); // 60-160, mais variedade que antes
-
-            // Vento movimentando as folhas (mesma lógica de antes: os dois
-            // pontos de ancoragem em y=0 nunca se movem — presos a um galho
-            // fora de quadro — só a ponta solta balança, como um pêndulo).
-            const leafWindPhase = (this._hash(i * 389 + 93000) % 100) / 100 * Math.PI * 2;
-            const leafSwayAmp = 6 + (this._hash(i * 397 + 93500) % 5); // 6-10px
-            const leafSway = Math.sin(performance.now() / 1000 * 0.7 + leafWindPhase) * leafSwayAmp;
-
-            const colorJitter = (this._hash(i * 149 + 98000) % 13) - 6; // -6..6
-            const alphaJitter = ((this._hash(i * 151 + 98500) % 11) - 5) / 100; // -0.05..0.05
-            const r = Math.max(0, baseColor[0] + colorJitter);
-            const g = Math.max(0, baseColor[1] + colorJitter);
-            const b = Math.max(0, baseColor[2] + colorJitter);
-            const alpha = Math.max(0.15, Math.min(0.75, baseAlpha + alphaJitter));
-            ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
-
-            const variant = this._hash(i * 233 + 99000) % 3;
-            if (variant === 0) {
-                // Folha única pendurada, bordas irregulares (lóbulos
-                // assimétricos) em vez da curva lisa e simétrica de antes.
-                //
-                // Bug de auditoria final (iteração 21): `dropH` (60-160) e
-                // `halfW` (70-110) eram sorteados de forma independente, e
-                // quando calhava de dar um `halfW` grande com um `dropH`
-                // pequeno, a silhueta ficava mais LARGA que ALTA — lendo
-                // visualmente como uma "asa de morcego" plana e geométrica em
-                // vez de uma folha pendurada, mesmo já tendo bordas
-                // irregulares. `leafDropH` força a altura a ser sempre bem
-                // maior que a LARGURA TOTAL (2*halfW, não só a metade —
-                // primeira tentativa de correção usou halfW*1.4, que só
-                // garantia altura >= 0.7x a largura total, ainda larga
-                // demais; confirmado via captura de screenshot antes/depois
-                // que a silhueta continuava idêntica), garantindo uma
-                // silhueta sempre alongada/vertical (proporção de folha
-                // pendurada), nunca larga/achatada — sem mudar a lógica de
-                // balanço nem a faixa de variedade das outras variantes.
-                const halfW = 70 + (this._hash(i * 41 + 99500) % 40); // 70-110
-                const leafDropH = Math.max(dropH, halfW * 2.2);
-                ctx.beginPath();
-                ctx.moveTo(screenX - halfW, 0);
-                ctx.quadraticCurveTo(screenX - halfW * 0.45 + leafSway * 0.5, leafDropH * 0.35, screenX - halfW * 0.15 + leafSway * 0.7, leafDropH * 0.7);
-                ctx.quadraticCurveTo(screenX + leafSway * 0.85, leafDropH * 0.55, screenX + leafSway, leafDropH);
-                ctx.quadraticCurveTo(screenX + halfW * 0.2 + leafSway * 0.7, leafDropH * 0.6, screenX + halfW * 0.5 + leafSway * 0.5, leafDropH * 0.65);
-                ctx.quadraticCurveTo(screenX + halfW * 0.7 + leafSway * 0.4, leafDropH * 0.3, screenX + halfW, 0);
-                ctx.closePath();
-                ctx.fill();
-            } else if (variant === 1) {
-                // Cacho de folhas: vários lóbulos ovais sobrepostos pendurados
-                // em alturas ligeiramente diferentes, lembrando um agrupamento
-                // orgânico em vez de uma forma geométrica única.
-                const n = 3 + (this._hash(i * 53 + 100000) % 2); // 3-4 lóbulos
-                for (let l = 0; l < n; l++) {
-                    const lx = screenX + (l - (n - 1) / 2) * 34 + leafSway * (0.4 + l * 0.15);
-                    const lh = dropH * (0.55 + (this._hash(i * 7 + l * 331 + 100500) % 40) / 100);
-                    const lw = 22 + (this._hash(i * 11 + l * 337 + 101000) % 14);
-                    ctx.beginPath();
-                    ctx.ellipse(lx, lh * 0.55, lw, lh * 0.5, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            } else {
-                // Vinha fina pendurada: traço curvo estreito com um pequeno
-                // tufo de folhas na ponta, camada mais leve e menos opaca.
-                ctx.save();
-                ctx.strokeStyle = `rgba(${r},${g},${b},${(alpha * 0.8).toFixed(2)})`;
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.moveTo(screenX, 0);
-                ctx.quadraticCurveTo(screenX + leafSway * 0.6, dropH * 0.6, screenX + leafSway, dropH * 1.1);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.ellipse(screenX + leafSway, dropH * 1.1, 16, 11, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-        }
     },
 
     // Leves variações de luminosidade (Reformulação da Floresta, seção
@@ -3957,10 +3874,9 @@ window.RoadEngine = {
     },
 
     // Folhas caídas no chão (Reformulação da Floresta — pedido explícito na
-    // seção "Caminho": "folhas caídas"). Diferente da folhagem em parallax
-    // pendurada dos galhos (_drawForegroundLeaves, Ciclo 45, sempre em
-    // coordenada de TELA, nunca no mundo), estas são decalques PLANOS no
-    // CHÃO de verdade — podem cair dentro da faixa caminhável inteira (não
+    // seção "Caminho": "folhas caídas"). Diferente das folhas soltas
+    // caindo pelo ar (_drawDriftingLeaves, sempre em movimento), estas são
+    // decalques PLANOS no CHÃO de verdade — podem cair dentro da faixa caminhável inteira (não
     // só nas laterais como a vegetação esparsa comum), já que folha caída
     // não bloqueia passagem. Sempre estáticas (folha no chão não flutua,
     // ao contrário das borboletas/vagalumes acima) e tingidas de roxo
