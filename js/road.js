@@ -1830,6 +1830,17 @@ window.RoadEngine = {
         // perto). Não voam debaixo de chuva/tempestade, mesmo critério
         // climático já usado por borboletas/insetos acima.
         if (!corrupted && this._weather !== 'rain') this._drawFloatingPetals(ctx, w, h);
+        // Folhas soltas caindo pelo ar (item pendente desde a Iteração
+        // 18/19 do checklist mestre — "folhas voando"/"folhas balançando",
+        // distinto de `_drawFallenLeaves`, que é um decalque ESTÁTICO no
+        // chão). Ao contrário das pétalas acima (presas a touceiras de
+        // flor específicas), folhas caem espalhadas pela floresta inteira,
+        // igual vagalumes/poeira/insetos — inclusive durante a corrupção
+        // (tingidas de roxo, mesmo critério de `_drawFallenLeaves`). Não
+        // cai debaixo de chuva/tempestade, mesmo critério climático já
+        // usado pelo resto da vida ambiente (a chuva já preenche esse
+        // espaço visual).
+        if (this._weather !== 'rain') this._drawDriftingLeaves(ctx, w, h, corrupted);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
@@ -3850,6 +3861,59 @@ window.RoadEngine = {
                 ctx.fill();
                 ctx.restore();
             }
+        }
+    },
+
+    // Folhas soltas caindo pelo ar (item pendente desde a Iteração 18/19 do
+    // checklist mestre, seção "Adicionar clima"/"Adicionar profundidade
+    // real": "folhas voando"/"folhas balançando"). Diferente de
+    // `_drawFallenLeaves` logo abaixo (decalque PLANO e ESTÁTICO no chão)
+    // e diferente de `_drawFloatingPetals` acima (presa a touceiras de flor
+    // específicas), aqui a folha está sempre em queda livre, espalhada pela
+    // floresta inteira — mesmo princípio de gate por densidade de
+    // `_drawFireflies`/`_drawDustMotes`/`_drawInsectSwarms`. Cada folha cai
+    // de um ponto acima da copa até sumir abaixo do chão e "renasce" no
+    // topo (mesmo truque de ciclo-módulo de `_drawFloatingPetals`, sem
+    // nenhum array guardado em memória), com um leve balanço lateral
+    // senoidal simulando vento e rotação contínua enquanto cai — bem
+    // diferente da queda vertical pura e sem giro de gotas de chuva.
+    // Tingida de roxo doentio durante a corrupção, mesmo critério e mesma
+    // paleta-base de `_drawFallenLeaves`.
+    _drawDriftingLeaves(ctx, w, h, corrupted) {
+        const spacing = 130;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        const palette = corrupted
+            ? ['rgba(90,45,110,0.75)', 'rgba(70,35,90,0.7)', 'rgba(105,55,125,0.75)']
+            : ['rgba(205,125,35,0.8)', 'rgba(190,70,40,0.75)', 'rgba(215,175,55,0.8)'];
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const lx = i * spacing;
+            if (lx < 0 || lx > this.WORLD_LENGTH) continue;
+            if (this._hash(i * 223 + 102000) >= 20 * this._zoneDensityAt(lx)) continue; // nem todo slot tem folha caindo
+
+            const fallSpeed = 18 + (this._hash(i * 67 + 102500) % 14); // 18-31 un/s
+            const cycleH = this.LANE_HALF_HEIGHT * 2 + 60; // do alto da copa até sumir sob o chão
+            const seedT = this._hashRange(i * 79 + 103000, 0, 999);
+            const fallY = -this.LANE_HALF_HEIGHT - 40 + ((t * fallSpeed + seedT) % cycleH);
+            const swayPhase = (i * 4.13) % (Math.PI * 2);
+            const sway = Math.sin(t * 1.1 + swayPhase) * 16;
+            const lxPos = lx + sway;
+            if (!window.Camera.isVisible(lxPos, fallY, w, h, 40)) continue;
+
+            const color = palette[this._hash(i * 97 + 103500) % palette.length];
+            const rot = t * 2.2 + swayPhase;
+            ctx.save();
+            ctx.translate(lxPos, fallY);
+            ctx.rotate(rot);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, -4);
+            ctx.quadraticCurveTo(3.2, 0, 0, 4);
+            ctx.quadraticCurveTo(-3.2, 0, 0, -4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
         }
     },
 
