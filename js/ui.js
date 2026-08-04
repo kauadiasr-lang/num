@@ -258,14 +258,51 @@ class UIManager {
         document.getElementById('btn-abandon-roadworld').addEventListener('click', () => this.abandonRoadWorld());
         window.addEventListener('keydown', (e) => { if (window.RoadEngine) window.RoadEngine.handleKey(e, true); });
         window.addEventListener('keyup', (e) => { if (window.RoadEngine) window.RoadEngine.handleKey(e, false); });
-        document.getElementById('game-canvas').addEventListener('click', (e) => {
+        // Bug relatado: "não dá pra andar pela floresta no celular". Causa
+        // raiz: o listener de clique estava preso ao PRÓPRIO canvas
+        // (#game-canvas), mas o canvas fica ATRÁS de #ui-layer no DOM — e
+        // #screen-roadworld (um dos `.screen` dentro de #ui-layer) cobre a
+        // tela inteira por cima dele. `elementFromPoint` num toque real
+        // confirmou que o evento nunca chegava ao canvas, só ao próprio
+        // #screen-roadworld — então o clique/toque NUNCA disparava
+        // handleClick, em nenhuma plataforma (mobile OU desktop, embora só
+        // tenha sido notado no celular, onde não há WASD como alternativa).
+        // Mesmo padrão já usado (e já funcionando) por CityEngine._setupInput:
+        // o listener escuta no PRÓPRIO elemento `.screen` (que de fato
+        // recebe o evento), e usa `canvas.getBoundingClientRect()` só pra
+        // converter clientX/clientY em coordenada relativa ao canvas —
+        // nunca precisa que o listener esteja no canvas em si.
+        const roadScreenEl = document.getElementById('screen-roadworld');
+        roadScreenEl.addEventListener('click', (e) => {
             if (!window.RoadEngine || !window.RoadEngine._isActive()) return;
+            if (e.target.closest('button')) return; // não interfere com o aviso de interação/botão de abandonar
+            // Trava de segurança contra o "clique" de compatibilidade que
+            // navegadores/webviews disparam alguns instantes depois de um
+            // toque real (ver touchend abaixo) — mesmo princípio já usado
+            // por CityEngine._setupInput.
+            if (performance.now() - (this._lastRoadTouchHandledAt || 0) < 600) return;
             const canvas = document.getElementById('game-canvas');
             const rect = canvas.getBoundingClientRect();
             const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
             const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
             window.RoadEngine.handleClick(screenX - offset.dx, screenY - offset.dy);
         });
+        // Toque dedicado (evita atraso/perda de "ghost click" em alguns
+        // navegadores móveis) — mesmo padrão de CityEngine._setupInput.
+        roadScreenEl.addEventListener('touchend', (e) => {
+            if (!window.RoadEngine || !window.RoadEngine._isActive()) return;
+            if (e.target.closest('button')) return;
+            if (e.changedTouches && e.changedTouches[0]) {
+                e.preventDefault();
+                this._lastRoadTouchHandledAt = performance.now();
+                const t = e.changedTouches[0];
+                const canvas = document.getElementById('game-canvas');
+                const rect = canvas.getBoundingClientRect();
+                const screenX = t.clientX - rect.left, screenY = t.clientY - rect.top;
+                const offset = window.Camera.getOffset(window.Engine.width, window.Engine.height);
+                window.RoadEngine.handleClick(screenX - offset.dx, screenY - offset.dy);
+            }
+        }, { passive: false });
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             // Se foi aberta a partir do Menu Principal (sem sessão de jogo ativa,
             // só espiando o save mais recente), volta pro menu e descarta o
