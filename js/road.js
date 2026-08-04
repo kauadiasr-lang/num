@@ -3223,7 +3223,23 @@ window.RoadEngine = {
             if (px < 0 || px > this.WORLD_LENGTH) continue;
             if (this._hash(i * 101 + 36000) >= 45) continue; // nem todo slot tem um objeto
             const side = (this._hash(i * 59 + 36500) % 2 === 0) ? -1 : 1;
-            const py = side * (this.LANE_HALF_HEIGHT + 30 + (this._hash(i * 43 + 37000) % 30));
+            // Bug de auditoria final (iteração 22): +30..+59 colocava
+            // troncos/cogumelos na MESMA profundidade que os marcos de
+            // fundo (árvores gigantes a +70, acampamentos a +60) — mas
+            // esses marcos são grandes o bastante pra "pertencer" à linha
+            // da floresta; um cogumelo pequeno naquela profundidade não tem
+            // chão visível por baixo (a faixa de terra do caminho não
+            // alcança tão longe), lendo como um objeto flutuando no céu
+            // acima da linha das montanhas. Primeira tentativa de correção
+            // (+5..+24) ainda flutuava — confirmado via captura de
+            // screenshot antes/depois que a projeção perto do horizonte
+            // comprime MUITO por unidade de mundo, então reduzir a
+            // profundidade um pouco não bastava. Corrigido pra manter esses
+            // objetos DENTRO da faixa caminhável (nunca além dela), mesmo
+            // princípio já usado pelas folhas caídas (`LANE_HALF_HEIGHT - 30`
+            // logo abaixo neste arquivo) — sempre com chão visível por
+            // baixo, nunca na profundidade reservada a marcos grandes.
+            const py = side * (this.LANE_HALF_HEIGHT - 80 - (this._hash(i * 43 + 37000) % 40));
             if (!window.Camera.isVisible(px, py, w, h, 60)) continue;
 
             const isLog = this._hash(i * 71 + 37500) % 2 === 0;
