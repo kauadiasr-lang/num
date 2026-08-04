@@ -1351,7 +1351,16 @@ window.RoadEngine = {
         // doentia bloqueia até a luz das estrelas).
         this._drawNightStars(ctx, w, horizon, corrupted, isNight);
 
-        if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon);
+        // Bug de auditoria final (iteração 26): as montanhas distantes
+        // (função compartilhada com Cidade/Arena) sempre usavam a MESMA
+        // cor cinza-arroxeada fixa, mesmo durante a corrupção — enquanto
+        // céu/chão/árvores/flores mergulhavam num roxo saturado bem
+        // marcado, a faixa das montanhas continuava neutra, criando uma
+        // tira cinza destacada bem na linha do horizonte, quebrando a
+        // atmosfera doentia do resto da cena. `corrupted` é o 4º parâmetro
+        // opcional — nunca passado pelas chamadas da Cidade/Arena, então o
+        // visual delas continua bit-a-bit idêntico.
+        if (window.GFX && window.GFX._drawMountains) window.GFX._drawMountains(ctx, w, horizon, corrupted);
         this._drawSkyClouds(ctx, w, horizon, corrupted, isNight);
 
         // Pássaros cruzando o céu de dia (seção "Ambientação viva" —

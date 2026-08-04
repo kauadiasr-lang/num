@@ -1723,9 +1723,22 @@ class GraphicsEngine {
     // Duas cadeias de montanhas em profundidade (mais clara/suave ao fundo,
     // mais escura/nítida na frente) — silhuetas simples, no mesmo estilo
     // "chapado" já usado no coliseu/plateia, sem exigir nenhum recurso novo.
-    _drawMountains(ctx, w, horizon) {
-        this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(70,64,86,0.5)', 6, 0.4);
-        this._drawMountainRange(ctx, w, horizon, horizon * 0.44, 'rgba(42,38,54,0.85)', 5, 2.1);
+    // `corrupted` é um 4º parâmetro OPCIONAL (Estrada, auditoria final
+    // iteração 26) — nunca passado pelas chamadas da Cidade/Arena
+    // (drawCityBackdrop), então o visual delas continua bit-a-bit idêntico.
+    // Sem ele, céu/chão/árvores da Floresta corrompida mergulhavam num
+    // roxo saturado, mas as montanhas distantes (esta função, compartilhada)
+    // continuavam com a MESMA cor cinza-arroxeada neutra de sempre — uma
+    // faixa cinza destacada bem na linha do horizonte, quebrando a
+    // atmosfera doentia do resto da cena.
+    _drawMountains(ctx, w, horizon, corrupted) {
+        if (corrupted) {
+            this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(60,38,72,0.55)', 6, 0.4);
+            this._drawMountainRange(ctx, w, horizon, horizon * 0.44, 'rgba(34,18,46,0.88)', 5, 2.1);
+        } else {
+            this._drawMountainRange(ctx, w, horizon, horizon * 0.32, 'rgba(70,64,86,0.5)', 6, 0.4);
+            this._drawMountainRange(ctx, w, horizon, horizon * 0.44, 'rgba(42,38,54,0.85)', 5, 2.1);
+        }
     }
 
     _drawMountainRange(ctx, w, horizon, peakHeight, color, count, phase) {
