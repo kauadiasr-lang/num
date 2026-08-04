@@ -72,6 +72,22 @@
 window.RoadEngine = {
     WORLD_LENGTH: 63000, // ~5min andando contínuo a pé (walkSpeed=210px/s * 300s)
     LANE_HALF_HEIGHT: 140, // faixa caminhável acima/abaixo da linha central da estrada
+    // Metade da largura do caminho de terra central mantido SEM grama/
+    // arbustos (pedido do usuário: "mantenha um grande caminho central de
+    // terra sem a grama") — ver _drawGrassTufts/_drawGroundBushes, que
+    // agora só cobrem |y| > este valor. Deixa uma faixa de ~110 unidades
+    // de terra visível bem no meio da faixa caminhável, mesmo com a
+    // cobertura de vegetação muito mais densa nas laterais.
+    PATH_CLEAR_HALF_WIDTH: 55,
+    // Alcance máximo (em |y|) da nova cobertura densa de grama/arbustos —
+    // mesmo alcance aproximado já usado por _drawGroundDetailScatter (que
+    // cobre bem além da faixa caminhável, já que a câmera mostra terreno
+    // "além da beirada"). Sem isso, só a faixa caminhável (±140) ganhava
+    // grama/arbusto, deixando a faixa mais larga e mais perto da câmera
+    // (o "chão da parte de baixo do mapa", pedido do usuário) só com as
+    // pedrinhas/gravetos espalhados de _drawGroundDetailScatter, sem
+    // nenhuma vegetação cobrindo — exatamente o visual "sujo" relatado.
+    GRASS_MAX_HALF_HEIGHT: 420,
     INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
     BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
     BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
@@ -99,7 +115,13 @@ window.RoadEngine = {
     TOWER_SPACING: 7800, // torres de vigia de fronteira — mais raras ainda que os acampamentos, marco único por travessia na maioria das rotas curtas
     LOG_MUSHROOM_SPACING: 480, // troncos caídos/cogumelos — mais comuns que os marcos raros acima, decoram o caminho sem virar repetição (pedido explícito: "espalhe naturalmente pelo caminho: troncos caídos; cogumelos")
     LEAF_DECAL_SPACING: 150, // folhas caídas no chão — mais comuns ainda que troncos/cogumelos (clutter de chão, não marco), podem cair dentro da faixa caminhável inteira (pedido explícito da seção "Caminho": "folhas caídas")
-    GRASS_TUFT_SPACING: 70, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
+    // Espaçamento reduzido (era 70) pra cobertura bem mais densa — pedido
+    // do usuário: "adicione muitos arbustos e grama, praticamente
+    // cobrindo, o excesso de partículas sem grama está fazendo ele
+    // parecer sujo". Combinado com o gate de 92% em _drawGrassTufts, a
+    // grade mais apertada é o que realmente faz a diferença visual (um
+    // gate alto com slots espaçados ainda deixa buracos grandes visíveis).
+    GRASS_TUFT_SPACING: 42, // tufos de grama — textura de chão mais numerosa ainda que as folhas caídas, cobrindo boa parte do chão com variação de tom por instância (pedido explícito: "grama variada")
     INSECT_SWARM_SPACING: 260, // nuvens de pequenos insetos — item distinto de "borboletas" na seção Ambientação (pontos minúsculos zumbindo, não asas coloridas), visíveis de dia E de noite
     RUIN_FRAGMENT_SPACING: 1800, // fragmentos de ruínas puramente decorativos — mais raros que troncos/cogumelos, mais comuns que as árvores gigantes; cenário, nunca interativo (distinto do evento 'ruins')
     SIDE_TRAIL_SPACING: 950, // trilhas laterais decorativas que se ramificam da estrada rumo à floresta (pedido explícito da seção "Exploração": "trilhas; atalhos") — puramente visual, sugere caminhos alternativos sem alterar a faixa caminhável real
@@ -1550,6 +1572,12 @@ window.RoadEngine = {
         // Tufos de grama variada (pedido explícito da seção "Estilo
         // visual": "grama variada" — ver _drawGrassTufts abaixo).
         this._drawGrassTufts(ctx, w, h, corrupted);
+
+        // Arbustos densos cobrindo o chão fora do caminho central (pedido
+        // do usuário: "adicione muitos arbustos e grama, praticamente
+        // cobrindo" — ver _drawGroundBushes abaixo). Desenhados DEPOIS da
+        // grama, então sempre ficam "plantados" em cima dela.
+        this._drawGroundBushes(ctx, w, h, corrupted);
 
         // Textura de detalhe do chão (auditoria visual: o maior problema
         // encontrado era que TODA a decoração de solo — vegetação esparsa,
@@ -3912,6 +3940,30 @@ window.RoadEngine = {
         }
     },
 
+    // Posição vertical segura pra cobertura densa de chão (grama/
+    // arbustos, ver _drawGrassTufts/_drawGroundBushes abaixo) — nunca
+    // dentro de PATH_CLEAR_HALF_WIDTH do centro (o "caminho central de
+    // terra" pedido pelo usuário) e nunca flutuando no céu.
+    //
+    // Bug de auditoria (durante esta própria correção): a primeira versão
+    // usava um range SIMÉTRICO (`side * hashRange(pathHalf,
+    // GRASS_MAX_HALF_HEIGHT)`), deixando o lado NEGATIVO (acima da faixa,
+    // em direção ao horizonte) alcançar até -420 — bem além do -140
+    // (LANE_HALF_HEIGHT) que a grama sempre usou com segurança antes desta
+    // correção, e bem além do -70 que _drawGroundDetailScatter documenta
+    // como "nunca deixa nada flutuar no céu". Resultado visível em
+    // screenshot: moitas inteiras "flutuando" no céu, acima da linha das
+    // árvores. Corrigido tornando o alcance ASSIMÉTRICO: o lado negativo
+    // nunca passa de -LANE_HALF_HEIGHT (mesmo limite seguro já usado pela
+    // grama desde sempre), só o lado POSITIVO (chão em primeiro plano,
+    // "a parte de baixo do mapa" do relato original) se estende até
+    // GRASS_MAX_HALF_HEIGHT.
+    _groundCoverageY(sideSeed, magSeed) {
+        const side = (this._hash(sideSeed) % 2 === 0) ? -1 : 1;
+        const maxMag = side < 0 ? this.LANE_HALF_HEIGHT : this.GRASS_MAX_HALF_HEIGHT;
+        return side * this._hashRange(magSeed, this.PATH_CLEAR_HALF_WIDTH, maxMag);
+    },
+
     // Tufos de grama variada (pedido explícito da seção "Estilo visual":
     // "grama variada"). Diferente da vegetação esparsa comum (pedra/
     // planta/arbusto/flor, restrita às laterais da faixa), estes são
@@ -3929,8 +3981,19 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const gx = i * spacing;
             if (gx < 0 || gx > this.WORLD_LENGTH) continue;
-            if (this._hash(i * 211 + 43000) >= 45 * this._zoneDensityAt(gx)) continue; // nem todo slot tem tufo
-            const gy = this._hashRange(i * 131 + 43500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
+            // Bug relatado pelo usuário ("a parte de baixo do mapa parece
+            // suja... adicione muitos arbustos e grama, praticamente
+            // cobrindo"): densidade muito maior (era 45, agora 92 — quase
+            // cobertura total) e alcance vertical estendido até
+            // GRASS_MAX_HALF_HEIGHT (era só ±LANE_HALF_HEIGHT, deixando a
+            // faixa mais larga/próxima da câmera sem NENHUMA grama, só as
+            // pedrinhas/gravetos de _drawGroundDetailScatter — daí o visual
+            // "sujo"). `side` escolhe aleatoriamente qual lado da faixa
+            // recebe o tufo, e o próprio range nunca entra em
+            // PATH_CLEAR_HALF_WIDTH do centro — mantém um "grande caminho
+            // central de terra sem grama", pedido explícito do usuário.
+            if (this._hash(i * 211 + 43000) >= Math.min(97, 92 * this._zoneDensityAt(gx))) continue; // nem todo slot tem tufo
+            const gy = this._groundCoverageY(i * 97 + 44700, i * 131 + 43500);
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
 
             // Cor com transição suave entre zonas (loop de qualidade
@@ -3938,17 +4001,73 @@ window.RoadEngine = {
             // sobrepõe uma cor fixa uniforme via `baseColor`.
             const zoneColor = baseColor || this._zoneVegColorAt(gx);
             const m = zoneColor.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
-            const shadeFactor = 0.6 + (this._hash(i * 61 + 44000) % 71) / 100;
+            const shadeFactor = 0.7 + (this._hash(i * 61 + 44000) % 71) / 100;
             const alpha = Math.min(1, parseFloat(m[4]) * shadeFactor);
             ctx.strokeStyle = `rgba(${m[1]},${m[2]},${m[3]},${alpha.toFixed(2)})`;
-            ctx.lineWidth = 1.5;
-            const bladeH = 5 + (this._hash(i * 37 + 44500) % 6);
-            for (const bdx of [-3, 0, 3]) {
+            // Traço mais grosso e folhas mais altas (era 1.5/5-10) — mesmo
+            // motivo de GRASS_TUFT_SPACING acima: mais espaçamento denso
+            // sozinho não bastava, cada tufo também precisava de mais
+            // peso visual pra realmente "cobrir" o chão em vez de somar
+            // riscos finos difíceis de notar por cima da terra.
+            ctx.lineWidth = 2.2;
+            const bladeH = 7 + (this._hash(i * 37 + 44500) % 8);
+            for (const bdx of [-4, 0, 4]) {
                 ctx.beginPath();
                 ctx.moveTo(gx + bdx, gy + 3);
                 ctx.lineTo(gx + bdx * 1.3, gy + 3 - bladeH);
                 ctx.stroke();
             }
+        }
+    },
+
+    // Arbustos densos cobrindo o chão fora do caminho central (pedido do
+    // usuário, mesmo relatório que motivou a densidade maior de
+    // _drawGrassTufts acima: "adicione muitos arbustos e grama,
+    // praticamente cobrindo... mantenha um grande caminho central de
+    // terra sem a grama"). Silhueta de cluster de círculos sobrepostos —
+    // mesmo princípio visual já usado pela "moita" da vegetação esparsa
+    // comum (ver draw(), detailType===4), só que MUITO mais numerosa
+    // (espaçamento apertado, gate de densidade alto) e espalhada pelo
+    // mesmo alcance vertical amplo de _drawGrassTufts (nunca dentro de
+    // PATH_CLEAR_HALF_WIDTH do centro, sempre até GRASS_MAX_HALF_HEIGHT),
+    // em vez de fixa nas duas bordas da faixa como a vegetação esparsa
+    // original. Desenhada DEPOIS da grama (por cima), então os arbustos
+    // sempre ficam visualmente "plantados" na textura de grama, nunca
+    // flutuando sobre terra nua.
+    BUSH_SPACING: 65, // era 110 — mesmo motivo de GRASS_TUFT_SPACING acima, cobertura "praticamente" total pedida pelo usuário
+    _drawGroundBushes(ctx, w, h, corrupted) {
+        const spacing = this.BUSH_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const bx = i * spacing;
+            if (bx < 0 || bx > this.WORLD_LENGTH) continue;
+            if (this._hash(i * 227 + 103500) >= Math.min(90, 70 * this._zoneDensityAt(bx))) continue; // nem todo slot tem arbusto
+            const by = this._groundCoverageY(i * 107 + 104000, i * 149 + 104500);
+            if (!window.Camera.isVisible(bx, by, w, h, 40)) continue;
+
+            const baseColor = this._blendWithCurrentZoneColor(
+                corrupted ? [55, 30, 70] : [26, 58, 30],
+                corrupted
+            );
+            const shadeFactor = 0.75 + (this._hash(i * 71 + 105000) % 51) / 100;
+            const [r, g, b] = baseColor.map(c => Math.max(0, Math.min(255, Math.round(c * shadeFactor))));
+            const scale = 0.8 + (this._hash(i * 113 + 105500) % 61) / 100; // 0.8x-1.4x, variedade de tamanho
+
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.scale(scale, scale);
+            // Sombra discreta na base, mesmo princípio já usado pela
+            // vegetação esparsa comum.
+            ctx.fillStyle = corrupted ? 'rgba(15,8,20,0.22)' : 'rgba(0,0,0,0.14)';
+            ctx.beginPath(); ctx.ellipse(0, 9, 15, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = corrupted ? `rgba(${r},${g},${b},0.75)` : `rgba(${r},${g},${b},0.7)`;
+            for (const [cx, cy, cr] of [[-9, 2, 8], [9, 2, 8], [0, -4, 9], [-5, 6, 7], [5, 6, 7]]) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
         }
     },
 
