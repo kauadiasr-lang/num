@@ -1466,7 +1466,12 @@ window.RoadEngine = {
             const vx = i * spacing;
             if (vx < 0 || vx > this.WORLD_LENGTH) continue;
             const zone = this._zones[this._zoneIndexAt(vx)];
-            const density = zone.vegDensity;
+            // Densidade com transição suave entre zonas (loop de qualidade
+            // visual, Iteração 15 — completa a migração iniciada na
+            // Iteração 14 pra `_drawForestWall`; `zone` continua guardado
+            // aqui só porque `zone.vegColor`, mais abaixo, ainda usa o
+            // valor discreto).
+            const density = this._zoneDensityAt(vx);
             if (this._hash(i) >= 40 * density) continue;
             const side = (i % 2 === 0) ? -1 : 1;
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
@@ -1967,10 +1972,12 @@ window.RoadEngine = {
     // de verdade (tronco + copa em 4 lóbulos sobrepostos), bem maiores
     // que os arbustos, numa grade apertada (tile 58, menor que a largura
     // média das copas) pra que se sobreponham e formem uma parede visual
-    // quase contínua. Densidade escala pela vegDensity da zona ATUAL do
-    // jogador (mesmo princípio já usado pela vegetação pequena dentro da
-    // faixa caminhável, ver zone.vegDensity abaixo) — em Campos (vegDensity
-    // 1.0) ainda sobra ~78% de cobertura com alguns claros visíveis, mas a
+    // quase contínua. Densidade escala pela vegDensity da PRÓPRIA posição
+    // de cada ladrilho (via `_zoneDensityAt`, com transição suave entre
+    // zonas — ver Iteração 14/15 do loop de qualidade visual; antes lia um
+    // único snapshot da zona do jogador, fazendo a parede inteira pipocar
+    // ao cruzar uma fronteira) — em Campos (vegDensity 1.0) ainda sobra
+    // ~78% de cobertura com alguns claros visíveis, mas a
     // partir do Bosque (vegDensity >= 1.4) o limiar já ultrapassa o máximo
     // do hash (0-99), garantindo cobertura de 100%, uma parede de verdade
     // bloqueando o horizonte. Alterna entre 2 tons de copa por posição
@@ -3381,8 +3388,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const fx = i * spacing;
             if (fx < 0 || fx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(fx)];
-            if (this._hash(i * 137 + 21000) >= 22 * zone.vegDensity) continue;
+            if (this._hash(i * 137 + 21000) >= 22 * this._zoneDensityAt(fx)) continue;
             const side = (this._hash(i * 61 + 21500) % 2 === 0) ? -1 : 1;
             const fy = side * (this.LANE_HALF_HEIGHT - 30) - (this._hash(i * 29 + 22000) % 40);
             if (!window.Camera.isVisible(fx, fy, w, h)) continue;
@@ -3424,8 +3430,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const mx = i * spacing;
             if (mx < 0 || mx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(mx)];
-            if (this._hash(i * 149 + 27000) >= 16 * zone.vegDensity) continue;
+            if (this._hash(i * 149 + 27000) >= 16 * this._zoneDensityAt(mx)) continue;
             const side = (this._hash(i * 79 + 27500) % 2 === 0) ? -1 : 1;
             const my = side * this._hashRange(i * 37 + 28000, 0, this.LANE_HALF_HEIGHT - 1);
             if (!window.Camera.isVisible(mx, my, w, h)) continue;
@@ -3460,8 +3465,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const bx = i * spacing;
             if (bx < 0 || bx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(bx)];
-            if (this._hash(i * 157 + 34000) >= 14 * zone.vegDensity) continue;
+            if (this._hash(i * 157 + 34000) >= 14 * this._zoneDensityAt(bx)) continue;
             const side = (this._hash(i * 89 + 34500) % 2 === 0) ? -1 : 1;
             const by0 = side * this._hashRange(i * 47 + 35000, 0, this.LANE_HALF_HEIGHT - 1);
 
@@ -3500,8 +3504,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const sx = i * spacing;
             if (sx < 0 || sx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(sx)];
-            if (this._hash(i * 191 + 45000) >= 18 * zone.vegDensity) continue;
+            if (this._hash(i * 191 + 45000) >= 18 * this._zoneDensityAt(sx)) continue;
             const side = (this._hash(i * 113 + 45500) % 2 === 0) ? -1 : 1;
             const sy = side * this._hashRange(i * 61 + 46000, 0, this.LANE_HALF_HEIGHT - 1);
             if (!window.Camera.isVisible(sx, sy, w, h)) continue;
@@ -3548,8 +3551,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const vx = i * spacing;
             if (vx < 0 || vx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(vx)];
-            if (this._hash(i) >= 40 * zone.vegDensity) continue; // mesmo gate de densidade da vegetação esparsa
+            if (this._hash(i) >= 40 * this._zoneDensityAt(vx)) continue; // mesmo gate de densidade da vegetação esparsa
             if (this._hash(i * 83 + 15000) % 5 !== 2) continue; // só nos slots que realmente têm flor (detailType===2)
             const side = (i % 2 === 0) ? -1 : 1;
             const vy = side * (this.LANE_HALF_HEIGHT - 20);
@@ -3597,8 +3599,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const lx = i * spacing;
             if (lx < 0 || lx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(lx)];
-            if (this._hash(i * 179 + 41000) >= 30 * zone.vegDensity) continue; // nem todo slot tem folha
+            if (this._hash(i * 179 + 41000) >= 30 * this._zoneDensityAt(lx)) continue; // nem todo slot tem folha
             const ly = this._hashRange(i * 97 + 41500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(lx, ly, w, h)) continue;
 
@@ -3636,7 +3637,7 @@ window.RoadEngine = {
             const gx = i * spacing;
             if (gx < 0 || gx > this.WORLD_LENGTH) continue;
             const zone = this._zones[this._zoneIndexAt(gx)];
-            if (this._hash(i * 211 + 43000) >= 45 * zone.vegDensity) continue; // nem todo slot tem tufo
+            if (this._hash(i * 211 + 43000) >= 45 * this._zoneDensityAt(gx)) continue; // nem todo slot tem tufo
             const gy = this._hashRange(i * 131 + 43500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
 
@@ -3682,8 +3683,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const dx = i * spacing;
             if (dx < 0 || dx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(dx)];
-            if (this._hash(i * 251 + 80000) >= Math.min(100, 82 * zone.vegDensity)) continue;
+            if (this._hash(i * 251 + 80000) >= Math.min(100, 82 * this._zoneDensityAt(dx))) continue;
             // Faixa de Y bem mais ampla que LANE_HALF_HEIGHT (280) — a
             // auditoria visual mostrou que o chão visível na tela vai bem
             // além da faixa caminhável (a câmera mostra terreno "além da
