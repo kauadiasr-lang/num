@@ -1739,9 +1739,16 @@ window.RoadEngine = {
             const wx = i * tile;
             const screenX = wx - camX;
             if (screenX < -10 || screenX > w + 10) continue;
-            const starY = this._hash(i * 97 + 59500) % Math.max(1, Math.floor(horizon - 14));
+            // Ambos os pontos abaixo caíam no mesmo bug de truncamento já
+            // corrigido em _drawFallenLeaves/_drawGrassTufts/etc. (ver
+            // _hashRange): `% X` com X>99 nunca ultrapassa 99, então
+            // starY nunca chegava perto do horizonte (só no 1/3 superior
+            // do céu) e phase nunca cobria o ciclo completo de 2π,
+            // deixando o brilho das estrelas mais correlacionado entre
+            // si do que deveria.
+            const starY = this._hashRange(i * 97 + 59500, 0, Math.max(1, Math.floor(horizon - 14)) - 1);
             const speed = 0.8 + (this._hash(i * 53 + 60000) % 10) / 10;
-            const phase = (this._hash(i * 71 + 60500) % 628) / 100;
+            const phase = this._hashRange(i * 71 + 60500, 0, 628) / 100;
             const twinkle = 0.5 + 0.5 * Math.sin(t * speed + phase);
             const size = 1 + (this._hash(i * 89 + 61000) % 2);
             ctx.fillStyle = `rgba(255,255,255,${(0.35 + 0.55 * twinkle).toFixed(2)})`;
