@@ -1705,6 +1705,17 @@ window.RoadEngine = {
         // de luz, diferente do brilho autônomo dos vagalumes) -- só some
         // durante corrupção/chuva, mesmo critério das borboletas acima.
         if (!corrupted && this._weather !== 'rain') this._drawInsectSwarms(ctx, w, h);
+        // Pétalas em áreas específicas (loop de qualidade visual, Iteração
+        // 6 — item explícito da lista mestra, seção "Adicionar profundidade
+        // real": "pétalas em áreas específicas"). Ao contrário dos vagalumes/
+        // poeira/borboletas/insetos acima (espalhados por TODA a floresta),
+        // pétalas só flutuam perto de onde já existem flores de verdade
+        // (mesmo slot/condição de _drawFloatingPetals reaproveita a
+        // fórmula EXATA da vegetação esparsa que decide "esse slot tem
+        // flor" — nunca aparecem soltas sem uma touceira de flor por
+        // perto). Não voam debaixo de chuva/tempestade, mesmo critério
+        // climático já usado por borboletas/insetos acima.
+        if (!corrupted && this._weather !== 'rain') this._drawFloatingPetals(ctx, w, h);
 
         this._drawMount(ctx);
         this._drawPlayer(ctx);
@@ -3267,6 +3278,64 @@ window.RoadEngine = {
                 ctx.beginPath();
                 ctx.arc(jx, jy, 1.1, 0, Math.PI * 2);
                 ctx.fill();
+            }
+        }
+    },
+
+    // Pétalas em áreas específicas (loop de qualidade visual, Iteração 6 —
+    // item explícito da lista mestra ainda pendente, seção "Adicionar
+    // profundidade real": "pétalas em áreas específicas"). Diferente de
+    // TODA a vida ambiente anterior (vagalumes/poeira/borboletas/insetos),
+    // que aparece espalhada por qualquer trecho da floresta, pétalas só
+    // flutuam perto de touceiras de flor de verdade — reaproveita a
+    // MESMA fórmula de gate (densidade + `detailType`) que
+    // `_drawFallenLeaves`/vegetação esparsa já usa pra decidir "esse slot
+    // tem flor", então nunca aparece uma pétala solta sem nenhuma flor
+    // por perto, e a cor da pétala sempre combina com a cor da flor
+    // daquela touceira específica (mesma semente de `_hash`, mesma
+    // paleta). Sem nenhum array guardado em memória: a posição de queda
+    // de cada pétala é puramente função de `performance.now()` módulo
+    // uma altura de ciclo própria (a pétala "renasce" no topo assim que
+    // chega no chão), mesmo princípio já usado por vagalumes/poeira.
+    _drawFloatingPetals(ctx, w, h) {
+        const spacing = 220; // mesmo espaçamento da vegetação esparsa (a fonte das flores)
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        const t = performance.now() / 1000;
+        const flowerColors = [
+            'rgba(230,190,90,0.85)',
+            'rgba(235,235,240,0.85)',
+            'rgba(200,120,190,0.85)',
+            'rgba(220,90,70,0.85)',
+        ];
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const vx = i * spacing;
+            if (vx < 0 || vx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(vx)];
+            if (this._hash(i) >= 40 * zone.vegDensity) continue; // mesmo gate de densidade da vegetação esparsa
+            if (this._hash(i * 83 + 15000) % 5 !== 2) continue; // só nos slots que realmente têm flor (detailType===2)
+            const side = (i % 2 === 0) ? -1 : 1;
+            const vy = side * (this.LANE_HALF_HEIGHT - 20);
+            if (!window.Camera.isVisible(vx, vy, w, h, 60)) continue;
+
+            const color = flowerColors[this._hash(i * 211 + 55000) % flowerColors.length];
+            const petalCount = 2 + (this._hash(i * 97 + 84000) % 2); // 2-3 pétalas por touceira
+            for (let k = 0; k < petalCount; k++) {
+                const fallSpeed = 14 + (this._hash(i * 53 + 84500 + k) % 10); // 14-23 un/s
+                const loopHeight = 70 + (this._hash(i * 61 + 85000 + k) % 30); // 70-99
+                const seedT = this._hash(i * 73 + 85500 + k);
+                const fallY = (t * fallSpeed + seedT) % loopHeight;
+                const sway = Math.sin(t * 1.3 + i + k) * 10;
+                const px = vx + sway;
+                const py = vy - loopHeight / 2 + fallY;
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(t * 1.5 + k);
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 3.2, 1.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
             }
         }
     },
