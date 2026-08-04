@@ -1988,13 +1988,44 @@ window.RoadEngine = {
     // Math.random), padrão de "ladrilho infinito" — não amarrado a
     // WORLD_LENGTH como o resto do cenário, já que é um pano de fundo
     // sempre visível de qualquer ponto da travessia, igual ao céu.
+    // Bug de auditoria de biomas (iteração 29, estendido na 30): a
+    // folhagem de primeiro plano (_drawForegroundLeaves) era a única
+    // camada de vegetação da Estrada que nunca refletia a identidade da
+    // zona atual (_zoneVegColorAt) — ao contrário de _drawGrassTufts/
+    // _drawFallenLeaves/vegetação esparsa, que já usam essa mesma função
+    // desde a Iteração 16. A revisão final (iteração 30) encontrou a
+    // MESMA lacuna em mais duas camadas de parallax de fundo
+    // (_drawDistantTreeline e _drawMidgroundBushes, ambas só variavam por
+    // `corrupted`/`isNight`, nunca por bioma) — extraído aqui num helper
+    // compartilhado pra não repetir a mesma lógica de parse/mix pela
+    // 3ª vez. Mistura sutil (30%) da cor RGB da zona ATUAL (posição do
+    // jogador) por cima da cor-base normal, só fora de corrupção (que já
+    // tem identidade visual fixa própria e cujas zonas nem variam de
+    // vegColor).
+    _blendWithCurrentZoneColor(baseColor, corrupted, mix = 0.3) {
+        if (corrupted || !this._zones) return baseColor;
+        const zoneColor = this._zoneVegColorAt(this._player.x);
+        const m = zoneColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+        if (!m) return baseColor;
+        return [
+            baseColor[0] * (1 - mix) + parseInt(m[1], 10) * mix,
+            baseColor[1] * (1 - mix) + parseInt(m[2], 10) * mix,
+            baseColor[2] * (1 - mix) + parseInt(m[3], 10) * mix,
+        ];
+    },
+
     PARALLAX_TREELINE_FACTOR: 0.35,
     _drawDistantTreeline(ctx, w, horizon, corrupted, isNight) {
         const tile = 130;
         const camX = this._camX * this.PARALLAX_TREELINE_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        ctx.fillStyle = corrupted ? 'rgba(70,40,95,0.5)' : (isNight ? 'rgba(15,28,20,0.55)' : 'rgba(30,60,35,0.5)');
+        const [tr, tg, tb] = this._blendWithCurrentZoneColor(
+            corrupted ? [70, 40, 95] : (isNight ? [15, 28, 20] : [30, 60, 35]),
+            corrupted
+        );
+        const tAlpha = corrupted ? 0.5 : (isNight ? 0.55 : 0.5);
+        ctx.fillStyle = `rgba(${tr},${tg},${tb},${tAlpha})`;
         for (let i = firstIdx; i <= lastIdx; i++) {
             const wx = i * tile;
             const screenX = wx - camX;
@@ -2023,7 +2054,12 @@ window.RoadEngine = {
         const camX = this._camX * this.PARALLAX_MIDGROUND_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        ctx.fillStyle = corrupted ? 'rgba(55,30,70,0.6)' : (isNight ? 'rgba(10,22,14,0.65)' : 'rgba(22,48,26,0.6)');
+        const [br, bg2, bb] = this._blendWithCurrentZoneColor(
+            corrupted ? [55, 30, 70] : (isNight ? [10, 22, 14] : [22, 48, 26]),
+            corrupted
+        );
+        const bAlpha = corrupted ? 0.6 : (isNight ? 0.65 : 0.6);
+        ctx.fillStyle = `rgba(${br},${bg2},${bb},${bAlpha})`;
         for (let i = firstIdx; i <= lastIdx; i++) {
             const wx = i * tile;
             const screenX = wx - camX;
@@ -2220,33 +2256,10 @@ window.RoadEngine = {
         const camX = this._camX * this.PARALLAX_FOREGROUND_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        let baseColor = corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]);
-        // Bug de auditoria de biomas (iteração 29): esta é a única camada
-        // de vegetação da Estrada que NUNCA refletia a identidade da zona
-        // atual (_zoneVegColorAt) — ao contrário de _drawGrassTufts/
-        // _drawFallenLeaves/vegetação esparsa, que já usam essa mesma
-        // função. Resultado: a folhagem pendurada extremamente próxima da
-        // câmera (o "quadro" verde-floresta fixo nos cantos da tela) ficava
-        // idêntica atravessando as Rochas Vulcânicas do território Orc
-        // ("vegetação escassa e ressecada", ver citydatabase.js) ou o
-        // Bosque Luminoso Élfico (verde vívido bem mais saturado) — sempre
-        // o mesmo verde-mata genérico, quebrando a transição de bioma que
-        // o resto da vegetação já respeita. Mistura sutil (30%) da cor da
-        // zona ATUAL por cima da base normal (nunca durante corrupção, que
-        // já tem identidade visual fixa própria e cujas zonas nem variam
-        // de vegColor).
-        if (!corrupted && this._zones) {
-            const zoneColor = this._zoneVegColorAt(this._player.x);
-            const m = zoneColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
-            if (m) {
-                const mix = 0.3;
-                baseColor = [
-                    baseColor[0] * (1 - mix) + parseInt(m[1], 10) * mix,
-                    baseColor[1] * (1 - mix) + parseInt(m[2], 10) * mix,
-                    baseColor[2] * (1 - mix) + parseInt(m[3], 10) * mix,
-                ];
-            }
-        }
+        const baseColor = this._blendWithCurrentZoneColor(
+            corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]),
+            corrupted
+        );
         const baseAlpha = corrupted ? 0.55 : (isNight ? 0.6 : 0.55);
         for (let i = firstIdx; i <= lastIdx; i++) {
             if (this._hash(i * 613 + 97000) < 32) continue; // ~32% dos slots ficam vazios
