@@ -584,6 +584,33 @@ window.RoadEngine = {
         return zones[idx].vegDensity;
     },
 
+    // Cor da vegetação com transição SUAVE entre zonas (loop de qualidade
+    // visual, Iteração 16 — completa "transição suave entre biomas" pro
+    // lado da COR, depois de `_zoneDensityAt` já ter resolvido o lado da
+    // densidade nas Iterações 14-15). Mesma lógica de faixa de transição
+    // de `_zoneDensityAt`, mas misturando `vegColor` via `Utils.lerpColor`
+    // em vez de interpolar um número — sem essa suavização, a vegetação
+    // pequena e os tufos de grama mudavam de matiz instantaneamente ao
+    // cruzar a fronteira, mesmo já com a densidade suavizada.
+    _zoneVegColorAt(x) {
+        const zones = this._zones;
+        if (!zones) return 'rgba(20,40,15,0.55)';
+        const zoneLen = this._zoneLength;
+        const half = this.ZONE_TRANSITION_WIDTH / 2;
+        const idx = Utils.clamp(Math.floor(x / zoneLen), 0, zones.length - 1);
+        const aheadB = (idx + 1) * zoneLen;
+        if (idx + 1 < zones.length && Math.abs(x - aheadB) < half) {
+            const t = (x - (aheadB - half)) / (half * 2);
+            return Utils.lerpColor(zones[idx].vegColor, zones[idx + 1].vegColor, t);
+        }
+        const behindB = idx * zoneLen;
+        if (idx > 0 && Math.abs(x - behindB) < half) {
+            const t = (x - (behindB - half)) / (half * 2);
+            return Utils.lerpColor(zones[idx - 1].vegColor, zones[idx].vegColor, t);
+        }
+        return zones[idx].vegColor;
+    },
+
     _updateZoneLabel(zoneIdx) {
         const el = document.getElementById('roadworld-zone');
         if (el && this._zones[zoneIdx]) el.innerText = this._zones[zoneIdx].name;
@@ -1465,12 +1492,11 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const vx = i * spacing;
             if (vx < 0 || vx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(vx)];
-            // Densidade com transição suave entre zonas (loop de qualidade
-            // visual, Iteração 15 — completa a migração iniciada na
-            // Iteração 14 pra `_drawForestWall`; `zone` continua guardado
-            // aqui só porque `zone.vegColor`, mais abaixo, ainda usa o
-            // valor discreto).
+            // Densidade e cor com transição suave entre zonas (loop de
+            // qualidade visual, Iterações 14-16 — `zone` não precisa mais
+            // ser guardado aqui: densidade e cor agora vêm inteiramente
+            // de `_zoneDensityAt`/`_zoneVegColorAt`, nunca do valor
+            // discreto de `zone.vegDensity`/`zone.vegColor`).
             const density = this._zoneDensityAt(vx);
             if (this._hash(i) >= 40 * density) continue;
             const side = (i % 2 === 0) ? -1 : 1;
@@ -1537,10 +1563,11 @@ window.RoadEngine = {
             // Não se aplica durante corrupção (cores fixas continuam
             // uniformes, mesmo critério já usado nas pedras).
             const shadeFactor = 0.7 + (this._hash(i * 191 + 62000) % 61) / 100;
-            const zoneMatch = zone.vegColor.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+            const vegColorAtX = this._zoneVegColorAt(vx);
+            const zoneMatch = vegColorAtX.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
             const shadedVegColor = zoneMatch
                 ? `rgba(${zoneMatch[1]},${zoneMatch[2]},${zoneMatch[3]},${Math.min(1, parseFloat(zoneMatch[4]) * shadeFactor).toFixed(2)})`
-                : zone.vegColor;
+                : vegColorAtX;
 
             ctx.save();
             ctx.translate(vx, vy);
@@ -3636,12 +3663,14 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const gx = i * spacing;
             if (gx < 0 || gx > this.WORLD_LENGTH) continue;
-            const zone = this._zones[this._zoneIndexAt(gx)];
             if (this._hash(i * 211 + 43000) >= 45 * this._zoneDensityAt(gx)) continue; // nem todo slot tem tufo
             const gy = this._hashRange(i * 131 + 43500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
 
-            const zoneColor = baseColor || zone.vegColor;
+            // Cor com transição suave entre zonas (loop de qualidade
+            // visual, Iteração 16) — nunca durante corrupção, que já
+            // sobrepõe uma cor fixa uniforme via `baseColor`.
+            const zoneColor = baseColor || this._zoneVegColorAt(gx);
             const m = zoneColor.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
             const shadeFactor = 0.6 + (this._hash(i * 61 + 44000) % 71) / 100;
             const alpha = Math.min(1, parseFloat(m[4]) * shadeFactor);
