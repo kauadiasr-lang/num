@@ -553,6 +553,37 @@ window.RoadEngine = {
         return Utils.clamp(Math.floor(x / this._zoneLength), 0, this._zones.length - 1);
     },
 
+    // Densidade de vegetação com transição SUAVE entre zonas (loop de
+    // qualidade visual, Iteração 14 — item explícito da lista mestra:
+    // "as mudanças devem acontecer gradualmente enquanto o jogador
+    // caminha"). Até este ciclo, todo consumidor de `zone.vegDensity` lia
+    // um valor discreto via `_zoneIndexAt`, que muda instantaneamente ao
+    // cruzar `x = k * _zoneLength` — um corte abrupto de densidade de
+    // vegetação exatamente na linha da fronteira. Esta função faz o mesmo
+    // papel, mas interpola linearmente entre a densidade da zona atual e
+    // da vizinha dentro de uma faixa de transição (`ZONE_TRANSITION_WIDTH`)
+    // centrada em cada fronteira — fora da faixa, comportamento idêntico
+    // ao valor discreto de antes (`zones[idx].vegDensity`).
+    ZONE_TRANSITION_WIDTH: 300,
+    _zoneDensityAt(x) {
+        const zones = this._zones;
+        if (!zones) return 1.0;
+        const zoneLen = this._zoneLength;
+        const half = this.ZONE_TRANSITION_WIDTH / 2;
+        const idx = Utils.clamp(Math.floor(x / zoneLen), 0, zones.length - 1);
+        const aheadB = (idx + 1) * zoneLen;
+        if (idx + 1 < zones.length && Math.abs(x - aheadB) < half) {
+            const t = (x - (aheadB - half)) / (half * 2);
+            return zones[idx].vegDensity + (zones[idx + 1].vegDensity - zones[idx].vegDensity) * t;
+        }
+        const behindB = idx * zoneLen;
+        if (idx > 0 && Math.abs(x - behindB) < half) {
+            const t = (x - (behindB - half)) / (half * 2);
+            return zones[idx - 1].vegDensity + (zones[idx].vegDensity - zones[idx - 1].vegDensity) * t;
+        }
+        return zones[idx].vegDensity;
+    },
+
     _updateZoneLabel(zoneIdx) {
         const el = document.getElementById('roadworld-zone');
         if (el && this._zones[zoneIdx]) el.innerText = this._zones[zoneIdx].name;
@@ -1950,8 +1981,6 @@ window.RoadEngine = {
         const camX = this._camX * this.PARALLAX_FORESTWALL_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        const zone = this._zones && this._zones[this._zoneIndexAt(this._player.x)];
-        const density = zone ? zone.vegDensity : 1.0;
         const trunkColor = corrupted ? '#241f28' : (isNight ? '#1a1410' : '#3a2a1a');
         // Paleta de copa expandida (era só A/B) — mais variedade de tom pra
         // evitar repetição óbvia numa parede tão densa quanto essa camada.
@@ -1961,6 +1990,21 @@ window.RoadEngine = {
                 ? ['rgba(10,20,12,0.9)', 'rgba(14,26,16,0.9)', 'rgba(8,16,10,0.9)', 'rgba(16,28,18,0.9)']
                 : ['rgba(18,42,20,0.88)', 'rgba(24,52,26,0.88)', 'rgba(14,36,22,0.88)', 'rgba(28,48,18,0.88)']);
         for (let i = firstIdx; i <= lastIdx; i++) {
+            // Densidade por TRECHO, não mais um único valor global lido da
+            // zona do JOGADOR (loop de qualidade visual, Iteração 14 — item
+            // explícito "as mudanças devem acontecer gradualmente enquanto
+            // o jogador caminha"). Antes, `density` era calculado UMA vez
+            // por frame a partir de `this._player.x` e aplicado a TODA a
+            // parede visível — ao cruzar uma fronteira de zona, a parede
+            // inteira "pipocava" (árvores surgindo/sumindo em bloco) no
+            // mesmo frame, o oposto de gradual. Agora cada ladrilho lê sua
+            // PRÓPRIA densidade (via `_zoneDensityAt`, que já suaviza a
+            // faixa de transição perto da fronteira) a partir da posição de
+            // mundo real desse ladrilho (`wx` está em coordenada de
+            // parallax, dividido pelo fator pra voltar à coordenada de
+            // mundo real usada por `_zones`).
+            const tileWorldX = (i * tile) / this.PARALLAX_FORESTWALL_FACTOR;
+            const density = this._zones ? this._zoneDensityAt(tileWorldX) : 1.0;
             if (this._hash(i * 149 + 76000) >= 78 * density) continue; // clareiras raras quanto mais densa a zona
             const wx = i * tile;
             const screenX = wx - camX;
