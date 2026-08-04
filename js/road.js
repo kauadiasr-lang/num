@@ -2189,7 +2189,16 @@ window.RoadEngine = {
     // espécie de forma determinística (sem Math.random), mesmo princípio
     // de todo o resto do arquivo.
     _drawAmbientAnimal(ctx, x, y, seed) {
-        const species = seed % 3;
+        // Fauna visual (loop de qualidade visual, Iteração 7 — item
+        // explícito da lista mestra, seção "Adicionar fauna visual": até
+        // esta iteração só existiam 3 espécies (cervo/coelho/pássaro),
+        // faltando esquilo e coruja da lista pedida (raposa/peixe/sapo
+        // ficam pra uma iteração futura, peixe/sapo dependendo de feições
+        // de água específicas). Variantes 0/1/2 preservadas EXATAMENTE
+        // como antes (mesmo princípio de "o clássico continua existindo,
+        // só deixa de ser o único" já usado em toda variedade desta
+        // sessão) — só a base de seleção muda de %3 pra %5.
+        const species = seed % 5;
         ctx.save();
         ctx.translate(x, y);
         if (species === 1) {
@@ -2220,7 +2229,7 @@ window.RoadEngine = {
             ctx.moveTo(-12, 0); ctx.quadraticCurveTo(-4, -8, 0, 0);
             ctx.quadraticCurveTo(4, -8, 12, 0);
             ctx.stroke();
-        } else {
+        } else if (species === 0) {
             // Cervo/mamífero genérico (silhueta original) — chifres
             // continuam alternando por seed, agora usando um hash diferente
             // do que decide a espécie (senão todo cervo teria sempre
@@ -2243,6 +2252,44 @@ window.RoadEngine = {
                 ctx.moveTo(20, -9); ctx.lineTo(23, -15);
                 ctx.stroke();
             }
+        } else if (species === 3) {
+            // Esquilo — corpo pequeno agachado, cauda peluda enroscada bem
+            // pra cima e pra trás (silhueta claramente distinta do coelho,
+            // que tem orelhas compridas mas nenhuma cauda visível).
+            ctx.fillStyle = '#8a5a34';
+            ctx.beginPath();
+            ctx.ellipse(-2, 5, 9, 6, 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(7, 0, 4.5, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-9, 3);
+            ctx.quadraticCurveTo(-20, 2, -18, -12);
+            ctx.quadraticCurveTo(-16, -20, -8, -16);
+            ctx.quadraticCurveTo(-14, -10, -10, 0);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            // Coruja pousada — corpo arredondado com dois olhos grandes
+            // (silhueta noturna clássica), tufos de orelha pequenos no
+            // topo. Diferente do pássaro voando (species 2, silhueta em
+            // V simples): a coruja tem corpo sólido e fica parada, não
+            // "bate asas" na mesma posição.
+            ctx.fillStyle = '#4a4030';
+            ctx.beginPath();
+            ctx.ellipse(0, 2, 10, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-6, -12); ctx.lineTo(-3, -6); ctx.lineTo(-9, -7); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(6, -12); ctx.lineTo(3, -6); ctx.lineTo(9, -7); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#e8d8a0';
+            ctx.beginPath(); ctx.arc(-4, -1, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(4, -1, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#201810';
+            ctx.beginPath(); ctx.arc(-4, -1, 1.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(4, -1, 1.4, 0, Math.PI * 2); ctx.fill();
         }
         ctx.restore();
     },
