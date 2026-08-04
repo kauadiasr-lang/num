@@ -2385,6 +2385,73 @@ window.RoadEngine = {
             ctx.lineTo(rx + bridgeW / 2, py);
             ctx.stroke();
         }
+
+        this._drawRiverFauna(ctx, rx, riverHalfW, bridgeW, half);
+    },
+
+    // Peixes no rio e sapo na margem (loop de qualidade visual, Iteração
+    // 8 — últimos dois itens explícitos da lista mestra ainda pendentes,
+    // seção "Adicionar fauna visual": "peixes em rios; sapos perto de
+    // lagos"). Diferente do resto da fauna ambiente (_drawAmbientAnimal,
+    // espalhada por qualquer trecho da floresta), esses dois só fazem
+    // sentido condicionados à MESMA feição física do rio — mesmo padrão
+    // de "decoração condicionada a uma área específica" já estabelecido
+    // pelas pétalas perto de flores (Iteração 6). Peixes nadam só dentro
+    // da faixa de água (nunca sobre o tabuleiro da ponte), sapo senta na
+    // margem (fora da faixa caminhável, nunca em cima dela). Sem nenhum
+    // array guardado em memória — posição puramente function de
+    // performance.now(), mesmo princípio já usado por toda vida ambiente
+    // do arquivo.
+    _drawRiverFauna(ctx, rx, riverHalfW, bridgeW, half) {
+        const t = performance.now() / 1000;
+        const fishColor = 'rgba(200,170,60,0.9)';
+        for (let k = 0; k < 3; k++) {
+            // `_hashRange` (não `_hash(...) % X`) porque `half*2-36` é bem
+            // maior que 99 — o mesmo bug de truncamento já corrigido em
+            // outras camadas (ver _hashRange).
+            const laneY = this._hashRange(k * 97 + 86000, -half + 18, half - 18);
+            const swimSpan = riverHalfW - bridgeW / 2 - 8; // nunca cruza o tabuleiro da ponte
+            const side = k % 2 === 0 ? -1 : 1;
+            const baseX = rx + side * (bridgeW / 2 + 6 + swimSpan * 0.5);
+            const fx = baseX + Math.sin(t * 0.7 + k * 2.1) * swimSpan * 0.4;
+            const fy = laneY + Math.sin(t * 1.4 + k) * 4;
+            const facing = Math.cos(t * 0.7 + k * 2.1) >= 0 ? 1 : -1;
+            ctx.save();
+            ctx.translate(fx, fy);
+            ctx.scale(facing, 1);
+            ctx.fillStyle = fishColor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 7, 2.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-6, 0); ctx.lineTo(-11, -3.5); ctx.lineTo(-11, 3.5); ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Sapo na margem — sentado fora da faixa caminhável (nunca
+        // atrapalha o jogador), corpo arredondado + dois olhos no topo,
+        // pulsando de leve (respiração), reaproveitando o mesmo princípio
+        // de "pequenas animações" já pedido pra vegetação no resto da
+        // lista mestra.
+        const frogSeed = this._hash(86500);
+        const frogSide = frogSeed % 2 === 0 ? -1 : 1;
+        const frogX = rx + (frogSeed % 40) - 20;
+        const frogY = frogSide * (half + 14);
+        const breathe = 1 + Math.sin(t * 2.2) * 0.06;
+        ctx.save();
+        ctx.translate(frogX, frogY);
+        ctx.scale(1, breathe);
+        ctx.fillStyle = '#4a7a3a';
+        ctx.beginPath();
+        ctx.ellipse(0, 2, 8, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(-4, -3, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4, -3, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a2a10';
+        ctx.beginPath(); ctx.arc(-4, -3, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4, -3, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     },
 
     // Clareiras esparsas (pedido do usuário: "clareiras" — o mapa deve
