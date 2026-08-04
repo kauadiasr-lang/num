@@ -572,6 +572,18 @@ window.RoadEngine = {
         return (x >>> 0) % 100;
     },
 
+    // `_hash()` só cobre 0-99 (nunca um range maior) — usar `_hash(seed) %
+    // X` com X > 99 é um NO-OP na prática (99 < X sempre), então qualquer
+    // posição/comprimento que precise de um range maior que 0-99 tem que
+    // escalar o resultado linearmente em vez de usar módulo. Bug real
+    // encontrado na Iteração 1 do loop de qualidade visual (grama/folhas
+    // caídas nunca alcançavam a metade "de perto" da faixa caminhável) —
+    // esta função central existe pra nunca reintroduzir o mesmo erro em
+    // sites futuros.
+    _hashRange(seed, min, max) {
+        return min + Math.round(this._hash(seed) * (max - min) / 99);
+    },
+
     abandon() {
         this.active = false;
         this.player = null;
@@ -3074,7 +3086,7 @@ window.RoadEngine = {
             const zone = this._zones[this._zoneIndexAt(mx)];
             if (this._hash(i * 149 + 27000) >= 16 * zone.vegDensity) continue;
             const side = (this._hash(i * 79 + 27500) % 2 === 0) ? -1 : 1;
-            const my = side * (this._hash(i * 37 + 28000) % this.LANE_HALF_HEIGHT);
+            const my = side * this._hashRange(i * 37 + 28000, 0, this.LANE_HALF_HEIGHT - 1);
             if (!window.Camera.isVisible(mx, my, w, h)) continue;
 
             const phase = (i * 1.847) % (Math.PI * 2);
@@ -3110,7 +3122,7 @@ window.RoadEngine = {
             const zone = this._zones[this._zoneIndexAt(bx)];
             if (this._hash(i * 157 + 34000) >= 14 * zone.vegDensity) continue;
             const side = (this._hash(i * 89 + 34500) % 2 === 0) ? -1 : 1;
-            const by0 = side * (this._hash(i * 47 + 35000) % this.LANE_HALF_HEIGHT);
+            const by0 = side * this._hashRange(i * 47 + 35000, 0, this.LANE_HALF_HEIGHT - 1);
 
             const phase = (i * 3.11) % (Math.PI * 2);
             const flitX = Math.sin(t * 0.9 + phase) * 26 + Math.cos(t * 2.1 + phase * 1.6) * 8;
@@ -3150,7 +3162,7 @@ window.RoadEngine = {
             const zone = this._zones[this._zoneIndexAt(sx)];
             if (this._hash(i * 191 + 45000) >= 18 * zone.vegDensity) continue;
             const side = (this._hash(i * 113 + 45500) % 2 === 0) ? -1 : 1;
-            const sy = side * (this._hash(i * 61 + 46000) % this.LANE_HALF_HEIGHT);
+            const sy = side * this._hashRange(i * 61 + 46000, 0, this.LANE_HALF_HEIGHT - 1);
             if (!window.Camera.isVisible(sx, sy, w, h)) continue;
 
             const count = 3 + (this._hash(i * 41 + 46500) % 3); // 3-5 insetos por nuvem
@@ -3188,7 +3200,7 @@ window.RoadEngine = {
             if (lx < 0 || lx > this.WORLD_LENGTH) continue;
             const zone = this._zones[this._zoneIndexAt(lx)];
             if (this._hash(i * 179 + 41000) >= 30 * zone.vegDensity) continue; // nem todo slot tem folha
-            const ly = (this._hash(i * 97 + 41500) % (this.LANE_HALF_HEIGHT * 2)) - this.LANE_HALF_HEIGHT;
+            const ly = this._hashRange(i * 97 + 41500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(lx, ly, w, h)) continue;
 
             const colorIdx = this._hash(i * 53 + 42000) % palette.length;
@@ -3226,7 +3238,7 @@ window.RoadEngine = {
             if (gx < 0 || gx > this.WORLD_LENGTH) continue;
             const zone = this._zones[this._zoneIndexAt(gx)];
             if (this._hash(i * 211 + 43000) >= 45 * zone.vegDensity) continue; // nem todo slot tem tufo
-            const gy = (this._hash(i * 131 + 43500) % (this.LANE_HALF_HEIGHT * 2)) - this.LANE_HALF_HEIGHT;
+            const gy = this._hashRange(i * 131 + 43500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
 
             const zoneColor = baseColor || zone.vegColor;
