@@ -2217,13 +2217,30 @@ window.RoadEngine = {
             if (variant === 0) {
                 // Folha única pendurada, bordas irregulares (lóbulos
                 // assimétricos) em vez da curva lisa e simétrica de antes.
+                //
+                // Bug de auditoria final (iteração 21): `dropH` (60-160) e
+                // `halfW` (70-110) eram sorteados de forma independente, e
+                // quando calhava de dar um `halfW` grande com um `dropH`
+                // pequeno, a silhueta ficava mais LARGA que ALTA — lendo
+                // visualmente como uma "asa de morcego" plana e geométrica em
+                // vez de uma folha pendurada, mesmo já tendo bordas
+                // irregulares. `leafDropH` força a altura a ser sempre bem
+                // maior que a LARGURA TOTAL (2*halfW, não só a metade —
+                // primeira tentativa de correção usou halfW*1.4, que só
+                // garantia altura >= 0.7x a largura total, ainda larga
+                // demais; confirmado via captura de screenshot antes/depois
+                // que a silhueta continuava idêntica), garantindo uma
+                // silhueta sempre alongada/vertical (proporção de folha
+                // pendurada), nunca larga/achatada — sem mudar a lógica de
+                // balanço nem a faixa de variedade das outras variantes.
                 const halfW = 70 + (this._hash(i * 41 + 99500) % 40); // 70-110
+                const leafDropH = Math.max(dropH, halfW * 2.2);
                 ctx.beginPath();
                 ctx.moveTo(screenX - halfW, 0);
-                ctx.quadraticCurveTo(screenX - halfW * 0.45 + leafSway * 0.5, dropH * 0.35, screenX - halfW * 0.15 + leafSway * 0.7, dropH * 0.7);
-                ctx.quadraticCurveTo(screenX + leafSway * 0.85, dropH * 0.55, screenX + leafSway, dropH);
-                ctx.quadraticCurveTo(screenX + halfW * 0.2 + leafSway * 0.7, dropH * 0.6, screenX + halfW * 0.5 + leafSway * 0.5, dropH * 0.65);
-                ctx.quadraticCurveTo(screenX + halfW * 0.7 + leafSway * 0.4, dropH * 0.3, screenX + halfW, 0);
+                ctx.quadraticCurveTo(screenX - halfW * 0.45 + leafSway * 0.5, leafDropH * 0.35, screenX - halfW * 0.15 + leafSway * 0.7, leafDropH * 0.7);
+                ctx.quadraticCurveTo(screenX + leafSway * 0.85, leafDropH * 0.55, screenX + leafSway, leafDropH);
+                ctx.quadraticCurveTo(screenX + halfW * 0.2 + leafSway * 0.7, leafDropH * 0.6, screenX + halfW * 0.5 + leafSway * 0.5, leafDropH * 0.65);
+                ctx.quadraticCurveTo(screenX + halfW * 0.7 + leafSway * 0.4, leafDropH * 0.3, screenX + halfW, 0);
                 ctx.closePath();
                 ctx.fill();
             } else if (variant === 1) {
