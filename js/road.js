@@ -3285,7 +3285,19 @@ window.RoadEngine = {
             if (tx < 500 || tx > this.WORLD_LENGTH - 500) continue;
             if (this._hash(i * 167 + 49000) >= 45) continue; // nem todo slot tem uma trilha lateral
             const side = (this._hash(i * 61 + 49500) % 2 === 0) ? -1 : 1;
-            const length = 160 + (this._hash(i * 37 + 50000) % 120); // 160-280
+            // Bug de auditoria final encontrado nesta iteração: com
+            // comprimento no extremo superior do range antigo (160-280),
+            // a ponta da trilha ultrapassava a profundidade segura de
+            // fundo já estabelecida por QUALQUER outro marco decorativo
+            // do arquivo (árvores gigantes/acampamentos/torres, todos
+            // ancorados até `LANE_HALF_HEIGHT + 60-90`), "furando" o céu
+            // visível acima da linha da floresta como uma linha fina
+            // artificial — mesmo com o fade de opacidade já chegando a
+            // zero na ponta (corrigido acima), boa parte do comprimento
+            // ainda ficava visível bem além de onde qualquer outro
+            // elemento do cenário já alcança. Range reduzido pra nunca
+            // ultrapassar essa mesma profundidade seguro estabelecida.
+            const length = 70 + (this._hash(i * 37 + 50000) % 80); // 70-150
             const sway = (this._hash(i * 89 + 50500) % 81) - 40; // -40..40, desvio lateral no fim da trilha
             const p0x = tx, p0y = side * this.LANE_HALF_HEIGHT;
             if (!window.Camera.isVisible(tx, p0y, w, h, length + 60)) continue;
@@ -3306,7 +3318,16 @@ window.RoadEngine = {
                 const it = 1 - t;
                 const x = it * it * p0x + 2 * it * t * p1x + t * t * p2x;
                 const y = it * it * p0y + 2 * it * t * p1y + t * t * p2y;
-                const alpha = 0.45 * (1 - t * 0.8);
+                // Bug de auditoria final encontrado nesta iteração: o fade
+                // nunca chegava a zero de verdade (mínimo ~9% de opacidade
+                // no último segmento, coeficiente 0.8), então em trilhas
+                // longas/com desvio lateral forte a ponta ainda ficava
+                // visível bem além da linha da floresta, "furando" o céu
+                // como uma linha fina artificial — o oposto do "sumindo
+                // gradualmente" descrito no comentário desta função.
+                // Coeficiente 1.15 garante alpha <= 0 (ctx.strokeStyle com
+                // 0.00 não desenha nada visível) antes do último segmento.
+                const alpha = Math.max(0, 0.45 * (1 - t * 1.15));
                 ctx.strokeStyle = corrupted ? `rgba(30,22,28,${alpha.toFixed(2)})` : `rgba(122,100,64,${alpha.toFixed(2)})`;
                 ctx.lineWidth = 9 - t * 6;
                 ctx.beginPath();
