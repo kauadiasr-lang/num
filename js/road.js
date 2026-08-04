@@ -2606,14 +2606,31 @@ window.RoadEngine = {
                 ctx.stroke();
             }
 
+            // Vento movimentando árvores (item explícito da lista mestra do
+            // loop de qualidade visual, seção "Adicionar clima": "vento
+            // movimentando árvores" — até esta iteração toda árvore gigante
+            // era 100% estática, sem nenhuma animação de balanço). Ângulo de
+            // fase determinístico por árvore (`windPhase`, via `_hash`) pra
+            // nenhuma dupla de árvores balançar em uníssono, e amplitude
+            // também variando por árvore (`swayAmp`) reforçando que cada
+            // árvore tem "personalidade" própria (mesmo princípio já usado
+            // pra altura/grossura/inclinação do tronco acima). A copa (massa
+            // mais leve/alta) balança na amplitude cheia; os galhos (mais
+            // rígidos, presos ao tronco) balançam só 40% disso — diferença
+            // de rigidez entre copa e galho, não um bloco rígido só.
+            const windPhase = (this._hash(i * 311 + 90000) % 100) / 100 * Math.PI * 2;
+            const swayAmp = 5 + (this._hash(i * 331 + 90500) % 5); // 5-9px
+            const sway = Math.sin(performance.now() / 1000 * 0.7 + windPhase) * swayAmp;
+
             // Galhos bifurcados, logo antes da copa começar.
             const branchY = gy - trunkH + 16;
+            const branchSway = sway * 0.4;
             ctx.lineWidth = 7;
             ctx.beginPath();
             ctx.moveTo(gx + lean * 0.5, branchY);
-            ctx.lineTo(gx + lean - 24, branchY - 28);
+            ctx.lineTo(gx + lean - 24 + branchSway, branchY - 28);
             ctx.moveTo(gx + lean * 0.5, branchY);
-            ctx.lineTo(gx + lean + 22, branchY - 24);
+            ctx.lineTo(gx + lean + 22 + branchSway, branchY - 24);
             ctx.stroke();
 
             // Copa densa em camadas (base escura sob os blobs pra dar peso/
@@ -2631,7 +2648,7 @@ window.RoadEngine = {
             // _drawCanopyLightRays logo abaixo), só a disposição dos blobs
             // muda.
             const canopyY = gy - trunkH - 14;
-            const cx = gx + lean;
+            const cx = gx + lean + sway;
             const darkFill = corrupted ? 'rgba(25,10,32,0.85)' : 'rgba(14,38,15,0.85)';
             const midFill = corrupted ? 'rgba(35,15,45,0.85)' : 'rgba(20,55,20,0.85)';
             const highlightFill = corrupted ? 'rgba(70,40,90,0.35)' : 'rgba(60,110,55,0.35)';
