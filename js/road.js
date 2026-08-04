@@ -2385,6 +2385,42 @@ window.RoadEngine = {
             ctx.closePath();
             ctx.fill();
 
+            // Textura de casca desenhada (item explícito da lista mestra
+            // do loop de qualidade visual: "Casca com textura desenhada" —
+            // até esta iteração o tronco era só uma cor chapada, sem
+            // nenhum detalhe de superfície, o elemento decorativo mais
+            // proeminente/perto da câmera da floresta inteira). Sulcos
+            // verticais curvos (acompanhando o mesmo afunilamento/`lean`
+            // do contorno do tronco já desenhado acima) alternando entre
+            // um tom mais escuro (sulco) e um mais claro (crista), número
+            // e posição variando por árvore via `_hash` — nunca duas
+            // árvores com a mesma "impressão digital" de casca. Clipado
+            // ao contorno do próprio tronco (reaproveitando o MESMO path
+            // já traçado acima) pra nenhuma linha vazar pra fora da
+            // silhueta.
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(gx - trunkW / 2, gy);
+            ctx.quadraticCurveTo(gx - trunkW / 2 - 5, gy - trunkH * 0.55, gx - trunkW / 2 + lean, gy - trunkH);
+            ctx.lineTo(gx + trunkW / 2 + lean, gy - trunkH);
+            ctx.quadraticCurveTo(gx + trunkW / 2 + 5, gy - trunkH * 0.55, gx + trunkW / 2, gy);
+            ctx.closePath();
+            ctx.clip();
+            const barkDark = Utils.lerpColor ? Utils.lerpColor(trunkColor, '#000000', 0.35) : trunkColor;
+            const barkLight = Utils.lerpColor ? Utils.lerpColor(trunkColor, '#ffffff', 0.18) : trunkColor;
+            const grooveCount = 3 + (this._hash(i * 149 + 82500) % 3); // 3-5 sulcos
+            ctx.lineWidth = 1.6;
+            for (let k = 0; k < grooveCount; k++) {
+                const frac = grooveCount === 1 ? 0.5 : k / (grooveCount - 1);
+                const baseX = gx - trunkW / 2 + trunkW * frac + (this._hash(i * 173 + 83000 + k) % 5 - 2);
+                ctx.strokeStyle = k % 2 === 0 ? barkDark : barkLight;
+                ctx.beginPath();
+                ctx.moveTo(baseX, gy - 2);
+                ctx.quadraticCurveTo(baseX - 3 + lean * 0.3, gy - trunkH * 0.5, baseX + lean * 0.9, gy - trunkH + 4);
+                ctx.stroke();
+            }
+            ctx.restore();
+
             // Raízes aparentes na base, torcendo pro chão dos dois lados.
             ctx.strokeStyle = trunkColor;
             ctx.lineWidth = 5;
