@@ -1379,6 +1379,18 @@ window.RoadEngine = {
         // visual": "grama variada" — ver _drawGrassTufts abaixo).
         this._drawGrassTufts(ctx, w, h, corrupted);
 
+        // Textura de detalhe do chão (auditoria visual: o maior problema
+        // encontrado era que TODA a decoração de solo — vegetação esparsa,
+        // tufos de grama — só aparecia perto da borda da faixa (perto de
+        // LANE_HALF_HEIGHT), deixando o corredor inteiro por onde o
+        // jogador realmente anda como uma faixa de cor sólida vazia, sem
+        // nenhum "detalhe pintado". Esta camada espalha pedrinhas/manchas
+        // de terra/musgo/gravetos MINÚSCULOS por TODA a largura caminhável
+        // (incluindo o centro, onde o jogador passa), sem nunca bloquear
+        // ou parecer um obstáculo — só textura de piso, igual um fundo
+        // pintado à mão em vez de uma cor chapada.
+        this._drawGroundDetailScatter(ctx, w, h, corrupted);
+
         // Vegetação esparsa, só decorativa — gerada de forma determinística
         // (sem array guardado em memória, sem Math.random) e cullada via
         // Camera.isVisible, então o custo por frame não cresce com
@@ -3230,6 +3242,105 @@ window.RoadEngine = {
                 ctx.lineTo(gx + bdx * 1.3, gy + 3 - bladeH);
                 ctx.stroke();
             }
+        }
+    },
+
+    // Loop de qualidade visual ("floresta deve parecer background de
+    // anime, não HTML simples") — iteração 1: auditoria via screenshot
+    // real (zonas Campos/Terras Ressecadas/Arredores, dia e noite)
+    // revelou que o PROBLEMA MAIS CRÍTICO não era falta de árvores (já
+    // resolvido em ciclos anteriores), e sim o CHÃO: toda a decoração de
+    // solo existente (grama/folhas/vegetação esparsa) é fina, de baixo
+    // contraste e de baixa densidade — visualmente, o corredor inteiro
+    // por onde o jogador anda lia como uma cor chapada marrom/verde vazia,
+    // exatamente o oposto de "detalhes pintados" pedido pelo usuário.
+    // Esta camada NOVA (puramente aditiva, não mexe nas anteriores)
+    // espalha 5 tipos de micro-detalhe de ALTO CONTRASTE — pedrinha clara,
+    // mancha de terra escura, fleck de musgo saturado, gravetozinho e
+    // rachadura fina — por TODA a largura caminhável (inclusive o centro
+    // por onde o jogador passa), com espaçamento bem mais apertado que
+    // qualquer camada de chão anterior, pra a densidade realmente ficar
+    // perceptível a distância (não só de perto). Formas minúsculas e
+    // sempre no chão (nunca crescem/empilham), então nunca parecem
+    // obstáculo nem competem com vegetação/eventos por atenção visual.
+    GROUND_DETAIL_SPACING: 30,
+    _drawGroundDetailScatter(ctx, w, h, corrupted) {
+        const spacing = this.GROUND_DETAIL_SPACING;
+        const firstIdx = Math.max(0, Math.floor((this._player.x - w) / spacing));
+        const lastIdx = Math.ceil((this._player.x + w) / spacing);
+        for (let i = firstIdx; i <= lastIdx; i++) {
+            const dx = i * spacing;
+            if (dx < 0 || dx > this.WORLD_LENGTH) continue;
+            const zone = this._zones[this._zoneIndexAt(dx)];
+            if (this._hash(i * 251 + 80000) >= Math.min(100, 82 * zone.vegDensity)) continue;
+            // Faixa de Y bem mais ampla que LANE_HALF_HEIGHT (280) — a
+            // auditoria visual mostrou que o chão visível na tela vai bem
+            // além da faixa caminhável (a câmera mostra terreno "além da
+            // beirada" tanto quanto a própria estrada), então limitar essa
+            // camada só à faixa caminhável deixava o terço inferior da
+            // tela (o mais perto da câmera, mais visível) completamente
+            // vazio. Limite de cima travado logo abaixo do horizonte (-70)
+            // — nunca deixa nada "flutuar" no céu, só desce bem mais fundo
+            // no chão em primeiro plano. IMPORTANTE: `_hash` só retorna
+            // 0-99 (nunca um range maior), então escalar linearmente esse
+            // valor pro range desejado em vez de usar `% 490` (que seria
+            // um no-op inútil já que 99 < 490 — bug real encontrado e
+            // corrigido durante esta própria iteração, antes de commitar).
+            const dy = -70 + Math.round(this._hash(i * 173 + 80500) * 489 / 99);
+            if (!window.Camera.isVisible(dx, dy, w, h)) continue;
+
+            const kind = this._hash(i * 41 + 81000) % 5;
+            const rot = (this._hash(i * 67 + 81500) % 63) * 0.1;
+            const scale = 1.5 + (this._hash(i * 97 + 82000) % 60) / 100; // 1.5x-2.1x, bem maior que a versão original
+            ctx.save();
+            ctx.translate(dx, dy);
+            ctx.rotate(rot);
+            ctx.scale(scale, scale);
+            if (kind === 0) {
+                // Pedrinha clara — 2 tons (corpo + reflexo) + contorno
+                // escuro, o par de maior contraste contra o chão, o que
+                // mais "pinta" a distância.
+                ctx.fillStyle = corrupted ? 'rgba(45,38,50,0.85)' : 'rgba(35,24,14,0.55)';
+                ctx.beginPath(); ctx.ellipse(0.6, 0.8, 7.5, 4.6, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = corrupted ? 'rgba(110,98,118,0.95)' : 'rgba(168,156,132,0.95)';
+                ctx.beginPath(); ctx.ellipse(0, 0, 7, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = corrupted ? 'rgba(150,138,158,0.85)' : 'rgba(210,202,178,0.85)';
+                ctx.beginPath(); ctx.ellipse(-1.8, -1.4, 2.8, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (kind === 1) {
+                // Mancha de terra/lama — 3 elipses irregulares sobrepostas,
+                // escura e bem mais opaca que os "detalhes de solo" antigos
+                // (que ficavam só perto da borda e quase invisíveis).
+                ctx.fillStyle = corrupted ? 'rgba(35,18,42,0.65)' : 'rgba(52,34,20,0.62)';
+                ctx.beginPath(); ctx.ellipse(0, 0, 12, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(7, 2, 7, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(-6, 1.5, 5.5, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (kind === 2) {
+                // Tufo de musgo — cluster de 4 pontinhos saturados, único
+                // elemento realmente colorido dessa camada (contraste de
+                // matiz, não só de brilho).
+                ctx.fillStyle = corrupted ? 'rgba(130,70,165,0.8)' : 'rgba(80,150,55,0.8)';
+                for (const [mdx, mdy] of [[0, 0], [3, -1.5], [-2.5, 1.8], [1, 3]]) {
+                    ctx.beginPath(); ctx.arc(mdx, mdy, 2.6, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (kind === 3) {
+                // Gravetozinho seco — dois traços em V raso, cor de casca,
+                // com espessura de verdade (não só uma linha de 1px).
+                ctx.strokeStyle = corrupted ? 'rgba(55,40,50,0.85)' : 'rgba(78,55,34,0.85)';
+                ctx.lineWidth = 2.6;
+                ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(10, 2); ctx.stroke();
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(2, 1.5); ctx.lineTo(9, -3); ctx.stroke();
+            } else {
+                // Rachadura no solo seco — zigue-zague mais longo e mais
+                // escuro, lê como uma fenda de verdade a distância.
+                ctx.strokeStyle = corrupted ? 'rgba(8,4,12,0.7)' : 'rgba(20,12,6,0.65)';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.moveTo(-9, -4); ctx.lineTo(-2, 1); ctx.lineTo(3, -2); ctx.lineTo(9, 3);
+                ctx.stroke();
+            }
+            ctx.restore();
         }
     },
 
