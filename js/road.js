@@ -2394,7 +2394,12 @@ window.RoadEngine = {
         // como antes (mesmo princípio de "o clássico continua existindo,
         // só deixa de ser o único" já usado em toda variedade desta
         // sessão) — só a base de seleção muda de %3 pra %5.
-        const species = seed % 5;
+        //
+        // Raposa (loop de qualidade visual, Iteração 18): último item
+        // nomeado de fauna ainda faltando da lista mestra (peixe/sapo já
+        // cobertos na Iteração 8, condicionados ao rio). Variantes 0-4
+        // continuam INTOCADAS, só a base de seleção muda de %5 pra %6.
+        const species = seed % 6;
         ctx.save();
         ctx.translate(x, y);
         if (species === 1) {
@@ -2466,7 +2471,7 @@ window.RoadEngine = {
             ctx.quadraticCurveTo(-14, -10, -10, 0);
             ctx.closePath();
             ctx.fill();
-        } else {
+        } else if (species === 4) {
             // Coruja pousada — corpo arredondado com dois olhos grandes
             // (silhueta noturna clássica), tufos de orelha pequenos no
             // topo. Diferente do pássaro voando (species 2, silhueta em
@@ -2486,6 +2491,32 @@ window.RoadEngine = {
             ctx.fillStyle = '#201810';
             ctx.beginPath(); ctx.arc(-4, -1, 1.4, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(4, -1, 1.4, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // Raposa (species 5, NOVA nesta iteração) — corpo alongado
+            // baixo, focinho pontudo, orelhas triangulares eretas e cauda
+            // felpuda longa se curvando por trás com ponta clara —
+            // silhueta claramente distinta do cervo (bem maior, sem
+            // cauda visível) e do esquilo (cauda enroscada bem mais curta
+            // e arredondada, sem focinho pontudo nem orelhas triangulares).
+            ctx.fillStyle = '#c0602a';
+            ctx.beginPath();
+            ctx.ellipse(0, 4, 13, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(11, 2); ctx.lineTo(20, 0); ctx.lineTo(11, -3); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(6, -5); ctx.lineTo(4, -14); ctx.lineTo(10, -6); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(12, -5); ctx.lineTo(14, -14); ctx.lineTo(16, -6); ctx.closePath(); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-11, 4);
+            ctx.quadraticCurveTo(-24, 2, -22, -10);
+            ctx.quadraticCurveTo(-20, -18, -10, -14);
+            ctx.quadraticCurveTo(-16, -8, -13, 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#f0e8d8';
+            ctx.beginPath(); ctx.ellipse(-18, -12, 5, 4, 0.3, 0, Math.PI * 2); ctx.fill();
         }
         ctx.restore();
     },
