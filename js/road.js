@@ -810,19 +810,38 @@ window.RoadEngine = {
             const toDef = window.CityDatabase[this.toId];
             const rainChance = (toDef && toDef.weather && typeof toDef.weather.rainChance === 'number') ? toDef.weather.rainChance : 35;
             const stormChance = (toDef && toDef.weather && typeof toDef.weather.stormChance === 'number') ? toDef.weather.stormChance : 30;
+            // Neblina climática (loop de qualidade visual, Iteração 17 —
+            // último item explícito pendente da seção "Adicionar clima":
+            // até este ciclo `_weather` só alternava entre 'clear'/'rain',
+            // um comentário em `_drawAtmosphericFog` já apontava a "bruma
+            // de tempo (chuva/neblina climática, ainda não implementada)"
+            // como pendência). Terceiro estado de clima, próprio (não é
+            // sub-estado da chuva) — sorteado independentemente quando o
+            // rolamento de chuva falha, mesmo padrão de fallback fixo
+            // (35%/30%) já usado por rainChance/stormChance quando a
+            // cidade de destino não define um valor próprio.
+            const fogChance = (toDef && toDef.weather && typeof toDef.weather.fogChance === 'number') ? toDef.weather.fogChance : 25;
             if (this._weather === 'clear') {
-                this._weather = Utils.chance(rainChance) ? 'rain' : 'clear';
-                this._weatherTimer = this._weather === 'rain' ? Utils.randomFloat(30, 55) : Utils.randomFloat(45, 90);
-                if (this._weather === 'rain') {
+                if (Utils.chance(rainChance)) {
+                    this._weather = 'rain';
+                    this._weatherTimer = Utils.randomFloat(30, 55);
                     this._isStorm = Utils.chance(stormChance);
                     this._lightningTimer = Utils.randomFloat(6, 14);
                     if (window.MainMenu) window.MainMenu.showToast(this._isStorm ? 'O céu escurece de vez — uma tempestade se aproxima!' : 'Nuvens escuras cobrem o caminho — começa a chover.', 'info');
+                } else if (Utils.chance(fogChance)) {
+                    this._weather = 'fog';
+                    this._weatherTimer = Utils.randomFloat(35, 65);
+                    if (window.MainMenu) window.MainMenu.showToast('Uma neblina espessa cobre o caminho à frente.', 'info');
+                } else {
+                    this._weather = 'clear';
+                    this._weatherTimer = Utils.randomFloat(45, 90);
                 }
             } else {
+                const wasRain = this._weather === 'rain';
                 this._weather = 'clear';
                 this._isStorm = false;
                 this._weatherTimer = Utils.randomFloat(45, 90);
-                if (window.MainMenu) window.MainMenu.showToast('A chuva passa e o sol volta a espiar entre as nuvens.', 'info');
+                if (window.MainMenu) window.MainMenu.showToast(wasRain ? 'A chuva passa e o sol volta a espiar entre as nuvens.' : 'A neblina se dissipa aos poucos.', 'info');
             }
         }
 
@@ -1743,6 +1762,16 @@ window.RoadEngine = {
         if (!corrupted) this._drawAmbientLife(ctx, w, h, isNight);
         else this._drawCorruptionMist(ctx, w, h);
 
+        // Neblina climática (loop de qualidade visual, Iteração 17) —
+        // banhos de bruma esbranquiçada se movendo lentamente, mesmo
+        // princípio geométrico da névoa doentia da corrupção logo acima
+        // (elipses translúcidas seguindo o jogador em coordenada de
+        // mundo), mas paleta neutra/clara em vez de roxa e só ativa
+        // durante `_weather === 'fog'`. Nunca junto com a corrupção (que
+        // já tem sua própria bruma, mutuamente exclusivas por definição
+        // de `_weather` vs `corrupted`).
+        if (!corrupted && this._weather === 'fog') this._drawWeatherFog(ctx, w, h);
+
         // Vagalumes noturnos (pedido do usuário: floresta "viva", preenchida
         // — reforça o mesmo objetivo de _drawAmbientLife, só que ligado ao
         // ciclo dia/noite já existente em vez de à vida ambiente). Some
@@ -2205,6 +2234,33 @@ window.RoadEngine = {
             const my = Math.sin(performance.now() / 1400 + i) * 30;
             ctx.beginPath();
             ctx.ellipse(mx, my, 220, 70, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    },
+
+    // Neblina climática (loop de qualidade visual, Iteração 17 — item
+    // explícito "neblina" da seção "Adicionar clima", distinta da névoa
+    // atmosférica constante da Iteração 5, sempre presente, e do
+    // escurecimento de tempestade da Iteração 13, uma tintura uniforme
+    // sobre a tela inteira). Manchas translúcidas esbranquiçadas, mesmo
+    // princípio geométrico de `_drawCorruptionMist` acima (elipses
+    // seguindo o jogador em coordenada de mundo), mas com deriva
+    // horizontal própria e tamanho/opacidade variando por mancha (via
+    // `_hash`, nunca `Math.random`) — nunca duas manchas idênticas, ao
+    // contrário da névoa da corrupção (raio sempre fixo).
+    _drawWeatherFog(ctx, w, h) {
+        const px = this._player.x;
+        const t = performance.now() / 1000;
+        for (let i = -2; i <= 2; i++) {
+            const seed = this._hash(i * 331 + 94000);
+            const rw = 190 + (seed % 90);
+            const rh = 50 + (this._hash(i * 347 + 94500) % 30);
+            const alpha = 0.08 + (this._hash(i * 359 + 95000) % 6) / 100;
+            const mx = px + i * 300 + Math.sin(t * 0.12 + i) * 40;
+            const my = Math.sin(t * 0.3 + i * 1.6) * 28;
+            ctx.fillStyle = `rgba(225,228,232,${alpha.toFixed(2)})`;
+            ctx.beginPath();
+            ctx.ellipse(mx, my, rw, rh, 0, 0, Math.PI * 2);
             ctx.fill();
         }
     },
