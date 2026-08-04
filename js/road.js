@@ -1465,7 +1465,7 @@ window.RoadEngine = {
         // forma contínua (mistura acima) — isso só rotula fisicamente as
         // seções, nunca troca o cenário de uma vez.
         for (let i = 1; i < this._zones.length; i++) {
-            this._drawMarker(ctx, i * this._zoneLength, this._zones[i].name, this._zones[i].vegColor);
+            this._drawMarker(ctx, i * this._zoneLength, this._zones[i].name, this._zones[i].vegColor, corrupted);
         }
 
         // Eventos físicos (Fase 4) — mercador/baú/esconderijo/fogueira/
@@ -4441,8 +4441,14 @@ window.RoadEngine = {
     // forçado alto (0.9) pra continuar legível independente da opacidade
     // original da cor (vegColor normalmente é bem translúcida, pensada pra
     // tingir vegetação, não pra ser uma barra sólida).
-    _drawMarker(ctx, x, label, tintColor) {
-        ctx.fillStyle = tintColor ? tintColor.replace(/[\d.]+\)$/, '0.9)') : 'rgba(255,255,255,0.85)';
+    // Bug de auditoria final (iteração 27): mesmo padrão já corrigido nas
+    // montanhas de fundo (iteração 26) — a placa nunca reagia à corrupção,
+    // então uma barra sólida na cor verde-viva normal da zona ficava
+    // cortando a cena inteira de cima a baixo bem no meio de uma paisagem
+    // roxa doentia. `corrupted` é o 5º parâmetro OPCIONAL — chamadas sem
+    // ele continuam com o visual normal de sempre.
+    _drawMarker(ctx, x, label, tintColor, corrupted) {
+        ctx.fillStyle = corrupted ? 'rgba(90,40,120,0.75)' : (tintColor ? tintColor.replace(/[\d.]+\)$/, '0.9)') : 'rgba(255,255,255,0.85)');
         ctx.fillRect(x - 3, -this.LANE_HALF_HEIGHT, 6, this.LANE_HALF_HEIGHT * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.font = '16px sans-serif';
