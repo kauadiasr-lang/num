@@ -1745,6 +1745,27 @@ window.RoadEngine = {
         // TELA (depois do ctx.restore(), cobre a cena inteira de uma vez
         // em vez de precisar tocar cada elemento individual do mundo).
         this._drawAmbientLightFlicker(ctx, w, h);
+
+        // Céu escurecendo durante a chuva/tempestade (auditoria da
+        // Iteração 12: o flash de relâmpago já funcionava corretamente na
+        // Estrada — GFX.draw() aplica o overlay de relâmpago sem depender
+        // da tela ativa —, mas o céu/cenário inteiro continuava com a
+        // MESMA cor de céu limpo enquanto chovia, fazendo a chuva cair de
+        // um céu azul comum. `_weather`/`_isStorm` já existem e já geram
+        // pingos de chuva de verdade (Iteração 12) e relâmpagos, só
+        // faltava a própria paisagem reagir visualmente ao clima. Camada
+        // translúcida cobrindo a cena inteira, mesma técnica/posição de
+        // `_drawAmbientLightFlicker` acima (fim do pipeline, coordenada de
+        // TELA) — mais escura durante tempestade que durante chuva comum,
+        // nunca durante a corrupção (que já tem sua própria atmosfera).
+        this._drawStormOverlay(ctx, w, h, corrupted);
+    },
+
+    _drawStormOverlay(ctx, w, h, corrupted) {
+        if (corrupted || this._weather !== 'rain') return;
+        const alpha = this._isStorm ? 0.28 : 0.13;
+        ctx.fillStyle = `rgba(35,40,52,${alpha})`;
+        ctx.fillRect(0, 0, w, h);
     },
 
     // Estrelas cintilantes à noite — quase estáticas na tela (fator de
