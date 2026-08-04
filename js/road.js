@@ -1294,12 +1294,25 @@ window.RoadEngine = {
         // persistido (a checagem já é sempre fresca a partir de _events).
         // Corrupção sempre tem prioridade sobre o horário (narrativamente é
         // uma névoa doentia, não muda com o relógio).
+        // Bug de auditoria final (iteração 25): o chão só reagia à
+        // fase binária dia/noite (`isNight`), nunca ao relógio de 4 fases
+        // que o céu (`SKY_PALETTES`) e a névoa (`FOG_PALETTES`) já usam —
+        // então no amanhecer/pôr do sol o céu ficava lindo (gradiente
+        // laranja/roxo) mas o chão continuava idêntico ao meio-dia, uma
+        // luz fisicamente impossível (nenhum reflexo dourado do horário na
+        // terra/vegetação). Mistura sutil dos tons do chão com a cor quente
+        // do horário corrente (mesmo princípio dos outros dois — nunca tão
+        // forte a ponto de apagar a paleta do bioma).
         if (corrupted) {
             grad.addColorStop(0, '#2a1230');
             grad.addColorStop(1, '#0a0510');
         } else if (isNight && Utils.lerpColor) {
             grad.addColorStop(0, Utils.lerpColor(colors[0], '#000000', 0.45));
             grad.addColorStop(1, Utils.lerpColor(colors[1], '#000000', 0.45));
+        } else if ((timeOfDay === 'dawn' || timeOfDay === 'sunset') && Utils.lerpColor) {
+            const warmTint = timeOfDay === 'dawn' ? '#f0c896' : '#e6966e';
+            grad.addColorStop(0, Utils.lerpColor(colors[0], warmTint, 0.3));
+            grad.addColorStop(1, Utils.lerpColor(colors[1], warmTint, 0.22));
         } else {
             grad.addColorStop(0, colors[0]);
             grad.addColorStop(1, colors[1]);
