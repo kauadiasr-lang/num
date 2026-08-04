@@ -1885,10 +1885,24 @@ window.RoadEngine = {
             const bushH = 14 + (this._hash(i * 53 + 57000) % 16);
             const bushW = 26 + (this._hash(i * 89 + 57500) % 14);
             const baseY = horizon + 14 + (this._hash(i * 31 + 58000) % 10);
+
+            // Vento movimentando árvores/arbustos (mesma seção "Adicionar
+            // clima" da lista mestra, agora estendida à camada de arbustos
+            // a meia distância — terceira camada de vegetação a receber o
+            // balanço, depois das árvores gigantes e da parede de fundo).
+            // Arbusto inteiro balança como um bloco só (sem distinção
+            // tronco/copa, já que é só uma touceira baixa rente ao chão),
+            // amplitude ainda menor (1-3px) que a parede de fundo (2-4px)
+            // por ser um elemento pequeno e mais próximo do horizonte.
+            const bushWindPhase = (this._hash(i * 373 + 92000) % 100) / 100 * Math.PI * 2;
+            const bushSwayAmp = 1 + (this._hash(i * 379 + 92500) % 3); // 1-3px
+            const bushSway = Math.sin(performance.now() / 1000 * 0.7 + bushWindPhase) * bushSwayAmp;
+            const bushX = screenX + bushSway;
+
             ctx.beginPath();
-            ctx.arc(screenX - bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
-            ctx.arc(screenX + bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
-            ctx.arc(screenX, baseY - bushH * 0.3, bushH * 0.7, 0, Math.PI * 2);
+            ctx.arc(bushX - bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
+            ctx.arc(bushX + bushW * 0.3, baseY, bushH * 0.6, 0, Math.PI * 2);
+            ctx.arc(bushX, baseY - bushH * 0.3, bushH * 0.7, 0, Math.PI * 2);
             ctx.fill();
         }
     },
@@ -2034,10 +2048,24 @@ window.RoadEngine = {
             const screenX = wx - camX;
             if (screenX < -180 || screenX > w + 180) continue;
             const dropH = 70 + (this._hash(i * 61 + 24000) % 50);
+
+            // Vento movimentando as folhas (quarta e última camada de
+            // parallax de vegetação a receber balanço nesta janela de
+            // trabalho, depois das árvores gigantes, parede de fundo e
+            // arbustos). Diferente das outras 3 camadas, aqui o galho
+            // continua fixo no topo da tela (os dois pontos de ancoragem
+            // em y=0 nunca se movem — presos a um galho fora de quadro),
+            // só a PONTA solta balança, como um pêndulo — maior amplitude
+            // (6-10px) de toda a floresta, condizente com ser o elemento
+            // "extremamente próximo da câmera" pedido na lista mestra.
+            const leafWindPhase = (this._hash(i * 389 + 93000) % 100) / 100 * Math.PI * 2;
+            const leafSwayAmp = 6 + (this._hash(i * 397 + 93500) % 5); // 6-10px
+            const leafSway = Math.sin(performance.now() / 1000 * 0.7 + leafWindPhase) * leafSwayAmp;
+
             ctx.beginPath();
             ctx.moveTo(screenX - 90, 0);
-            ctx.quadraticCurveTo(screenX - 40, dropH * 0.5, screenX, dropH);
-            ctx.quadraticCurveTo(screenX + 40, dropH * 0.5, screenX + 90, 0);
+            ctx.quadraticCurveTo(screenX - 40 + leafSway * 0.5, dropH * 0.5, screenX + leafSway, dropH);
+            ctx.quadraticCurveTo(screenX + 40 + leafSway * 0.5, dropH * 0.5, screenX + 90, 0);
             ctx.closePath();
             ctx.fill();
         }
