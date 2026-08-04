@@ -2220,7 +2220,33 @@ window.RoadEngine = {
         const camX = this._camX * this.PARALLAX_FOREGROUND_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        const baseColor = corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]);
+        let baseColor = corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]);
+        // Bug de auditoria de biomas (iteração 29): esta é a única camada
+        // de vegetação da Estrada que NUNCA refletia a identidade da zona
+        // atual (_zoneVegColorAt) — ao contrário de _drawGrassTufts/
+        // _drawFallenLeaves/vegetação esparsa, que já usam essa mesma
+        // função. Resultado: a folhagem pendurada extremamente próxima da
+        // câmera (o "quadro" verde-floresta fixo nos cantos da tela) ficava
+        // idêntica atravessando as Rochas Vulcânicas do território Orc
+        // ("vegetação escassa e ressecada", ver citydatabase.js) ou o
+        // Bosque Luminoso Élfico (verde vívido bem mais saturado) — sempre
+        // o mesmo verde-mata genérico, quebrando a transição de bioma que
+        // o resto da vegetação já respeita. Mistura sutil (30%) da cor da
+        // zona ATUAL por cima da base normal (nunca durante corrupção, que
+        // já tem identidade visual fixa própria e cujas zonas nem variam
+        // de vegColor).
+        if (!corrupted && this._zones) {
+            const zoneColor = this._zoneVegColorAt(this._player.x);
+            const m = zoneColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+            if (m) {
+                const mix = 0.3;
+                baseColor = [
+                    baseColor[0] * (1 - mix) + parseInt(m[1], 10) * mix,
+                    baseColor[1] * (1 - mix) + parseInt(m[2], 10) * mix,
+                    baseColor[2] * (1 - mix) + parseInt(m[3], 10) * mix,
+                ];
+            }
+        }
         const baseAlpha = corrupted ? 0.55 : (isNight ? 0.6 : 0.55);
         for (let i = firstIdx; i <= lastIdx; i++) {
             if (this._hash(i * 613 + 97000) < 32) continue; // ~32% dos slots ficam vazios
