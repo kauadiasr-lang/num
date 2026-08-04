@@ -2165,37 +2165,95 @@ window.RoadEngine = {
     // (_hash, nunca Math.random) da linha de árvores distantes, só que
     // ancorado na borda SUPERIOR da tela em vez do horizonte.
     PARALLAX_FOREGROUND_FACTOR: 1.8,
+    // Bug de auditoria final (fase de revisão, iteração 20): a camada de
+    // primeiro plano acima desenhava a MESMA forma (uma única curva em V
+    // perfeitamente simétrica) em TODO slot de 260 unidades, sem falhas nem
+    // variação — o resultado era uma fileira contínua e uniforme de "dentes"
+    // geométricos pendurados no topo da tela, que a cor escura (~rgba(10,28,10))
+    // misturada com o azul do céu lia visualmente como triângulos artificiais
+    // cortando o horizonte — exatamente o "cenário simples feito com formas
+    // geométricas e elementos repetitivos" que o objetivo final desta lista
+    // proíbe explicitamente. Reescrita para: (1) pular ~32% dos slots (nem
+    // todo galho existe, evitando a fileira contínua), (2) espalhar a posição
+    // horizontal com jitter (quebra o alinhamento perfeitamente regular),
+    // (3) alternar entre 3 variantes de silhueta (folha única com bordas
+    // irregulares, cacho de folhas com lóbulos sobrepostos, vinha fina com
+    // tufo na ponta) em vez de repetir sempre a mesma forma, e (4) variar
+    // cor/alpha por instância (evita uma silhueta plana idêntica em toda a
+    // fileira). O balanço do vento (leafSway) e o fator de parallax > 1 são
+    // preservados como antes.
     _drawForegroundLeaves(ctx, w, h, corrupted, isNight) {
         const tile = 260;
         const camX = this._camX * this.PARALLAX_FOREGROUND_FACTOR;
         const firstIdx = Math.floor((camX - w) / tile);
         const lastIdx = Math.ceil((camX + w) / tile);
-        ctx.fillStyle = corrupted ? 'rgba(45,20,55,0.55)' : (isNight ? 'rgba(6,14,8,0.6)' : 'rgba(10,28,10,0.55)');
+        const baseColor = corrupted ? [45, 20, 55] : (isNight ? [6, 14, 8] : [10, 28, 10]);
+        const baseAlpha = corrupted ? 0.55 : (isNight ? 0.6 : 0.55);
         for (let i = firstIdx; i <= lastIdx; i++) {
-            const wx = i * tile;
-            const screenX = wx - camX;
-            if (screenX < -180 || screenX > w + 180) continue;
-            const dropH = 70 + (this._hash(i * 61 + 24000) % 50);
+            if (this._hash(i * 613 + 97000) < 32) continue; // ~32% dos slots ficam vazios
 
-            // Vento movimentando as folhas (quarta e última camada de
-            // parallax de vegetação a receber balanço nesta janela de
-            // trabalho, depois das árvores gigantes, parede de fundo e
-            // arbustos). Diferente das outras 3 camadas, aqui o galho
-            // continua fixo no topo da tela (os dois pontos de ancoragem
-            // em y=0 nunca se movem — presos a um galho fora de quadro),
-            // só a PONTA solta balança, como um pêndulo — maior amplitude
-            // (6-10px) de toda a floresta, condizente com ser o elemento
-            // "extremamente próximo da câmera" pedido na lista mestra.
+            const wx = i * tile;
+            const jitterX = (this._hash(i * 71 + 97500) % 81) - 40; // -40..40, quebra o alinhamento regular
+            const screenX = wx - camX + jitterX;
+            if (screenX < -200 || screenX > w + 200) continue;
+            const dropH = 60 + (this._hash(i * 61 + 24000) % 100); // 60-160, mais variedade que antes
+
+            // Vento movimentando as folhas (mesma lógica de antes: os dois
+            // pontos de ancoragem em y=0 nunca se movem — presos a um galho
+            // fora de quadro — só a ponta solta balança, como um pêndulo).
             const leafWindPhase = (this._hash(i * 389 + 93000) % 100) / 100 * Math.PI * 2;
             const leafSwayAmp = 6 + (this._hash(i * 397 + 93500) % 5); // 6-10px
             const leafSway = Math.sin(performance.now() / 1000 * 0.7 + leafWindPhase) * leafSwayAmp;
 
-            ctx.beginPath();
-            ctx.moveTo(screenX - 90, 0);
-            ctx.quadraticCurveTo(screenX - 40 + leafSway * 0.5, dropH * 0.5, screenX + leafSway, dropH);
-            ctx.quadraticCurveTo(screenX + 40 + leafSway * 0.5, dropH * 0.5, screenX + 90, 0);
-            ctx.closePath();
-            ctx.fill();
+            const colorJitter = (this._hash(i * 149 + 98000) % 13) - 6; // -6..6
+            const alphaJitter = ((this._hash(i * 151 + 98500) % 11) - 5) / 100; // -0.05..0.05
+            const r = Math.max(0, baseColor[0] + colorJitter);
+            const g = Math.max(0, baseColor[1] + colorJitter);
+            const b = Math.max(0, baseColor[2] + colorJitter);
+            const alpha = Math.max(0.15, Math.min(0.75, baseAlpha + alphaJitter));
+            ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
+
+            const variant = this._hash(i * 233 + 99000) % 3;
+            if (variant === 0) {
+                // Folha única pendurada, bordas irregulares (lóbulos
+                // assimétricos) em vez da curva lisa e simétrica de antes.
+                const halfW = 70 + (this._hash(i * 41 + 99500) % 40); // 70-110
+                ctx.beginPath();
+                ctx.moveTo(screenX - halfW, 0);
+                ctx.quadraticCurveTo(screenX - halfW * 0.45 + leafSway * 0.5, dropH * 0.35, screenX - halfW * 0.15 + leafSway * 0.7, dropH * 0.7);
+                ctx.quadraticCurveTo(screenX + leafSway * 0.85, dropH * 0.55, screenX + leafSway, dropH);
+                ctx.quadraticCurveTo(screenX + halfW * 0.2 + leafSway * 0.7, dropH * 0.6, screenX + halfW * 0.5 + leafSway * 0.5, dropH * 0.65);
+                ctx.quadraticCurveTo(screenX + halfW * 0.7 + leafSway * 0.4, dropH * 0.3, screenX + halfW, 0);
+                ctx.closePath();
+                ctx.fill();
+            } else if (variant === 1) {
+                // Cacho de folhas: vários lóbulos ovais sobrepostos pendurados
+                // em alturas ligeiramente diferentes, lembrando um agrupamento
+                // orgânico em vez de uma forma geométrica única.
+                const n = 3 + (this._hash(i * 53 + 100000) % 2); // 3-4 lóbulos
+                for (let l = 0; l < n; l++) {
+                    const lx = screenX + (l - (n - 1) / 2) * 34 + leafSway * (0.4 + l * 0.15);
+                    const lh = dropH * (0.55 + (this._hash(i * 7 + l * 331 + 100500) % 40) / 100);
+                    const lw = 22 + (this._hash(i * 11 + l * 337 + 101000) % 14);
+                    ctx.beginPath();
+                    ctx.ellipse(lx, lh * 0.55, lw, lh * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                // Vinha fina pendurada: traço curvo estreito com um pequeno
+                // tufo de folhas na ponta, camada mais leve e menos opaca.
+                ctx.save();
+                ctx.strokeStyle = `rgba(${r},${g},${b},${(alpha * 0.8).toFixed(2)})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(screenX, 0);
+                ctx.quadraticCurveTo(screenX + leafSway * 0.6, dropH * 0.6, screenX + leafSway, dropH * 1.1);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.ellipse(screenX + leafSway, dropH * 1.1, 16, 11, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         }
     },
 
