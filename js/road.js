@@ -3314,7 +3314,17 @@ window.RoadEngine = {
             if (rx < 600 || rx > this.WORLD_LENGTH - 600) continue;
             if (this._hash(i * 223 + 47000) >= 40) continue; // marco raro, nem todo slot tem um
             const side = (this._hash(i * 149 + 47500) % 2 === 0) ? -1 : 1;
-            const ry = side * (this.LANE_HALF_HEIGHT + 50 + (this._hash(i * 83 + 48000) % 40));
+            // Bug de auditoria final (iteração 23): mesma classe de bug já
+            // corrigida em _drawFallenLogsAndMushrooms (iteração 22) —
+            // +50..+89 colocava o fragmento de ruína na mesma profundidade
+            // reservada a marcos grandes de fundo (árvores gigantes a +70),
+            // mas sem chão visível por baixo. Aqui era ainda mais difícil
+            // de notar a olho nu porque as cores de pedra (tons de cinza)
+            // se confundem com a silhueta cinza das montanhas ao fundo —
+            // só encontrado via instrumentação de canvas, não por
+            // inspeção visual direta. Corrigido pro mesmo princípio: sempre
+            // dentro da faixa caminhável, nunca além dela.
+            const ry = side * (this.LANE_HALF_HEIGHT - 70 - (this._hash(i * 83 + 48000) % 40));
             if (!window.Camera.isVisible(rx, ry, w, h, 150)) continue;
 
             const fallen = this._hash(i * 71 + 48500) % 2 === 0;
