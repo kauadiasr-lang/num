@@ -81,7 +81,25 @@ const SkillDatabase = {
     // (rotina até no nível 10, ver AchievementDB.legend) acumulava Pontos de
     // Talento sem NENHUMA opção nova de combate pra gastar, só o respec.
     'execution_blow': new Skill('execution_blow', 'Golpe Final', SKILL_TYPES.PHYSICAL, 24, 2.6, 'Um golpe devastador com 260% do Dano Físico. Usa o alcance da sua arma.', 9, { cooldown: 4 }),
-    'arcane_storm': new Skill('arcane_storm', 'Tempestade Arcana', SKILL_TYPES.MAGIC, 32, 2.8, 'Magia elemental de longo alcance (9m), causando 280% do Dano Mágico (Inteligência).', 11, { cooldown: 4, range: 9 })
+    'arcane_storm': new Skill('arcane_storm', 'Tempestade Arcana', SKILL_TYPES.MAGIC, 32, 2.8, 'Magia elemental de longo alcance (9m), causando 280% do Dano Mágico (Inteligência).', 11, { cooldown: 4, range: 9 }),
+
+    // Item 13 da revisão profunda ("DEF = magias defensivas, escudos,
+    // contra-ataques... não transforme tudo em dano bruto") — bug de
+    // auditoria encontrado ao revisar: a árvore de habilidades COMUM
+    // (SkillDatabase, disponível a QUALQUER build via pontos de talento)
+    // não tinha uma única habilidade defensiva/de escudo — SHIELD e
+    // EVASION já existiam como TIPOS totalmente implementados em
+    // battle.js (ver executePlayerTurn/executeEnemySkill), mas só
+    // apareciam em nós exclusivos das árvores de Linhagem
+    // (skilltrees.js: Escudo Dourado/Véu da Noite, atrás de Ritual). Um
+    // jogador focado em Defesa que nunca despertasse uma Linhagem não
+    // tinha NENHUMA magia própria do seu atributo pra aprender — só
+    // ataques de STR/INT. Postura de Guarda reaproveita o MESMO tipo
+    // SHIELD sem nenhuma mudança de engine, com número deliberadamente
+    // menor que o Escudo Dourado da Linhagem (25% vs 35%) pra nunca
+    // esvaziar o valor daquela habilidade exclusiva — continua sendo o
+    // upgrade natural pra quem desperta a Linhagem da Luz depois.
+    'guard_stance': new Skill('guard_stance', 'Postura de Guarda', SKILL_TYPES.SHIELD, 16, 1.0, 'Postura defensiva: reduz 25% do dano recebido por 2 turnos.', 6, { shieldPercent: 25, duration: 2, cooldown: 4 })
 };
 
 window.SkillDB = SkillDatabase;
