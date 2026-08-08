@@ -49,7 +49,10 @@ const RoadSystem = {
         if (!player || player.roadJourney) return false;
         const dest = window.CityDatabase && window.CityDatabase[toId];
         if (!dest || toId === fromId) return false;
-        if (player.level < dest.unlockLevel) return false;
+        // Item 18 da revisão profunda: mesma exceção de travelToCity em
+        // city.js — uma cidade já visitada (ex: cidade natal por raça)
+        // nunca deve travar de novo por causa do gate de nível.
+        if (player.level < dest.unlockLevel && !(player.visitedCityIds && player.visitedCityIds.includes(toId))) return false;
         const isHorse = mode === 'horse';
         if (isHorse) {
             const cost = this.getHorseCost(dest);

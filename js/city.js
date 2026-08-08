@@ -1174,7 +1174,13 @@ class CityEngine {
         const dest = window.CityDatabase ? window.CityDatabase[cityId] : null;
         if (!p || !dest) return false;
         if (cityId === window.getCurrentCityId()) return false; // já está lá
-        if (p.level < dest.unlockLevel) return false; // ainda não desbloqueada
+        // Item 18 da revisão profunda: cidade natal por raça (ver
+        // RACE_HOME_CITY em citydatabase.js) pode ter unlockLevel > 1 —
+        // sem a segunda condição, esse gate por nível bloquearia a VIAGEM
+        // DE VERDADE (não só o botão na UI, ver openCaravan em ui.js) de um
+        // personagem tentando voltar pra própria cidade natal antes de
+        // atingir o nível normalmente exigido pra descobri-la.
+        if (p.level < dest.unlockLevel && !(p.visitedCityIds && p.visitedCityIds.includes(cityId))) return false; // ainda não desbloqueada
         if (!skipCost) {
             if (p.gold < dest.travelCost) return false; // ouro insuficiente
             p.gold -= dest.travelCost;

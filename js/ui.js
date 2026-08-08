@@ -820,6 +820,13 @@ class UIManager {
         window.Engine.state.player.race = this.creationData.race || 'humano';
         window.Engine.state.player.visuals = { ...this.creationData.visuals };
 
+        // Item 18 da revisão profunda: cidade natal por raça/povo (ver
+        // RACE_HOME_CITY em citydatabase.js), em vez do DEFAULT_CITY_ID fixo
+        // que o construtor de Player já usou como placeholder.
+        const homeCityId = (window.RACE_HOME_CITY && window.RACE_HOME_CITY[window.Engine.state.player.race]) || window.DEFAULT_CITY_ID;
+        window.Engine.state.player.currentCityId = homeCityId;
+        window.Engine.state.player.visitedCityIds = [homeCityId];
+
         // Dá uma arma inicial ao jogador
         const initialSword = ItemFactory.createEquipment('shortsword', 'weapons', RARITY.COMMON);
         window.Engine.state.player.equipment[SLOTS.MAIN_HAND] = initialSword;
@@ -2723,7 +2730,14 @@ class UIManager {
         const cities = Object.values(window.CityDatabase);
         container.innerHTML = cities.map(city => {
             const isCurrent = city.id === currentId;
-            const isLocked = p.level < city.unlockLevel;
+            // Item 18 da revisão profunda: cidade natal por raça (ver
+            // RACE_HOME_CITY em citydatabase.js) pode ter unlockLevel > 1
+            // (Fortaleza Orc = 3, Santuário Élfico = 6) — sem essa segunda
+            // condição, um Orc/Elfo de nível baixo que saísse da própria
+            // cidade natal ficaria TRANCADO pra sempre fora dela até subir
+            // de nível, mesmo já tendo nascido e vivido lá. Qualquer cidade
+            // já visitada (não só a natal) permanece sempre acessível.
+            const isLocked = p.level < city.unlockLevel && !(p.visitedCityIds && p.visitedCityIds.includes(city.id));
             const classes = ['caravan-card'];
             if (isCurrent) classes.push('caravan-card-current');
             if (isLocked) classes.push('caravan-card-locked');
@@ -2782,7 +2796,11 @@ class UIManager {
         const p = window.Engine.state.player;
         const dest = window.CityDatabase[cityId];
         if (!dest || !window.RoadEngine) return;
-        if (p.level < dest.unlockLevel) {
+        // Item 18 da revisão profunda: mesma exceção das outras 3 checagens
+        // de unlockLevel (city.js travelToCity, roads.js startJourney, e o
+        // isLocked logo acima em openCaravan) — cidade já visitada nunca
+        // trava de novo.
+        if (p.level < dest.unlockLevel && !(p.visitedCityIds && p.visitedCityIds.includes(cityId))) {
             window.AudioManager.playError();
             if (window.MainMenu) window.MainMenu.showToast('Não foi possível iniciar a viagem agora.', 'error');
             return;

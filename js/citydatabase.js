@@ -194,8 +194,30 @@ const CityDatabase = {
 window.CityDatabase = CityDatabase;
 
 // ID da cidade padrão — usado como fallback para saves antigos (sem
-// `player.currentCityId`) e como cidade inicial de qualquer personagem novo.
+// `player.currentCityId`) e como cidade inicial de personagens sem raça
+// mapeada em RACE_HOME_CITY (ver logo abaixo).
 window.DEFAULT_CITY_ID = 'porto_helenico';
+
+// Item 18 da revisão profunda ("cidades de spawn por povo/cultura"): cada
+// raça escolhida na Criação de Personagem nasce na cidade coerente com sua
+// própria demografia (ver `raceDemographics` de cada cidade acima) — um Orc
+// nasce na Fortaleza Orc (78% orc), um Elfo no Santuário Élfico (70% elfo),
+// em vez de todo personagem novo, de qualquer raça, começar sempre em Porto
+// Helênico. Anão não tem cidade própria só dele (só existem 3 cidades no
+// jogo); Fortaleza Orc é a única com presença anã de verdade na demografia
+// (10%, ver acima), então é o lar mais coerente disponível. As 5 culturas
+// humanas (humano/espartano/ateniense/cretense/tebano) continuam todas
+// nascendo em Porto Helênico, que é 100% delas.
+window.RACE_HOME_CITY = {
+    humano: 'porto_helenico',
+    espartano: 'porto_helenico',
+    ateniense: 'porto_helenico',
+    cretense: 'porto_helenico',
+    tebano: 'porto_helenico',
+    orc: 'fortaleza_orc',
+    anao: 'fortaleza_orc',
+    elfo: 'santuario_elfico'
+};
 
 // Acesso central ao id/def da cidade atual, com fallback seguro: cobre saves
 // antigos (campo ausente) e qualquer `currentCityId` salvo que não exista
