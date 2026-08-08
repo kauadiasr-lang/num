@@ -561,12 +561,21 @@ class UIManager {
     _updateRaceTagline() {
         const race = window.RaceSystem ? window.RaceSystem.get(this.creationData.race) : null;
         const el = document.getElementById('race-tagline');
-        if (!el) return;
-        if (!race) { el.innerHTML = ''; return; }
-        // `passive` (ver races.js) é o traço único de combate da raça — some
-        // logo abaixo da tagline pra deixar claro que não é só estética.
-        const passiveHtml = race.passive ? `<br><span class="race-passive">✦ ${race.passive.label}</span>` : '';
-        el.innerHTML = `${race.tagline}${passiveHtml}`;
+        if (el) {
+            if (!race) { el.innerHTML = ''; }
+            else {
+                // `passive` (ver races.js) é o traço único de combate da raça —
+                // some logo abaixo da tagline pra deixar claro que não é só
+                // estética.
+                const passiveHtml = race.passive ? `<br><span class="race-passive">✦ ${race.passive.label}</span>` : '';
+                el.innerHTML = `${race.tagline}${passiveHtml}`;
+            }
+        }
+        // Toda troca de raça muda o bônus racial de cada atributo — o
+        // detalhamento Base/Raça/Pontos/Total (ver _refreshAllStatBreakdowns)
+        // precisa refletir a raça nova na hora, senão o jogador veria o
+        // bônus da raça ANTERIOR até mexer nos pontos de novo.
+        if (this.creationData.stats) this._refreshAllStatBreakdowns();
     }
 
     // Chamado ao trocar de gênero: se o cabelo/barba selecionado for
@@ -667,7 +676,10 @@ class UIManager {
             const row = document.createElement('div');
             row.className = 'stat-row';
             row.innerHTML = `
-                <span class="stat-name">${this.creationData.names[key]}</span>
+                <div class="stat-info">
+                    <span class="stat-name">${this.creationData.names[key]}</span>
+                    <span class="stat-breakdown" id="breakdown-${key}"></span>
+                </div>
                 <div class="stat-controls">
                     <button class="btn-sub" data-stat="${key}">-</button>
                     <span id="val-${key}" style="display:inline-block; width:20px; text-align:center;">${this.creationData.stats[key]}</span>
@@ -676,6 +688,7 @@ class UIManager {
             `;
             container.appendChild(row);
         }
+        this._refreshAllStatBreakdowns();
 
         // Delegação de eventos para os botões +/-
         container.onclick = (e) => {
@@ -702,7 +715,43 @@ class UIManager {
 
         document.getElementById(`val-${statKey}`).innerText = this.creationData.stats[statKey];
         document.getElementById('points-left').innerText = this.creationData.pointsLeft;
+        this._refreshStatBreakdown(statKey);
         this.validateCreation();
+    }
+
+    // Detalhamento "BASE + BÔNUS RACIAL + PONTOS DISTRIBUÍDOS = TOTAL" pedido
+    // explicitamente pelo usuário ("MUITO IMPORTANTE" — o bônus racial
+    // precisa aparecer imediatamente na Criação, nunca ficar escondido até
+    // a primeira batalha). `creationData.stats[key]` já é "Base(5) + Pontos"
+    // combinados num único número (é isso que os botões +/- editam, sempre
+    // entre 5 e 15) — então "Pontos" aqui é sempre `stats[key] - 5`, nunca
+    // um campo separado. O Total mostrado é DELIBERADAMENTE o mesmo cálculo
+    // de Entity.getTotalStat (player.js): `baseStats[key] + raceMod` — depois
+    // de finalizeCharacterCreation, `player.baseStats = {...creationData.stats}`,
+    // então este Total é bit-a-bit o mesmo valor que o resto do jogo vai usar,
+    // nunca uma conta paralela que pode divergir.
+    _statBreakdownHtml(key) {
+        const base = 5;
+        const points = this.creationData.stats[key] - base;
+        const race = window.RaceSystem ? window.RaceSystem.get(this.creationData.race) : null;
+        const raceMod = (race && race.statMods && race.statMods[key]) || 0;
+        const total = this.creationData.stats[key] + raceMod;
+        const fmtSigned = (n) => (n >= 0 ? `+${n}` : `${n}`);
+        const raceCls = raceMod > 0 ? 'stat-bonus-pos' : (raceMod < 0 ? 'stat-bonus-neg' : '');
+        const pointsCls = points > 0 ? 'stat-bonus-pos' : '';
+        return `Base ${base} `
+            + `<span class="${raceCls}">Raça ${fmtSigned(raceMod)}</span> `
+            + `<span class="${pointsCls}">Pontos ${fmtSigned(points)}</span> `
+            + `= <span class="stat-total">Total ${total}</span>`;
+    }
+
+    _refreshStatBreakdown(key) {
+        const el = document.getElementById(`breakdown-${key}`);
+        if (el) el.innerHTML = this._statBreakdownHtml(key);
+    }
+
+    _refreshAllStatBreakdowns() {
+        for (let key in this.creationData.stats) this._refreshStatBreakdown(key);
     }
 
     validateCreation() {

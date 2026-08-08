@@ -402,6 +402,7 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     background: rgba(233,226,208,0.06);
     border: 1px solid rgba(212,175,55,0.15);
     padding: 5px 10px;
@@ -409,6 +410,21 @@ html, body {
     transition: background 0.2s;
 }
 .stat-row:hover { background: rgba(233,226,208,0.1); }
+
+/* Detalhamento Base/Raça/Pontos/Total por atributo na Criação de Personagem
+   (pedido explícito: "o jogador precisa entender claramente BASE + BÔNUS
+   RACIAL + PONTOS DISTRIBUÍDOS = TOTAL", valor exibido = valor real usado
+   pelo sistema, ver ui.js _statBreakdownText/getTotalStat em player.js).
+   min-width: 0 deixa o texto quebrar/truncar dentro do flex em vez de
+   estourar a largura do painel em telas estreitas (mobile). */
+.stat-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.stat-breakdown {
+    font-size: 0.68rem; color: var(--color-marble-dark);
+    white-space: normal; word-wrap: break-word; line-height: 1.3;
+}
+.stat-breakdown .stat-bonus-pos { color: #7ec97e; }
+.stat-breakdown .stat-bonus-neg { color: #d97a6c; }
+.stat-breakdown .stat-total { color: var(--color-gold-bright, var(--color-gold)); font-weight: bold; }
 
 .stat-controls button {
     width: 25px;
