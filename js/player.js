@@ -61,19 +61,29 @@ class Entity {
         }
     }
 
-    // Regeneração passiva de mana por turno — bug de auditoria ("verifique
-    // regeneração"): antes NINGUÉM regenerava mana durante uma batalha, nem
-    // jogador nem inimigo — uma vez gasta, ficava zerada até o fim da luta
-    // (só reenchia entre batalhas, via calculateDerivedStats). 8% do MP
-    // máximo por turno PRÓPRIO (arredondado pra cima, mínimo 1 com maxMp>0)
-    // dá um fluxo real de recurso — ainda bem mais lento que qualquer custo
-    // de habilidade (10-45 MP), então mana continua sendo um recurso
-    // limitado por luta, só que não estritamente "gasta uma vez e nunca
-    // mais". Chamado no início de cada turno próprio (ver executePlayerTurn/
-    // executeEnemyTurn em battle.js), simetricamente pros dois lados.
+    // Regeneração passiva de mana por turno — chamada no início de cada
+    // turno próprio (ver executePlayerTurn/executeEnemyTurn em battle.js),
+    // simetricamente pros dois lados (jogador e inimigo usam o MESMO
+    // Entity.regenMp, nunca uma fórmula em dobro pra um dos lados).
+    //
+    // Corrigido na revisão profunda (item 14: "mana quase não é consumida").
+    // A 8% original comparava a regeneração de UM turno contra o custo de
+    // UMA habilidade e parecia razoável isoladamente (8% de ~130 MP = ~10,
+    // sempre menor que qualquer custo de 10-45) — mas ignorava que toda
+    // habilidade forte tem COOLDOWN (ver skills.js), e a regeneração
+    // continua se acumulando durante os turnos de espera do cooldown. Uma
+    // Bola de Fogo (25 MP, cooldown 3) regenerava 3×10=30 MP no intervalo
+    // entre dois usos — MAIS do que o próprio custo — então batalhas
+    // longas nunca esvaziavam a mana de verdade, batendo exatamente com o
+    // problema relatado. 5% quebra essa conta pras magias de maior nível
+    // (Bola de Fogo: 3×~6.5=19.5 < 25; Tempestade Arcana, 32 MP/cooldown 4:
+    // 4×~6.5=26 < 32) sem zerar a regeneração de habilidades mais baratas/
+    // cooldown curto (Lampejo, 3 MP/cooldown 2, continua trivialmente
+    // sustentável) — mana passa a IMPORTAR de verdade numa luta longa, sem
+    // travar magias básicas logo de cara.
     regenMp() {
         if (this.derivedStats.maxMp <= 0) return;
-        const amount = Math.max(1, Math.ceil(this.derivedStats.maxMp * 0.08));
+        const amount = Math.max(1, Math.ceil(this.derivedStats.maxMp * 0.05));
         this.currentMp = Utils.clamp(this.currentMp + amount, 0, this.derivedStats.maxMp);
     }
 
