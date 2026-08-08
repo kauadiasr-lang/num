@@ -2285,20 +2285,43 @@ class GraphicsEngine {
         }
         const dir = isPlayer ? 1 : -1;
 
+        // Item 6 da revisão profunda ("criatura das sombras" precisa de
+        // redesign não-humano): o Fantasma (ver enemy.js Ghost,
+        // `isGhostEnemy`) usava o MESMO esqueleto sólido de pernas no chão
+        // de qualquer gladiador comum, só com pele pálida — um humano
+        // reskinado, não uma aparição. Ele é literalmente a alma de um
+        // morto (ver GHOST_NAMES: "Alma Penada", "Espectro sem Nome"), então
+        // o tratamento correto não é virar um monstro alienígena qualquer,
+        // é parecer incorpóreo: flutua (sem contato com o chão, sem sombra
+        // projetada), as pernas se dissolvem num rastro de véu esfarrapado
+        // em vez de terminarem em pés sólidos, e o corpo inteiro treme entre
+        // translúcido e quase invisível. `isGhostEnemy` nunca é true pra
+        // Player/Enemy comum/Vampire/Rival — nenhum outro combatente muda
+        // de comportamento aqui.
+        const isGhost = !!entity.isGhostEnemy;
+        const ghostT = performance.now() / 1000;
+        if (isGhost) {
+            pose.offsetY -= 10 + Math.sin(ghostT * 1.3) * 5; // flutua acima do chão, nunca pisa nele
+            pose.alpha *= 0.5 + Math.sin(ghostT * 2.2) * 0.12; // tremula entre translúcido e quase invisível
+        }
+
         // Sombra com gradiente suave (em vez de uma elipse chapada de opacidade
         // única) — dá uma sensação de contato com o chão bem mais natural.
         // Raio acompanha a largura racial (item 7 da auditoria: um Orc
         // projeta uma sombra visivelmente maior que um Elfo no chão, reforça
         // a silhueta diferente mesmo antes de olhar pro corpo em si).
-        const shadowScale = this._raceBodyScale(entity).width;
-        const shadowRX = 34 * shadowScale, shadowRY = 10 * shadowScale;
-        const shadowGrad = ctx.createRadialGradient(x, y + 8, 2, x, y + 8, shadowRX);
-        shadowGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
-        shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = shadowGrad;
-        ctx.beginPath();
-        ctx.ellipse(x, y + 8, shadowRX, shadowRY, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Fantasma nunca projeta sombra nenhuma — não toca o chão.
+        if (!isGhost) {
+            const shadowScale = this._raceBodyScale(entity).width;
+            const shadowRX = 34 * shadowScale, shadowRY = 10 * shadowScale;
+            const shadowGrad = ctx.createRadialGradient(x, y + 8, 2, x, y + 8, shadowRX);
+            shadowGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
+            shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = shadowGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, y + 8, shadowRX, shadowRY, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.save();
         ctx.globalAlpha = pose.alpha;
@@ -2309,7 +2332,11 @@ class GraphicsEngine {
 
         this._drawLineageAura(ctx, entity); // aura/fumaça da Linhagem — atrás de tudo, igual à capa
         this._drawCape(ctx, entity, pose); // capa/manto (arquétipos com adereço nas costas) — atrás de tudo
-        this._drawLegs(ctx, entity, pose);
+        if (isGhost) {
+            this._drawGhostShroud(ctx, entity, pose, ghostT);
+        } else {
+            this._drawLegs(ctx, entity, pose);
+        }
         this._drawTorso(ctx, entity, pose);
         this._drawBackArm(ctx, entity, pose);
         this._drawTorsoDetail(ctx, entity);
@@ -2318,6 +2345,34 @@ class GraphicsEngine {
 
         ctx.restore();
         ctx.globalAlpha = 1;
+    }
+
+    // Item 6 da revisão profunda: substitui as pernas sólidas do Fantasma
+    // (ver drawGladiator/isGhostEnemy acima) por um rastro de véu — 3 fitas
+    // onduladas que afinam e desaparecem, em vez de terminarem em pés no
+    // chão. Cor puxa pro `auraColor` do próprio Fantasma (ver enemy.js Ghost,
+    // já azul-esbranquiçado), então o corpo inteiro lê como uma única
+    // silhueta etérea coerente, não pernas humanas pintadas de azul.
+    _drawGhostShroud(ctx, entity, pose, t) {
+        const legLen = this._legLen(entity);
+        const color = (entity.visuals && entity.visuals.auraColor) || 'rgba(168,216,255,0.4)';
+        const m = this._bodyMetrics(entity);
+        const ribbons = [-m.hip * 0.5, 0, m.hip * 0.5];
+        ctx.save();
+        ribbons.forEach((baseX, i) => {
+            const sway = Math.sin(t * 1.6 + i * 1.7) * 6;
+            const grad = ctx.createLinearGradient(0, -legLen, 0, 6);
+            grad.addColorStop(0, color);
+            grad.addColorStop(1, 'rgba(200,230,255,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(baseX - 7, -legLen);
+            ctx.quadraticCurveTo(baseX + sway, -legLen * 0.4, baseX + sway * 1.6, 4);
+            ctx.quadraticCurveTo(baseX + sway, -legLen * 0.4, baseX + 7, -legLen);
+            ctx.closePath();
+            ctx.fill();
+        });
+        ctx.restore();
     }
 
     // Escala de corpo por raça (item 7 da auditoria de balanceamento) — ver
