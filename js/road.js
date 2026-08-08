@@ -644,6 +644,28 @@ window.RoadEngine = {
         return zones[idx].vegDensity;
     },
 
+    // Item 2 da revisão profunda ("declutter visual da floresta"): as 3
+    // camadas de textura RASTEIRA de chão (_drawGrassTufts,
+    // _drawGroundBushes, _drawGroundDetailScatter) foram ajustadas em
+    // ciclos anteriores pra "cobertura praticamente total" (ver comentários
+    // delas) especificamente porque Campos (vegDensity 1.0) parecia vazio
+    // demais. O problema: as 3 continuavam multiplicando essa taxa já
+    // quase-máxima por `_zoneDensityAt(x)`, que sobe até 1.9 na Floresta —
+    // como as 3 gates já saturavam perto de 90-100% em vegDensity 1.0, a
+    // multiplicação NÃO deixava a floresta "mais densa de verdade" (as
+    // árvores/copa/paredes de arbusto já fazem esse trabalho, ver
+    // _drawGiantTrees/_drawMidgroundBushes/_drawForestWall, que continuam
+    // escalando normal), só empurrava as 3 camadas de chão pra saturação
+    // total simultânea (zero espaço negativo entre elas) — daí a sensação
+    // de "poluição visual"/"chão lotado" na Floresta especificamente.
+    // Fix: essas 3 camadas usam ESTE teto (nunca escala pra CIMA de 1.0),
+    // preservando 100% do comportamento em Campos (onde a cobertura quase
+    // total foi pedida de propósito) sem inflar ainda mais em zonas já
+    // densas de outras formas.
+    _groundClutterDensityAt(x) {
+        return Math.min(1, this._zoneDensityAt(x));
+    },
+
     // Cor da vegetação com transição SUAVE entre zonas (loop de qualidade
     // visual, Iteração 16 — completa "transição suave entre biomas" pro
     // lado da COR, depois de `_zoneDensityAt` já ter resolvido o lado da
@@ -4076,7 +4098,7 @@ window.RoadEngine = {
             // recebe o tufo, e o próprio range nunca entra em
             // PATH_CLEAR_HALF_WIDTH do centro — mantém um "grande caminho
             // central de terra sem grama", pedido explícito do usuário.
-            if (this._hash(i * 211 + 43000) >= Math.min(97, 92 * this._zoneDensityAt(gx))) continue; // nem todo slot tem tufo
+            if (this._hash(i * 211 + 43000) >= 92 * this._groundClutterDensityAt(gx)) continue; // nem todo slot tem tufo (item 2: teto de densidade em _groundClutterDensityAt)
             const gy = this._groundCoverageY(i * 97 + 44700, i * 131 + 43500);
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
 
@@ -4126,7 +4148,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const bx = i * spacing;
             if (bx < 0 || bx > this.WORLD_LENGTH) continue;
-            if (this._hash(i * 227 + 103500) >= Math.min(90, 70 * this._zoneDensityAt(bx))) continue; // nem todo slot tem arbusto
+            if (this._hash(i * 227 + 103500) >= 70 * this._groundClutterDensityAt(bx)) continue; // nem todo slot tem arbusto (item 2: teto de densidade em _groundClutterDensityAt)
             const by = this._groundCoverageY(i * 107 + 104000, i * 149 + 104500);
             if (!window.Camera.isVisible(bx, by, w, h, 40)) continue;
 
@@ -4181,7 +4203,7 @@ window.RoadEngine = {
         for (let i = firstIdx; i <= lastIdx; i++) {
             const dx = i * spacing;
             if (dx < 0 || dx > this.WORLD_LENGTH) continue;
-            if (this._hash(i * 251 + 80000) >= Math.min(100, 82 * this._zoneDensityAt(dx))) continue;
+            if (this._hash(i * 251 + 80000) >= 82 * this._groundClutterDensityAt(dx)) continue; // item 2: teto de densidade em _groundClutterDensityAt
             // Faixa de Y bem mais ampla que LANE_HALF_HEIGHT (280) — a
             // auditoria visual mostrou que o chão visível na tela vai bem
             // além da faixa caminhável (a câmera mostra terreno "além da
