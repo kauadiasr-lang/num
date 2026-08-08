@@ -146,7 +146,21 @@ const ItemDatabase = {
         elvenblade: { id: 'w_13', name: "Lâmina Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.2, value: 150, durability: 100, stats: { agi: 3, acc: 1 }, critBonus: 18, region: 'santuario_elfico',
             minRange: 0, maxRange: 3, atkSpeed: 1.5, approachSpeed: 2.4, retreatSpeed: 2.4 },
         elvenlongbow: { id: 'w_14', name: "Arco Élfico Longo", slot: SLOTS.RANGED, damage: 11, weight: 1.5, value: 160, durability: 90, stats: { agi: 2, acc: 3 }, region: 'santuario_elfico',
-            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 }
+            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 },
+
+        // Item 12 da revisão profunda ("itens com identidade, nunca só
+        // +10/+20/+30 do mesmo atributo") — pedido pelo exemplo conceitual
+        // do próprio usuário: "Arco do Olho Partido: +Precisão, +chance de
+        // atingir pontos fracos, -defesa". "Chance de atingir pontos
+        // fracos" vira `critBonus` (mesmo mecanismo que toda outra arma de
+        // crítico já usa, ver rapier/elvenblade acima) — um crítico É
+        // literalmente acertar o ponto fraco do alvo. A penalidade de
+        // defesa é um `stats.def` NEGATIVO (primeiro do jogo; ver o
+        // conserto de exibição em ui.js attachTooltip pro sinal não duplicar
+        // "+-3"), então quem usa esse arco entra em combate estruturalmente
+        // mais frágil — a troca é real, não cosmética.
+        brokeneyebow: { id: 'w_15', name: "Arco do Olho Partido", slot: SLOTS.RANGED, damage: 9, weight: 1.4, value: 140, durability: 75, stats: { acc: 5, def: -3 }, critBonus: 20,
+            minRange: 0, maxRange: 10, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.4, maxAmmo: 8 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
@@ -188,7 +202,21 @@ const ItemDatabase = {
         // arcos/capas/armaduras leves, todos já cobertos). Fortaleza Orc já
         // tinha seu amuleto (Presa de Troll) desde o trabalho original das
         // Cidades-Hub Regionais — o Santuário ficou com essa lacuna.
-        elderwoodamulet: { id: 't_07', name: "Amuleto da Seiva Ancestral", slot: SLOTS.AMULET, weight: 0.2, value: 150, durability: 999, stats: { int: 1 }, hpBonus: 20, mpBonus: 25, region: 'santuario_elfico' }
+        elderwoodamulet: { id: 't_07', name: "Amuleto da Seiva Ancestral", slot: SLOTS.AMULET, weight: 0.2, value: 150, durability: 999, stats: { int: 1 }, hpBonus: 20, mpBonus: 25, region: 'santuario_elfico' },
+
+        // Item 12 da revisão profunda, segundo exemplo conceitual do próprio
+        // usuário: "Amuleto do Acaso: +Sorte, efeito especial baseado em
+        // probabilidade". O "efeito baseado em probabilidade" vira
+        // `critBonus` — igual ao Arco do Olho Partido acima, reaproveita um
+        // mecanismo já existente e testado em vez de inventar um sistema de
+        // proc novo, mas aqui funciona em QUALQUER slot de amuleto
+        // (critBonus de trinket nunca depende de arma ativa, ver o filtro
+        // `!isWeaponSlot` em Entity.calculateDerivedStats) — um crítico
+        // "de sorte", não de precisão de arma. HP negativo é o trade-off:
+        // risco real (mais frágil) pela recompensa de mais chance de
+        // crítico, puxando pro tema "risco/recompensa" pedido pra Sorte no
+        // item 10, não só "+Sorte" solto como o já existente Anel da Fortuna.
+        luckyamulet: { id: 't_08', name: "Amuleto do Acaso", slot: SLOTS.AMULET, weight: 0.2, value: 130, durability: 999, stats: { luk: 5 }, critBonus: 12, hpBonus: -15 }
     },
     consumables: {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },

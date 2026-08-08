@@ -3270,7 +3270,18 @@ class UIManager {
                 if (item.damage) statsHtml += `<p>Dano Base: ${item.damage}</p>`;
                 if (item.defense) statsHtml += `<p>Defesa Base: ${item.defense}</p>`;
                 for (let stat in item.statBonuses) {
-                    statsHtml += `<p style="color:#1eff00">+${item.statBonuses[stat]} ${stat.toUpperCase()}</p>`;
+                    const val = item.statBonuses[stat];
+                    // Item 12 da revisão profunda ("itens com identidade e
+                    // trade-offs", ex: "-defesa") introduziu os primeiros
+                    // `statBonuses` negativos do jogo — o "+" fixo aqui
+                    // virava um "+-3 DEF" ilegível (sinal duplicado) pra
+                    // qualquer penalidade. `val` já carrega o próprio sinal
+                    // (negativo imprime "-3" sozinho), então só o positivo
+                    // precisa do "+" explícito; a cor também troca pra
+                    // vermelho, deixando a penalidade tão visível quanto o bônus.
+                    statsHtml += val >= 0
+                        ? `<p style="color:#1eff00">+${val} ${stat.toUpperCase()}</p>`
+                        : `<p style="color:#ff6666">${val} ${stat.toUpperCase()}</p>`;
                 }
                 if (item.critBonus) statsHtml += `<p style="color:#ffcc00">+${item.critBonus}% Crítico</p>`;
                 if (item.accBonus) statsHtml += `<p style="color:#ffcc00">+${item.accBonus} Precisão</p>`;
