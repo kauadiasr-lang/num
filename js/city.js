@@ -46,13 +46,6 @@ class CityEngine {
         // personagem sequer se mover até ele.
         this._pendingTalkNpc = null;
 
-        // Prédio que o jogador clicou pra entrar, mas ainda não chegou perto
-        // o bastante (ver _approachAndInteractBuilding/
-        // _updatePendingInteractBuilding) — mesmo padrão de
-        // _pendingTalkNpc/_pendingCollectStone: antes clicar direto num
-        // prédio de qualquer ponto da praça abria a loja/tela na hora, sem
-        // o personagem sequer se mover até lá.
-        this._pendingInteractBuilding = null;
 
         // Ciclo dia/noite: percorre as 4 mesmas paletas já usadas pela
         // arena (dawn/day/sunset/night), sincronizando GFX.arenaTime.
@@ -716,17 +709,17 @@ class CityEngine {
             return;
         }
 
-        // Clicar num prédio manda o jogador andar até a porta primeiro (mesmo
-        // fluxo de aproximação de _approachAndTalk/_approachAndCollectStone)
-        // — a interação de verdade só dispara na chegada (ver
-        // _updatePendingInteractBuilding). Entrar numa loja/tela sem sequer
-        // se aproximar da porta não fazia sentido físico nenhum, e é
-        // exatamente o comportamento pedido: "ao clicar numa construção... o
-        // personagem deve caminhar automaticamente até ele e somente depois
-        // ativar a interação".
+        // Estruturas abrem na hora do clique — diferente de NPCs/Pedras de
+        // Luz (que continuam exigindo aproximação física acima). Pedido
+        // explícito: "Estruturas: CLICK → INTERAÇÃO IMEDIATA / NPCs: CLICK →
+        // CAMINHAR ATÉ NPC → INTERAGIR. Não misture os dois sistemas." Antes
+        // clicar num prédio mandava o jogador andar até a porta primeiro
+        // (_approachAndInteractBuilding/_updatePendingInteractBuilding,
+        // ambos removidos) — fazia sentido pra NPCs (alguém que precisa ser
+        // abordado), mas não pra uma loja/portal, que não é uma pessoa.
         const building = this._buildingAtPoint(x, y);
         if (building) {
-            this._approachAndInteractBuilding(building);
+            this.interact(building.id);
             return;
         }
 
@@ -770,7 +763,7 @@ class CityEngine {
     // Viajante do Portão fica perto o bastante do Mercado Arcano pra o
     // ponto de aproximação padrão cair sempre dentro da margem de colisão
     // do prédio vizinho — o jogador nunca conseguia "chegar" (targetX nunca
-    // ficava null), então _pendingTalkNpc/_pendingInteractBuilding nunca
+    // ficava null), então _pendingTalkNpc/_pendingCollectStone nunca
     // limpavam e a interação nunca disparava, por mais que o clique em si
     // estivesse certo. Tenta a distância pedida primeiro, depois
     // distâncias maiores (escapa da colisão do PRÓPRIO alvo, se
@@ -836,57 +829,6 @@ class CityEngine {
         this._talkToNpc(npc);
     }
 
-    // Manda o jogador andar até perto da porta do prédio clicado — a
-    // interação de verdade (abrir loja/tela) só dispara na chegada (ver
-    // _updatePendingInteractBuilding), mesmo padrão de _approachAndTalk/
-    // _approachAndCollectStone. Clicar de novo no MESMO prédio enquanto já
-    // está a caminho não reinicia o trajeto.
-    _approachAndInteractBuilding(building) {
-        if (this._pendingInteractBuilding === building) return;
-        this._pendingInteractBuilding = building;
-        const door = this._doorPoint(building);
-        // Distância mínima pra ficar FORA da própria caixa de colisão do
-        // prédio (ver _obstacleRectsForCollision: metade da largura + 20 de
-        // margem do prédio + 16 de margem padrão de PlayerController.
-        // collides), com uma folga extra pra sobrar espaço de verdade entre
-        // o jogador e a porta — usar só `_interactRadius` (70) aqui
-        // travava a aproximação de prédios largos (a Arena, w=240) pra
-        // sempre, porque o ponto ingênuo ainda caía dentro da própria
-        // colisão do prédio (ver _safeApproachPoint).
-        const scale = this._cityScale(window.Engine.height);
-        const bw = building.w * scale;
-        const clearance = bw / 2 + 20 + 16 + 24;
-        const dir = (door.x >= this.player.x) ? -1 : 1;
-        const pos = this._safeApproachPoint(door.x, door.y, dir, clearance);
-        this._setPlayerDestination(pos.x, pos.y);
-    }
-
-    // Chamado a cada frame (ver update()): assim que o jogador termina de
-    // andar até a porta clicada, dispara a interação de verdade (interact()).
-    // Se o jogador ficou longe demais (desviado por um obstáculo no meio do
-    // caminho, ou um clique novo o mandou pra outro lugar), desiste
-    // silenciosamente — mesmo padrão de _updatePendingTalk/
-    // _updatePendingCollectStone.
-    _updatePendingInteractBuilding() {
-        if (!this._pendingInteractBuilding) return;
-        const building = this._pendingInteractBuilding;
-        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
-        if (!arrived) return;
-
-        this._pendingInteractBuilding = null;
-        const door = this._doorPoint(building);
-        // Tolerância dinâmica igual à distância de aproximação calculada em
-        // _approachAndInteractBuilding (clearance da própria colisão do
-        // prédio, que pode passar de `_interactRadius` em prédios largos
-        // como a Arena) — usar só `_interactRadius+20` aqui rejeitava a
-        // chegada como "longe demais" mesmo quando o jogador tinha acabado
-        // de chegar exatamente no ponto seguro pretendido, e a interação
-        // nunca disparava.
-        const scale = this._cityScale(window.Engine.height);
-        const clearance = (building.w * scale) / 2 + 20 + 16 + 24;
-        if (this._distanceTo(door) > clearance + 20) return;
-        this.interact(building.id);
-    }
 
     // Posição de tela de uma Pedra de Luz — mesma convenção de xFrac/
     // rowOffset escalados por _cityScale já usada por fonte/estátuas/vegetação.
@@ -1314,7 +1256,6 @@ class CityEngine {
         this._updateMovement(dt);
         this._updatePendingTalk();
         this._updatePendingCollectStone();
-        this._updatePendingInteractBuilding();
         this._updateLightStones(dt);
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
