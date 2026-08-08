@@ -200,7 +200,7 @@ class BattleSystem {
         return baseChance + acc * 0.3;
     }
 
-    executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1, isCounter = false) {
+    executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1, isCounter = false, isExtraAttack = false) {
         const isPlayer = attacker === this.player;
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
         const defY = window.innerHeight / 2;
@@ -407,7 +407,30 @@ class BattleSystem {
             }
         }
 
-        return { hit: true, crit: isCrit, blocked, damage: mitigatedDamage, message: msg, counter };
+        // Ataque extra por Agilidade (item 9 da revisão profunda): o
+        // comentário de baseStats.agi já prometia "velocidade de turno" há
+        // muito tempo, mas nenhum sistema em battle.js/player.js implementava
+        // isso de verdade — AGI só afetava esquiva/crítico, nunca a
+        // velocidade em si. Em vez de reescrever executePlayerTurn/
+        // executeEnemyTurn com uma fila de iniciativa (mudança grande demais
+        // pro que é essencialmente um turno alternado simples), reaproveita
+        // o mesmo padrão do contra-ataque de escudo acima: uma vantagem real
+        // de Agilidade sobre o alvo dá chance de golpear de novo, na mesma
+        // ação, com um golpe mais fraco. `isExtraAttack` impede que o golpe
+        // extra gere outro golpe extra (sem corrente infinita).
+        let extraAttack = null;
+        if (!isCounter && !isExtraAttack && defender.currentHp > 0 && attacker.currentHp > 0) {
+            const agiEdge = attacker.getTotalStat('agi') - defender.getTotalStat('agi');
+            if (agiEdge > 0) {
+                const extraChance = Math.min(15, agiEdge * 0.3);
+                if (Utils.chance(extraChance)) {
+                    extraAttack = this.executeAttack(attacker, defender, attackerState, defenderState, 0.5, false, true);
+                    msg += ` <span style="color:#ffe27a">${attacker.name} é rápido demais e ataca de novo! ${extraAttack.message}</span>`;
+                }
+            }
+        }
+
+        return { hit: true, crit: isCrit, blocked, damage: mitigatedDamage, message: msg, counter, extraAttack };
     }
 
     // Aplica o tique de sangramento (Corte Sangrento) no início do turno da vítima.
