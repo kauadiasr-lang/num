@@ -31,9 +31,21 @@
 // tinha só 2 tons realmente escuros entre 6 opções.
 const HUMAN_SKIN_TONES = ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#6b4226', '#4a2f1f', '#2e1c12'];
 
+// `species` (item 17 da revisão profunda: "separar espécie de raça/povo/
+// cultura, nunca misturar Humano = Ateniense") — campo NOVO, puramente
+// aditivo: nenhum consumidor existente lê `species` hoje (statMods/
+// passive/accent/bodyScale/skinTones continuam exatamente como estavam,
+// indexados pelo id "achatado" de sempre), então adicionar isso não muda
+// UM ÚNICO comportamento já testado. O modelo já existia INFORMALMENTE
+// nos comentários deste arquivo ("As 5 raças 'humanas'... fisicamente são
+// a mesma espécie", ver bodyScale do Orc abaixo) — este campo só torna
+// essa relação explícita e consultável por código (city.js/citydatabase.js
+// população, telas futuras), em vez de só existir em texto de comentário.
+// `humano/espartano/ateniense/cretense/tebano` = mesma espécie (humana),
+// culturas/povos diferentes; `orc/elfo/anao` = espécies próprias.
 const RACES = {
     humano: {
-        id: 'humano', name: 'Humano',
+        id: 'humano', name: 'Humano', species: 'human',
         tagline: 'Adaptável e equilibrado — sem vantagens nem fraquezas extremas.',
         description: 'Vindos de todos os cantos da arena, os humanos não têm o dom de nenhum povo em particular, mas também não carregam nenhuma de suas fraquezas.',
         statMods: {},
@@ -43,7 +55,7 @@ const RACES = {
         // combate único — é a raça "neutra".
     },
     espartano: {
-        id: 'espartano', name: 'Espartano',
+        id: 'espartano', name: 'Espartano', species: 'human',
         tagline: 'Forjado pra guerra desde a infância. Corpo de aço, mente de soldado.',
         description: 'Criados em disciplina marcial desde os sete anos de idade, os espartanos entram na arena mais fortes e mais resistentes que qualquer rival — mas o treino constante deixou pouco tempo pra retórica ou estratagemas.',
         statMods: { str: 2, def: 1, int: -1 },
@@ -56,7 +68,7 @@ const RACES = {
         skinTones: HUMAN_SKIN_TONES
     },
     ateniense: {
-        id: 'ateniense', name: 'Ateniense',
+        id: 'ateniense', name: 'Ateniense', species: 'human',
         tagline: 'Filósofos e oradores — não menos perigosos por isso.',
         description: 'Educados em retórica, matemática e os primeiros princípios da guerra, os atenienses trazem pra arena uma mente afiada e um carisma que o público adora, mas raramente têm o físico bruto dos povos guerreiros.',
         statMods: { int: 2, cha: 1, str: -1 },
@@ -65,7 +77,7 @@ const RACES = {
         skinTones: HUMAN_SKIN_TONES
     },
     cretense: {
-        id: 'cretense', name: 'Cretense',
+        id: 'cretense', name: 'Cretense', species: 'human',
         tagline: 'Rápidos como o vento de Creta, ágeis como as próprias lendas do labirinto.',
         description: 'Descendentes dos lendários arqueiros e acrobatas de Creta, movem-se pela arena com uma leveza que ninguém mais alcança — ao custo de uma guarda mais frágil sob pressão.',
         statMods: { agi: 2, luk: 1, def: -1 },
@@ -74,7 +86,7 @@ const RACES = {
         skinTones: HUMAN_SKIN_TONES
     },
     tebano: {
-        id: 'tebano', name: 'Tebano',
+        id: 'tebano', name: 'Tebano', species: 'human',
         tagline: 'Soldados de elite, escudo contra escudo, ombro a ombro.',
         description: 'Herdeiros da tradição hoplita de Tebas, lutam com uma disciplina defensiva que poucos povos conseguem igualar, ainda que isso custe um pouco da precisão dos golpes mais calculados.',
         statMods: { def: 2, str: 1, acc: -1 },
@@ -95,7 +107,7 @@ const RACES = {
     // em battle.js) criaria um passivo mudo sempre que um inimigo dessa
     // raça nascesse.
     orc: {
-        id: 'orc', name: 'Orc',
+        id: 'orc', name: 'Orc', species: 'ork',
         tagline: 'Força bruta forjada nas fornalhas de Gorkhal — poucos sobrevivem para contar a história.',
         description: 'Vindos das muralhas de rocha vulcânica da Fortaleza Orc, os orcs medem valor por cicatrizes e vitórias. Fracos de espírito não duram uma estação lá.',
         statMods: { str: 3, def: 1, int: -2 },
@@ -126,7 +138,7 @@ const RACES = {
         rareSkinToneChance: 12
     },
     elfo: {
-        id: 'elfo', name: 'Elfo',
+        id: 'elfo', name: 'Elfo', species: 'elf',
         tagline: 'Séculos de vida entre raízes ancestrais afiam os sentidos além do que qualquer mortal alcança.',
         description: 'Nascidos sob o dossel eterno do Santuário Élfico, movem-se com uma graça quase sobrenatural e enxergam falhas na guarda alheia que ninguém mais percebe — mas carregam pouco da força bruta dos povos guerreiros.',
         statMods: { agi: 2, int: 2, str: -2 },
@@ -138,7 +150,7 @@ const RACES = {
         skinTones: ['#ffe0bd', '#ffdab9', '#fbe3c5', '#f5d5ae', '#eecfb4']
     },
     anao: {
-        id: 'anao', name: 'Anão',
+        id: 'anao', name: 'Anão', species: 'dwarf',
         tagline: 'Feito da mesma pedra dos salões que escavou — nada abala um Anão de pé firme.',
         description: 'Clãs de mineradores e ferreiros das montanhas próximas à Fortaleza Orc, os anões trazem pra arena uma resistência quase teimosa e uma paciência forjada em décadas sob a rocha.',
         statMods: { def: 3, str: 1, agi: -2 },

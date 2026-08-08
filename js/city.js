@@ -282,7 +282,16 @@ class CityEngine {
     _spawnNpcsIfNeeded() {
         const p = window.Engine.state.player;
         // Mais NPCs conforme o jogador progride (nível), até um teto razoável.
-        const targetCount = Utils.clamp(2 + Math.floor((p ? p.level : 1) / 2), 2, 8);
+        // Piso/teto dobrados (eram 2/8) — item 19 da revisão profunda:
+        // mesmo com raceDemographics já corretamente enviesado (ver
+        // citydatabase.js — Porto Helênico já sorteia 100% de raças
+        // humanas/culturas gregas pra cada NPC gerado aqui, nenhuma raça de
+        // fantasia entra no pool dessa cidade), uma população de só 2-8
+        // NPCs (2 no nível 1, quando o jogador VÊ a cidade pela primeira
+        // vez) fazia QUALQUER cidade, inclusive a humana, parecer vazia —
+        // "poucos humanos" era, na prática, "poucos NPCs de qualquer raça".
+        // O bug não era a demografia (já certa), era a densidade.
+        const targetCount = Utils.clamp(4 + Math.floor((p ? p.level : 1) / 2), 4, 14);
         while (this.npcs.length < targetCount) {
             this.npcs.push(this._makeNpc());
         }
