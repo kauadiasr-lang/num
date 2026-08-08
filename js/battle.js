@@ -746,7 +746,20 @@ class BattleSystem {
                 else if (skill.type === 'MAGIC') {
                     // Dano mágico ignora armadura, mitigado apenas pela Inteligência do inimigo
                     this.usedOffensiveMagic = true; // rastreado pro Ritual da Luz ("vencer sem magia ofensiva")
-                    const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.getTotalStat('int') * 3 * skill.powerMulti));
+                    // Coeficiente 2.5 (item 15 da revisão profunda: análise matemática
+                    // mostrou INT dominando dano físico cada vez mais forte late-game).
+                    // Simulação de 20 turnos (build 70% INT vs 70% STR, mesmos pontos,
+                    // arma representativa em ambos, alvo com DEF/RES médios do nível)
+                    // com coeficiente 3 (original): dano mágico total já saía 21% maior
+                    // que o físico no nível 5 e a vantagem SUBIA pra 44% no nível 30 —
+                    // a folga cresce porque o bônus fixo de arma (que não escala com
+                    // nível) dilui cada vez menos o multiplicador puro de INT enquanto
+                    // o personagem sobe de nível. Com 2.5 a mesma simulação fica quase
+                    // no empate (nível 5: +2%, nível 15: +14%, nível 30: +19%) — builds
+                    // de INT continuam fortes (ainda ligeiramente à frente, compensando
+                    // o custo/gestão de mana), só sem a explosão desproporcional
+                    // tardia. Ver /tmp/pw/sim_coef_search.js para a simulação completa.
+                    const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.getTotalStat('int') * 2.5 * skill.powerMulti));
                     const resist = this.enemy.getTotalStat('int') * 0.5;
                     let finalDmg = Math.floor(magicDmg - resist);
                     if (finalDmg < 1) finalDmg = 1;
@@ -972,7 +985,10 @@ class BattleSystem {
             window.GFX.spawnParticles(enemyX, enemyY, "#1eff00", 25, 4, 4);
             window.AudioManager.playHeal();
         } else if (skill.type === 'MAGIC') {
-            const magicDmg = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.getTotalStat('int') * 3 * skill.powerMulti));
+            // Mesmo coeficiente 2.5 do lado do jogador (ver comentário em
+            // executeSkill/player MAGIC, item 15) — mantém simetria entre
+            // magos jogadores e magos inimigos.
+            const magicDmg = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.getTotalStat('int') * 2.5 * skill.powerMulti));
             const resist = this.player.getTotalStat('int') * 0.5;
             let finalDmg = Math.max(1, Math.floor(magicDmg - resist));
             this.player.currentHp = Utils.clamp(this.player.currentHp - finalDmg, 0, this.player.derivedStats.maxHp);
