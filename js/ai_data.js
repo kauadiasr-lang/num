@@ -365,6 +365,48 @@ const AI_EMOTIONS = {
     determinado: { ATK: 1.1, SKILL: 1.05, DEF: 1.05, RETREAT: 0.85, HOLD: 1.0, ITEM: 1.0 },
 };
 
+// --- PESO DE ESTILO DE LUTA POR RAÇA (item 21 da revisão profunda) ---
+// Bug de auditoria encontrado: AICombat.assignProfile (ai.js) sorteava o
+// estilo de luta de forma TOTALMENTE UNIFORME entre os 8 estilos, sem
+// nenhuma relação com a raça já sorteada do inimigo (ver enemy.js Enemy) —
+// um Orc (statMods str:+3/int:-2, ver races.js) tinha exatamente a MESMA
+// chance de nascer "Mago" (statFocus int:4) que um "Brutamontes"
+// (statFocus str:4), o cenário que o pedido original cita como o que
+// EVITAR: "Um Orc especializado em força não deveria possuir INT enorme,
+// STR baixa, sem uma razão narrativa/gameplay clara".
+//
+// Pesos (não exclusões) — cada raça pode nascer com QUALQUER estilo, só
+// com chances bem diferentes, preservando de propósito o pedido de
+// "permitir exceções raras pra criar inimigos interessantes" (um Orc Mago
+// continua possível, só raro, em vez de nunca acontecer OU ser tão comum
+// quanto um Orc Brutamontes). Peso 1 = neutro (mesma chance da média);
+// >1 favorece, <1 desfavorece. Derivado diretamente dos MESMOS statMods
+// de races.js: uma raça com bônus de STR pesa mais pros estilos com
+// statFocus de STR alto (brutamontes/lanceiro/gladiador), etc — nunca um
+// número arbitrário desconectado do resto do sistema de raça.
+const RACE_STYLE_WEIGHTS = {
+    // Humano: statMods {} (raça "neutra", ver races.js) — sem viés, mantém
+    // a distribuição uniforme original de propósito, coerente com a
+    // própria tagline ("adaptável e equilibrado, sem vantagens nem
+    // fraquezas extremas").
+    humano: { espadachim: 1, lanceiro: 1, arqueiro: 1, brutamontes: 1, assassino: 1, gladiador: 1, guardiao: 1, mago: 1 },
+    // Espartano: str+2/def+1/int-1 — marcial, quase nunca arcano.
+    espartano: { espadachim: 1.3, lanceiro: 1.4, arqueiro: 0.5, brutamontes: 1.5, assassino: 0.6, gladiador: 1.3, guardiao: 1.1, mago: 0.15 },
+    // Ateniense: int+2/cha+1/str-1 — mente antes de músculo.
+    ateniense: { espadachim: 0.8, lanceiro: 0.5, arqueiro: 0.9, brutamontes: 0.2, assassino: 1.2, gladiador: 0.7, guardiao: 0.6, mago: 2.2 },
+    // Cretense: agi+2/luk+1/def-1 — leveza e sorte, nunca linha de frente pesada.
+    cretense: { espadachim: 1.0, lanceiro: 0.5, arqueiro: 1.8, brutamontes: 0.4, assassino: 1.9, gladiador: 0.7, guardiao: 0.3, mago: 0.7 },
+    // Tebano: def+2/str+1/acc-1 — falange defensiva, nunca precisão à distância.
+    tebano: { espadachim: 0.9, lanceiro: 1.2, arqueiro: 0.3, brutamontes: 0.8, assassino: 0.4, gladiador: 1.4, guardiao: 2.0, mago: 0.4 },
+    // Orc: str+3/def+1/int-2 — o exemplo literal do pedido original: força
+    // bruta acima de tudo, magia rara ao extremo.
+    orc: { espadachim: 0.8, lanceiro: 1.2, arqueiro: 0.3, brutamontes: 2.4, assassino: 0.5, gladiador: 1.1, guardiao: 1.2, mago: 0.1 },
+    // Elfo: agi+2/int+2/str-2 — graça e magia, quase nunca força bruta.
+    elfo: { espadachim: 0.7, lanceiro: 0.3, arqueiro: 2.0, brutamontes: 0.15, assassino: 1.5, gladiador: 0.4, guardiao: 0.3, mago: 1.9 },
+    // Anão: def+3/str+1/agi-2 — parede inabalável, quase nunca ágil/furtivo.
+    anao: { espadachim: 0.7, lanceiro: 1.1, arqueiro: 0.2, brutamontes: 1.3, assassino: 0.15, gladiador: 1.2, guardiao: 2.3, mago: 0.5 },
+};
+
 window.AI_PERSONALITIES = AI_PERSONALITIES;
 window.AI_TAUNT_LINES = AI_TAUNT_LINES;
 window.AI_FIGHTING_STYLES = AI_FIGHTING_STYLES;
@@ -372,3 +414,4 @@ window.AI_RARE_ARCHETYPES = AI_RARE_ARCHETYPES;
 window.RARE_ARCHETYPE_CHANCE = RARE_ARCHETYPE_CHANCE;
 window.AI_COMBOS = AI_COMBOS;
 window.AI_EMOTIONS = AI_EMOTIONS;
+window.RACE_STYLE_WEIGHTS = RACE_STYLE_WEIGHTS;

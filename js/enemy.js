@@ -175,7 +175,12 @@ class Enemy extends Entity {
         // STR alto, etc — antes disso os dois sistemas rolavam sem se
         // conhecer, e um estilo podia nascer com o atributo que o define
         // baixíssimo, por puro azar da rolagem uniforme.
-        window.AICombat.assignProfile(this, { level: this.level });
+        //
+        // `raceId: pickedRace` (item 21 — ver RACE_STYLE_WEIGHTS em
+        // ai_data.js): já sorteada mais acima pro pool de nomes, então dá
+        // pra enviesar o ESTILO pela raça no mesmo passo, antes mesmo de
+        // `this.race` ser atribuído formalmente logo abaixo.
+        window.AICombat.assignProfile(this, { level: this.level, raceId: pickedRace });
 
         // Raça (ver races.js) — antes só o Jogador tinha `.race` (escolhida
         // na Criação de Personagem); Entity.getTotalStat já soma o

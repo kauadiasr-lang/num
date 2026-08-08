@@ -38,7 +38,17 @@ const AICombat = {
         const styleIds = Object.keys(AI_FIGHTING_STYLES);
 
         const personalityId = opts.personalityId || personalityIds[Utils.randomInt(0, personalityIds.length - 1)];
-        const styleId = opts.styleId || styleIds[Utils.randomInt(0, styleIds.length - 1)];
+        // Item 21 da revisão profunda ("builds dos inimigos devem fazer
+        // sentido com suas raças"): sem `opts.styleId` explícito, o estilo
+        // de luta era sorteado 100% uniforme entre os 8 estilos, sem
+        // NENHUMA relação com `opts.raceId` (ver enemy.js Enemy, que já
+        // sabe a própria raça neste ponto) — um Orc tinha a mesma chance
+        // de nascer Mago que Brutamontes. RACE_STYLE_WEIGHTS (ai_data.js)
+        // pondera o sorteio pela raça quando disponível, sem excluir
+        // nenhum estilo por completo — "exceções raras" continuam
+        // possíveis, só deixam de ser tão comuns quanto o estilo coerente.
+        const raceWeights = opts.raceId && window.RACE_STYLE_WEIGHTS ? window.RACE_STYLE_WEIGHTS[opts.raceId] : null;
+        const styleId = opts.styleId || (raceWeights ? Utils.weightedPick(raceWeights) : null) || styleIds[Utils.randomInt(0, styleIds.length - 1)];
 
         const basePersonality = AI_PERSONALITIES[personalityId] || AI_PERSONALITIES.veterano;
         const style = AI_FIGHTING_STYLES[styleId] || AI_FIGHTING_STYLES.espadachim;
