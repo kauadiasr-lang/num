@@ -1911,6 +1911,13 @@ class UIManager {
         document.getElementById('stat-dodge').innerText = Math.floor(p.derivedStats.dodgeChance);
         document.getElementById('stat-crit').innerText = Math.floor(p.derivedStats.critChance);
         document.getElementById('stat-block').innerText = Math.floor(p.derivedStats.blockChance || 0);
+        // Resistência a Efeitos Negativos (ver Entity.calculateDerivedStats)
+        // — antes só existia internamente pra battle.js consumir (mutação/
+        // raça/Sorte contribuem, ver negativeEffectResistPercent), sem
+        // NENHUM lugar pro jogador conferir o próprio valor. Mesmo motivo
+        // já corrigido pra raça em updateInventoryStats acima: um número
+        // que afeta combate de verdade não pode ficar invisível.
+        document.getElementById('stat-negresist').innerText = Math.floor(p.derivedStats.negativeEffectResistPercent || 0);
         document.getElementById('stat-fatigue').innerText = p.fatigue || 0;
 
         // Carga (Força): peso equipado vs. capacidade — fica em vermelho

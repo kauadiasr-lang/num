@@ -230,7 +230,16 @@ class Entity {
         this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + sec('bleedResistPercent') + raceBonus('bleedResistPercent');
         this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + sec('drainOnCritPercent') + raceBonus('drainOnCritPercent');
         this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + sec('healPowerBonusPercent') + raceBonus('healPowerBonusPercent');
-        this.derivedStats.negativeEffectResistPercent = (mutation ? mutation.negativeEffectResistPercent : 0) + sec('negativeEffectResistPercent') + raceBonus('negativeEffectResistPercent');
+        // Sorte ganha aqui uma das interações pedidas na revisão profunda
+        // (item 10: "chance de evitar certos efeitos") — nunca mais dano,
+        // só resistência real a atordoamento/lentidão/maldição (ver
+        // negResist em battle.js, já usado simetricamente por
+        // jogador/inimigo). 0.4% de resistência por ponto de Sorte é
+        // modesto o bastante pra nunca competir com os bônus "de verdade"
+        // de mutação/raça (que chegam a dezenas de %), mas dá um motivo
+        // concreto pra investir em Sorte fora de crítico/esquiva/loot —
+        // ninguém quer levar Atordoar/Sangramento/Maldição toda vez.
+        this.derivedStats.negativeEffectResistPercent = (mutation ? mutation.negativeEffectResistPercent : 0) + sec('negativeEffectResistPercent') + raceBonus('negativeEffectResistPercent') + (luk * 0.4);
         this.derivedStats.critChanceLowHpBonus = (mutation ? mutation.critChanceLowHpBonus : 0) + sec('critChanceLowHpBonus') + raceBonus('critChanceLowHpBonus');
         this.derivedStats.mutationSpecials = [...(mutation ? mutation.specials : []), ...(secondaryMutation ? secondaryMutation.specials : [])];
 
