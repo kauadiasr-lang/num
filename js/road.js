@@ -832,6 +832,26 @@ window.RoadEngine = {
         return Math.max(30, h * 0.1 * 0.8);
     },
 
+    // Segundo achado do mesmo bug relatado pelo usuário ("arbustos e
+    // estruturas que não são fixas ao cenário ainda spawnam no meio das
+    // árvores... sem tocar o chão; pontes e estruturas estão feias
+    // também"): árvores gigantes/acampamentos/torres/ponte do rio/trilhas
+    // laterais usavam profundidades FIXAS em pixels de mundo
+    // (LANE_HALF_HEIGHT + 40 a +90, ruínas/cavernas já tinham sido
+    // "corrigidas" num ciclo anterior pra caber dentro de LANE_HALF_HEIGHT
+    // — mas ESSE alvo em si, 140, já era maior que a margem real de tela
+    // calculada acima, ~70-86px na maioria dos viewports). Ou seja, TODA
+    // essa família de marcos decorativos sofre exatamente do mesmo
+    // problema do jogador/NPCs, só que descoberto depois porque pedra/
+    // madeira se confundem mais com o cinza das montanhas de fundo do que
+    // um personagem colorido. Fração de `_maxUpwardHalfHeight()` (nunca
+    // mais que 1.0, preservando a ordem relativa "torre mais funda que
+    // fragmento de ruína" do design original, só comprimida pra caber na
+    // margem real).
+    _landmarkDepthY(fraction) {
+        return fraction * this._maxUpwardHalfHeight();
+    },
+
     _bounds(x = this._player.x) {
         const half = this._laneHalfHeightAt(x);
         const safeMinY = -this._maxUpwardHalfHeight();
@@ -2820,7 +2840,7 @@ window.RoadEngine = {
     _drawRiverCrossing(ctx, w, h) {
         const rx = this.WORLD_LENGTH * this.RIVER_X_FRAC;
         if (!window.Camera.isVisible(rx, 0, w, h, 300)) return;
-        const half = this.LANE_HALF_HEIGHT + 40;
+        const half = this._landmarkDepthY(0.6);
         const riverHalfW = 70;
         const grad = ctx.createLinearGradient(rx - riverHalfW, 0, rx + riverHalfW, 0);
         grad.addColorStop(0, 'rgba(60,120,170,0)');
@@ -2957,7 +2977,7 @@ window.RoadEngine = {
             if (gx < 400 || gx > this.WORLD_LENGTH - 400) continue;
             if (this._hash(i * 97 + 9000) >= 55) continue; // nem todo slot tem uma árvore gigante
             const side = (this._hash(i * 53 + 9500) % 2 === 0) ? -1 : 1;
-            const gy = side * (this.LANE_HALF_HEIGHT + 70);
+            const gy = side * this._landmarkDepthY(0.8);
             if (!window.Camera.isVisible(gx, gy, w, h, 200)) continue;
 
             // Sombra da COPA (item explícito e distinto da seção
@@ -3201,7 +3221,7 @@ window.RoadEngine = {
             if (cx < 500 || cx > this.WORLD_LENGTH - 500) continue;
             if (this._hash(i * 71 + 11000) >= 40) continue; // acampamento raro, nem todo slot tem um
             const side = (this._hash(i * 41 + 11500) % 2 === 0) ? -1 : 1;
-            const cy = side * (this.LANE_HALF_HEIGHT + 60);
+            const cy = side * this._landmarkDepthY(0.65);
             if (!window.Camera.isVisible(cx, cy, w, h, 200)) continue;
 
             // Sombra no chão (pedido do usuário: "sombras" entre os
@@ -3293,7 +3313,7 @@ window.RoadEngine = {
             if (tx < 600 || tx > this.WORLD_LENGTH - 600) continue;
             if (this._hash(i * 113 + 13000) >= 45) continue; // torre rara, nem todo slot tem uma
             const side = (this._hash(i * 67 + 13500) % 2 === 0) ? -1 : 1;
-            const ty = side * (this.LANE_HALF_HEIGHT + 90);
+            const ty = side * this._landmarkDepthY(0.9);
             if (!window.Camera.isVisible(tx, ty, w, h, 220)) continue;
 
             const towerH = 130;
@@ -3479,7 +3499,7 @@ window.RoadEngine = {
             // só encontrado via instrumentação de canvas, não por
             // inspeção visual direta. Corrigido pro mesmo princípio: sempre
             // dentro da faixa caminhável, nunca além dela.
-            const ry = side * (this.LANE_HALF_HEIGHT - 70 - (this._hash(i * 83 + 48000) % 40));
+            const ry = side * this._landmarkDepthY(0.75 - (this._hash(i * 83 + 48000) % 40) / 40 * 0.4);
             if (!window.Camera.isVisible(rx, ry, w, h, 150)) continue;
 
             const fallen = this._hash(i * 71 + 48500) % 2 === 0;
@@ -3553,13 +3573,14 @@ window.RoadEngine = {
             // ainda ficava visível bem além de onde qualquer outro
             // elemento do cenário já alcança. Range reduzido pra nunca
             // ultrapassar essa mesma profundidade seguro estabelecida.
-            const length = 70 + (this._hash(i * 37 + 50000) % 80); // 70-150
+            const lengthFrac = (this._hash(i * 37 + 50000) % 80) / 80; // 0-1, mesma faixa de antes (70-150px)
             const sway = (this._hash(i * 89 + 50500) % 81) - 40; // -40..40, desvio lateral no fim da trilha
-            const p0x = tx, p0y = side * this.LANE_HALF_HEIGHT;
-            if (!window.Camera.isVisible(tx, p0y, w, h, length + 60)) continue;
+            const startFrac = 0.5, endFrac = 0.5 + lengthFrac * 0.45; // sai da faixa caminhável (0.5) até no máximo 0.95 da margem segura
+            const p0x = tx, p0y = side * this._landmarkDepthY(startFrac);
+            if (!window.Camera.isVisible(tx, p0y, w, h, 200)) continue;
 
-            const p2x = tx + sway, p2y = side * (this.LANE_HALF_HEIGHT + length);
-            const p1x = tx + sway * 0.5 + side * 24, p1y = side * (this.LANE_HALF_HEIGHT + length * 0.5);
+            const p2x = tx + sway, p2y = side * this._landmarkDepthY(endFrac);
+            const p1x = tx + sway * 0.5 + side * 24, p1y = side * this._landmarkDepthY((startFrac + endFrac) / 2);
 
             // Pequena mancha de terra batida onde a trilha sai da estrada,
             // ancorando visualmente o início do ramal (mesmo princípio das
@@ -3621,7 +3642,7 @@ window.RoadEngine = {
             // com o céu azul): a formação inteira, com sua sombra no chão,
             // aparecia flutuando acima da linha das montanhas. Corrigido pro
             // mesmo princípio: sempre dentro da faixa caminhável.
-            const cy = side * (this.LANE_HALF_HEIGHT - 60 - (this._hash(i * 41 + 54000) % 50));
+            const cy = side * this._landmarkDepthY(0.85 - (this._hash(i * 41 + 54000) % 50) / 50 * 0.45);
             if (!window.Camera.isVisible(cx, cy, w, h, 140)) continue;
 
             const rockColor = corrupted ? '#241f26' : '#6a6258';
