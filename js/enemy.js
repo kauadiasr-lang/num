@@ -15,22 +15,53 @@ const ENEMY_NAMES = ["Saqueador", "Gladiador Renegado", "Mercenário", "Assassin
 const ENEMY_ADJECTIVES = ["Brutal", "Cicatrizado", "Implacável", "Veloz", "Sanguinário",
     "Faminto", "Traiçoeiro", "Feroz", "Silencioso", "Amaldiçoado", "Desprezível"];
 
-// Pools de nome por raça (ver races.js/citydatabase.js) — sem isso, um Orc da
-// Fortaleza de Gorkhal e um Elfo do Santuário Élfico recebiam exatamente os
-// mesmos nomes genéricos de "Saqueador"/"Bandido" que qualquer humano de
-// Porto Helênico, quebrando a identidade regional que a demografia de
-// `raceDemographics` já cria estatisticamente. Só cobre Orc e Elfo (as
-// raças com cidade-natal dedicada); qualquer raça sem entrada aqui cai no
-// pool genérico de ENEMY_NAMES/ENEMY_ADJECTIVES, preservando o
-// comportamento original pra todo o resto.
+// Pools de nome por raça (ver races.js/citydatabase.js) — item 8 da revisão
+// profunda: nomes ainda seguiam o mesmo padrão genérico "arquétipo +
+// adjetivo" que o pedido original cita como exemplo do que EVITAR ("Orc
+// Guerreiro", "Bandido Forte") — só com vocabulário mais temático por raça
+// ("Guerreiro de Gorkhal Sanguinário" continua sendo um TÍTULO, nunca um
+// nome próprio de verdade). `names` agora é um pool de NOMES PRÓPRIOS reais
+// por cultura (gregos pras 5 raças "humanas", ver races.js `species`;
+// ásperos/guturais pro Orc; élficos fluidos pro Elfo; robustos/nórdicos pro
+// Anão), combinado com `adjectives` (mantido — já era o pool de
+// epítetos/apelidos) na MESMA fórmula de sempre (`${name} ${adjective}`,
+// ver constructor abaixo) — vira "[Nome próprio] + [apelido]" (ex: "Grosh
+// Sanguinário", "Pericles Implacável"), exatamente a estrutura pedida.
+// Cobre as 8 raças jogáveis cadastradas em races.js; qualquer raça nova
+// sem entrada aqui cai no pool genérico ENEMY_NAMES/ENEMY_ADJECTIVES,
+// preservando o comportamento de sempre pra quem ainda não foi migrado.
 const RACE_ENEMY_NAMES = {
+    humano: {
+        names: ["Nikos", "Dimitra", "Alexios", "Elena", "Kostas", "Theodora", "Yannis", "Sofia", "Petros", "Irene", "Markos", "Calista"],
+        adjectives: ["Bravo", "Cicatrizado", "Determinado", "Astuto", "Resiliente", "Ousado", "Vigoroso"]
+    },
+    espartano: {
+        names: ["Leônidas", "Górgo", "Brásidas", "Cinisca", "Lisandro", "Quilônis", "Agesilau", "Damo", "Cleômbroto"],
+        adjectives: ["Inflexível", "Disciplinado", "Implacável", "Marcial", "Sanguinário", "Indomável"]
+    },
+    ateniense: {
+        names: ["Péricles", "Aspásia", "Sófocles", "Diotima", "Alcibíades", "Xantipa", "Temístocles", "Cleis"],
+        adjectives: ["Astuto", "Calculista", "Eloquente", "Implacável", "Traiçoeiro", "Perspicaz"]
+    },
+    cretense: {
+        names: ["Minos", "Ariadne", "Idomeneu", "Britomartis", "Talos", "Pasífae", "Glauco", "Acale"],
+        adjectives: ["Veloz", "Ágil", "Escorregadio", "Certeiro", "Astuto", "Implacável"]
+    },
+    tebano: {
+        names: ["Epaminondas", "Ismênia", "Pelópidas", "Manto", "Cadmo", "Antígona", "Tirésias", "Harmonia"],
+        adjectives: ["Disciplinado", "Firme", "Impenetrável", "Bravo", "Resiliente", "Implacável"]
+    },
     orc: {
-        names: ["Guerreiro de Gorkhal", "Brutamontes Vulcânico", "Carniceiro da Fortaleza", "Chefe de Guerra Orc", "Fera de Ferro Enferrujado"],
+        names: ["Grosh", "Ukra", "Mordak", "Zharga", "Krug", "Uzka", "Thokk", "Vraga", "Gnash", "Morka"],
         adjectives: ["Sanguinário", "Implacável", "Cicatrizado", "Feroz", "Brutal", "Selvagem"]
     },
     elfo: {
-        names: ["Guardião de Sylvaneth", "Arqueiro da Fronteira", "Sentinela das Raízes", "Caçador Élfico", "Lâmina da Floresta Viva"],
+        names: ["Sylvaris", "Elenwë", "Thranduil", "Ithrandir", "Galadwen", "Faelivrin", "Aerendyl", "Nimloth"],
         adjectives: ["Silencioso", "Veloz", "Traiçoeiro", "Etéreo", "Implacável"]
+    },
+    anao: {
+        names: ["Thorin", "Dagna", "Balin", "Grimhild", "Dwalin", "Freya", "Gundren", "Helka"],
+        adjectives: ["Teimoso", "Inabalável", "Robusto", "Implacável", "Resistente", "Feroz"]
     }
 };
 
