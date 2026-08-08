@@ -100,14 +100,43 @@ window.RoadEngine = {
     // clicado, então cobre uma área folgada ao redor dele.
     EVENT_CLICK_RADIUS: 50,
 
+    // Colisão física da Estrada (pedido explícito da revisão profunda,
+    // item 1: "árvores/arbustos grandes/pedras grandes/estruturas/objetos
+    // interativos devem bloquear o movimento... o personagem nunca deve
+    // parecer estar caminhando por cima do cenário"). Raio leve — pequeno o
+    // bastante pra nunca esconder INTERACT_RADIUS (60, o aviso de
+    // proximidade dispara bem antes do jogador esbarrar de verdade),
+    // grande o bastante pra impedir o sprite do jogador de sobrepor o
+    // ícone do evento por cima (mercador/carroça/fogueira/ruína/altar/
+    // caverna/ponte/baú etc. — ver _obstaclesNear/_generateEvents).
+    // Bandido/Espírito da Natureza ficam de fora de propósito (mesmo
+    // motivo de _updateInteractPrompt/_updateBandits: são encontros que o
+    // jogador precisa poder ANDAR ATÉ pra detectar, nunca paredes).
+    EVENT_COLLISION_RADIUS: 26,
+    PLAYER_COLLISION_MARGIN: 14, // "raio" aproximado do próprio jogador, somado ao raio de cada obstáculo
+
     // Marcos de terreno puramente visuais (pedido explícito do usuário na
     // seção "EXPLORAÇÃO ENTRE CIDADES": "rios", "árvores gigantes" — o mapa
     // NÃO deve parecer um corredor uniforme) — ver _drawRiverCrossing/
-    // _drawGiantTrees. Nunca colidem, nunca entram em `_events` (são
-    // paisagem, não interação), então não competem com bandido/mercador/
-    // baú etc. Vale tanto pra travessia real entre cidades quanto pra
-    // Expedição à Floresta Ancestral (que já é descrita como tendo "raízes
-    // gigantes"/"cachoeiras" — as mesmas silhuetas combinam com os dois).
+    // _drawGiantTrees. Nunca entram em `_events` (são paisagem, não
+    // interação), então não competem com bandido/mercador/baú etc. Vale
+    // tanto pra travessia real entre cidades quanto pra Expedição à
+    // Floresta Ancestral (que já é descrita como tendo "raízes gigantes"/
+    // "cachoeiras" — as mesmas silhuetas combinam com os dois).
+    //
+    // Ganham colisão física em _obstaclesNear/_updateMovement (revisão
+    // profunda, item 1: "árvore grande → bloqueia") — antes ficavam de fora
+    // de propósito porque já nascem fora da faixa caminhável padrão
+    // (LANE_HALF_HEIGHT=140: árvore gigante em +70, acampamento em +60,
+    // torre em +90, todos > 140), então o jogador nunca os alcançava de
+    // qualquer forma. Isso deixou de ser garantido quando as clareiras
+    // passaram a alargar a faixa de verdade até +60 (ver
+    // _laneHalfHeightAt) — sem a colisão, um acampamento bem no meio de
+    // uma clareira alargada virava exatamente o bug relatado ("o
+    // personagem nunca deve parecer estar caminhando por cima do
+    // cenário"). A colisão aqui é só uma rede de segurança que nunca
+    // deveria disparar fora de clareiras, mas sempre correta quando
+    // dispara.
     RIVER_X_FRAC: 0.55, // fração do WORLD_LENGTH onde o rio cruza a estrada
     GIANT_TREE_SPACING: 2600, // bem mais esparso que a vegetação normal (220) — são marcos raros, não decoração de fundo
     CAMP_SPACING: 5200, // acampamentos — mais esparsos ainda que as árvores gigantes (cenário raro, não repetitivo)
@@ -925,6 +954,52 @@ window.RoadEngine = {
         return current;
     },
 
+    // Coleta os obstáculos físicos (círculos de colisão) num raio de ±500
+    // ao redor de `x` — nunca a lista inteira do mundo (63000 de
+    // comprimento), mesmo princípio de janela usado por
+    // _drawGiantTrees/_drawTravelCamps/_drawWatchtowers (varre só os
+    // índices de spacing que caem perto o bastante de x, sempre reusando o
+    // MESMO hash/spacing/lado de cada função de desenho — nunca reinventa
+    // o sorteio, senão o círculo de colisão nasceria num lugar diferente
+    // do desenho real). Chamada a cada frame por _updateMovement, então
+    // precisa ficar barata: no pior caso, ~1-2 marcos de cada tipo (árvore
+    // gigante/acampamento/torre) + até 14 eventos físicos (EVENT_COUNT).
+    _obstaclesNear(x) {
+        const obstacles = [];
+        const RANGE = 500;
+
+        const pushLandmarks = (spacing, hashA, hashB, gate, minEdge, sideExtra, radius) => {
+            const firstIdx = Math.floor((x - RANGE) / spacing);
+            const lastIdx = Math.ceil((x + RANGE) / spacing);
+            for (let i = firstIdx; i <= lastIdx; i++) {
+                const gx = i * spacing;
+                if (gx < minEdge || gx > this.WORLD_LENGTH - minEdge) continue;
+                if (this._hash(i * hashA[0] + hashA[1]) >= gate) continue;
+                const side = (this._hash(i * hashB[0] + hashB[1]) % 2 === 0) ? -1 : 1;
+                const gy = side * (this.LANE_HALF_HEIGHT + sideExtra);
+                obstacles.push({ cx: gx, cy: gy, radius });
+            }
+        };
+        // Mesmos parâmetros de _drawGiantTrees/_drawTravelCamps/_drawWatchtowers.
+        pushLandmarks(this.GIANT_TREE_SPACING, [97, 9000], [53, 9500], 55, 400, 70, 34);
+        pushLandmarks(this.CAMP_SPACING, [71, 11000], [41, 11500], 40, 500, 60, 44);
+        pushLandmarks(this.TOWER_SPACING, [113, 13000], [67, 13500], 45, 600, 90, 26);
+
+        for (const ev of this._events) {
+            if (ev.consumed || ev.type === 'bandit' || ev.type === 'nature_spirit') continue;
+            if (Math.abs(ev.x - x) > RANGE) continue;
+            obstacles.push({ cx: ev.x, cy: ev.y, radius: this.EVENT_COLLISION_RADIUS });
+        }
+        return obstacles;
+    },
+
+    _collidesWorld(x, y, obstacles) {
+        for (const o of obstacles) {
+            if (Math.hypot(x - o.cx, y - o.cy) < o.radius + this.PLAYER_COLLISION_MARGIN) return true;
+        }
+        return false;
+    },
+
     // Movimento local da Estrada — NUNCA delega pra PlayerController.update
     // (que é hard-snap, sem aceleração): o pedido do usuário foi
     // explicitamente "adicionar movimento suave com aceleração e
@@ -971,8 +1046,17 @@ window.RoadEngine = {
         p.moving = realSpeed > 5;
         if (Math.abs(p.vx) > 5) p.facing = p.vx > 0 ? 1 : -1;
 
-        p.x = Utils.clamp(p.x + p.vx * dt, bounds.minX, bounds.maxX);
-        p.y = Utils.clamp(p.y + p.vy * dt, bounds.minY, bounds.maxY);
+        // Colisão física (ver _obstaclesNear/_collidesWorld) — cada eixo
+        // testado separadamente, mesmo princípio de PlayerController.collides
+        // (deslizar ao longo do obstáculo em vez de travar totalmente): um
+        // jogador se aproximando na diagonal de uma árvore gigante continua
+        // andando ao longo dela em vez de parar de vez assim que qualquer um
+        // dos dois eixos esbarra.
+        const obstacles = this._obstaclesNear(p.x);
+        const nx = Utils.clamp(p.x + p.vx * dt, bounds.minX, bounds.maxX);
+        const ny = Utils.clamp(p.y + p.vy * dt, bounds.minY, bounds.maxY);
+        if (!this._collidesWorld(nx, p.y, obstacles)) p.x = nx;
+        if (!this._collidesWorld(p.x, ny, obstacles)) p.y = ny;
 
     },
 
