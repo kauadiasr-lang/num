@@ -895,7 +895,17 @@ window.RoadEngine = {
             if (this._hash(i * 61 + 13000) >= 45) continue; // não é uma clareira válida
             if (this._hash(i * 83 + 14500) >= 40) continue; // só ~40% das clareiras têm tesouro
             const side = (this._hash(i * 97 + 15200) % 2 === 0) ? -1 : 1;
-            const y = side * (this.LANE_HALF_HEIGHT + 40);
+            // Auditoria exaustiva (3ª rodada de "ainda estão flutuando"):
+            // além de flutuar, um tesouro do lado negativo (`side === -1`)
+            // ficava literalmente INALCANÇÁVEL depois do fix de
+            // _bounds()/_maxUpwardHalfHeight() (ver comentário acima de
+            // _bounds) — o jogador nunca consegue andar além de
+            // -_maxUpwardHalfHeight() pra cima, então um evento em
+            // -(LANE_HALF_HEIGHT+40) ficava fora do INTERACT_RADIUS (60)
+            // pra sempre. O lado positivo (chão em primeiro plano) nunca
+            // teve esse problema (sem limite de tela pra baixo), então só
+            // o lado negativo precisa do teto.
+            const y = side < 0 ? -this._maxUpwardHalfHeight() : side * (this.LANE_HALF_HEIGHT + 40);
             this._events.push({ type: 'clearing_treasure', x: clx, y, spawnX: clx, consumed: false });
         }
     },
@@ -1036,7 +1046,19 @@ window.RoadEngine = {
         const obstacles = [];
         const RANGE = 500;
 
-        const pushLandmarks = (spacing, hashA, hashB, gate, minEdge, sideExtra, radius) => {
+        // Auditoria exaustiva (3ª rodada de "ainda estão flutuando"): o fix
+        // anterior (fa5a050) moveu a posição de DESENHO de árvores
+        // gigantes/acampamentos/torres pra dentro da faixa segura (ver
+        // _landmarkDepthY em _drawGiantTrees/_drawTravelCamps/
+        // _drawWatchtowers), mas esqueceu de atualizar o círculo de
+        // COLISÃO aqui, que ainda usava o offset antigo (`sideExtra` bruto
+        // em pixels) — o obstáculo físico ficava flutuando no ar no lugar
+        // onde a árvore costumava ser desenhada, dessincronizado da árvore
+        // de verdade (agora bem mais perto da faixa). `depthFrac` precisa
+        // ser EXATAMENTE a mesma fração passada pra _landmarkDepthY em cada
+        // função de desenho, senão o obstáculo continua num lugar
+        // diferente do desenho.
+        const pushLandmarks = (spacing, hashA, hashB, gate, minEdge, depthFrac, radius) => {
             const firstIdx = Math.floor((x - RANGE) / spacing);
             const lastIdx = Math.ceil((x + RANGE) / spacing);
             for (let i = firstIdx; i <= lastIdx; i++) {
@@ -1044,14 +1066,14 @@ window.RoadEngine = {
                 if (gx < minEdge || gx > this.WORLD_LENGTH - minEdge) continue;
                 if (this._hash(i * hashA[0] + hashA[1]) >= gate) continue;
                 const side = (this._hash(i * hashB[0] + hashB[1]) % 2 === 0) ? -1 : 1;
-                const gy = side * (this.LANE_HALF_HEIGHT + sideExtra);
+                const gy = side * this._landmarkDepthY(depthFrac);
                 obstacles.push({ cx: gx, cy: gy, radius });
             }
         };
-        // Mesmos parâmetros de _drawGiantTrees/_drawTravelCamps/_drawWatchtowers.
-        pushLandmarks(this.GIANT_TREE_SPACING, [97, 9000], [53, 9500], 55, 400, 70, 34);
-        pushLandmarks(this.CAMP_SPACING, [71, 11000], [41, 11500], 40, 500, 60, 44);
-        pushLandmarks(this.TOWER_SPACING, [113, 13000], [67, 13500], 45, 600, 90, 26);
+        // Mesmas frações de _drawGiantTrees/_drawTravelCamps/_drawWatchtowers.
+        pushLandmarks(this.GIANT_TREE_SPACING, [97, 9000], [53, 9500], 55, 400, 0.8, 34);
+        pushLandmarks(this.CAMP_SPACING, [71, 11000], [41, 11500], 40, 500, 0.65, 44);
+        pushLandmarks(this.TOWER_SPACING, [113, 13000], [67, 13500], 45, 600, 0.9, 26);
 
         for (const ev of this._events) {
             if (ev.consumed || ev.type === 'bandit' || ev.type === 'nature_spirit') continue;
@@ -1709,7 +1731,7 @@ window.RoadEngine = {
             const gx = i * groundSpacing;
             if (gx < 0 || gx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 19 + 17000) >= 55) continue;
-            const gy = (this._hash(i * 23 + 17500) % 2 === 0 ? -1 : 1) * (this.LANE_HALF_HEIGHT * 0.5);
+            const gy = (this._hash(i * 23 + 17500) % 2 === 0 ? -1 : 1) * Math.min(this.LANE_HALF_HEIGHT * 0.5, this._maxUpwardHalfHeight());
             if (!window.Camera.isVisible(gx, gy, w, h)) continue;
             ctx.fillStyle = corrupted ? 'rgba(20,10,25,0.25)' : 'rgba(0,0,0,0.12)';
             ctx.beginPath();
@@ -1766,7 +1788,13 @@ window.RoadEngine = {
             const density = this._zoneDensityAt(vx);
             if (this._hash(i) >= 40 * density) continue;
             const side = (i % 2 === 0) ? -1 : 1;
-            const vy = side * (this.LANE_HALF_HEIGHT - 20);
+            // Auditoria exaustiva (3ª rodada de "ainda estão flutuando"):
+            // esta é literalmente a vegetação esparsa (pedra/planta/
+            // arbusto/flor) reportada como "arbustos... spawnam no meio
+            // das árvores... sem tocar o chão" — 120px de distância do
+            // centro já excedia a margem segura de tela (ver
+            // _maxUpwardHalfHeight).
+            const vy = side * Math.min(this.LANE_HALF_HEIGHT - 20, this._maxUpwardHalfHeight());
             if (!window.Camera.isVisible(vx, vy, w, h)) continue;
 
             // Sombra no chão (pedido do usuário: "sombras" entre os
@@ -2853,10 +2881,16 @@ window.RoadEngine = {
         // em si, o rio continua visível além dela dos dois lados.
         const bridgeW = 26;
         ctx.fillStyle = '#5a4230';
-        ctx.fillRect(rx - bridgeW / 2, -this.LANE_HALF_HEIGHT, bridgeW, this.LANE_HALF_HEIGHT * 2);
+        // Auditoria exaustiva (3ª rodada de "ainda estão flutuando", pedido
+        // explícito do usuário "pontes... estão feias também"): o fix
+        // anterior (fa5a050) só encolheu o gradiente da água (`half` acima)
+        // pra caber na faixa segura, mas esqueceu o TABULEIRO da ponte em
+        // si, que continuava usando LANE_HALF_HEIGHT bruto (140) — a ponte
+        // ficava bem mais alta que a própria faixa de água por baixo dela.
+        ctx.fillRect(rx - bridgeW / 2, -half, bridgeW, half * 2);
         ctx.strokeStyle = '#3a2c1e';
         ctx.lineWidth = 3;
-        for (let py = -this.LANE_HALF_HEIGHT; py <= this.LANE_HALF_HEIGHT; py += 24) {
+        for (let py = -half; py <= half; py += 24) {
             ctx.beginPath();
             ctx.moveTo(rx - bridgeW / 2, py);
             ctx.lineTo(rx + bridgeW / 2, py);
@@ -2955,7 +2989,7 @@ window.RoadEngine = {
             grad.addColorStop(1, `rgba(${rgb},0)`);
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.ellipse(clx, 0, radius, this.LANE_HALF_HEIGHT + 60, 0, 0, Math.PI * 2);
+            ctx.ellipse(clx, 0, radius, Math.min(this.LANE_HALF_HEIGHT + 60, this._maxUpwardHalfHeight()), 0, 0, Math.PI * 2);
             ctx.fill();
         }
     },
@@ -3414,7 +3448,12 @@ window.RoadEngine = {
             // princípio já usado pelas folhas caídas (`LANE_HALF_HEIGHT - 30`
             // logo abaixo neste arquivo) — sempre com chão visível por
             // baixo, nunca na profundidade reservada a marcos grandes.
-            const py = side * (this.LANE_HALF_HEIGHT - 80 - (this._hash(i * 43 + 37000) % 40));
+            // Auditoria exaustiva (3ª rodada): esse "corrigido pra manter
+            // dentro da faixa caminhável" do comentário acima (iteração 22)
+            // ainda podia chegar a 60px do centro — mais que a margem
+            // segura real em telas de celular (ver _maxUpwardHalfHeight),
+            // então esta 2ª correção precisa do MESMO teto de tela.
+            const py = side * Math.min(this.LANE_HALF_HEIGHT - 80 - (this._hash(i * 43 + 37000) % 40), this._maxUpwardHalfHeight());
             if (!window.Camera.isVisible(px, py, w, h, 60)) continue;
 
             const isLog = this._hash(i * 71 + 37500) % 2 === 0;
@@ -3754,7 +3793,18 @@ window.RoadEngine = {
             // baixo, flutuando acima da linha das montanhas (bem visível a
             // olho nu, sombra incluída). Corrigido pro mesmo princípio:
             // sempre dentro da faixa caminhável.
-            const ay = side * (this.LANE_HALF_HEIGHT - 55 - (this._hash(i * 43 + 69000) % 45));
+            //
+            // Auditoria exaustiva (3ª rodada, screenshot do usuário
+            // "ainda estão flutuando" mostrando exatamente este altar): a
+            // correção da iteração 24 usava LANE_HALF_HEIGHT (140) como
+            // referência de "faixa caminhável segura", mas essa própria
+            // premissa é o bug raiz (ver _maxUpwardHalfHeight) — 140 nunca
+            // foi comparado contra a margem REAL de tela até o fix de
+            // _bounds()/_drawAmbientLife. Agora usa _landmarkDepthY, mesmo
+            // princípio já aplicado a _drawRuinFragments/_drawCaveEntrances
+            // no fix anterior (fa5a050), preservando a mesma faixa relativa
+            // [0.35, 0.75] usada por _drawRuinFragments.
+            const ay = side * this._landmarkDepthY(0.75 - (this._hash(i * 43 + 69000) % 45) / 45 * 0.4);
             if (!window.Camera.isVisible(ax, ay, w, h, 90)) continue;
 
             const stoneColor = corrupted ? '#362a38' : '#7d7566';
@@ -3818,7 +3868,8 @@ window.RoadEngine = {
             if (fx < 0 || fx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 137 + 21000) >= 22 * this._zoneDensityAt(fx)) continue;
             const side = (this._hash(i * 61 + 21500) % 2 === 0) ? -1 : 1;
-            const fy = side * (this.LANE_HALF_HEIGHT - 30) - (this._hash(i * 29 + 22000) % 40);
+            let fy = side * (this.LANE_HALF_HEIGHT - 30) - (this._hash(i * 29 + 22000) % 40);
+            fy = Math.max(fy, -this._maxUpwardHalfHeight()); // auditoria exaustiva: mesmo teto de _drawAmbientLife
             if (!window.Camera.isVisible(fx, fy, w, h)) continue;
 
             // Cada vagalume tem sua própria fase/altura de flutuação (a
@@ -3860,7 +3911,8 @@ window.RoadEngine = {
             if (mx < 0 || mx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 149 + 27000) >= 16 * this._zoneDensityAt(mx)) continue;
             const side = (this._hash(i * 79 + 27500) % 2 === 0) ? -1 : 1;
-            const my = side * this._hashRange(i * 37 + 28000, 0, this.LANE_HALF_HEIGHT - 1);
+            let my = side * this._hashRange(i * 37 + 28000, 0, this.LANE_HALF_HEIGHT - 1);
+            my = Math.max(my, -this._maxUpwardHalfHeight()); // auditoria exaustiva: mesmo teto de _drawAmbientLife
             if (!window.Camera.isVisible(mx, my, w, h)) continue;
 
             const phase = (i * 1.847) % (Math.PI * 2);
@@ -3895,7 +3947,8 @@ window.RoadEngine = {
             if (bx < 0 || bx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 157 + 34000) >= 14 * this._zoneDensityAt(bx)) continue;
             const side = (this._hash(i * 89 + 34500) % 2 === 0) ? -1 : 1;
-            const by0 = side * this._hashRange(i * 47 + 35000, 0, this.LANE_HALF_HEIGHT - 1);
+            let by0 = side * this._hashRange(i * 47 + 35000, 0, this.LANE_HALF_HEIGHT - 1);
+            by0 = Math.max(by0, -this._maxUpwardHalfHeight()); // auditoria exaustiva: mesmo teto de _drawAmbientLife
 
             const phase = (i * 3.11) % (Math.PI * 2);
             const flitX = Math.sin(t * 0.9 + phase) * 26 + Math.cos(t * 2.1 + phase * 1.6) * 8;
@@ -3934,7 +3987,8 @@ window.RoadEngine = {
             if (sx < 0 || sx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 191 + 45000) >= 18 * this._zoneDensityAt(sx)) continue;
             const side = (this._hash(i * 113 + 45500) % 2 === 0) ? -1 : 1;
-            const sy = side * this._hashRange(i * 61 + 46000, 0, this.LANE_HALF_HEIGHT - 1);
+            let sy = side * this._hashRange(i * 61 + 46000, 0, this.LANE_HALF_HEIGHT - 1);
+            sy = Math.max(sy, -this._maxUpwardHalfHeight()); // auditoria exaustiva: mesmo teto de _drawAmbientLife
             if (!window.Camera.isVisible(sx, sy, w, h)) continue;
 
             const count = 3 + (this._hash(i * 41 + 46500) % 3); // 3-5 insetos por nuvem
@@ -3982,7 +4036,7 @@ window.RoadEngine = {
             if (this._hash(i) >= 40 * this._zoneDensityAt(vx)) continue; // mesmo gate de densidade da vegetação esparsa
             if (this._hash(i * 83 + 15000) % 5 !== 2) continue; // só nos slots que realmente têm flor (detailType===2)
             const side = (i % 2 === 0) ? -1 : 1;
-            const vy = side * (this.LANE_HALF_HEIGHT - 20);
+            const vy = side * Math.min(this.LANE_HALF_HEIGHT - 20, this._maxUpwardHalfHeight());
             if (!window.Camera.isVisible(vx, vy, w, h, 60)) continue;
 
             const color = flowerColors[this._hash(i * 211 + 55000) % flowerColors.length];
@@ -4036,9 +4090,16 @@ window.RoadEngine = {
             if (this._hash(i * 223 + 102000) >= 20 * this._zoneDensityAt(lx)) continue; // nem todo slot tem folha caindo
 
             const fallSpeed = 18 + (this._hash(i * 67 + 102500) % 14); // 18-31 un/s
-            const cycleH = this.LANE_HALF_HEIGHT * 2 + 60; // do alto da copa até sumir sob o chão
+            // Auditoria exaustiva (3ª rodada): o topo do ciclo (-LANE_HALF_HEIGHT-40
+            // = -180) nascia bem dentro da silhueta das montanhas de fundo —
+            // a folha parecia "sair voando de dentro da montanha". Topo
+            // agora travado na mesma margem seguro de tela do resto do
+            // arquivo (ver _maxUpwardHalfHeight); o fundo do ciclo (sumir
+            // sob o chão) continua igual, sem limite pra baixo.
+            const topY = -this._maxUpwardHalfHeight();
+            const cycleH = this.LANE_HALF_HEIGHT * 2 + 60 - (this.LANE_HALF_HEIGHT + 40 + topY); // preserva o mesmo alcance total até sumir sob o chão
             const seedT = this._hashRange(i * 79 + 103000, 0, 999);
-            const fallY = -this.LANE_HALF_HEIGHT - 40 + ((t * fallSpeed + seedT) % cycleH);
+            const fallY = topY + ((t * fallSpeed + seedT) % cycleH);
             const swayPhase = (i * 4.13) % (Math.PI * 2);
             const sway = Math.sin(t * 1.1 + swayPhase) * 16;
             const lxPos = lx + sway;
@@ -4080,7 +4141,7 @@ window.RoadEngine = {
             const lx = i * spacing;
             if (lx < 0 || lx > this.WORLD_LENGTH) continue;
             if (this._hash(i * 179 + 41000) >= 30 * this._zoneDensityAt(lx)) continue; // nem todo slot tem folha
-            const ly = this._hashRange(i * 97 + 41500, -this.LANE_HALF_HEIGHT, this.LANE_HALF_HEIGHT);
+            const ly = this._hashRange(i * 97 + 41500, -this._maxUpwardHalfHeight(), this.LANE_HALF_HEIGHT);
             if (!window.Camera.isVisible(lx, ly, w, h)) continue;
 
             const colorIdx = this._hash(i * 53 + 42000) % palette.length;
@@ -4117,10 +4178,19 @@ window.RoadEngine = {
     // grama desde sempre), só o lado POSITIVO (chão em primeiro plano,
     // "a parte de baixo do mapa" do relato original) se estende até
     // GRASS_MAX_HALF_HEIGHT.
+    //
+    // Auditoria exaustiva (3ª rodada de "ainda estão flutuando"): o
+    // "limite seguro" acima (-LANE_HALF_HEIGHT = -140) NUNCA foi de fato
+    // seguro — é a mesma premissa errada corrigida em _bounds()/
+    // _drawAmbientLife (ver _maxUpwardHalfHeight): a margem real de tela
+    // é bem menor que 140 em qualquer viewport comum. Esta função alimenta
+    // TANTO _drawGrassTufts QUANTO _drawGroundBushes — os "arbustos" que o
+    // usuário reportou explicitamente ainda flutuando no meio das árvores
+    // do cenário.
     _groundCoverageY(sideSeed, magSeed) {
         const side = (this._hash(sideSeed) % 2 === 0) ? -1 : 1;
-        const maxMag = side < 0 ? this.LANE_HALF_HEIGHT : this.GRASS_MAX_HALF_HEIGHT;
-        return side * this._hashRange(magSeed, this.PATH_CLEAR_HALF_WIDTH, maxMag);
+        const maxMag = side < 0 ? this._maxUpwardHalfHeight() : this.GRASS_MAX_HALF_HEIGHT;
+        return side * this._hashRange(magSeed, Math.min(this.PATH_CLEAR_HALF_WIDTH, maxMag), maxMag);
     },
 
     // Tufos de grama variada (pedido explícito da seção "Estilo visual":
@@ -4270,7 +4340,15 @@ window.RoadEngine = {
             // valor pro range desejado em vez de usar `% 490` (que seria
             // um no-op inútil já que 99 < 490 — bug real encontrado e
             // corrigido durante esta própria iteração, antes de commitar).
-            const dy = -70 + Math.round(this._hash(i * 173 + 80500) * 489 / 99);
+            // Auditoria exaustiva (3ª rodada): o comentário acima já dizia
+            // "-70 nunca deixa nada flutuar no céu", mas -70 em si já
+            // excede a margem real de tela (ver _maxUpwardHalfHeight) —
+            // menos que 30 e 64px dependendo do viewport. Topo do range
+            // agora usa a margem real em vez do -70 fixo, mantendo o mesmo
+            // range total (489) só que ancorado no ponto seguro.
+            const topDy = -this._maxUpwardHalfHeight();
+            const bottomDy = 419; // mesmo fundo de sempre (chão em primeiro plano), nunca teve problema de flutuar
+            const dy = topDy + Math.round(this._hash(i * 173 + 80500) * (bottomDy - topDy) / 99);
             if (!window.Camera.isVisible(dx, dy, w, h)) continue;
 
             const kind = this._hash(i * 41 + 81000) % 5;
@@ -4745,12 +4823,19 @@ window.RoadEngine = {
     // roxa doentia. `corrupted` é o 5º parâmetro OPCIONAL — chamadas sem
     // ele continuam com o visual normal de sempre.
     _drawMarker(ctx, x, label, tintColor, corrupted) {
+        // Auditoria exaustiva (3ª rodada de "ainda estão flutuando"): a
+        // barra ia até -LANE_HALF_HEIGHT (-140) no topo — bem acima da
+        // margem segura de tela (ver _maxUpwardHalfHeight) — e o rótulo
+        // ainda mais acima disso (-152). Topo travado na margem real;
+        // fundo continua em LANE_HALF_HEIGHT, sem problema (chão em
+        // primeiro plano nunca flutua).
+        const topY = -this._maxUpwardHalfHeight();
         ctx.fillStyle = corrupted ? 'rgba(90,40,120,0.75)' : (tintColor ? tintColor.replace(/[\d.]+\)$/, '0.9)') : 'rgba(255,255,255,0.85)');
-        ctx.fillRect(x - 3, -this.LANE_HALF_HEIGHT, 6, this.LANE_HALF_HEIGHT * 2);
+        ctx.fillRect(x - 3, topY, 6, this.LANE_HALF_HEIGHT - topY);
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(label, x, -this.LANE_HALF_HEIGHT - 12);
+        ctx.fillText(label, x, topY - 12);
     },
 
     // Portão de cidade (início/fim da travessia) — uma faixa de chão que
@@ -4760,7 +4845,15 @@ window.RoadEngine = {
     // nua. Fronteiras internas de bioma (Campos/Bosque/Floresta) continuam
     // usando o _drawMarker simples — só início/fim de cidade ganham o portão.
     _drawCityGate(ctx, x, label, isNight) {
-        const half = this.LANE_HALF_HEIGHT;
+        // Auditoria exaustiva (3ª rodada de "ainda estão flutuando",
+        // pedido explícito "estruturas estão feias também"): o portão
+        // (postes + viga + tocha + rótulo) subia até -postH-26 = -116, bem
+        // além da margem segura de tela. Como torchY/lintel/rótulo são
+        // TODOS derivados de `postH` (ver mais abaixo), basta limitar
+        // `postH` na origem pra encolher a estrutura inteira de forma
+        // proporcional — nunca mais alta que o topo seguro, sem distorcer
+        // largura/proporção dos postes.
+        const half = Math.min(this.LANE_HALF_HEIGHT, this._maxUpwardHalfHeight());
         const r = this.GATE_ZONE_RADIUS;
 
         const grad = ctx.createLinearGradient(x - r, 0, x + r, 0);
@@ -4770,7 +4863,7 @@ window.RoadEngine = {
         ctx.fillStyle = grad;
         ctx.fillRect(x - r, -half, r * 2, half * 2);
 
-        const postW = 14, postH = 90, postGap = 46;
+        const postW = 14, postH = Math.min(90, this._maxUpwardHalfHeight()), postGap = 46;
         ctx.fillStyle = '#5a4a3a';
         ctx.fillRect(x - postGap - postW / 2, -postH, postW, postH * 2);
         ctx.fillRect(x + postGap - postW / 2, -postH, postW, postH * 2);
