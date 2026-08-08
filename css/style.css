@@ -1300,9 +1300,33 @@ html, body {
 .skilltree-node.unlockable { border-color: #6bb2ff; cursor: pointer; }
 .skilltree-node.unlockable:hover { transform: translateY(-2px); }
 .skilltree-node.locked { opacity: 0.45; filter: grayscale(70%); }
-.skilltree-node h5 { color: var(--color-gold); font-size: 0.82rem; margin-bottom: 3px; }
+.skilltree-node h5 { color: var(--color-gold); font-size: 0.82rem; margin-bottom: 3px; word-wrap: break-word; }
 .skilltree-node .node-type { font-size: 0.68rem; text-transform: uppercase; color: #6bb2ff; margin-bottom: 3px; }
 .skilltree-node .node-cost { font-size: 0.68rem; color: var(--color-marble-dark); margin-top: 3px; }
+
+/* Bug de overflow corrigido (revisão profunda, item 7): o botão
+   Equipar/Desequipar herdava o tamanho de `.btn` (font-size 1.2rem,
+   padding 30px na horizontal, pensado pra CTAs de tela cheia) — dentro do
+   nó de 130px de largura (114px de área útil, já descontando o padding do
+   próprio nó), o botão renderizado ficava com ~125px, maior que a área
+   disponível, e vazava pra fora da caixa do nó (confirmado por medição
+   real via getBoundingClientRect: btnRight > nodeRight). Escopado só a
+   `.skilltree-node` (não mexe em nenhum outro uso de `.btn-small` no resto
+   do jogo, que já cabe bem nos containers mais largos onde aparece) —
+   `width: 100%` faz o botão nunca depender do próprio texto pra decidir a
+   largura, e o font-size bem menor garante que mesmo "Desequipar" (a
+   palavra mais longa das duas) sobre com folga dentro dos 114px de área
+   útil do nó, em qualquer resolução.
+*/
+.skilltree-node button {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.64rem;
+    padding: 4px 6px;
+    letter-spacing: 0;
+    white-space: normal;
+    word-wrap: break-word;
+}
 
 .mutations-bosses-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .boss-defeated-card {
