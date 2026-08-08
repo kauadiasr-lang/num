@@ -807,9 +807,35 @@ window.RoadEngine = {
         this._player.pathQueue = [];
     },
 
+    // Bug relatado pelo usuário ("npcs e o player ainda conseguem sair do
+    // chão"): `Camera.y` fica travado em 0 de propósito (ver comentário de
+    // _updateCamera acima), então a posição de TELA de qualquer entidade
+    // vira sempre `canvasH/2 + worldY` (sem nenhum outro deslocamento). O
+    // horizonte (linha onde o céu vira chão, ver draw() `horizon = h*0.4`)
+    // fica em `canvasH*0.4` — ou seja, o mundo Y "seguro" (que ainda
+    // desenha ABAIXO do horizonte) vai só até `-canvasH*0.1`. LANE_HALF_HEIGHT
+    // (140, chegando a 200 nas clareiras) nunca foi comparado contra essa
+    // margem real de tela — em qualquer viewport onde `canvasH*0.1` for
+    // menor que 140 (a maioria: precisaria de uma tela de ~1400px só pra
+    // essa margem sozinha), o jogador conseguia andar até um Y de mundo que
+    // desenha ACIMA do horizonte, "saindo do chão" visualmente pra dentro
+    // da linha de árvores/céu, mesmo continuando 100% "dentro dos limites"
+    // pela própria lógica de colisão. Mesma margem também limita as
+    // posições Y de NPCs ambiente (ver _drawAmbientLife) — só assim os dois
+    // (jogador e NPCs) ficam consistentes entre si.
+    _maxUpwardHalfHeight() {
+        const h = (window.Engine && window.Engine.height) || 800;
+        // Margem real até o horizonte = canvasH*0.5 (centro, onde worldY=0
+        // desenha) menos canvasH*0.4 (o próprio horizonte) = canvasH*0.1.
+        // 0.8x dessa margem deixa uma folga visual (nunca encosta o
+        // personagem exatamente na linha do horizonte).
+        return Math.max(30, h * 0.1 * 0.8);
+    },
+
     _bounds(x = this._player.x) {
         const half = this._laneHalfHeightAt(x);
-        return { minX: 0, maxX: this.WORLD_LENGTH, minY: -half, maxY: half };
+        const safeMinY = -this._maxUpwardHalfHeight();
+        return { minX: 0, maxX: this.WORLD_LENGTH, minY: Math.max(-half, safeMinY), maxY: half };
     },
 
     // Clareiras alargam a faixa caminhável DE VERDADE (pedido do usuário:
@@ -2725,6 +2751,11 @@ window.RoadEngine = {
         const firstChunk = Math.max(0, Math.floor((px - w) / chunkSize) - 1);
         const lastChunk = Math.min(Math.ceil(this.WORLD_LENGTH / chunkSize), Math.ceil((px + w) / chunkSize) + 1);
         const t = performance.now() / 1000;
+        // Mesmo teto de _bounds() (ver comentário lá) — sem isso, NPCs
+        // ambiente do lado "-1" (caravana -40, viajante/patrulha/rival até
+        // -95/-115/-130) também desenhavam acima do horizonte em viewports
+        // mais baixos, exatamente o mesmo bug relatado pro jogador.
+        const maxUpwardY = -this._maxUpwardHalfHeight();
 
         for (let c = firstChunk; c <= lastChunk; c++) {
             if (this._hash(c * 13 + 5000) >= this.AMBIENT_SPAWN_CHANCE) continue;
@@ -2770,6 +2801,7 @@ window.RoadEngine = {
                 y = (seed % 2 === 0 ? -1 : 1) * 130;
                 facing = (seed % 2 === 0) ? 1 : -1;
             }
+            y = Math.max(y, maxUpwardY);
 
             if (!window.Camera.isVisible(x, y, w, h, 150)) continue;
             if (kind === 'npc_traveler' || kind === 'patrol' || kind === 'rival_gladiator') this._drawAmbientHuman(ctx, x, y, kind, seed, facing, isNight, chunkStart + chunkSize * 0.5);
