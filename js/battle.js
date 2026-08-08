@@ -184,6 +184,22 @@ class BattleSystem {
         return msg;
     }
 
+    // Precisão (ACC) do ATACANTE melhora a chance bruta de um efeito
+    // negativo (atordoar/lentidão) realmente grudar no alvo — item 11 da
+    // revisão profunda ("habilidades que exigem precisão"). Simétrico ao
+    // papel de Sorte (negativeEffectResistPercent, ver
+    // Entity.calculateDerivedStats): Sorte protege VOCÊ de ser atordoado,
+    // Precisão ajuda VOCÊ a atordoar o outro — os dois atributos ganham
+    // identidades distintas em vez de disputar o mesmo papel de "atributo
+    // de efeitos negativos". Aplicado ANTES da resistência do alvo (nunca
+    // ignora negResist, só melhora a rolagem bruta que o alvo ainda resiste
+    // por cima) — 0.3 ponto percentual por ponto de ACC é modesto o
+    // bastante pra nunca tornar um stun garantido sozinho.
+    _precisionEffectChance(baseChance, attacker) {
+        const acc = attacker.getTotalStat ? attacker.getTotalStat('acc') : 0;
+        return baseChance + acc * 0.3;
+    }
+
     executeAttack(attacker, defender, attackerState, defenderState, damageMulti = 1, isCounter = false) {
         const isPlayer = attacker === this.player;
         const defX = window.GFX.getEntityX(!isPlayer, window.innerWidth);
@@ -315,8 +331,8 @@ class BattleSystem {
                 // efeito real de verdade — ver applyBleedTick.
                 defenderState.bleedIgnoresArmor = !!enchantEff.dot.ignoresArmor;
             }
-            if (enchantEff.stunChance && Utils.chance(enchantEff.stunChance * (1 - negResist))) defenderState.stunned = true;
-            if (enchantEff.slowChance && Utils.chance(enchantEff.slowChance * (1 - negResist))) defenderState.justRan = true; // reaproveita a penalidade de esquiva já existente como "lentidão"
+            if (enchantEff.stunChance && Utils.chance(this._precisionEffectChance(enchantEff.stunChance, attacker) * (1 - negResist))) defenderState.stunned = true;
+            if (enchantEff.slowChance && Utils.chance(this._precisionEffectChance(enchantEff.slowChance, attacker) * (1 - negResist))) defenderState.justRan = true; // reaproveita a penalidade de esquiva já existente como "lentidão"
             if (window.GFX && enchantEff.particleColor) window.GFX.spawnParticles(defX, defY, enchantEff.particleColor, 10, 4, 3);
         }
 
@@ -819,7 +835,7 @@ class BattleSystem {
                     // continuava sendo atordoado na chance bruta sempre que o
                     // stun vinha de uma habilidade tipo STUN em vez de encantamento.
                     const negResist = (this.enemy.derivedStats.negativeEffectResistPercent || 0) / 100;
-                    const stunned = Utils.chance(skill.stunChance * (1 - negResist));
+                    const stunned = Utils.chance(this._precisionEffectChance(skill.stunChance, this.player) * (1 - negResist));
                     if (stunned) this.enemyState.stunned = true;
 
                     resultMsg = stunned
@@ -1027,7 +1043,7 @@ class BattleSystem {
             // resistência prometida pela árvore da Luz/Ateniense só protegia
             // o jogador quando o inimigo usava STUN, nunca o contrário.
             const negResist = (this.player.derivedStats.negativeEffectResistPercent || 0) / 100;
-            const stunned = Utils.chance(skill.stunChance * (1 - negResist));
+            const stunned = Utils.chance(this._precisionEffectChance(skill.stunChance, this.enemy) * (1 - negResist));
             if (stunned) this.playerState.stunned = true;
             message = stunned
                 ? `<span style="color:#3388ff">${this.enemy.name} usou ${skill.name}: ${mitigatedDamage} de dano e ${this.player.name} ficou atordoado!</span>`
