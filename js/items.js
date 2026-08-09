@@ -197,7 +197,19 @@ const ItemDatabase = {
         // "+-3"), então quem usa esse arco entra em combate estruturalmente
         // mais frágil — a troca é real, não cosmética.
         brokeneyebow: { id: 'w_15', name: "Arco do Olho Partido", slot: SLOTS.RANGED, damage: 9, weight: 1.4, value: 140, durability: 75, stats: { acc: 5, def: -3 }, critBonus: 20,
-            minRange: 0, maxRange: 10, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.4, maxAmmo: 8 }
+            minRange: 0, maxRange: 10, atkSpeed: 1.0, approachSpeed: 1.0, retreatSpeed: 2.4, maxAmmo: 8 },
+
+        // Rework Econômico item 4/5 — expansão da Forja: arma pesada
+        // EXCLUSIVA (nunca aparece em loja nenhuma, só via
+        // forge.js RECIPES recipe_dwarvengreataxe) — a receita gasta
+        // Adamante Anão (tier 5, o material mais raro do jogo, só minerado
+        // nos veios mais profundos), então só quem já explorou bastante a
+        // mineração consegue sequer TENTAR forjar esta. Mais pesada e mais
+        // lenta que o Martelo Rúnico Anão (a outra exclusiva), trade-off
+        // de dano bruto por velocidade — nunca um upgrade estritamente
+        // melhor, uma escolha de estilo diferente.
+        dwarvengreataxe: { id: 'w_16', name: "Machado de Guerra de Kharzum", slot: SLOTS.MAIN_HAND, damage: 20, weight: 9.0, value: 250, durability: 190, stats: { str: 6 }, armorPierce: 0.35, region: 'reino_anao',
+            minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
@@ -253,7 +265,14 @@ const ItemDatabase = {
         // risco real (mais frágil) pela recompensa de mais chance de
         // crítico, puxando pro tema "risco/recompensa" pedido pra Sorte no
         // item 10, não só "+Sorte" solto como o já existente Anel da Fortuna.
-        luckyamulet: { id: 't_08', name: "Amuleto do Acaso", slot: SLOTS.AMULET, weight: 0.2, value: 130, durability: 999, stats: { luk: 5 }, critBonus: 12, hpBonus: -15 }
+        luckyamulet: { id: 't_08', name: "Amuleto do Acaso", slot: SLOTS.AMULET, weight: 0.2, value: 130, durability: 999, stats: { luk: 5 }, critBonus: 12, hpBonus: -15 },
+
+        // Rework Econômico item 4/5 — "componente especial" forjável
+        // EXCLUSIVO (ver forge.js recipe_magmacoreamulet): gasta Cristal
+        // Mágico (tier 4) em dobro — caro em mineração, não em ouro —
+        // reforçando defesa E vigor ao mesmo tempo, mais forte que
+        // qualquer amuleto genérico de loja, mas só existe pra quem forja.
+        magmacoreamulet: { id: 't_09', name: "Amuleto do Núcleo de Magma", slot: SLOTS.AMULET, weight: 0.3, value: 210, durability: 999, stats: { def: 2 }, hpBonus: 30, region: 'reino_anao' }
     },
     consumables: {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },

@@ -37,7 +37,47 @@ const ForgeSystem = {
         recipe_towershield: { name: 'Escudo Torre', category: 'shields', templateId: 'towershield', goldCost: 50,
             materials: [{ materialId: 'steel_ingot', amount: 2 }, { materialId: 'common_ore', amount: 2 }] },
         recipe_dwarvenhammer: { name: 'Martelo Rúnico Anão', category: 'weapons', templateId: 'dwarvenhammer', goldCost: 90,
-            materials: [{ materialId: 'steel_ingot', amount: 2 }, { materialId: 'arcane_crystal', amount: 1 }] }
+            materials: [{ materialId: 'steel_ingot', amount: 2 }, { materialId: 'arcane_crystal', amount: 1 }] },
+
+        // --- Expansão (Rework Econômico item 4/5): "quantidade
+        // significativa de itens forjáveis... cobrindo todas as
+        // categorias" — de 6 pra 16 receitas, cobrindo TODOS os slots de
+        // equipamento (antes só HEAD/CHEST/LEGS/OFF_HAND/uma MAIN_HAND;
+        // faltavam HANDS/FEET/AMULET/RING/RANGED por completo). Reaproveita
+        // templates JÁ existentes em ItemDatabase sempre que possível
+        // (item 16 da diretiva: nunca duplicar/inventar item novo à toa) —
+        // só 2 templates realmente novos (ver items.js dwarvengreataxe/
+        // magmacoreamulet), reservados pras receitas mais caras/exclusivas.
+        // _computeQuality/_rollRarityFromQuality (acima) não mudam nada —
+        // são genéricas por design, então automaticamente valem pra toda
+        // receita nova sem precisar de nenhum código extra.
+        recipe_ironvambraces: { name: 'Braçadeiras de Ferro', category: 'armors', templateId: 'ironvambraces', goldCost: 16,
+            materials: [{ materialId: 'iron_ore', amount: 2 }] },
+        recipe_ironboots: { name: 'Botas de Ferro', category: 'armors', templateId: 'ironboots', goldCost: 18,
+            materials: [{ materialId: 'iron_ore', amount: 2 }, { materialId: 'coal', amount: 1 }] },
+        recipe_amuletvigor: { name: 'Amuleto do Vigor', category: 'trinkets', templateId: 'amuletvigor', goldCost: 35,
+            materials: [{ materialId: 'steel_ingot', amount: 1 }] },
+        recipe_ringfortune: { name: 'Anel da Fortuna', category: 'trinkets', templateId: 'ringfortune', goldCost: 60,
+            materials: [{ materialId: 'arcane_crystal', amount: 1 }] },
+        recipe_warhammer: { name: 'Martelo de Guerra', category: 'weapons', templateId: 'warhammer', goldCost: 25,
+            materials: [{ materialId: 'iron_ore', amount: 2 }, { materialId: 'coal', amount: 1 }] },
+        recipe_longsword: { name: 'Espada Longa', category: 'weapons', templateId: 'longsword', goldCost: 28,
+            materials: [{ materialId: 'iron_ore', amount: 2 }, { materialId: 'coal', amount: 1 }] },
+        recipe_spear: { name: 'Lança Longa', category: 'weapons', templateId: 'spear', goldCost: 22,
+            materials: [{ materialId: 'iron_ore', amount: 1 }, { materialId: 'coal', amount: 1 }] },
+        recipe_crossbow: { name: 'Besta de Aço', category: 'weapons', templateId: 'crossbow', goldCost: 40,
+            materials: [{ materialId: 'steel_ingot', amount: 1 }, { materialId: 'iron_ore', amount: 1 }] },
+
+        // Exclusivas de alto tier (item 4: "equipamento exclusivo", "armas
+        // pesadas", "componentes especiais") — só existem via Forja, nunca
+        // em loja nenhuma (ver items.js `region: 'reino_anao'`), e gastam
+        // os materiais mais raros do jogo (Adamante Anão tier 5, Cristal
+        // Mágico tier 4 em dobro) — caro em MINERAÇÃO, não só em ouro,
+        // então continuam raras mesmo pra quem já acumulou muito dinheiro.
+        recipe_dwarvengreataxe: { name: 'Machado de Guerra de Kharzum', category: 'weapons', templateId: 'dwarvengreataxe', goldCost: 130,
+            materials: [{ materialId: 'steel_ingot', amount: 2 }, { materialId: 'dwarven_adamant', amount: 1 }] },
+        recipe_magmacoreamulet: { name: 'Amuleto do Núcleo de Magma', category: 'trinkets', templateId: 'magmacoreamulet', goldCost: 110,
+            materials: [{ materialId: 'arcane_crystal', amount: 2 }] }
     },
 
     // Confere se o jogador consegue pagar a receita SEM consumir nada
