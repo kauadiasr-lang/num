@@ -709,7 +709,11 @@ class BattleSystem {
             }
         }
         else if (actionCode === 'ITEM') {
-            const result = this.player.useConsumable(param);
+            // Rework da Taverna item 4: `true` = em combate — bloqueia
+            // itens `outOfCombatOnly` (bandagens) mesmo que a UI de seleção
+            // (ui.js openBattleItemMenu) já os tenha filtrado da lista;
+            // nunca confiar só na UI pra essa regra.
+            const result = this.player.useConsumable(param, true);
             if (result) {
                 resultMsg = `${this.player.name} usou ${result.name}. ${result.message}.`;
                 window.GFX.spawnText(playerX, playerY - 50, result.message.includes('MP') ? '+MP' : '+HP', '#1eff00', false);
@@ -1403,6 +1407,18 @@ class BattleSystem {
             if (ench && ench.durabilityShieldChance && Utils.chance(ench.durabilityShieldChance)) continue;
             item.durability--;
         }
+
+        // Rework da Taverna item 15: efeitos de Comida/Bebida (ver
+        // player.js useConsumable/`expiresAfterBattles`) expiram por
+        // NÚMERO DE BATALHAS, não por dia — decrementa 1 aqui a cada fim de
+        // luta (vitória OU derrota, a diretiva não distingue) e remove os
+        // que chegaram a 0. Buffs day-based (Hidromel/Runas anãs) nunca têm
+        // esse campo, então nunca são tocados por este laço.
+        if (this.player.activeBuffs && this.player.activeBuffs.length > 0) {
+            this.player.activeBuffs.forEach(b => { if (b.expiresAfterBattles !== undefined) b.expiresAfterBattles--; });
+            this.player.activeBuffs = this.player.activeBuffs.filter(b => b.expiresAfterBattles === undefined || b.expiresAfterBattles > 0);
+        }
+
         this.player.calculateDerivedStats();
 
         if (window.GFX) {

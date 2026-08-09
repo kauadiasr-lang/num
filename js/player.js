@@ -232,8 +232,19 @@ class Entity {
         // (currentDay === expiresAtDay). Com `>=` o buff sobrevivia a uma
         // virada de dia inteira a mais do que "dura 1 dia" prometia (bug
         // encontrado em teste, ver /tmp/pw/test_dwarf_identity_iter2.js).
+        // Rework da Taverna item 5/6/15: Comida/Bebida usam o MESMO array
+        // (nunca um sistema de buff paralelo), mas expiram por BATALHA em
+        // vez de por DIA (`expiresAfterBattles`, decrementado em
+        // battle.js endBattle) — a diretiva pede duração em número de
+        // batalhas, não tempo real, já que o jogo é estruturado em
+        // combates. Um buff só tem UM dos dois campos, nunca os dois — o
+        // filtro abaixo trata "campo ausente" como "não se aplica a essa
+        // condição de expiração", nunca como "já expirou".
         const currentDay = (window.City && window.City.dayCount) || 0;
-        const activeBuffs = (this.activeBuffs || []).filter(b => b.expiresAtDay > currentDay);
+        const activeBuffs = (this.activeBuffs || []).filter(b =>
+            (b.expiresAtDay === undefined || b.expiresAtDay > currentDay) &&
+            (b.expiresAfterBattles === undefined || b.expiresAfterBattles > 0)
+        );
         const buffBonus = (key) => activeBuffs.reduce((sum, b) => sum + (b.statKey === key ? b.amount : 0), 0);
 
         const totalDefenseBonusPercent = raceBonus('defenseBonusPercent') + buffBonus('defenseBonusPercent');
@@ -619,16 +630,27 @@ class Player extends Entity {
         return false;
     }
 
-    // Aplica o efeito de um consumível e o remove do inventário
-    useConsumable(index) {
+    // Aplica o efeito de um consumível e o remove do inventário.
+    // `inCombat` (Rework da Taverna item 4): itens com `outOfCombatOnly`
+    // (bandagens, ver items.js) só podem ser usados fora de batalha — o
+    // próprio battle.js (executePlayerTurn/ITEM) passa `true` aqui, e
+    // ui.js openBattleItemMenu já filtra esses itens da lista ANTES disso,
+    // então este `return null` é a segunda camada de proteção (nunca
+    // confiar só no filtro de UI), igual ao padrão já usado por
+    // Entity.canEquip (nunca só a UI decide o que é permitido).
+    useConsumable(index, inCombat = false) {
         const item = this.inventory[index];
         if (!item || item.category !== 'consumable') return null;
+        if (item.outOfCombatOnly && inCombat) return null;
 
         let message = '';
         if (item.type === 'HEAL_HP') {
             // Poder de cura da Linhagem (Luz) também fortalece poções, não só
             // magias de cura — reforça a especialidade "cura" da árvore inteira.
-            const healMult = 1 + ((this.derivedStats.healPowerBonusPercent || 0) / 100);
+            // Bandagens (`outOfCombatOnly`) NUNCA recebem esse bônus — cura
+            // sempre o valor cru do `power`, exatamente como o item 4 da
+            // diretiva pede ("a cura NÃO recebe bônus de atributos").
+            const healMult = item.outOfCombatOnly ? 1 : 1 + ((this.derivedStats.healPowerBonusPercent || 0) / 100);
             const before = this.currentHp;
             this.currentHp = Utils.clamp(this.currentHp + Math.floor(item.power * healMult), 0, this.derivedStats.maxHp);
             message = `Recuperou ${this.currentHp - before} HP`;
@@ -647,12 +669,41 @@ class Player extends Entity {
             // FIXO e temporário, mesmo formato statKey/amount dos passivos
             // de raça/mutação (ver calculateDerivedStats), nunca escala com
             // atributo nenhum. Expira sozinho comparando `expiresAtDay` com
-            // `window.City.dayCount` a cada recálculo, sem precisar de timer.
+            // `window.City.dayCount` a cada recálculo, sem precisar de timer
+            // — OU, pra Comida/Bebida (ver `foodSlot`/`durationBattles`
+            // abaixo), `expiresAfterBattles`, decrementado em battle.js
+            // endBattle. Um item tem SEMPRE só um dos dois campos de
+            // duração, nunca os dois.
             if (!this.activeBuffs) this.activeBuffs = [];
-            const currentDay = (window.City && window.City.dayCount) || 0;
-            const durationDays = item.durationDays || 1;
-            this.activeBuffs.push({ statKey: item.statKey, amount: item.buffAmount, expiresAtDay: currentDay + durationDays });
-            message = `Efeito ativo por ${durationDays} dia(s)`;
+
+            // Rework da Taverna item 15 ("Limite de Preparação"): no máximo
+            // 1 efeito de Comida + 1 de Bebida ativos ao mesmo tempo — nunca
+            // impede o consumo, sempre SUBSTITUI o efeito anterior do MESMO
+            // slot (a diretiva permite as duas abordagens, substituir é
+            // menos fricção pro jogador). Poções/bandagens nunca usam
+            // `foodSlot`, então nunca são afetadas por este limite.
+            if (item.foodSlot) {
+                const replaced = this.activeBuffs.some(b => b.foodSlot === item.foodSlot);
+                this.activeBuffs = this.activeBuffs.filter(b => b.foodSlot !== item.foodSlot);
+                if (replaced) message = `Substituiu o efeito de ${item.foodSlot === 'food' ? 'comida' : 'bebida'} anterior. `;
+            }
+
+            // Alguns itens (ex: Cerveja) têm um bônus E uma penalidade ao
+            // mesmo tempo (`secondaryStatKey`/`secondaryAmount`, ver
+            // items.js) — os dois entram como entradas SEPARADAS no mesmo
+            // `activeBuffs`, sempre com o MESMO foodSlot/duração, então o
+            // filtro de substituição acima já os remove juntos quando um
+            // novo efeito do mesmo slot é consumido.
+            const makeEntry = (statKey, amount) => {
+                const entry = { statKey, amount, foodSlot: item.foodSlot };
+                if (item.durationBattles) entry.expiresAfterBattles = item.durationBattles;
+                else entry.expiresAtDay = ((window.City && window.City.dayCount) || 0) + (item.durationDays || 1);
+                return entry;
+            };
+            this.activeBuffs.push(makeEntry(item.statKey, item.buffAmount));
+            if (item.secondaryStatKey) this.activeBuffs.push(makeEntry(item.secondaryStatKey, item.secondaryAmount));
+            const durationLabel = item.durationBattles ? `${item.durationBattles} batalha(s)` : `${item.durationDays || 1} dia(s)`;
+            message += `Efeito ativo por ${durationLabel}`;
             // Estimulantes de "uso pesado" da Fortaleza Orc (ver items.js
             // orc_wild_stimulant) — risco real de fadiga, reaproveitando
             // Player.addFatigue (item 16: não inventar sistema de custo

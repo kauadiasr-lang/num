@@ -186,6 +186,18 @@ class Consumable {
         // undefined nunca quebra nada, só significa "não filtra em
         // nenhuma aba".
         this.consumableCategory = baseTemplate.consumableCategory;
+
+        // Rework da Taverna item 4/5/6/15: campos novos das bandagens
+        // (`outOfCombatOnly`, ver Player.useConsumable) e de Comida/Bebida
+        // (`durationBattles`/`foodSlot`/`secondaryStatKey`/
+        // `secondaryAmount`, ver mesmo lugar) — mesma classe Consumable de
+        // sempre, sem criar um segundo tipo de item só pra essas duas
+        // categorias novas.
+        this.outOfCombatOnly = baseTemplate.outOfCombatOnly;
+        this.durationBattles = baseTemplate.durationBattles;
+        this.foodSlot = baseTemplate.foodSlot;
+        this.secondaryStatKey = baseTemplate.secondaryStatKey;
+        this.secondaryAmount = baseTemplate.secondaryAmount;
     }
 }
 
@@ -364,7 +376,37 @@ const ItemDatabase = {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP.", consumableCategory: 'health' },
         greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP.", consumableCategory: 'health' },
         mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP.", consumableCategory: 'mana' },
-        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga.", consumableCategory: 'bandage' },
+        // Rework da Taverna item 4: bandagem deixou de curar fadiga (agora
+        // é só o Curandeiro/hospedagem paga OU Carne Defumada anã, ver
+        // subShop:'tavern' abaixo — nenhuma outra mudança nessas duas
+        // fontes) e virou recuperação de HP FORA DE COMBATE. `outOfCombatOnly:
+        // true` é lido em Player.useConsumable (player.js) — bloqueia o uso
+        // durante batalha E remove o bônus de healPowerBonusPercent que
+        // poções recebem (a cura é sempre o valor cru do `power`, nunca
+        // escala com Linhagem/atributo). ui.js openBattleItemMenu também
+        // filtra esses itens da lista de "Usar Item" durante o combate, pra
+        // nem aparecerem como opção lá. 3 variedades progressivas — preço
+        // por HP deliberadamente MENOR que o das poções (poção "vale mais"
+        // por poder ser usada em combate e escalar com Linhagem; bandagem é
+        // a opção econômica de recuperação entre lutas, nunca substitui a
+        // poção — ver item 4 da diretiva: "não deve substituir as poções").
+        bandage: { id: 'c_04', name: "Bandagem Simples", type: 'HEAL_HP', power: 150, outOfCombatOnly: true, value: 45, description: "Recupera 150 HP. Só pode ser usada fora de combate — não recebe bônus de atributos.", consumableCategory: 'bandage' },
+        reinforced_bandage: { id: 'c_16', name: "Bandagem Reforçada", type: 'HEAL_HP', power: 300, outOfCombatOnly: true, value: 85, description: "Recupera 300 HP. Só pode ser usada fora de combate — não recebe bônus de atributos.", consumableCategory: 'bandage' },
+        medicinal_bandage: { id: 'c_17', name: "Bandagem Medicinal", type: 'HEAL_HP', power: 500, outOfCombatOnly: true, value: 130, description: "Recupera 500 HP. Só pode ser usada fora de combate — não recebe bônus de atributos.", consumableCategory: 'bandage' },
+
+        // Rework da Taverna item 5/6: Comida e Bebida do pool NEUTRO (Porto
+        // Helênico — "variedade equilibrada", item 7 da diretiva). NUNCA
+        // fome/sede — cada item é um bônus temporário OPCIONAL, reaproveita
+        // 100% o mecanismo TEMP_BUFF já existente (statKey/buffAmount,
+        // mesmo formato dos passivos de raça/mutação), só com
+        // `durationBattles` (em vez de `durationDays`) e `foodSlot`
+        // ('food'/'drink', ver Player.useConsumable — limite de 1 efeito
+        // de cada por vez). Nunca "cura HP disfarçada" — cada um usa um
+        // eixo mecânico diferente dos outros.
+        bread: { id: 'c_18', name: "Pão de Taverna", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 2, durationBattles: 2, foodSlot: 'food', value: 15, description: "Simples e barato — não é muita coisa, mas ajuda antes de uma luta. +2 de dano físico por 2 batalhas.", consumableCategory: 'food' },
+        roasted_meat: { id: 'c_19', name: "Carne Assada", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationBattles: 3, foodSlot: 'food', value: 45, description: "Carne assada na brasa — força extra pra quem precisa bater mais forte. +5 de dano físico por 3 batalhas.", consumableCategory: 'food' },
+        ale: { id: 'c_20', name: "Cerveja", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 4, secondaryStatKey: 'dodgeBonusPercent', secondaryAmount: -3, durationBattles: 2, foodSlot: 'drink', value: 30, description: "Braço mais pesado, reflexos mais lentos. +4 de dano físico, -3% de esquiva, por 2 batalhas.", consumableCategory: 'drink' },
+        wine: { id: 'c_21', name: "Vinho", type: 'TEMP_BUFF', statKey: 'dodgeBonusPercent', buffAmount: 4, durationBattles: 2, foodSlot: 'drink', value: 35, description: "A confiança de uma boa taça acalma os nervos antes da arena. +4% de esquiva por 2 batalhas.", consumableCategory: 'drink' },
 
         // --- Identidade do Reino Anão (Rework Econômico item 8/9) ---
         // `region`+`subShop` combinados (ver ItemFactory.getConsumableStock
@@ -375,8 +417,14 @@ const ItemDatabase = {
         // statKey/amount dos passivos de raça/mutação (ver
         // player.js calculateDerivedStats) — nunca escalam com atributo
         // nenhum, exatamente como runas/hidromel deveriam funcionar.
-        mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationDays: 1, value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 1 dia.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'drink' },
-        dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationDays: 1, value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 1 dia.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
+        // Rework da Taverna item 15: convertidos de duração por DIA pra
+        // duração por BATALHA (`durationBattles`, ver Player.useConsumable)
+        // — a diretiva pede consistência entre TODA Comida/Bebida nesse
+        // eixo ("sempre que possível... por número de batalhas"), e
+        // ganharam `foodSlot` pra entrar no limite de 1 comida + 1 bebida
+        // (item 15). Nenhuma outra mudança de efeito/preço.
+        mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationBattles: 2, foodSlot: 'drink', value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 2 batalhas.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'drink' },
+        dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationBattles: 3, foodSlot: 'food', value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 3 batalhas.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
         smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
         rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao', subShop: 'runes' },
         rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' },
@@ -393,6 +441,16 @@ const ItemDatabase = {
         stardust: { id: 'c_10', name: "Poeira de Estrelas", type: 'TEMP_BUFF', statKey: 'healPowerBonusPercent', buffAmount: 12, durationDays: 1, value: 90, description: "Pó colhido sob a lua cheia de Sylvaneth — +12% de poder de cura mágica por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' },
         clarity_crystal: { id: 'c_11', name: "Cristal de Clareza", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 15, durationDays: 1, value: 90, description: "Cristal élfico que amplia a reserva de mana — +15 de MP máximo por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' },
 
+        // Rework da Taverna item 5/6/7: até esta iteração, a Taverna do
+        // Santuário Élfico vendia a mesma Poção de Vida/Mana genérica de
+        // qualquer cidade (achado da auditoria da Iteração 1) — Poeira de
+        // Estrelas/Cristal de Clareza acima são do Ateliê Élfico, um prédio
+        // DIFERENTE, nunca aparecem na Taverna em si. Os dois abaixo (
+        // subShop:'tavern') fecham essa lacuna com tema natureza/magia,
+        // nunca copiando o tema físico/forja do Reino Anão.
+        elf_herb_bread: { id: 'c_22', name: "Pão de Ervas Élfico", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 20, durationBattles: 3, foodSlot: 'food', value: 50, description: "Pão leve assado com ervas do Santuário — a mente clareia, a mana flui mais fácil. +20 de MP máximo por 3 batalhas.", region: 'santuario_elfico', subShop: 'tavern', consumableCategory: 'food' },
+        elf_moon_tea: { id: 'c_23', name: "Chá da Lua Élfica", type: 'TEMP_BUFF', statKey: 'healPowerBonusPercent', buffAmount: 10, durationBattles: 2, foodSlot: 'drink', value: 55, description: "Infusão colhida sob a lua cheia — fortalece qualquer cura que vier depois. +10% de poder de cura por 2 batalhas.", region: 'santuario_elfico', subShop: 'tavern', consumableCategory: 'drink' },
+
         // --- Identidade da Fortaleza Orc (Rework Econômico item 11) ---
         // Círculo de Treinamento (ver citydatabase.js buildingNames/
         // hasMagicSubShop) — mesmo mecanismo region+subShop, mas o Orc
@@ -406,7 +464,18 @@ const ItemDatabase = {
         orc_training_str: { id: 'c_12', name: "Treino de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 4, durationDays: 1, value: 55, description: "Sessão de treino sob supervisão dos veteranos de Gorkhal — +4 de dano físico por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
         orc_training_res: { id: 'c_13', name: "Treino de Resistência", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 4, durationDays: 1, value: 55, description: "Exercícios de resistência ao golpe — +4 de defesa por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
         orc_training_combat: { id: 'c_14', name: "Treino de Combate", type: 'TEMP_BUFF', statKey: 'dodgeBonusPercent', buffAmount: 5, durationDays: 1, value: 55, description: "Prática de reflexos e esquiva no Fosso de Guerra — +5% de esquiva por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
-        orc_wild_stimulant: { id: 'c_15', name: "Estimulante Selvagem", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 9, durationDays: 1, riskFatigueChance: 40, riskFatigueAmount: 1, value: 70, description: "Extrato natural bruto, sem diluição — +9 de dano físico por 1 dia, mas 40% de chance de sobrecarregar o corpo (+1 nível de fadiga). Uso pesado: risco real.", region: 'fortaleza_orc', subShop: 'training' }
+        orc_wild_stimulant: { id: 'c_15', name: "Estimulante Selvagem", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 9, durationDays: 1, riskFatigueChance: 40, riskFatigueAmount: 1, value: 70, description: "Extrato natural bruto, sem diluição — +9 de dano físico por 1 dia, mas 40% de chance de sobrecarregar o corpo (+1 nível de fadiga). Uso pesado: risco real.", region: 'fortaleza_orc', subShop: 'training' },
+
+        // Rework da Taverna item 5/6/7: mesma lacuna do Santuário Élfico
+        // acima — o Círculo de Treinamento (subShop:'training', itens
+        // acima) é um prédio DIFERENTE da Taverna Orc, que até esta
+        // iteração vendia a mesma Poção de Vida/Mana genérica. Os dois
+        // abaixo (subShop:'tavern') dão à Taverna Orc identidade própria:
+        // comida extremamente nutritiva, bebida muito mais forte que
+        // qualquer outra do jogo (maior bônus E maior penalidade), tema
+        // físico/treinamento — nunca copiando o Reino Anão.
+        orc_boar_meat: { id: 'c_24', name: "Carne de Javali", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 6, durationBattles: 3, foodSlot: 'food', value: 50, description: "Prato pesado dos guerreiros de Gorkhal — comida de verdade, não petisco. +6 de dano físico por 3 batalhas.", region: 'fortaleza_orc', subShop: 'tavern', consumableCategory: 'food' },
+        orc_black_ale: { id: 'c_25', name: "Cerveja Negra Orc", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 8, secondaryStatKey: 'dodgeBonusPercent', secondaryAmount: -4, durationBattles: 2, foodSlot: 'drink', value: 55, description: "A bebida mais forte da Fortaleza — pesa o braço, atrasa os reflexos, mas ninguém nega o golpe. +8 de dano físico, -4% de esquiva, por 2 batalhas.", region: 'fortaleza_orc', subShop: 'tavern', consumableCategory: 'drink' }
     },
     // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
     // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver

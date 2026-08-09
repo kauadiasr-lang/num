@@ -1768,8 +1768,15 @@ class CityEngine {
         // vencidos antes de somar, então isso não é necessário pra
         // correção, só evita o array crescer pra sempre no save do jogador
         // ao longo de uma partida longa.
+        // Rework da Taverna item 15: buffs de Comida/Bebida (ver player.js
+        // useConsumable) podem ter `expiresAfterBattles` em vez de
+        // `expiresAtDay` — sem essa checagem, QUALQUER avanço de dia
+        // (inclusive dormir na Taverna) apagava esses buffs na hora, mesmo
+        // ainda tendo batalhas restantes (undefined > número é sempre
+        // false). A limpeza física de buffs por BATALHA continua em
+        // battle.js endBattle, nunca aqui.
         if (dayCountPlayer && dayCountPlayer.activeBuffs) {
-            dayCountPlayer.activeBuffs = dayCountPlayer.activeBuffs.filter(b => b.expiresAtDay > this.dayCount);
+            dayCountPlayer.activeBuffs = dayCountPlayer.activeBuffs.filter(b => b.expiresAtDay === undefined || b.expiresAtDay > this.dayCount);
         }
 
         // Vampiros noturnos se recolhem com a luz do sol.

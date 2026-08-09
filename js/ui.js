@@ -1345,11 +1345,16 @@ class UIManager {
         const menu = document.getElementById('battle-items-menu');
         const list = document.getElementById('battle-items-list');
 
+        // Rework da Taverna item 4: bandagens (`outOfCombatOnly`) nunca
+        // aparecem como opção durante a batalha — nem chegam a ser
+        // clicáveis, então o jogador nunca vê um item que seria recusado
+        // ao usar (a segunda camada de proteção real fica em
+        // Player.useConsumable, ver player.js).
         const consumableIndexes = [];
-        p.inventory.forEach((item, idx) => { if (item.category === 'consumable') consumableIndexes.push(idx); });
+        p.inventory.forEach((item, idx) => { if (item.category === 'consumable' && !item.outOfCombatOnly) consumableIndexes.push(idx); });
 
         if (consumableIndexes.length === 0) {
-            this.appendBattleLog("Você não possui itens consumíveis!");
+            this.appendBattleLog("Você não possui itens consumíveis utilizáveis em combate!");
             return;
         }
 

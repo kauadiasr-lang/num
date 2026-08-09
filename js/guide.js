@@ -93,7 +93,7 @@ const GuideSystem = {
             <div class="guide-block">
                 <h4>Outras regras de combate</h4>
                 <p><strong>Crítico:</strong> multiplica o dano já calculado por ×1.5.</p>
-                <p><strong>Fadiga:</strong> acumulada por derrotas ou noites sem dormir, reduz dano físico e esquiva em até 24% (cura no Curandeiro ou com bandagem).</p>
+                <p><strong>Fadiga:</strong> acumulada por derrotas ou noites sem dormir, reduz dano físico e esquiva em até 24% (cura dormindo na Taverna).</p>
                 <p><strong>Peças quebradas:</strong> uma arma/armadura com durabilidade zerada entrega só metade do dano/defesa até ser reparada no Ferreiro/Armeiro.</p>
                 <p><strong>Bloqueio de escudo:</strong> reduz o dano já mitigado pela metade, e depende só do equipamento (nenhum atributo contribui diretamente).</p>
             </div>

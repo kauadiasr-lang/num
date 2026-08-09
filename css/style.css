@@ -1086,6 +1086,15 @@ html, body {
 @media (max-width: 900px) {
     .inv-layout { grid-template-columns: 1fr; }
     .shop-grid { grid-template-columns: 1fr; }
+    /* Rework da Taverna item 1/13 (teste de responsividade mobile):
+       .shop-item-card é `flex` horizontal (texto à esquerda, botão à
+       direita) — em telas estreitas o botão "COMPRAR (Xg)" não tinha
+       espaço pra o próprio texto e cortava (bug pré-existente, achado ao
+       testar a nova aba de Comida/Bebidas em 390px). Empilha verticalmente
+       só nessa faixa de largura; acima de 900px o layout horizontal
+       original continua intacto. */
+    .shop-item-card { flex-direction: column; align-items: stretch; gap: 8px; }
+    .shop-item-card button { width: 100%; white-space: normal; }
 }
 
 /* ==========================================================================
