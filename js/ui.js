@@ -248,6 +248,7 @@ class UIManager {
         document.getElementById('btn-close-questboard').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-forge').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-oretrader').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-road').addEventListener('click', () => this.abandonRoad());
         document.getElementById('btn-road-advance').addEventListener('click', () => this.advanceRoad());
         document.getElementById('btn-road-abandon').addEventListener('click', () => this.abandonRoad());
@@ -2481,6 +2482,77 @@ class UIManager {
         });
 
         this.showScreen('screen-forge');
+    }
+
+    // Tela do Negociante de Minérios (Reino Anão, ver citydatabase.js
+    // `hasOreTrader`) — comércio de MATÉRIA-PRIMA, não de equipamento
+    // pronto. Compra (preço fixo por unidade, `value * 2.5`, sem limite de
+    // estoque — matéria-prima é commodity, não item raro numerado) e venda
+    // (`value * 0.6`, MELHOR que os 40% genéricos da mochila comum, ver
+    // renderBag — recompensa trazer material pra cá especificamente em vez
+    // de vender qualquer coisa no primeiro clique da mochila).
+    openOreTrader() {
+        const p = window.Engine.state.player;
+        document.getElementById('oretrader-player-gold').innerText = p.gold;
+
+        const buyContainer = document.getElementById('oretrader-buy-container');
+        buyContainer.innerHTML = '';
+        Object.keys(ItemDatabase.materials).forEach(templateKey => {
+            const template = ItemDatabase.materials[templateKey];
+            const price = Math.ceil(template.value * 2.5);
+            const affordable = p.gold >= price && p.inventory.length < p.inventoryCapacity;
+            const card = document.createElement('div');
+            card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
+            card.innerHTML = `
+                <h4>⛏️ ${template.name}</h4>
+                <p style="font-size:0.8rem; color:#aaa;">Nível ${template.tier} · ${price}g</p>
+                <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Comprar</button>
+            `;
+            card.querySelector('button').onclick = () => {
+                if (p.gold < price || p.inventory.length >= p.inventoryCapacity) return;
+                p.gold -= price;
+                p.inventory.push(ItemFactory.createMaterial(templateKey));
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                this.openOreTrader(); // Refresh
+            };
+            buyContainer.appendChild(card);
+        });
+
+        const sellContainer = document.getElementById('oretrader-sell-container');
+        sellContainer.innerHTML = '';
+        const counts = {};
+        p.inventory.forEach(item => { if (item.category === 'material') counts[item.id] = (counts[item.id] || 0) + 1; });
+        const anyMaterials = Object.keys(ItemDatabase.materials).some(key => counts[ItemDatabase.materials[key].id] > 0);
+        if (!anyMaterials) {
+            sellContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma matéria-prima pra vender.</p>';
+        } else {
+            Object.keys(ItemDatabase.materials).forEach(templateKey => {
+                const template = ItemDatabase.materials[templateKey];
+                const have = counts[template.id] || 0;
+                if (have <= 0) return;
+                const sellPrice = Math.floor(template.value * 0.6);
+                const card = document.createElement('div');
+                card.className = 'forge-recipe-card';
+                card.innerHTML = `
+                    <h4>⛏️ ${template.name}</h4>
+                    <p style="font-size:0.8rem; color:#aaa;">você tem ${have} · ${sellPrice}g/un.</p>
+                    <button class="btn btn-small">Vender 1</button>
+                `;
+                card.querySelector('button').onclick = () => {
+                    const idx = p.inventory.findIndex(it => it.category === 'material' && it.id === template.id);
+                    if (idx < 0) return;
+                    p.inventory.splice(idx, 1);
+                    p.gold += sellPrice;
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.AudioManager) window.AudioManager.playTone(700, 'sine', 0.1, 0.4);
+                    this.openOreTrader(); // Refresh
+                };
+                sellContainer.appendChild(card);
+            });
+        }
+
+        this.showScreen('screen-oretrader');
     }
 
     // Estoque fixo do Boticário (sempre disponível, não é consumido da lista)

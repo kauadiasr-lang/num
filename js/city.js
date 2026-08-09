@@ -1383,9 +1383,15 @@ class CityEngine {
                 else window.UI.openShop([SLOTS.MAIN_HAND, SLOTS.RANGED], 'Ferreiro');
                 break;
             }
-            case 'armorer':
-                window.UI.openShop([SLOTS.HEAD, SLOTS.CHEST, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND, SLOTS.AMULET, SLOTS.RING], 'Armeiro');
+            case 'armorer': {
+                // Reino Anão: Negociante de Minérios vende matéria-prima de
+                // verdade (ver ui.js openOreTrader), não a loja de
+                // equipamento padrão — mesma lógica de 'blacksmith' acima.
+                const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+                if (cityDef && cityDef.hasOreTrader && window.UI.openOreTrader) window.UI.openOreTrader();
+                else window.UI.openShop([SLOTS.HEAD, SLOTS.CHEST, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND, SLOTS.AMULET, SLOTS.RING], 'Armeiro');
                 break;
+            }
             case 'arcane':
                 window.UI.openSkillTree();
                 break;

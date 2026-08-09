@@ -99,6 +99,14 @@ const CityDatabase = {
         // colunas de mármore + pediment, atendendo ao pedido explícito
         // "toda arquitetura [orc] deve parecer brutal".
         buildingStyle: 'orc',
+        // Especialização econômica (ver items.js ItemFactory.
+        // generateShopInventory) — Fortaleza Orc tem chance MAIOR (nunca
+        // garantida) de vender armas de alta raridade, condizente com
+        // "melhor qualidade média em equipamentos ofensivos e armas"
+        // pedido explicitamente pelo usuário. Isso NÃO significa que só
+        // aqui se encontra uma arma boa — só que a probabilidade aqui é
+        // maior que nas outras cidades.
+        specialization: ['weapons'],
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a
@@ -153,6 +161,11 @@ const CityDatabase = {
         // de mármore + pediment, atendendo ao pedido explícito
         // "arquitetura elegante... raízes... madeira viva" da cidade élfica.
         buildingStyle: 'elfico',
+        // Especialização econômica (ver fortaleza_orc.specialization acima
+        // pra explicação completa do campo) — amuletos/anéis (categoria
+        // `trinkets`, os itens "mágicos" do jogo), condizente com "melhor
+        // qualidade média em amuletos, itens mágicos" pedido pelo usuário.
+        specialization: ['trinkets'],
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — a cidade já é descrita
@@ -239,6 +252,18 @@ const CityDatabase = {
         // produção, não em "abrir loja → comprar da lista" (pedido
         // explícito do usuário, item 8 da especificação).
         hasForge: true,
+        // Especialização econômica (ver fortaleza_orc.specialization acima
+        // pra explicação completa do campo) — armaduras E escudos
+        // (defensivos), condizente com "melhor qualidade média em
+        // armaduras, equipamentos defensivos e itens provenientes de
+        // forja" pedido explicitamente pelo usuário.
+        specialization: ['armors', 'shields'],
+        // Prédio 'armorer' vira o Negociante de Minérios de verdade (ver
+        // city.js interact/ui.js openOreTrader) — comércio de matéria-
+        // prima, não a loja de equipamento padrão. Pedido explícito do
+        // usuário: "a cidade dos anões NÃO deve possuir lojas iguais às
+        // outras".
+        hasOreTrader: true,
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
         officialArenaBiome: 'montanhas',
         arenaName: 'Fosso do Martelo',

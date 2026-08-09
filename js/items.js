@@ -367,11 +367,23 @@ window.ItemFactory = {
             // bem mais raro que os tiers anteriores, mantendo a mesma
             // filosofia "raro de verdade, nunca garantido" das faixas de
             // baixo nível.
+            // Especialização econômica por cidade (ver citydatabase.js
+            // `specialization` — Fortaleza Orc/Santuário Élfico/Reino Anão),
+            // pedido explícito do usuário: "cidade Orc possui maior
+            // probabilidade de oferecer uma espada ofensiva excepcional...
+            // NÃO deve significar que só aquela cidade consegue produzir".
+            // Só MULTIPLICA a curva por nível já existente (1.4x) e sobe o
+            // teto um pouco — nunca substitui o cálculo por nível, nunca
+            // determina raridade sozinha, nunca "cidade X = sempre item
+            // perfeito" (item 10 do pedido).
+            const cityDefForSpec = cityId && window.CityDatabase ? window.CityDatabase[cityId] : null;
+            const isSpecialized = cityDefForSpec && cityDefForSpec.specialization && cityDefForSpec.specialization.includes(picked.category);
+            const specMult = isSpecialized ? 1.4 : 1;
             let rarity = RARITY.COMMON;
-            const uncommonChance = Utils.clamp((playerLevel - 2) * 3, 0, 35);
-            const rareChance = Utils.clamp((playerLevel - 5) * 2, 0, 20);
-            const epicChance = Utils.clamp((playerLevel - 10) * 1.5, 0, 8);
-            const legendaryChance = Utils.clamp((playerLevel - 15) * 0.5, 0, 2);
+            const uncommonChance = Utils.clamp((playerLevel - 2) * 3 * specMult, 0, isSpecialized ? 48 : 35);
+            const rareChance = Utils.clamp((playerLevel - 5) * 2 * specMult, 0, isSpecialized ? 28 : 20);
+            const epicChance = Utils.clamp((playerLevel - 10) * 1.5 * specMult, 0, isSpecialized ? 12 : 8);
+            const legendaryChance = Utils.clamp((playerLevel - 15) * 0.5 * specMult, 0, isSpecialized ? 3 : 2);
             if (Utils.chance(uncommonChance)) rarity = RARITY.UNCOMMON;
             if (Utils.chance(rareChance)) rarity = RARITY.RARE;
             if (Utils.chance(epicChance)) rarity = RARITY.EPIC;
