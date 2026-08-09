@@ -118,6 +118,14 @@ class CityEngine {
         // embora sozinho depois de um tempo se ninguém o visitar.
         this.travelingMerchant = null;
 
+        // Bandido Anão (ver _eventDwarfBandit/_makeBandit/_banditEncounter)
+        // — perigo urbano físico, MESMO padrão do Mercador Viajante acima
+        // (nasce como NPC de verdade na praça, some sozinho se ignorado,
+        // só um por vez). Só em cidades com `hasBandits` (ver
+        // citydatabase.js reino_anao) — nenhuma das 3 cidades antigas tem
+        // esse campo, então continuam sem nenhum bandido, como sempre.
+        this.bandit = null;
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -640,6 +648,39 @@ class CityEngine {
                 equipment: {},
                 __teamColor: '#7a2a8a',
                 race: npcRace
+            },
+            anim: { type: 'idle', start: performance.now(), duration: 0 }
+        };
+    }
+
+    // Bandido Anão (Reino Subterrâneo de Kharzum, ver
+    // citydatabase.js `hasBandits`/_eventDwarfBandit) — MESMA estrutura de
+    // _makeTravelingMerchant acima (NPC físico, some sozinho se ignorado),
+    // sempre raça anão (é um bandido LOCAL, não um viajante de fora) e
+    // sempre masculino/barba (silhueta "criminoso" mais reconhecível à
+    // distância), cor de equipe escura/vermelha em vez da roxa do
+    // mercador — identidade visual de ameaça, não de oportunidade.
+    _makeBandit() {
+        const w = window.Engine.width, h = window.Engine.height;
+        const x = Utils.randomFloat(w * 0.15, w * 0.85);
+        const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        return {
+            x, y, targetX: x, targetY: y, pin: null,
+            waitTimer: Utils.randomFloat(1, 3),
+            facing: Utils.chance(50) ? 1 : -1,
+            isBandit: true,
+            despawnTimer: Utils.randomFloat(45, 70), // some mais rápido que o Mercador — é uma ameaça passageira, não uma oportunidade
+            entity: {
+                visuals: {
+                    gender: 'Masculino',
+                    skinTone: window.RaceSystem ? window.RaceSystem.pickSkinTone('anao') : '#c99a6a',
+                    hairStyle: Utils.randomInt(1, 15),
+                    hairColor: '#1a1a1a', beardStyle: Utils.randomInt(1, 4),
+                    eyeColor: '#1a1a1a', faceShape: 1
+                },
+                equipment: {},
+                __teamColor: '#5a1a1a',
+                race: 'anao'
             },
             anim: { type: 'idle', start: performance.now(), duration: 0 }
         };
@@ -1184,6 +1225,15 @@ class CityEngine {
     // uma observação genérica sobre a vida na praça.
     _talkToNpc(npc) {
         const p = window.Engine.state.player;
+        // Bandido Anão (ver _eventDwarfBandit/_makeBandit) — clicar nele
+        // (depois de andar até perto, mesmo fluxo de qualquer NPC) abre o
+        // menu de escolha real (Pagar/Lutar/Recusar) em vez de uma fala
+        // genérica ou um combate automático — é o ÚNICO encontro do jogo
+        // com essa decisão de 3 vias.
+        if (npc.isBandit) {
+            this._banditEncounter(npc);
+            return;
+        }
         // Aproximar-se de um vampiro vagando pela noite não puxa uma fala —
         // puxa a briga (mesmo fluxo de _eventVampireEncounter, só que
         // iniciado pelo jogador clicando na criatura em vez de um dado
@@ -1493,6 +1543,11 @@ class CityEngine {
         this._arenaNpcsSpawned = false;
         this._gateTravelerSpawned = false;
         this.travelingMerchant = null;
+        // Bandido Anão (ver _makeBandit acima no construtor) — mesma
+        // razão do Mercador Viajante acima: não faz sentido "atravessar"
+        // a viagem com o jogador, já foi removido de `this.npcs` junto
+        // com o reset `this.npcs = []` logo acima.
+        this.bandit = null;
         this.activePromotion = null;
         this.weather = 'clear';
         this._weatherTimer = Utils.randomFloat(45, 90);
@@ -1559,6 +1614,7 @@ class CityEngine {
         this._updatePromotion(dt);
         this._updateNightAmbush(dt);
         this._updateTravelingMerchant(dt);
+        this._updateBandit(dt);
     }
 
     // Conta regressiva da promoção de loja ativa (ver _eventPromotion) — some
@@ -1631,6 +1687,8 @@ class CityEngine {
         // inteiro passado — um novo dia pode trazer (ou não) um mercador/
         // promoção diferente pelo sorteio normal de _updateRandomEvents.
         this.travelingMerchant = null;
+        // Bandido Anão — mesmo motivo do Mercador Viajante acima.
+        this.bandit = null;
         this.activePromotion = null;
 
         // Pedras de Luz (ver _spawnLightStonesIfNeeded/item 13): força uma
@@ -2017,6 +2075,16 @@ class CityEngine {
         ];
         if (p && p.wins > 0) table.push({ w: 3, run: () => this._eventVictoryComment(p) });
 
+        // Bandido Anão (ver citydatabase.js `hasBandits`/_eventDwarfBandit)
+        // — só entra no sorteio em cidades que declararem o perigo urbano;
+        // qualquer outra cidade nunca tem essa entrada na tabela, então
+        // nunca sorteia. Mesmo peso do Duelista/Ladrão (2) — não deve
+        // dominar o sorteio nem virar a maioria dos encontros.
+        const cityDefForBandit = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        if (p && cityDefForBandit && cityDefForBandit.hasBandits) {
+            table.push({ w: 2, run: () => this._eventDwarfBandit(p) });
+        }
+
         // Vampiros só saem à noite (Ritual do Vampirismo, ver rituals.js) —
         // peso relevante só quando window.GFX.arenaTime === 'night'. Nunca
         // sorteia um SEGUNDO encontro forçado enquanto um já está a
@@ -2162,6 +2230,120 @@ class CityEngine {
             this.travelingMerchant = null;
             this._toast('O mercador viajante partiu da praça rumo à próxima cidade.', 'info');
         }
+    }
+
+    // Bandido Anão aparece na praça (ver _makeBandit) — mesmo tratamento
+    // de "só um por vez" que o Mercador Viajante (_eventRareMerchant)
+    // acima, chamado do MESMO sorteio ponderado de _updateRandomEvents
+    // (só entra na tabela em cidades com `hasBandits`, ver ali).
+    _eventDwarfBandit(p) {
+        if (this.bandit) {
+            this._toast('Um bandido ainda ronda a praça — cuidado por onde anda.', 'info');
+            return;
+        }
+        const bandit = this._makeBandit();
+        this.bandit = bandit;
+        this.npcs.push(bandit);
+        this._toast('Um bandido anão te encara de longe, mão no cabo do machado...', 'error');
+        if (window.AudioManager) window.AudioManager.playError();
+    }
+
+    // Some sozinho se ignorado (ver _makeBandit `despawnTimer`) — mesmo
+    // tratamento de _updateTravelingMerchant acima, sem toast de aviso
+    // (diferente do mercador: o jogador não "perdeu uma oportunidade" ao
+    // evitar um bandido, então não faz sentido narrativo avisar).
+    _updateBandit(dt) {
+        if (!this.bandit) return;
+        this.bandit.despawnTimer -= dt;
+        if (this.bandit.despawnTimer <= 0) {
+            const idx = this.npcs.indexOf(this.bandit);
+            if (idx >= 0) this.npcs.splice(idx, 1);
+            this.bandit = null;
+        }
+    }
+
+    // Gera o inimigo da luta contra o bandido — reaproveita Enemy inteiro
+    // (mesma geração procedural de stats/equipamento/loot/raça/nome/
+    // sorteio de Elite de qualquer Duelo Rápido, nunca uma classe/lógica
+    // de combate paralela). Bug evitado nesta iteração: forçar
+    // `isElite`/`race` DEPOIS de `new Enemy(...)` não funcionaria — o
+    // construtor já decide nível efetivo, nome, aura visual E raça (que
+    // por sua vez decide a aparência sorteada) tudo internamente, ANTES
+    // de qualquer código externo poder reagir; sobrescrever depois deixa
+    // level/nome/visual dessincronizados uns dos outros. Em vez disso,
+    // só o NÍVEL de entrada sobe (+1, mesmo padrão já usado por
+    // startEliteRoadBattle pros chefes opcionais da Estrada) — o resto
+    // (raça majoritariamente anã pela demografia de reino_anao, chance
+    // normal de Elite) sai natural da geração procedural de sempre.
+    // `isBandit` é só uma tag NOVA e inofensiva (não influencia stats/
+    // visual nenhum) lida por reputation.js `_opponentWeight` — derrotar
+    // conta como "importante" mesmo quando o sorteio de Elite não bate.
+    _makeBanditEnemy(p) {
+        const enemy = new Enemy(p.level + 1);
+        enemy.isBandit = true;
+        return enemy;
+    }
+
+    // Menu de decisão do Bandido Anão (Pagar/Lutar/Recusar) — clicado
+    // depois do jogador andar até perto dele (mesmo fluxo de aproximação
+    // de qualquer NPC, ver _talkToNpc). ÚNICO encontro do jogo com uma
+    // escolha real de 3 vias em vez de resolução automática ou combate
+    // direto — pedido explícito do usuário ("o jogador pode: pagar;
+    // recusar; lutar").
+    _banditEncounter(npc) {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        const demand = Math.min(p.gold, Utils.randomInt(15, 35) + p.level * 3);
+        const menu = document.getElementById('city-bandit-menu');
+        const textEl = document.getElementById('city-bandit-text');
+        if (!menu || !textEl) return;
+        textEl.innerText = `"Sua bolsa ou seu sangue. ${demand} de ouro, agora."`;
+        menu.classList.remove('hidden');
+
+        const closeAndRemove = () => {
+            menu.classList.add('hidden');
+            const idx = this.npcs.indexOf(npc);
+            if (idx >= 0) this.npcs.splice(idx, 1);
+            this.bandit = null;
+        };
+
+        const startFight = () => {
+            closeAndRemove();
+            this._toast('O bandido avança pra cima de você!', 'error');
+            setTimeout(() => {
+                if (this._isActive() && window.UI && window.UI.beginBattleWith) {
+                    const arenaMenu = document.getElementById('city-arena-menu');
+                    if (arenaMenu) arenaMenu.classList.add('hidden');
+                    window.UI.beginBattleWith(this._makeBanditEnemy(p));
+                }
+            }, 1400);
+        };
+
+        document.getElementById('btn-bandit-pay').onclick = () => {
+            p.gold -= demand;
+            window.SaveManager.save(window.Engine.state);
+            closeAndRemove();
+            this._toast(`Você paga ${demand}g e o bandido se afasta, satisfeito.`, 'info');
+            if (window.AudioManager) window.AudioManager.playConfirm();
+        };
+
+        document.getElementById('btn-bandit-fight').onclick = () => startFight();
+
+        // Recusar tenta se afastar sem pagar — Carisma dá uma chance real
+        // de o bandido desistir (mesmo mecanismo de negociação já usado
+        // em _eventThief), mas sem garantia: pode escalar pra luta do
+        // mesmo jeito (pedido explícito: "se recusar, PODE iniciar
+        // batalha" — nunca 100% de um lado ou do outro).
+        document.getElementById('btn-bandit-refuse').onclick = () => {
+            const cha = p.getTotalStat ? p.getTotalStat('cha') : 5;
+            if (Utils.chance(cha * 3)) {
+                closeAndRemove();
+                this._toast('Suas palavras convencem o bandido a procurar outro alvo.', 'success');
+                if (window.AudioManager) window.AudioManager.playConfirm();
+            } else {
+                startFight();
+            }
+        };
     }
 
     // Carisma dá uma chance de convencer o ladrão a devolver parte do

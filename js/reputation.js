@@ -159,6 +159,15 @@ window.ReputationSystem = {
         if (opponent.isBoss) return 5;
         if (opponent.rivalId && opponent.isChampion) return 3.5;
         if (opponent.rivalId) return 2;
+        // Bandido Anão (ver city.js _makeBanditEnemy/reino_anao
+        // `hasBandits`) — mesmo peso do Rival comum: derrotar um
+        // criminoso de verdade É notícia, mesmo sem ser Elite por sorte
+        // (pedido explícito do usuário, item 15 da especificação:
+        // "derrotar criminosos" afeta reputação). Checado ANTES de
+        // isElite de propósito: um bandido raramente Elite continua
+        // contando como "importante" pelo próprio contexto, não só pela
+        // sorte do sorteio de raridade do inimigo.
+        if (opponent.isBandit) return 2;
         if (opponent.isElite) return 1;
         return 0; // duelo comum contra inimigo genérico: nem "importante" pra ganhar fama nem pra perder muita
     },

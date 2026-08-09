@@ -264,6 +264,15 @@ const CityDatabase = {
         // usuário: "a cidade dos anões NÃO deve possuir lojas iguais às
         // outras".
         hasOreTrader: true,
+        // Bandidos anões (ver city.js _eventDwarfBandit/_makeBandit) —
+        // "a cidade não deve ser segura" pedido explicitamente pelo
+        // usuário. Entra no MESMO sorteio ponderado de eventos ambientes
+        // que já rege Mercador Viajante/Ladrão/Duelista/etc (ver
+        // _updateRandomEvents) — nunca um timer paralelo, mesma cadência
+        // (~50-100s) e mesma competição por peso contra os outros ~15
+        // eventos possíveis, garantindo frequência equilibrada sem
+        // precisar de nenhuma lógica de "não repetir demais" nova.
+        hasBandits: true,
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
         officialArenaBiome: 'montanhas',
         arenaName: 'Fosso do Martelo',
