@@ -2512,32 +2512,60 @@ class UIManager {
 
     // Tela do Negociante de Minérios (Reino Anão, ver citydatabase.js
     // `hasOreTrader`) — comércio de MATÉRIA-PRIMA, não de equipamento
-    // pronto. Compra (preço fixo por unidade, `value * 2.5`, sem limite de
-    // estoque — matéria-prima é commodity, não item raro numerado) e venda
-    // (`value * 0.6`, MELHOR que os 40% genéricos da mochila comum, ver
-    // renderBag — recompensa trazer material pra cá especificamente em vez
-    // de vender qualquer coisa no primeiro clique da mochila).
+    // pronto. Venda: `value * 0.6`, MELHOR que os 40% genéricos da mochila
+    // comum (ver renderBag) — recompensa trazer material pra cá em vez de
+    // vender qualquer coisa no primeiro clique da mochila.
+    //
+    // Compra — REESCRITA (Rework Econômico item 2): antes vendia TODOS os
+    // 5 tiers de material, sem limite de quantidade, a preço fixo (2.5x) —
+    // um jogador rico comprava minério raro em massa e forjava
+    // repetidamente até sair uma peça excelente, e o ouro deixava de ser
+    // um limite real assim que o jogador tinha o suficiente pra comprar em
+    // volume. Isso contradiz o propósito central da mineração (item 3 da
+    // diretiva: cada tier deve ser genuinamente raro e vir de MINERAR, não
+    // de comprar). Agora: só tier 1-2 (Minério Comum/Ferro/Carvão) —
+    // materiais "comuns/médio-baixos" — aparecem aqui, com um LIMITE
+    // DIÁRIO por material (mesmo padrão dayCount-reset já usado por
+    // ReputationSystem.commitTheft/theftsToday) e preço de "recurso de
+    // emergência" (4x o valor base, bem acima do 2.5x anterior). Tier 3+
+    // (Lingote de Aço/Cristal Mágico/Adamante Anão) NUNCA mais aparece à
+    // venda aqui — hoje só existe receita de equipamento consumindo
+    // material (ver forge.js RECIPES), nenhuma receita PRODUZ material, e
+    // nenhum outro item.js dá esses tiers de outra forma — miná-los nos
+    // veios da Praça/Estrada é a ÚNICA fonte real, exatamente como a
+    // diretiva pede.
     openOreTrader() {
         const p = window.Engine.state.player;
         document.getElementById('oretrader-player-gold').innerText = p.gold;
 
+        const MAX_PER_MATERIAL_PER_DAY = 3;
+        const currentDay = (window.City && window.City.dayCount) || 0;
+        if (p.oreTraderDayCount !== currentDay) {
+            p.oreTraderDayCount = currentDay;
+            p.oreTraderPurchasesToday = {};
+        }
+        if (!p.oreTraderPurchasesToday) p.oreTraderPurchasesToday = {};
+
         const buyContainer = document.getElementById('oretrader-buy-container');
-        buyContainer.innerHTML = '';
-        Object.keys(ItemDatabase.materials).forEach(templateKey => {
+        buyContainer.innerHTML = '<p style="color:#888; font-size:0.75rem; grid-column: 1 / -1; margin-bottom:8px;">⚒️ Materiais raros (Lingote de Aço, Cristal Mágico, Adamante Anão) não são vendidos aqui — só minerando os veios da cidade.</p>';
+        Object.keys(ItemDatabase.materials).filter(key => ItemDatabase.materials[key].tier <= 2).forEach(templateKey => {
             const template = ItemDatabase.materials[templateKey];
-            const price = Math.ceil(template.value * 2.5);
-            const affordable = p.gold >= price && p.inventory.length < p.inventoryCapacity;
+            const price = Math.ceil(template.value * 4);
+            const boughtToday = p.oreTraderPurchasesToday[templateKey] || 0;
+            const remaining = MAX_PER_MATERIAL_PER_DAY - boughtToday;
+            const affordable = remaining > 0 && p.gold >= price && p.inventory.length < p.inventoryCapacity;
             const card = document.createElement('div');
             card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
             card.innerHTML = `
                 <h4>⛏️ ${template.name}</h4>
-                <p style="font-size:0.8rem; color:#aaa;">Nível ${template.tier} · ${price}g</p>
+                <p style="font-size:0.8rem; color:#aaa;">Nível ${template.tier} · ${price}g · ${remaining > 0 ? `${remaining} restante(s) hoje` : 'limite diário atingido'}</p>
                 <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Comprar</button>
             `;
             card.querySelector('button').onclick = () => {
-                if (p.gold < price || p.inventory.length >= p.inventoryCapacity) return;
+                if (remaining <= 0 || p.gold < price || p.inventory.length >= p.inventoryCapacity) return;
                 p.gold -= price;
                 p.inventory.push(ItemFactory.createMaterial(templateKey));
+                p.oreTraderPurchasesToday[templateKey] = boughtToday + 1;
                 window.SaveManager.save(window.Engine.state);
                 if (window.AudioManager) window.AudioManager.playConfirm();
                 this.openOreTrader(); // Refresh
