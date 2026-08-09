@@ -3633,6 +3633,13 @@ class UIManager {
                 statsHtml += `<p style="color:#88ccee">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+                // Texto de identidade (Mega Atualização item 1/19 — ver
+                // items.js Equipment.description, NOVO campo, opcional).
+                // Itens antigos sem `description` simplesmente não mostram
+                // esta linha, comportamento idêntico a antes.
+                if (item.description) {
+                    statsHtml += `<p style="font-style:italic; color:#c9c2ad;">${item.description}</p>`;
+                }
                 // Requisitos de equipar (Mega Atualização item 3/4/18) — a
                 // loja/tooltip SEMPRE mostra isto, mesmo quando o jogador
                 // não atende (nunca esconde item forte só por o jogador

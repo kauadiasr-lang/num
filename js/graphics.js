@@ -3920,6 +3920,81 @@ const WEAPON_RENDERERS = {
         ctx.beginPath();
         ctx.moveTo(31, -28); ctx.lineTo(31, 28);
         ctx.stroke();
+    },
+
+    // Bug de auditoria (Mega Atualização item 1, achado durante a auditoria
+    // de arsenal): w_15/w_16 (Arco do Olho Partido, Machado de Guerra de
+    // Kharzum — ambos de trabalho anterior desta sessão) nunca tiveram
+    // entrada própria aqui, então caíam no `default` (espada genérica) em
+    // combate — um ARCO aparecia com silhueta de espada. Corrigido junto
+    // com as entradas novas desta iteração, reaproveitando a mesma técnica
+    // do arquétipo equivalente (w_09 Arco Curto / w_02 Machado), igual o
+    // padrão já usado por w_11-w_14 acima.
+    w_15(ctx) { // Arco do Olho Partido: arco recurvo com uma rachadura visível na haste
+        ctx.strokeStyle = '#6a5a4a'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(6, 0, 24, -Math.PI * 0.4, Math.PI * 0.4);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(22, -19); ctx.lineTo(22, 19);
+        ctx.stroke();
+        ctx.fillStyle = '#c0392b'; // rachadura vermelha na haste, ecoa o próprio nome "Olho Partido"
+        ctx.beginPath();
+        ctx.arc(6, -10, 2, 0, Math.PI * 2); ctx.fill();
+    },
+    w_16(ctx) { // Machado de Guerra de Kharzum: cabeça dupla, maior que qualquer outro machado do jogo
+        ctx.beginPath();
+        ctx.moveTo(12, -8); ctx.lineTo(38, -26); ctx.lineTo(46, 0); ctx.lineTo(38, 26); ctx.lineTo(12, 8);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#8a3a1a'; ctx.lineWidth = 1.5; // cobre/ferrugem anão, ecoa w_12
+        ctx.beginPath();
+        ctx.moveTo(20, -14); ctx.lineTo(20, 14);
+        ctx.stroke();
+    },
+
+    // --- Mega Atualização item 1/2/19: Lanças novas (ver items.js w_17-
+    // w_21) — a MESMA técnica-base de w_05 (haste retangular + ponta
+    // triangular), variando comprimento/espessura/detalhe pra refletir a
+    // identidade mecânica real de cada uma (alcance/velocidade/perfuração
+    // já diferentes em items.js, ver comentário lá).
+    w_17(ctx) { // Lança de Caça: haste curta e fina — a mais leve de todas as lanças
+        ctx.fillRect(12, -1.5, 38, 3);
+        ctx.beginPath();
+        ctx.moveTo(50, -4); ctx.lineTo(58, 0); ctx.lineTo(50, 4);
+        ctx.closePath(); ctx.fill();
+    },
+    w_18(ctx) { // Pique de Falange: a haste mais longa do jogo, ponta estreita de perfuração
+        ctx.fillRect(12, -2.5, 66, 5);
+        ctx.beginPath();
+        ctx.moveTo(78, -5); ctx.lineTo(90, 0); ctx.lineTo(78, 5);
+        ctx.closePath(); ctx.fill();
+    },
+    w_19(ctx) { // Tridente das Marés: três pontas em vez de uma
+        ctx.fillRect(12, -2, 50, 4);
+        ctx.beginPath();
+        ctx.moveTo(62, -9); ctx.lineTo(70, -9); ctx.lineTo(66, 0); ctx.lineTo(70, 9); ctx.lineTo(62, 9); ctx.lineTo(66, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(62, -2); ctx.lineTo(74, 0); ctx.lineTo(62, 2);
+        ctx.closePath(); ctx.fill();
+    },
+    w_20(ctx) { // Lança Caça-Trolls: haste grossa, cabeça larga de perfuração (Orc, mais bruta que a élfica)
+        ctx.fillRect(12, -3, 50, 6);
+        ctx.beginPath();
+        ctx.moveTo(62, -9); ctx.lineTo(76, 0); ctx.lineTo(62, 9);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#3a5a1a'; // oliva orc, ecoa w_11
+        ctx.fillRect(10, -3, 4, 6);
+    },
+    w_21(ctx) { // Lança dos Ventos Élfica: haste fina, ponta longa e esguia — a de maior alcance do jogo
+        ctx.fillRect(12, -1.5, 58, 3);
+        ctx.beginPath();
+        ctx.moveTo(70, -5); ctx.lineTo(82, 0); ctx.lineTo(70, 5);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(74,138,58,0.55)'; // verde-floresta élfico, ecoa w_13/w_14
+        ctx.beginPath();
+        ctx.arc(66, 0, 3, 0, Math.PI * 2); ctx.fill();
     }
 };
 

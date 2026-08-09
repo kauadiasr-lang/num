@@ -36,6 +36,14 @@ class Equipment {
         this.id = baseTemplate.id;
         this.name = `${baseTemplate.name}`;
         this.slot = baseTemplate.slot;
+        // Mega Atualização item 1 ("cada nova arma deve possuir...
+        // descrição"): Equipment nunca teve texto de identidade nenhum —
+        // só Consumable/Material tinham `description`. Opcional (`null`
+        // se o template não definir), então os ~42 templates já
+        // existentes continuam funcionando idênticos; só os itens novos
+        // desta iteração (e futuras) preenchem isto. Exibido no tooltip
+        // (ver ui.js attachTooltip) igual à descrição de consumível.
+        this.description = baseTemplate.description || null;
         this.rarity = rarityObj;
         this.quality = qualityValue;
         // 0.85x (qualidade 0, forja ruim) a 1.25x (qualidade 100, forja
@@ -240,7 +248,38 @@ const ItemDatabase = {
         // de dano bruto por velocidade — nunca um upgrade estritamente
         // melhor, uma escolha de estilo diferente.
         dwarvengreataxe: { id: 'w_16', name: "Machado de Guerra de Kharzum", slot: SLOTS.MAIN_HAND, damage: 20, weight: 9.0, value: 250, durability: 190, stats: { str: 6 }, armorPierce: 0.35, region: 'reino_anao',
-            minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 }
+            minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 },
+
+        // --- Mega Atualização item 1/2/19: expansão do arsenal — Lanças ---
+        // Categoria mais fraca do jogo antes desta iteração (só 1 template,
+        // `spear` acima). As 5 novas nunca são só o mesmo número reescalado
+        // — cada uma varia um eixo mecânico DIFERENTE em cima da identidade
+        // comum de lança (alcance maior que a média): velocidade,
+        // profundidade de alcance, perfuração, crítico ou combinação de
+        // atributo. `description` é NOVO neste tipo de item (ver Equipment
+        // acima) — nenhuma arma anterior a esta tinha texto de identidade
+        // próprio, só a ficha de status genérica do tooltip.
+        huntingspear: { id: 'w_17', name: "Lança de Caça", slot: SLOTS.MAIN_HAND, damage: 7, weight: 2.0, value: 45, durability: 80, stats: { agi: 1, acc: 1 }, accBonus: 5,
+            description: "Arma leve de batedores, feita pra abater presas em movimento antes que cheguem perto — rápida, mas sem força pra atravessar armadura de verdade.",
+            minRange: 1, maxRange: 4, atkSpeed: 1.15, approachSpeed: 2.3, retreatSpeed: 2.4 },
+        phalanxpike: { id: 'w_18', name: "Pique de Falange", slot: SLOTS.MAIN_HAND, damage: 11, weight: 5.5, value: 120, durability: 130, stats: { str: 3, def: 1 }, armorPierce: 0.15,
+            description: "Longa demais pra ser rápida — pensada pra manter o inimigo a distância antes que ele chegue perto o bastante pra revidar. O maior alcance entre todas as armas corpo a corpo do jogo.",
+            minRange: 3, maxRange: 7, atkSpeed: 0.6, approachSpeed: 1.3, retreatSpeed: 1.5 },
+        trident: { id: 'w_19', name: "Tridente das Marés", slot: SLOTS.MAIN_HAND, damage: 10, weight: 3.5, value: 100, durability: 100, stats: { agi: 2, acc: 1 }, critBonus: 12,
+            description: "Três pontas em vez de uma — mais chance de encontrar uma brecha na guarda do adversário a cada golpe certeiro.",
+            minRange: 2, maxRange: 5, atkSpeed: 0.85, approachSpeed: 1.7, retreatSpeed: 2.0 },
+        // Regional Orc (ver citydatabase.js fortaleza_orc) — identidade
+        // "força bruta" da cidade também na categoria lança, não só em
+        // machados/martelos.
+        orctrollspear: { id: 'w_20', name: "Lança Caça-Trolls", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 160, durability: 140, stats: { str: 5 }, armorPierce: 0.25, region: 'fortaleza_orc',
+            description: "Forjada pra atravessar o couro grosso de trolls das montanhas — mais curta que um pique de falange, mas capaz de perfurar quase qualquer coisa que respire.",
+            minRange: 2, maxRange: 5, atkSpeed: 0.7, approachSpeed: 1.4, retreatSpeed: 1.6 },
+        // Regional Élfico (ver citydatabase.js santuario_elfico) — reforça
+        // "leve e preciso" também numa arma de haste, não só em arcos/
+        // lâminas.
+        elvenwindspear: { id: 'w_21', name: "Lança dos Ventos Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 155, durability: 95, stats: { agi: 4, acc: 2 }, critBonus: 10, region: 'santuario_elfico',
+            description: "Talhada em madeira viva do Santuário — tão leve que mal atrasa o golpe seguinte, com alcance que nenhuma outra lança do jogo alcança.",
+            minRange: 2, maxRange: 6, atkSpeed: 1.2, approachSpeed: 2.4, retreatSpeed: 2.6 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
