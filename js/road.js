@@ -297,7 +297,16 @@ window.RoadEngine = {
         // ruins/shrine já existiam, árvore oca ainda faltava. Geometria
         // própria (tronco grosso com um buraco escuro na base, ver
         // _drawEventIcon) — nunca um emoji/placeholder.
-        hollow_tree: { icon: '🌳', label: 'Explorar a árvore oca' }
+        hollow_tree: { icon: '🌳', label: 'Explorar a árvore oca' },
+        // Veio de minério na Estrada (item pendente da mega-diretiva do
+        // Reino Anão: "minas de exploração com risco x recompensa" —
+        // regiões perigosas conectadas por exploração fora da cidade,
+        // nunca só dentro da Praça segura). Fica de fora do sorteio geral
+        // de `types` em _generateEvents (mesmo motivo do `clearing_treasure`
+        // logo acima) — só existe fisicamente perto do Reino Anão, gerado
+        // por _generateOreVeins, nunca espalhado uniformemente pelo mapa
+        // inteiro como comerciante/baú/etc.
+        ore_vein: { icon: '⛏️', label: 'Vasculhar o veio de minério' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -533,9 +542,23 @@ window.RoadEngine = {
         }
         this._zoneLength = this.WORLD_LENGTH / this._zones.length;
         this._lastZoneIndex = -1;
+        // Zona de mineração perigosa (ver _generateOreVeins/_updateBandits
+        // abaixo) — só existe quando uma das duas pontas da travessia é uma
+        // cidade com `hasOreVeins` (hoje só o Reino Anão, ver
+        // citydatabase.js, mas data-driven em vez de checar o id fixo).
+        // `shallowIdx`/`deepIdx` apontam pras DUAS zonas (metade do caminho)
+        // pertencentes ao lado dessa cidade — a mais próxima da cidade em si
+        // é `shallowIdx` (minério comum, mesma raridade seguro-de-sempre da
+        // Praça), a mais afastada rumo ao meio do mapa é `deepIdx` (minério
+        // melhor, mas também onde bandidos ficam mais fortes — risco escala
+        // com recompensa, pedido explícito da especificação original).
+        this._miningZones = null;
+        if (fromDef && fromDef.hasOreVeins) this._miningZones = { shallowIdx: 0, deepIdx: 1 };
+        else if (toDef && toDef.hasOreVeins) this._miningZones = { shallowIdx: 3, deepIdx: 2 };
         this._updateZoneLabel(0);
         this._generateEvents(fromId, toId);
         this._generateClearingTreasures();
+        this._generateOreVeins();
         // Espírito da Natureza / Corrupção (Fase 5, ver
         // docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md)
         // só existem fisicamente na Expedição à Floresta Ancestral — a mesma
@@ -579,7 +602,17 @@ window.RoadEngine = {
         // sempre dentro de LANE_HALF_HEIGHT). Continuar no pool geral
         // colocaria o mesmo "tesouro exclusivo de quem sai da estrada" bem
         // no meio do caminho normal, contradizendo o propósito dele.
-        const types = Object.keys(this.EVENT_TYPES).filter(t => t !== 'clearing_treasure').concat(['bandit']);
+        // `ore_vein` também fica de fora pelo MESMO motivo: só pode nascer
+        // dentro das zonas de mineração calculadas em `_miningZones` (ver
+        // _generateOreVeins, chamado à parte, DEPOIS deste sorteio), nunca
+        // espalhado uniformemente pelo mapa inteiro. Bug real pego em teste
+        // ao adicionar este tipo (Iteração 6): sem este filtro, o sorteio
+        // genérico colocava veios SEM `tier` nenhum (só _generateOreVeins
+        // define `ev.tier`) em qualquer zona do mapa — inclusive fora do
+        // território do Reino Anão — e resolvê-los quebrava silenciosamente
+        // (CityEngine.ORE_TIER_MATERIAL[undefined] = undefined, sem
+        // material nenhum pra dar).
+        const types = Object.keys(this.EVENT_TYPES).filter(t => t !== 'clearing_treasure' && t !== 'ore_vein').concat(['bandit']);
         const segment = this.WORLD_LENGTH / this.EVENT_COUNT;
         this._events = [];
         for (let i = 0; i < this.EVENT_COUNT; i++) {
@@ -589,7 +622,16 @@ window.RoadEngine = {
             const side = (i % 2 === 0) ? -1 : 1;
             const y = side * 70;
             const ev = { type, x, y, spawnX: x, consumed: false };
-            if (type === 'bandit') ev.entity = this._makeBanditEntity(x, fromId, toId);
+            if (type === 'bandit') {
+                ev.entity = this._makeBanditEntity(x, fromId, toId);
+                // Bandido caindo dentro da zona FUNDA de mineração (ver
+                // `_miningZones`/_generateOreVeins) luta mais forte —
+                // "risco escala com recompensa" também vale pros perigos, não
+                // só pro loot. Mesmo padrão de startEliteRoadBattle (chefe
+                // opcional da Estrada), só que disparado pela POSIÇÃO em vez
+                // de sorteio (ver onRoadWorldEncounter/_updateBandits).
+                if (this._miningZones && this._zoneIndexAt(x) === this._miningZones.deepIdx) ev.dangerous = true;
+            }
             else if (type === 'traveler') ev.entity = this._makeTravelerEntity(x, fromId, toId);
             else if (type === 'merchant') ev.entity = this._makeMerchantEntity(x, fromId, toId);
             this._events.push(ev);
@@ -918,6 +960,51 @@ window.RoadEngine = {
         }
     },
 
+    // Veios de minério físicos NA ESTRADA (fora da Praça segura) — item
+    // pendente da mega-diretiva do Reino Anão: "minas de exploração com
+    // risco x recompensa... áreas mais perigosas devem ter materiais
+    // melhores". Só nasce quando `_miningZones` foi montado em start()
+    // (uma das duas cidades da travessia tem `hasOreVeins`). Distribuição
+    // deliberadamente DESIGUAL entre as duas zonas do lado dessa cidade:
+    // poucos veios na zona rasa (perto da cidade, mesma raridade segura
+    // de sempre — reaproveita CityEngine._rollOreTier em vez de duplicar
+    // a tabela de probabilidade), mais veios e de tier mais alto na zona
+    // funda (ver _rollDeepOreTier), onde bandidos também ficam mais fortes
+    // (ver `ev.dangerous` em _generateEvents) — risco e recompensa escalam
+    // juntos, nunca um sem o outro.
+    _generateOreVeins() {
+        if (!this._miningZones) return;
+        const { shallowIdx, deepIdx } = this._miningZones;
+        const seed = this._stringHash(this.fromId + '->' + this.toId + ':ore');
+        const place = (zoneIdx, count, saltBase, deep) => {
+            const zoneStart = zoneIdx * this._zoneLength;
+            for (let i = 0; i < count; i++) {
+                const x = zoneStart + this._hashRange(seed + saltBase + i * 41, 250, this._zoneLength - 250);
+                const side = (this._hash(seed + saltBase + i * 67) % 2 === 0) ? -1 : 1;
+                const y = side * 90;
+                const tier = deep ? this._rollDeepOreTier() : (window.City ? window.City._rollOreTier() : 1);
+                this._events.push({ type: 'ore_vein', x, y, spawnX: x, consumed: false, tier });
+            }
+        };
+        place(shallowIdx, 3, 21000, false);
+        place(deepIdx, 4, 25000, true);
+    },
+
+    // Sorteio de tier pra veios da zona FUNDA — nunca tier 1 (mínimo
+    // garantido tier 2, diferente do sorteio seguro da Praça que pode sair
+    // tier 1 na maioria das vezes) e uma cauda bem mais gorda nos tiers
+    // altos. Mesma filosofia "risco escala com recompensa, nunca garantia
+    // determinística de tier 5" já usada em CityEngine._rollOreTier — só
+    // desloca a curva inteira pra cima, uma distribuição própria, não uma
+    // duplicata da mesma tabela.
+    _rollDeepOreTier() {
+        const roll = Math.random() * 100;
+        if (roll < 20) return 2;
+        if (roll < 50) return 3;
+        if (roll < 80) return 4;
+        return 5;
+    },
+
     update(dt) {
         // Corrige um bug que existia desde a Fase 2: só checar `this.active`
         // (sem checar a TELA) deixava o RoadEngine continuando a mover o
@@ -1216,7 +1303,7 @@ window.RoadEngine = {
             if (dist < this.BANDIT_DETECT_RADIUS) {
                 ev.consumed = true;
                 if (ev.type === 'bandit') {
-                    if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter();
+                    if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter(!!ev.dangerous);
                 } else if (window.UI && window.UI.onRoadWorldNatureDiscovery) {
                     window.UI.onRoadWorldNatureDiscovery();
                 }
@@ -1490,6 +1577,29 @@ window.RoadEngine = {
             const gift = Utils.randomInt(10, 25);
             p.gold += gift;
             toast(this._pickFlavor(this.HOLLOW_TREE_LINES, ev.x, 10400).replace('{gift}', gift), 'success');
+        } else if (ev.type === 'ore_vein') {
+            // Minério físico fora da cidade (ver _generateOreVeins) —
+            // reaproveita EXATAMENTE o mesmo par ItemDatabase.materials/
+            // CityEngine.ORE_TIER_MATERIAL/ItemFactory.createMaterial já
+            // usado pelos veios DENTRO da Praça (ver city.js
+            // _collectOreVein), nunca uma tabela de material paralela. O
+            // `tier` já foi sorteado na geração (mais alto na zona funda,
+            // ver _rollDeepOreTier), aqui só materializa o item.
+            const pool = (typeof CityEngine !== 'undefined') ? CityEngine.ORE_TIER_MATERIAL[ev.tier] : null;
+            const materialId = pool ? pool[this._hash(Math.floor(ev.x) + 30500) % pool.length] : null;
+            if (!materialId || !window.ItemFactory || !window.ItemFactory.createMaterial) {
+                toast('O veio de minério já foi esgotado por outra expedição.', 'info');
+                return;
+            }
+            const material = window.ItemFactory.createMaterial(materialId);
+            if (p.inventory.length < p.inventoryCapacity) {
+                p.inventory.push(material);
+                toast(`Você extrai ${material.name} do veio de minério!`, 'success');
+            } else {
+                const soldFor = Math.max(1, Math.floor(material.value * 0.5));
+                p.gold += soldFor;
+                toast(`Você extrai ${material.name}, mas sua mochila está cheia — vendido no local por ${soldFor}g.`, 'success');
+            }
         }
 
         // Conquistas de exploração (Ciclo 38 — 'bookworm'/'stone_collector'/
@@ -4801,6 +4911,35 @@ window.RoadEngine = {
             ctx.moveTo(16, -9); ctx.lineTo(19, -15);
             ctx.moveTo(20, -9); ctx.lineTo(23, -15);
             ctx.moveTo(17, -10); ctx.lineTo(21, -13);
+            ctx.stroke();
+        } else if (t === 'ore_vein') {
+            // Mesmo afloramento de rocha com veios brilhando na cor do tier
+            // já usado DENTRO da Praça (ver city.js _drawOreVein) — cor do
+            // brilho muda com `ev.tier` (cinza comum até dourado Adamante
+            // Anão), mesma pista visual de valor antes de vasculhar.
+            const pulse = 0.6 + Math.sin(performance.now() * 0.0025 + ev.x * 0.01) * 0.4;
+            const tierColors = { 1: '170,170,170', 2: '220,150,90', 3: '140,210,240', 4: '190,140,240', 5: '255,220,110' };
+            const rgb = tierColors[ev.tier] || tierColors[1];
+            const r = 15;
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2.6);
+            glow.addColorStop(0, `rgba(${rgb},${0.45 * pulse})`);
+            glow.addColorStop(1, `rgba(${rgb},0)`);
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(0, 0, r * 2.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#4a4650';
+            ctx.beginPath();
+            ctx.moveTo(-r * 1.3, 0);
+            ctx.lineTo(-r * 0.8, -r * 0.55);
+            ctx.lineTo(-r * 0.1, -r * 0.85);
+            ctx.lineTo(r * 0.7, -r * 0.5);
+            ctx.lineTo(r * 1.3, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = `rgba(${rgb},${0.75 + pulse * 0.25})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.7, -r * 0.1); ctx.lineTo(-r * 0.2, -r * 0.5);
+            ctx.moveTo(r * 0.1, -r * 0.2); ctx.lineTo(r * 0.6, -r * 0.55);
             ctx.stroke();
         } else {
             // Fallback pra qualquer tipo futuro sem ícone próprio ainda —

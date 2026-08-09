@@ -3132,9 +3132,17 @@ class UIManager {
     // (posição do jogador, zona atual, eventos restantes) fica intacto em
     // memória, pronto pra ser retomado exatamente de onde parou se o
     // jogador vencer (ver btn-return-hub abaixo).
-    onRoadWorldEncounter() {
+    // `dangerous` (novo, ver road.js `_miningZones`/`ev.dangerous`) marca um
+    // bandido encontrado na zona FUNDA de mineração perto do Reino Anão —
+    // usa o MESMO inimigo reforçado de startEliteRoadBattle (chefe opcional
+    // da Estrada) em vez do Duelo Rápido genérico, mesma filosofia "risco
+    // escala com recompensa" já aplicada aos veios de minério daquela zona.
+    // Default `false` preserva o comportamento de sempre pra qualquer outro
+    // bandido da Estrada.
+    onRoadWorldEncounter(dangerous = false) {
         window.SaveManager.save(window.Engine.state);
-        this.startBattle();
+        if (dangerous) this.startEliteRoadBattle();
+        else this.startBattle();
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão — a partir da Fase
