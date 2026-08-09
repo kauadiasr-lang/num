@@ -114,6 +114,77 @@ const ENCHANTMENTS = {
         onDefend(defender) {
             return { dodgeBonusPercent: 5 };
         }
+    },
+
+    // --- Mega Atualização item 7/8: Encantamentos Orcs — força bruta,
+    // impacto físico, sobrevivência sob pressão. NUNCA um bônus numérico
+    // solto (item 7 da diretiva é explícito: "não faça Encantamento Orc =
+    // +10 STR") — os três abaixo cada um usa uma condição/gatilho
+    // MECÂNICO diferente, reaproveitando só o vocabulário já consumido
+    // por battle.js executeAttack (extraDamage/stunChance/particleColor —
+    // ver enchantEff acima em Fogo/Gelo/Eletricidade), nunca exigindo
+    // nenhuma mudança em battle.js.
+    impactoorc: {
+        id: 'impactoorc', name: 'Impacto Orc', color: '#c96a1a', appliesTo: ['weapon'], region: 'fortaleza_orc',
+        description: 'Quanto mais pesada a arma na mão, maior a chance de atordoar o alvo com o próprio impacto do golpe. Uma adaga não atordoa ninguém; um martelo, sim. Só aplicável na Fortaleza Orc.',
+        cost: 190,
+        onHit(attacker, defender) {
+            // Peso da arma ATIVA (ver getActiveWeapon, já usado em toda
+            // parte do jogo) determina a chance — nunca um valor fixo
+            // igual Eletricidade, então a MESMA arma leve nunca atordoa
+            // tão bem quanto um martelo de guerra com este encantamento.
+            const weapon = attacker.getActiveWeapon ? attacker.getActiveWeapon() : null;
+            const weight = weapon ? weapon.weight : 0;
+            const stunChance = Utils.clamp(weight * 2.2, 0, 30);
+            return { extraDamage: 0, stunChance, particleColor: '#c96a1a' };
+        }
+    },
+    sanguedebatalha: {
+        id: 'sanguedebatalha', name: 'Sangue de Batalha', color: '#8b1a1a', appliesTo: ['weapon'], region: 'fortaleza_orc',
+        description: 'Um orc ferido luta com mais fúria, não com menos — dano extra que cresce quanto mais perto da morte o usuário estiver. Só aplicável na Fortaleza Orc.',
+        cost: 180,
+        onHit(attacker, defender) {
+            // Único encantamento do jogo cujo efeito depende do HP ATUAL
+            // do próprio ATACANTE (todos os outros só olham dano/atributo
+            // fixo do item ou do alvo) — nunca duplica Sagrado/Profano
+            // (que curam, não ganham dano) nem lifestealPercent de
+            // Linhagem (passivo, sempre ativo, não condicional a HP baixo).
+            const hpPercent = attacker.derivedStats.maxHp > 0 ? attacker.currentHp / attacker.derivedStats.maxHp : 1;
+            const lowHpBonus = hpPercent < 0.5 ? Math.floor(attacker.derivedStats.physicalDamage * (0.5 - hpPercent) * 0.6) : 0;
+            return { extraDamage: lowHpBonus, particleColor: '#8b1a1a' };
+        }
+    },
+    pesobrutal: {
+        id: 'pesobrutal', name: 'Peso Brutal', color: '#5a4a2a', appliesTo: ['weapon'], region: 'fortaleza_orc',
+        description: 'Quanto mais forte o usuário for em comparação ao alvo, mais o golpe esmaga — inútil contra quem é mais forte que você, brutal contra quem é mais fraco. Só aplicável na Fortaleza Orc.',
+        cost: 170,
+        onHit(attacker, defender) {
+            // Único encantamento que lê o atributo do DEFENSOR pra decidir
+            // o próprio dano (todos os outros ou são fixos ou dependem só
+            // do atacante) — a diferença de STR pode ser negativa (defensor
+            // mais forte), então sempre clampado a 0 pra nunca virar um
+            // penalizador de dano por acidente.
+            const strDiff = attacker.getTotalStat('str') - defender.getTotalStat('str');
+            const extra = strDiff > 0 ? Math.floor(strDiff * 1.1) : 0;
+            return { extraDamage: extra, particleColor: '#5a4a2a' };
+        }
+    },
+
+    // --- Mega Atualização item 10: reforça a identidade Anã (metalurgia/
+    // durabilidade) com um SEGUNDO encantamento além do que já existe na
+    // Forja em si — este é o único encantamento do jogo que interage com
+    // `item.durability` (ver battle.js endBattle, único ponto que já lia
+    // esse campo). Nunca duplica o sistema de reparo do Ferreiro/Armeiro,
+    // só reduz a CHANCE de perder durabilidade a cada luta.
+    vinculodoferreiro: {
+        id: 'vinculodoferreiro', name: 'Vínculo do Ferreiro', color: '#8a3a1a', appliesTo: ['weapon', 'armor'], region: 'reino_anao',
+        description: 'Trabalho de forja tão bem feito que resiste ao próprio desgaste do combate — 40% de chance de a peça não perder durabilidade a cada luta. Só aplicável no Reino Anão.',
+        cost: 210,
+        // Único campo lido FORA do contrato onHit/onDefend (ver battle.js
+        // endBattle) — não é um efeito de combate, é uma propriedade
+        // passiva do item em si, então não faz sentido forçar isso no
+        // formato onHit só pra manter uma convenção que não se aplica aqui.
+        durabilityShieldChance: 40
     }
 };
 window.ENCHANTMENTS = ENCHANTMENTS;

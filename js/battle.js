@@ -1387,7 +1387,15 @@ class BattleSystem {
         // em player.js) até serem reparadas no Ferreiro/Armeiro.
         for (let key in this.player.equipment) {
             const item = this.player.equipment[key];
-            if (item && item.durability > 0) item.durability--;
+            if (!item || item.durability <= 0) continue;
+            // Vínculo do Ferreiro (Mega Atualização item 10, ver
+            // enchantments.js) — único encantamento do jogo com uma
+            // propriedade passiva fora do contrato onHit/onDefend, então
+            // é lido direto aqui em vez de forçar uma chamada de função
+            // só pra manter uma convenção que não se aplica a este efeito.
+            const ench = item.enchantmentId ? window.ENCHANTMENTS[item.enchantmentId] : null;
+            if (ench && ench.durabilityShieldChance && Utils.chance(ench.durabilityShieldChance)) continue;
+            item.durability--;
         }
         this.player.calculateDerivedStats();
 
