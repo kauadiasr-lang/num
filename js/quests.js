@@ -179,12 +179,16 @@ window.QuestSystem = {
         if (!player.activeQuests) player.activeQuests = {};
         if (!player.completedQuestIds) player.completedQuestIds = [];
         if (!player.failedQuestIds) player.failedQuestIds = [];
-        if (!player.reputation) player.reputation = {};
     },
 
+    // Reputação agora é ÚNICA e global (ver reputation.js ReputationSystem)
+    // — nunca mais por cidade. `cityId` continua no parâmetro só por
+    // compatibilidade com quem já chama esta função (ui.js openQuestBoard),
+    // mas é ignorado: as três Cidades-Hub sempre leem exatamente o mesmo
+    // valor.
     getReputation(player, cityId) {
         this._ensureFields(player);
-        return player.reputation[cityId] || 0;
+        return window.ReputationSystem ? window.ReputationSystem.getValue(player) : 0;
     },
 
     // Progresso inicial por tipo — cada tipo lê um subconjunto diferente
@@ -344,9 +348,18 @@ window.QuestSystem = {
 
         player.gold += quest.reward.gold;
         player.gainExp(quest.reward.xp);
-        player.reputation[quest.cityId] = (player.reputation[quest.cityId] || 0) + quest.reward.reputation;
+        // Reputação global (ver reputation.js) — passa pelo funil único de
+        // ReputationSystem.applyChange em vez de somar direto no objeto
+        // antigo, então entra no mesmo log/HUD de qualquer outra fonte de
+        // reputação (vitórias, roubos...). `toastMessage` fica de fora
+        // (opts sem toastMessage) porque o toast de conclusão de missão
+        // logo abaixo já menciona o ganho de reputação — mostrar os dois
+        // juntos duplicaria a mesma informação na tela.
+        const repGained = window.ReputationSystem
+            ? window.ReputationSystem.applyChange(player, quest.reward.reputation, { reason: 'missao' })
+            : quest.reward.reputation;
 
-        if (window.MainMenu) window.MainMenu.showToast(`Missão concluída: "${quest.name}"! +${quest.reward.gold}g, +${quest.reward.xp}XP, +${quest.reward.reputation} reputação.`, 'success');
+        if (window.MainMenu) window.MainMenu.showToast(`Missão concluída: "${quest.name}"! +${quest.reward.gold}g, +${quest.reward.xp}XP, +${repGained} reputação.`, 'success');
         if (window.SaveManager) window.SaveManager.save(window.Engine.state);
         return quest;
     },

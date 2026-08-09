@@ -1400,6 +1400,12 @@ class BattleSystem {
             this.player.wins = (this.player.wins || 0) + 1;
             this.player.gainExp(expGained);
 
+            // Reputação (ver reputation.js) — só vitórias IMPORTANTES
+            // (elite/Rival/campeão/boss) rendem reputação; um duelo comum
+            // não move o número (ver ReputationSystem._opponentWeight),
+            // então nenhuma mudança aqui pra Enemy genérico.
+            const reputationDelta = window.ReputationSystem ? window.ReputationSystem.onBattleVictory(this.player, this.enemy) : 0;
+
             const leveledUp = this.player.level > levelBefore;
             const loot = this.enemy.generateLoot(this.player.getTotalStat('luk'));
             const isLegendary = loot && loot.rarity && loot.rarity.id === RARITY.LEGENDARY.id;
@@ -1462,10 +1468,10 @@ class BattleSystem {
 
             if (awakenedLineageId && window.UI.showLineageAwakening) {
                 window.UI.showLineageAwakening(awakenedLineageId, () => {
-                    window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot, newAchievements);
+                    window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot, newAchievements, reputationDelta);
                 });
             } else {
-                setTimeout(() => window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot, newAchievements), 2000);
+                setTimeout(() => window.UI.showBattleResults(true, expGained, goldGained, leveledUp, loot, newAchievements, reputationDelta), 2000);
             }
 
         } else if (result === 'DEFEAT') {
@@ -1474,10 +1480,25 @@ class BattleSystem {
             this.player.losses = (this.player.losses || 0) + 1;
             this.player.addFatigue(1); // Cada derrota deixa o gladiador mais cansado
 
+            // Penalidade econômica por derrota (seção 2 do sistema de
+            // Reputação, ver reputation.js) — perde uma fração do ouro
+            // CARREGADO, nunca o guardado no Banco (mesma proteção que já
+            // existia contra ladrões/assaltos noturnos, ver city.js
+            // _eventNightMugging — reaproveitada aqui em vez de inventar
+            // uma segunda "reserva protegida"). Nunca remove equipamento,
+            // armas, habilidades ou progresso de linhagem — só ouro e
+            // reputação, conforme pedido explícito.
+            const weight = window.ReputationSystem ? window.ReputationSystem._opponentWeight(this.enemy) : 0;
+            const goldLossPercent = 0.08 + weight * 0.015; // comum=8%, boss=15.5%
+            const goldLost = Math.min(this.player.gold, Math.round(this.player.gold * goldLossPercent));
+            this.player.gold -= goldLost;
+
+            const reputationDelta = window.ReputationSystem ? window.ReputationSystem.onBattleDefeat(this.player, this.enemy) : 0;
+
             // Penalidade por morte: Revive no hub com 10% de HP
             this.player.currentHp = Math.floor(this.player.derivedStats.maxHp * 0.1);
 
-            setTimeout(() => window.UI.showBattleResults(false, 0, 0, false, null, []), 2000);
+            setTimeout(() => window.UI.showBattleResults(false, 0, -goldLost, false, null, [], reputationDelta), 2000);
         }
 
         window.SaveManager.save(window.Engine.state);

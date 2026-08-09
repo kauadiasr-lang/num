@@ -521,15 +521,21 @@ class Player extends Entity {
         // --- Missões Secundárias (ver quests.js) ---
         // activeQuests: instanceId -> instância completa (ver
         // QuestSystem.acceptQuest); completedQuestIds/failedQuestIds:
-        // defId (únicas) ou instanceId (procedurais), nunca reaproveitados;
-        // reputation: cityId -> número (some ganha por completar missões
-        // naquela cidade). QuestSystem._ensureFields já inicializa esses
-        // campos defensivamente também, mas declarar aqui documenta o
-        // formato de save de verdade, igual a todo outro campo desta classe.
+        // defId (únicas) ou instanceId (procedurais), nunca reaproveitados.
         this.activeQuests = {};
         this.completedQuestIds = [];
         this.failedQuestIds = [];
-        this.reputation = {};
+
+        // --- Reputação (ver reputation.js ReputationSystem) ---
+        // UM ÚNICO número global (pedido explícito do usuário: nunca
+        // reputação separada por cidade) — positivo, neutro ou negativo,
+        // sem limite artificial nas pontas. Era um objeto `{cityId:
+        // número}` antes deste sistema existir; ReputationSystem._ensureFields
+        // migra saves antigos automaticamente (soma dos valores por cidade
+        // num único total) na primeira leitura, então declarar `0` aqui
+        // documenta só o formato NOVO — nunca quebra um save anterior.
+        this.reputation = 0;
+        this.reputationLog = []; // histórico curto de mudanças recentes, pro HUD (ver ReputationSystem._recordAndNotify)
     }
 
     addFatigue(amount) {

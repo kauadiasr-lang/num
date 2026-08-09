@@ -850,6 +850,19 @@ class UIManager {
         document.getElementById('hub-player-exp').innerText = p.exp;
         document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
         document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;
+        // Reputação (ver reputation.js) — GLOBAL, a mesma nas três
+        // Cidades-Hub (pedido explícito do usuário: nunca reputação
+        // separada por cidade). O rótulo de faixa (Infame/Malvisto/Neutro/
+        // Respeitado/Lendário) acompanha o número pra deixar a "tendência"
+        // clara sem precisar abrir nenhuma outra tela.
+        if (window.ReputationSystem) {
+            const repValue = window.ReputationSystem.getValue(p);
+            const tier = window.ReputationSystem.getTier(p);
+            const repEl = document.getElementById('hub-player-reputation');
+            repEl.innerText = repValue;
+            repEl.style.color = tier.tone === 'positive' ? 'var(--color-gold)' : (tier.tone === 'negative' ? '#e04040' : '');
+            document.getElementById('hub-player-reputation-tier').innerText = `${tier.badge} ${tier.label}`;
+        }
         // Cidade-Hub atual (ver citydatabase.js) — visível o tempo todo no
         // topo do Hub, não só dentro do menu do Viajante do Portão.
         if (window.getCurrentCityDef) {
@@ -1323,7 +1336,7 @@ class UIManager {
         menu.classList.remove('hidden');
     }
 
-    showBattleResults(isVictory, exp, gold, leveledUp, loot = null, newAchievements = []) {
+    showBattleResults(isVictory, exp, gold, leveledUp, loot = null, newAchievements = [], reputationDelta = 0) {
         // Lido pelo botão de retorno (ver btn-return-hub abaixo) pra decidir
         // se retoma uma viagem por Estrada em andamento (ver roads.js) — uma
         // emboscada no caminho É a próxima etapa da viagem, então vencer
@@ -1338,6 +1351,21 @@ class UIManager {
         const achievementsContainer = document.getElementById('result-achievements');
         lootContainer.innerHTML = ''; // Limpa loot anterior
         achievementsContainer.innerHTML = '';
+
+        // Reputação (ver reputation.js) — só aparece quando a luta REALMENTE
+        // moveu o número (duelos comuns não dão nem tiram reputação, ver
+        // ReputationSystem._opponentWeight), pra nunca virar um "+0
+        // Reputação" repetitivo e sem sentido em toda batalha (pedido
+        // explícito: "não exibir mensagens desnecessárias a todo momento").
+        const repRow = document.getElementById('result-reputation-row');
+        const repValueEl = document.getElementById('result-reputation');
+        if (reputationDelta !== 0) {
+            repRow.classList.remove('hidden');
+            repValueEl.innerText = `${reputationDelta >= 0 ? '+' : ''}${reputationDelta}`;
+            repValueEl.style.color = reputationDelta >= 0 ? 'var(--color-gold)' : '#e04040';
+        } else {
+            repRow.classList.add('hidden');
+        }
 
         // Moldura/brilho do painel reagem ao desfecho (ver .results-panel.victory/
         // .defeat em style.css) — antes vitória e derrota usavam a mesma
@@ -1403,7 +1431,12 @@ class UIManager {
             title.innerText = "Derrota Esmagadora";
             title.style.color = "#8b0000";
             document.getElementById('result-exp').innerText = "0";
-            document.getElementById('result-gold').innerText = "0";
+            // `gold` já chega NEGATIVO (ver battle.js endBattle DEFEAT: perda
+            // econômica real por derrota, seção 2 do sistema de Reputação —
+            // nunca mais um "0" fixo escondendo a penalidade de verdade).
+            const goldEl = document.getElementById('result-gold');
+            goldEl.innerText = `${gold}`;
+            goldEl.style.color = gold < 0 ? '#e04040' : '';
             lvlUpText.classList.add('hidden');
         }
     }
@@ -2104,9 +2137,22 @@ class UIManager {
         const chaDiscount = Utils.clamp((cha - 5) * 0.006, 0, 0.12); // até +12% com Carisma bem alto
         discount = Utils.clamp(discount + chaDiscount, 0, 0.35);
 
+        // Reputação (seção 5 do sistema de Reputação, ver reputation.js) —
+        // soma-se aos descontos de fama/Carisma já existentes, nunca os
+        // substitui. `shopPriceModifier` já vem no sinal certo (negativo =
+        // desconto extra, positivo = sobretaxa), então SUBTRAÍMOS do
+        // desconto acumulado: reputação positiva aumenta o desconto,
+        // negativa pode empurrar o preço final ACIMA do valor de tabela
+        // (por isso o clamp abaixo aceita um piso negativo, diferente do
+        // clamp de fama/Carisma logo acima). Nunca impede a compra
+        // inteiramente — só encarece.
+        if (window.ReputationSystem) {
+            discount = Utils.clamp(discount - window.ReputationSystem.shopPriceModifier(p), -0.20, 0.35);
+        }
+
         const promo = window.City && window.City.activePromotion;
         if (promo && shopName && promo.shopName === shopName) {
-            discount = Utils.clamp(discount + promo.discountPercent / 100, 0, 0.6);
+            discount = Utils.clamp(discount + promo.discountPercent / 100, -0.20, 0.6);
         }
         return discount;
     }
@@ -3135,8 +3181,13 @@ class UIManager {
         const cityDef = window.getCurrentCityDef();
         window.QuestSystem._ensureFields(p);
 
-        document.getElementById('questboard-reputation').innerText =
-            `Reputação em ${cityDef.name}: ${window.QuestSystem.getReputation(p, cityId)}`;
+        // Reputação global (ver reputation.js) — a mesma em qualquer
+        // cidade, então o rótulo não menciona mais "em <cidade>" (isso
+        // sugeria erroneamente que cada cidade tinha seu próprio número).
+        const repTier = window.ReputationSystem ? window.ReputationSystem.getTier(p) : null;
+        document.getElementById('questboard-reputation').innerText = repTier
+            ? `Reputação: ${window.QuestSystem.getReputation(p, cityId)} (${repTier.badge} ${repTier.label})`
+            : `Reputação: ${window.QuestSystem.getReputation(p, cityId)}`;
 
         const board = window.QuestSystem.getBoardForCity(p, cityId);
 
