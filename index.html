@@ -550,6 +550,22 @@
                         <p>Seu Ouro: <span id="shop-player-gold" class="highlight-gold">0</span></p>
                     </div>
                     <div id="shop-rarity-legend" class="shop-rarity-legend"></div>
+                    <!-- Roubo (seção 3 do sistema de Reputação, ver reputation.js
+                         ReputationSystem.commitTheft) — a ÚNICA ação real de
+                         "jogador comete um crime" no jogo até agora (todo
+                         "roubo" anterior era o jogador sendo a VÍTIMA, ver
+                         city.js _eventThief/_eventNightMugging). Sempre
+                         disponível, sempre com o mesmo custo real de
+                         reputação (nunca escondido), nunca bloqueia o resto
+                         da loja. -->
+                    <div id="shop-theft-section" class="shop-theft-section">
+                        <button class="btn btn-small btn-danger" id="btn-theft-toggle">Roubar</button>
+                        <div id="shop-theft-options" class="hidden">
+                            <button class="btn btn-small" data-severity="petty">Furto pequeno</button>
+                            <button class="btn btn-small" data-severity="moderate">Roubo</button>
+                            <button class="btn btn-small" data-severity="major">Roubo grave</button>
+                        </div>
+                    </div>
                     <div id="shop-repair-section" style="display:none;">
                         <p id="shop-repair-status" class="shop-repair-status"></p>
                         <button class="btn btn-small" id="btn-repair-all">Reparar Equipamento</button>

@@ -2189,6 +2189,33 @@ class UIManager {
         return this._rarityLegendHtml;
     }
 
+    // Roubo (seção 3 do sistema de Reputação, ver reputation.js
+    // ReputationSystem.commitTheft) — única ação real de "jogador comete
+    // um crime" do jogo: até este ponto, todo "roubo" existente era o
+    // jogador sendo a VÍTIMA (city.js _eventThief/_eventNightMugging).
+    // Usa `.onclick =` (atribuição, não addEventListener) de propósito —
+    // mesmo padrão já usado pelo botão de reparo logo abaixo — porque
+    // openShop() roda de novo toda vez que a loja é reaberta; addEventListener
+    // empilharia um listener duplicado por visita (bug de auditoria
+    // clássico), atribuição sempre SUBSTITUI o handler anterior.
+    _bindShopTheft(p) {
+        const toggleBtn = document.getElementById('btn-theft-toggle');
+        const optionsEl = document.getElementById('shop-theft-options');
+        toggleBtn.onclick = () => optionsEl.classList.toggle('hidden');
+
+        optionsEl.querySelectorAll('button[data-severity]').forEach(btn => {
+            btn.onclick = () => {
+                const severity = btn.dataset.severity;
+                const result = window.ReputationSystem.commitTheft(p, severity);
+                document.getElementById('shop-player-gold').innerText = p.gold;
+                this.updateHubStats(); // mantém o HUD (ouro/reputação) já corretos quando o jogador voltar ao Hub
+                optionsEl.classList.add('hidden'); // some depois de escolher — ação deliberada, não fica pedindo confirmação de novo
+                window.AudioManager.playTone(320, 'sawtooth', 0.15, 0.3);
+                if (window.MainMenu) window.MainMenu.showToast(`+${result.gold}g roubados.`, 'success');
+            };
+        });
+    }
+
     openShop(filterSlots = null, title = 'Mercado', consumablesOnly = false) {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
@@ -2213,6 +2240,8 @@ class UIManager {
             this._shopGreetingCache = { title, cityId, text: lines[Utils.randomInt(0, lines.length - 1)] };
         }
         document.getElementById('shop-merchant-greeting').innerText = this._shopGreetingCache.text;
+
+        this._bindShopTheft(p);
 
         // Reparo de equipamento: só faz sentido no Ferreiro/Armeiro (lojas
         // especializadas em metal/couro), nunca na Taverna/Mercado geral.
