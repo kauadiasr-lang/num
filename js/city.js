@@ -126,6 +126,13 @@ class CityEngine {
         // esse campo, então continuam sem nenhum bandido, como sempre.
         this.bandit = null;
 
+        // Mineiro Preso (ver _eventTrappedMiner/_makeTrappedMiner) —
+        // contraponto POSITIVO ao bandido, MESMO padrão de spawn físico
+        // único (nasce na praça, some sozinho se ignorado). Só em cidades
+        // com `hasOreVeins` (hoje só o Reino Anão) — nenhuma cidade antiga
+        // ganha esse campo, então continuam sem nenhum mineiro preso.
+        this.trappedMiner = null;
+
         // xFrac/larguras calculados pra sempre sobrar uma folga clara entre
         // prédios vizinhos (inclusive entre fileiras diferentes, já que só a
         // posição Y muda — nada de escala por profundidade). Antes o Banco e
@@ -686,6 +693,39 @@ class CityEngine {
         };
     }
 
+    // Mineiro Preso (ver citydatabase.js `hasOreVeins`/_eventTrappedMiner)
+    // — MESMA estrutura física de NPC que _makeBandit acima, mas o
+    // contraponto POSITIVO pedido explicitamente na especificação ("ajudar
+    // um mineiro" afeta a reputação existente, sempre GLOBAL, nunca um
+    // sistema paralelo). Pose 'hurt' (mesma já usada por qualquer entidade
+    // ferida em batalha) sinaliza à distância que precisa de ajuda, antes
+    // mesmo do aviso de interação normal aparecer.
+    _makeTrappedMiner() {
+        const w = window.Engine.width, h = window.Engine.height;
+        const x = Utils.randomFloat(w * 0.15, w * 0.85);
+        const y = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
+        return {
+            x, y, targetX: x, targetY: y, pin: null,
+            waitTimer: Utils.randomFloat(1, 3),
+            facing: Utils.chance(50) ? 1 : -1,
+            isTrappedMiner: true,
+            despawnTimer: Utils.randomFloat(60, 90),
+            entity: {
+                visuals: {
+                    gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+                    skinTone: window.RaceSystem ? window.RaceSystem.pickSkinTone('anao') : '#c99a6a',
+                    hairStyle: Utils.randomInt(1, 15),
+                    hairColor: '#2a1c10', beardStyle: Utils.randomInt(0, 4),
+                    eyeColor: '#1a1a1a', faceShape: 1
+                },
+                equipment: {},
+                __teamColor: '#5a4a2a',
+                race: 'anao'
+            },
+            anim: { type: 'hurt', start: performance.now(), duration: 0 }
+        };
+    }
+
     _updateNpcs(dt, list = this.npcs, speed = 45) {
         const h = window.Engine.height;
         for (const npc of list) {
@@ -1234,6 +1274,14 @@ class CityEngine {
             this._banditEncounter(npc);
             return;
         }
+        // Mineiro Preso (ver _eventTrappedMiner/_makeTrappedMiner) —
+        // contraponto positivo do bandido: clicar nele resolve a ajuda na
+        // hora (sem menu de escolha, é sempre um gesto de boa vontade,
+        // nunca uma decisão de risco como pagar/lutar/recusar).
+        if (npc.isTrappedMiner) {
+            this._helpTrappedMiner(npc);
+            return;
+        }
         // Aproximar-se de um vampiro vagando pela noite não puxa uma fala —
         // puxa a briga (mesmo fluxo de _eventVampireEncounter, só que
         // iniciado pelo jogador clicando na criatura em vez de um dado
@@ -1323,13 +1371,26 @@ class CityEngine {
         // acontecer, mas evita quebrar) caem de volta no pool genérico.
         else if (npc.profession && CityEngine.NPC_PROFESSIONS[npc.profession]) {
             // Versão regional da fala de profissão (ver
-            // NPC_PROFESSIONS_REGIONAL acima) — mesmo `name` de exibição,
-            // conteúdo próprio da cultura local quando existir; sem entrada
-            // pra essa cidade/profissão, cai no pool genérico de sempre.
+            // NPC_PROFESSIONS_REGIONAL acima) — Fortaleza Orc/Santuário
+            // Élfico só trocam o CONTEÚDO (array de falas), mantendo o
+            // `name` genérico de exibição ("Mercador", "Sacerdote"...).
+            // Reino Anão (ver entrada abaixo) precisa também trocar o
+            // PRÓPRIO título exibido ("Ferreiro", "Mineiro", "Guarda da
+            // Montanha"...) — os 6 ofícios pedidos explicitamente na
+            // especificação não têm equivalente direto nos 8 nomes gregos
+            // genéricos. Formato antigo (array de falas) continua
+            // funcionando sem nenhuma mudança nas duas cidades existentes;
+            // formato novo (`{ name, lines }`) é só uma extensão opcional
+            // detectada por `Array.isArray`.
             const regionalProfessions = CityEngine.NPC_PROFESSIONS_REGIONAL[cityId];
-            const regionalLines = regionalProfessions && regionalProfessions[npc.profession];
-            pool = regionalLines || CityEngine.NPC_PROFESSIONS[npc.profession].lines;
-            speaker = CityEngine.NPC_PROFESSIONS[npc.profession].name;
+            const regionalEntry = regionalProfessions && regionalProfessions[npc.profession];
+            if (regionalEntry && !Array.isArray(regionalEntry)) {
+                pool = regionalEntry.lines;
+                speaker = regionalEntry.name;
+            } else {
+                pool = regionalEntry || CityEngine.NPC_PROFESSIONS[npc.profession].lines;
+                speaker = CityEngine.NPC_PROFESSIONS[npc.profession].name;
+            }
         }
 
         const line = pool[Utils.randomInt(0, pool.length - 1)];
@@ -1548,6 +1609,9 @@ class CityEngine {
         // a viagem com o jogador, já foi removido de `this.npcs` junto
         // com o reset `this.npcs = []` logo acima.
         this.bandit = null;
+        // Mineiro Preso (ver _makeTrappedMiner acima no construtor) —
+        // mesma razão do bandido logo acima.
+        this.trappedMiner = null;
         this.activePromotion = null;
         this.weather = 'clear';
         this._weatherTimer = Utils.randomFloat(45, 90);
@@ -1615,6 +1679,7 @@ class CityEngine {
         this._updateNightAmbush(dt);
         this._updateTravelingMerchant(dt);
         this._updateBandit(dt);
+        this._updateTrappedMiner(dt);
     }
 
     // Conta regressiva da promoção de loja ativa (ver _eventPromotion) — some
@@ -1689,6 +1754,8 @@ class CityEngine {
         this.travelingMerchant = null;
         // Bandido Anão — mesmo motivo do Mercador Viajante acima.
         this.bandit = null;
+        // Mineiro Preso — mesmo motivo.
+        this.trappedMiner = null;
         this.activePromotion = null;
 
         // Pedras de Luz (ver _spawnLightStonesIfNeeded/item 13): força uma
@@ -2085,6 +2152,13 @@ class CityEngine {
             table.push({ w: 2, run: () => this._eventDwarfBandit(p) });
         }
 
+        // Mineiro Preso (ver citydatabase.js `hasOreVeins`/_eventTrappedMiner)
+        // — contraponto positivo, mesma cidade que já tem o bandido
+        // (Reino Anão), mesmo peso (2) pra não dominar o sorteio.
+        if (p && cityDefForBandit && cityDefForBandit.hasOreVeins) {
+            table.push({ w: 2, run: () => this._eventTrappedMiner(p) });
+        }
+
         // Vampiros só saem à noite (Ritual do Vampirismo, ver rituals.js) —
         // peso relevante só quando window.GFX.arenaTime === 'night'. Nunca
         // sorteia um SEGUNDO encontro forçado enquanto um já está a
@@ -2260,6 +2334,60 @@ class CityEngine {
             if (idx >= 0) this.npcs.splice(idx, 1);
             this.bandit = null;
         }
+    }
+
+    // Mineiro Preso aparece na praça (ver _makeTrappedMiner) — mesmo
+    // tratamento de "só um por vez" do Bandido Anão acima, chamado do MESMO
+    // sorteio ponderado de _updateRandomEvents (só entra na tabela em
+    // cidades com `hasOreVeins`, ver ali). Contraponto positivo explícito
+    // da especificação original ("ajudar um mineiro preso" afeta a
+    // reputação existente).
+    _eventTrappedMiner(p) {
+        if (this.trappedMiner) return; // silencioso — diferente do bandido, não é uma ameaça que exige aviso
+        const miner = this._makeTrappedMiner();
+        this.trappedMiner = miner;
+        this.npcs.push(miner);
+        this._toast('Você ouve um gemido de dor vindo de perto — um mineiro está preso sob os escombros!', 'info');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+    }
+
+    // Some sozinho se ignorado (ver _makeTrappedMiner `despawnTimer`) —
+    // mesmo tratamento de _updateBandit acima, sem toast de aviso (o
+    // jogador só "perde a chance" se realmente ignorar, sem punição extra).
+    _updateTrappedMiner(dt) {
+        if (!this.trappedMiner) return;
+        this.trappedMiner.despawnTimer -= dt;
+        if (this.trappedMiner.despawnTimer <= 0) {
+            const idx = this.npcs.indexOf(this.trappedMiner);
+            if (idx >= 0) this.npcs.splice(idx, 1);
+            this.trappedMiner = null;
+        }
+    }
+
+    // Resolve a ajuda ao Mineiro Preso — item explícito da especificação
+    // original ("ajudar um mineiro" afeta a reputação GLOBAL existente,
+    // nunca um sistema paralelo). Reaproveita o MESMO funil único de
+    // escrita já usado por vitórias/roubos/missões (ver reputation.js
+    // applyChange) em vez de somar `player.reputation` direto.
+    _helpTrappedMiner(npc) {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        const idx = this.npcs.indexOf(npc);
+        if (idx >= 0) this.npcs.splice(idx, 1);
+        this.trappedMiner = null;
+
+        const gift = Utils.randomInt(20, 45);
+        p.gold += gift;
+        if (window.ReputationSystem) {
+            window.ReputationSystem.applyChange(p, Utils.randomInt(3, 6), {
+                reason: 'ajuda_mineiro',
+                toastMessage: `Você liberta o mineiro dos escombros — ele agradece com ${gift}g e sua fama de gladiador honrado cresce.`
+            });
+        } else {
+            this._toast(`Você liberta o mineiro dos escombros — ele agradece com ${gift}g.`, 'success');
+        }
+        window.SaveManager.save(window.Engine.state);
+        if (window.AudioManager) window.AudioManager.playConfirm();
     }
 
     // Gera o inimigo da luta contra o bandido — reaproveita Enemy inteiro
@@ -3644,6 +3772,57 @@ class CityEngine {
                 banqueiro: ['Guardamos riqueza como guardamos sementes — pouca pressa, muita paciência.',
                     'O ouro forasteiro nos interessa menos que um bom acordo de longo prazo.',
                     'Aqui ninguém enriquece da noite pro dia. Nem a floresta cresce assim.']
+            },
+            // Reino Anão (Reino Subterrâneo de Kharzum) — item explícito da
+            // mega-diretiva ("NPCs variados: ferreiros, mineiros,
+            // mercadores, guardas, artesãos, exploradores"). Diferente de
+            // Fortaleza Orc/Santuário Élfico acima (só reskin de conteúdo,
+            // mesmo `name` grego), aqui os 8 slots genéricos ganham
+            // TÍTULOS anões próprios (ver formato `{name, lines}` novo,
+            // _talkToNpc) — sem isso, um NPC de Kharzum continuaria se
+            // apresentando como "Mercador"/"Sacerdote" gregos dentro de uma
+            // cidade subterrânea anã.
+            reino_anao: {
+                mercador: { name: 'Mercador de Minérios', lines: [
+                    'Ferro, carvão, cristal bruto — se vem das minas, eu já negociei com isso.',
+                    'Não venda seu minério pro primeiro que aparecer. Eu pago o preço justo, sempre.',
+                    'Uma carroça inteira chegou ontem de uma veia nova. Ainda tenho o melhor lote.'
+                ] },
+                sacerdote: { name: 'Sacerdote da Forja', lines: [
+                    'A chama da forja nunca apaga desde que meu avô a acendeu. Isso é fé de verdade.',
+                    'Rezamos ao martelo e à bigorna — eles nunca nos abandonaram, nem nos dias mais duros.',
+                    'Cada arma forjada aqui carrega uma bênção. Cuide bem da sua.'
+                ] },
+                soldado: { name: 'Guarda da Montanha', lines: [
+                    'Vigio os túneis desde que era jovem demais pra erguer um machado de verdade.',
+                    'Bandido nenhum passa por essa passagem sem que eu saiba. A montanha inteira me avisa.',
+                    'Prefiro perder o sono a perder um mineiro pra emboscada nos corredores escuros.'
+                ] },
+                artesao: { name: 'Ferreiro', lines: [
+                    'Cada machado que sai da minha forja carrega meu nome gravado no cabo.',
+                    'Aço anão não lasca. Se lascar, devolvo seu ouro e forjo de novo, de graça.',
+                    'Passei o dia inteiro na bigorna. As mãos tremem, mas o resultado vale cada golpe.'
+                ] },
+                campones: { name: 'Mineiro', lines: [
+                    'Passei o turno inteiro nos veios mais fundos. Voltei com as costas doendo e os bolsos cheios.',
+                    'Quanto mais fundo você cava, melhor o minério — e mais perigoso o que espreita lá embaixo.',
+                    'Prefiro o silêncio da mina ao barulho da praça. Lá embaixo, pelo menos, sei o que me espera.'
+                ] },
+                poeta: { name: 'Explorador de Cavernas', lines: [
+                    'Encontrei uma caverna essa semana que nenhum anão vivo tinha visto antes. Ainda estou tonto.',
+                    'Cada túnel novo esconde ou um tesouro ou uma armadilha. Aprendi a gostar dos dois.',
+                    'Levo giz e corda pra todo lado. Quem se perde nas profundezas raramente volta a contar a história.'
+                ] },
+                veterano: { name: 'Veterano da Arena', lines: [
+                    'Já lutei no Fosso do Martelo antes de você nascer. A pedra ainda lembra do meu sangue.',
+                    'Um campeão anão não cai fácil — o peso do martelo cansa o braço do adversário primeiro.',
+                    'Vi gladiadores de todas as terras passarem por Kharzum. Poucos entenderam o que é lutar sob a montanha.'
+                ] },
+                banqueiro: { name: 'Tesoureiro da Montanha', lines: [
+                    'Nosso cofre fica atrás de três portas de pedra maciça. Nem um exército inteiro forçaria aquilo.',
+                    'Ouro anão rende juros justos — não confiamos em promessas vazias, só em metal contado.',
+                    'Guardamos riqueza como guardamos minério: fundo, seguro, e longe de olhos gananciosos.'
+                ] }
             }
         };
     }

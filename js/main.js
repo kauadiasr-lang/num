@@ -466,7 +466,16 @@ function validateGameData() {
             const profs = CityEngine.NPC_PROFESSIONS_REGIONAL[cityKey];
             for (const profKey in profs) {
                 need(knownProfessions.includes(profKey), `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: profissão não existe em NPC_PROFESSIONS`);
-                need(Array.isArray(profs[profKey]) && profs[profKey].length > 0, `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: linhas ausentes ou vazias`);
+                // Formato antigo (array puro de falas, ver fortaleza_orc/
+                // santuario_elfico) OU formato novo `{name, lines}` (ver
+                // reino_anao/_talkToNpc) que também troca o TÍTULO exibido,
+                // não só o conteúdo — os dois são válidos.
+                const entry = profs[profKey];
+                const lines = Array.isArray(entry) ? entry : (entry && entry.lines);
+                need(Array.isArray(lines) && lines.length > 0, `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: linhas ausentes ou vazias`);
+                if (entry && !Array.isArray(entry)) {
+                    need(!!entry.name, `NPC_PROFESSIONS_REGIONAL['${cityKey}']['${profKey}']: formato {name,lines} sem 'name'`);
+                }
             }
         }
     }
