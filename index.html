@@ -245,9 +245,25 @@
                     <h2 class="panel-title">Taverna</h2>
                     <p class="healer-info">Fadiga atual: <span id="healer-fatigue-level" class="highlight-gold">0</span>/3</p>
                     <p class="healer-desc">Cada nível de fadiga reduz seu dano e esquiva em 8%. Durma para descansar e voltar a lutar em plena forma.</p>
-                    <button id="btn-heal-fatigue" class="btn primary">Dormir (<span id="healer-cost">0</span>g)</button>
+                    <button id="btn-heal-fatigue" class="btn primary">🔒 Pagar para Dormir (<span id="healer-cost">0</span>g)</button>
                     <p id="healer-promo-note" class="healer-promo-note hidden">🏷️ Promoção ativa: preço reduzido só por hoje!</p>
-                    <button id="btn-free-rest" class="btn hidden">🛏️ Descansar no chão (sem pagar, cura 1 nível)</button>
+                    <!-- Rework da Taverna item 17: dormir de graça é uma
+                         escolha real (pago pela segurança vs economizo e
+                         assumo o risco), sempre visível ao lado da opção
+                         paga — nunca só um "fallback" pra quem não tem
+                         ouro. Reaproveita o MESMO padrão de confirmação
+                         toggle-reveal do botão Roubar (ver
+                         #shop-theft-section/#shop-theft-options acima),
+                         nunca um sistema de diálogo novo. A % de risco real
+                         não é mostrada ao jogador (ver ui.js freeRest). -->
+                    <div id="healer-freerest-section" class="shop-theft-section">
+                        <button id="btn-free-rest-toggle" class="btn btn-danger">🛏️ Dormir de Graça</button>
+                        <div id="healer-freerest-options" class="hidden">
+                            <p class="healer-freerest-warning">Dormir de graça pode trazer consequências.</p>
+                            <button class="btn btn-small btn-danger" id="btn-free-rest-confirm">Dormir de Graça</button>
+                            <button class="btn btn-small" id="btn-free-rest-cancel">Voltar</button>
+                        </div>
+                    </div>
                     <div id="healer-message" class="healer-message"></div>
                     <button id="btn-open-tavern-shop" class="btn" style="margin-top:16px;">🍷 Poções e Bandagens</button>
                 </div>

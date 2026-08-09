@@ -2988,72 +2988,127 @@ class UIManager {
         btn.disabled = p.gold < cost;
         btn.onclick = () => this.healFatigue();
 
-        // Válvula de segurança contra a espiral "sem ouro pra pagar a fadiga,
-        // sem ouro pra pagar poção" (fadiga reduz dano/esquiva, o que reduz
-        // ganho de ouro em batalha, que impede pagar a cura, e por aí vai) —
-        // só aparece quando o jogador não pode pagar a cura completa, e cura
-        // apenas 1 nível de fadiga (não zera tudo de graça, então pagar
-        // continua sendo a opção melhor sempre que possível).
-        const freeBtn = document.getElementById('btn-free-rest');
-        freeBtn.classList.toggle('hidden', !(fatigue > 0 && p.gold < cost));
-        freeBtn.onclick = () => this.freeRest();
+        // Rework da Taverna item 17: "Dormir de Graça" agora é uma escolha
+        // econômica real, SEMPRE visível ao lado da opção paga (nunca só
+        // um botão de emergência pra quem já está sem ouro) — "pago pela
+        // segurança ou economizo e assumo o risco?". Mesmo padrão
+        // toggle-reveal já usado pelo botão Roubar (ver
+        // _bindShopTheft/#shop-theft-options): `.onclick =` porque
+        // updateHealerScreen roda de novo toda vez que a tela reabre,
+        // então isto nunca empilha handlers duplicados.
+        this._bindFreeRest(p);
     }
 
+    _bindFreeRest(p) {
+        const toggleBtn = document.getElementById('btn-free-rest-toggle');
+        const optionsEl = document.getElementById('healer-freerest-options');
+        const confirmBtn = document.getElementById('btn-free-rest-confirm');
+        const cancelBtn = document.getElementById('btn-free-rest-cancel');
+        if (!toggleBtn || !optionsEl || !confirmBtn || !cancelBtn) return;
+
+        toggleBtn.onclick = () => optionsEl.classList.toggle('hidden');
+        cancelBtn.onclick = () => optionsEl.classList.add('hidden');
+        confirmBtn.onclick = () => {
+            optionsEl.classList.add('hidden');
+            this.freeRest();
+        };
+    }
+
+    // Rework da Taverna item 17: dormir de graça deixa de ser um roubo de
+    // OURO (isso já existe como evento separado, ver city.js
+    // _eventNightMugging/_eventThief) e passa a ser o risco de ser
+    // FLAGRADO pelos guardas da Taverna — narrativo, nunca uma batalha de
+    // Arena normal (nenhum BattleSystem é criado aqui). A consequência
+    // principal é a fadiga ir pro máximo (3/3), não o ouro. A % de chance
+    // de ser flagrado é deliberadamente não exibida na UI (só o aviso
+    // genérico "pode trazer consequências" no painel de confirmação).
     freeRest() {
         const p = window.Engine.state.player;
-        const fatigue = p.fatigue || 0;
-        if (fatigue <= 0) return;
 
-        p.cureFatigue(1);
+        // Dormir de graça continua sendo "dormir de verdade" — mesmo avanço
+        // de mundo completo do dormir pago (estoque de loja, juros do
+        // Banco, NPCs etc, ver city.js advanceToNewDay), nos dois
+        // resultados (flagrado ou não).
         p.nightsWithoutSleep = 0;
-
         if (window.City && window.City.dayPhases) {
             window.City.dayPhaseIndex = (window.City.dayPhaseIndex + 2) % window.City.dayPhases.length;
             window.City.dayPhaseTimer = 0;
-            // Bug de auditoria (novo pedido: "dormir não atualiza o mundo"):
-            // pular o relógio pro período oposto NÃO disparava nenhuma
-            // consequência de novo dia — dormir no chão sempre "avança o
-            // tempo" de verdade (mesmo dormindo de graça, sem pagar a
-            // Taverna), então precisa do MESMO avanço de mundo completo que
-            // dormir pago (ver healFatigue/city.js advanceToNewDay).
             window.City.advanceToNewDay();
         }
 
-        // Risco de assalto (item 6 da auditoria de balanceamento): dormir no
-        // chão sem pagar a taverna era 100% seguro antes, igualzinho à cura
-        // paga — nenhuma consequência, nenhuma decisão de verdade. Agora é
-        // uma aposta real: a maioria das vezes alguém rouba entre 40%-90%
-        // de TODO o ouro CARREGADO (`p.gold` — nunca `p.bankGold`, o ouro
-        // guardado no Banco da cidade continua fora de alcance, ver
-        // Player.bankGold), com uma pequena chance de escapar ileso e uma
-        // pequena chance de encontrar um viajante amigável que ainda ajuda
-        // com um pouco de ouro. A cura de fadiga/reset de noites em claro
-        // acima acontecem de qualquer forma — você dormiu de verdade nos
-        // três casos, só o resultado do risco que muda.
-        const eventRoll = Utils.randomInt(1, 100);
+        // Sem ouro nenhum: risco geral maior (nada a perder torna o
+        // jogador mais descuidado/visado) — ver auditoria econômica do
+        // item 17. 30% base / 45% sem ouro é "significativo mas não
+        // garantido", igual pedido.
+        const broke = p.gold <= 0;
+        const caughtChance = broke ? 45 : 30;
+        const caught = Utils.chance(caughtChance);
+
         let message;
-        if (eventRoll <= 8) {
-            const gift = Utils.randomInt(10, 30);
-            p.gold += gift;
-            message = `Você dormiu no chão, mas um viajante gentil dividiu comida e ${gift} de ouro com você durante a noite.`;
+        if (!caught) {
+            p.cureFatigue(3); // dormiu bem, sem pagar — mesma cura completa do dormir pago, foi a aposta que compensou
+            message = 'Você encontrou um canto tranquilo da Taverna e dormiu sem ser incomodado.';
             window.AudioManager.playHeal();
-        } else if (eventRoll <= 16) {
-            message = 'Você sentiu passos se aproximando na escuridão — mas acordou a tempo e o assaltante fugiu antes de levar nada.';
-            window.AudioManager.playConfirm();
         } else {
-            const stolenPercent = Utils.randomFloat(0.4, 0.9);
-            const stolen = Math.floor(p.gold * stolenPercent);
-            p.gold -= stolen;
-            message = stolen > 0
-                ? `Você foi assaltado enquanto dormia! Levaram ${stolen} de ouro.`
-                : 'Você dormiu no chão, sem nada de valor com você para roubar.';
+            p.fatigue = 3;
+            p.calculateDerivedStats();
+            message = 'Um guarda da Taverna te encontrou dormindo sem pagar e te expulsou aos empurrões! Você mal descansou — a fadiga tomou conta do corpo.';
             window.AudioManager.playError();
+
+            // Só rola furto de ITENS quando o jogador está completamente
+            // sem ouro (nada de valor "fácil" pros guardas levarem) — ver
+            // _rollFreeRestTheft: nunca toca equipamento VESTIDO (estrutural,
+            // p.equipment é separado de p.inventory), nunca leva o
+            // inventário inteiro, no máximo 2 peças.
+            if (broke) {
+                const stolenNames = this._rollFreeRestTheft(p);
+                if (stolenNames.length > 0) {
+                    message += ` Enquanto revistavam suas coisas, levaram: ${stolenNames.join(', ')}.`;
+                }
+            }
         }
 
         window.SaveManager.save(window.Engine.state);
         document.getElementById('healer-message').innerText = message;
         this.updateHealerScreen();
         this.updateHubStats();
+    }
+
+    // Furto de itens do "Dormir de Graça" sem ouro nenhum — só mira
+    // equipamento NÃO equipado (`p.inventory`, categoria 'equipment':
+    // armas/armaduras guardadas; p.equipment, o que está VESTIDO, nunca é
+    // tocado aqui, são objetos JS separados). Itens mais valiosos são mais
+    // "visados" (chance menor de escapar), mas nunca é garantido, e no
+    // máximo 2 peças somem — nunca o inventário inteiro.
+    _rollFreeRestTheft(p) {
+        const candidates = [];
+        p.inventory.forEach((item, idx) => {
+            if (item.category === 'equipment') candidates.push({ item, idx });
+        });
+        if (candidates.length === 0) return [];
+
+        // Fisher-Yates simples só pra não sempre mirar os primeiros slots da mochila.
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        }
+
+        const maxStolen = Math.min(2, candidates.length);
+        const stolenIndexes = [];
+        const stolenNames = [];
+        for (const { item, idx } of candidates) {
+            if (stolenIndexes.length >= maxStolen) break;
+            const takeChance = item.value >= 150 ? 20 : item.value >= 60 ? 30 : 40;
+            if (Utils.chance(takeChance)) {
+                stolenIndexes.push(idx);
+                stolenNames.push(item.name);
+            }
+        }
+
+        // Remove do maior índice pro menor, pra não invalidar os outros
+        // índices já coletados no meio da remoção.
+        stolenIndexes.sort((a, b) => b - a).forEach(idx => p.inventory.splice(idx, 1));
+        return stolenNames;
     }
 
     healFatigue() {

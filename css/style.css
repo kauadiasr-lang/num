@@ -310,12 +310,17 @@ html, body {
    de equipamento acima, cor oxblood (--color-primary, já usada pro resto
    do jogo como "perigo") pra deixar claro que é uma ação com consequência
    real, não uma compra comum. */
-#shop-theft-section {
+#shop-theft-section, .shop-theft-section {
     display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
     background: rgba(0,0,0,0.15); border: 1px solid var(--color-primary);
     border-radius: 6px; padding: 0.5rem 0.9rem; margin-bottom: 1rem;
 }
-#shop-theft-options { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+#shop-theft-options, #healer-freerest-options { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+/* Rework da Taverna item 17: painel de confirmação do "Dormir de Graça"
+   reaproveita a MESMA classe .shop-theft-section acima (mesmo visual de
+   "ação com consequência real"), só o texto de aviso é próprio daqui. */
+#healer-freerest-section { justify-content: center; }
+.healer-freerest-warning { color: var(--color-marble-dark); font-size: 0.85rem; margin: 0; }
 .btn-danger {
     background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
     color: var(--color-marble); border-color: var(--color-primary-hover);
