@@ -244,9 +244,39 @@ class CityEngine {
             if (entity.pin) { entity.pin.x *= fx; entity.pin.y *= fy; }
         };
 
+        // Bug reportado pelo usuário ("o player some do nada... aparece em
+        // lugares aleatórios, atrás de casas"): este clamp usava `newW`
+        // bruto como se a faixa caminhável fosse do tamanho exato do
+        // canvas, mas a Praça é deliberadamente mais LARGA que o canvas
+        // (ver _worldWidth(), 1.4x, pra dar espaço real da câmera panorâmica
+        // — o mesmo bound que _updateMovement já aplica todo frame). Um
+        // jogador explorando a beirada do mundo alargado (ex: x perto de
+        // _worldWidth()-30, só alcançável com a câmera panorâmica) tinha
+        // sua posição reescalada corretamente e depois FORÇADA de volta pra
+        // dentro de `newW` — bem mais estreito que o mundo de verdade —
+        // teletransportando pra um x completamente diferente de onde
+        // estava (podia coincidir com o meio de um prédio, aparecendo
+        // "atrás" dele). Também nunca clampava Y — um resize que mudasse a
+        // ALTURA desproporcionalmente (barra de endereço do celular
+        // sumindo, teclado virtual abrindo, Ctrl +/- de zoom) podia deixar
+        // o jogador acima do horizonte (dentro do cenário de fundo,
+        // "próximo à floresta") ou abaixo do chão da Praça, já que
+        // `_plazaBottom(h) = h - 70` não escala linearmente com `h`
+        // (diferente de `_horizon(h) = h*0.62`), então multiplicar Y por
+        // `fy` não preserva a posição relativa dentro da faixa andável.
+        // Usa exatamente os mesmos bounds de _updateMovement (o clamp que
+        // já roda todo frame durante o jogo normal), nunca um cálculo
+        // paralelo — assim os dois nunca podem voltar a divergir.
+        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(newH) + 20, maxY: this._plazaBottom(newH) + 30 };
+        const clampToBounds = (entity) => {
+            entity.x = Utils.clamp(entity.x, bounds.minX, bounds.maxX);
+            entity.y = Utils.clamp(entity.y, bounds.minY, bounds.maxY);
+        };
+
         rescale(this.player);
-        this.player.x = Utils.clamp(this.player.x, 30, newW - 30);
+        clampToBounds(this.player);
         this.npcs.forEach(rescale);
+        this.npcs.forEach(clampToBounds);
         this.nightWanderers.forEach(rescale);
     }
 
