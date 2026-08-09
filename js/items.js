@@ -101,6 +101,37 @@ class Equipment {
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
         }
+
+        // Mega Atualização (item 3/4): requisitos de EQUIPAR (nunca de
+        // COMPRAR — ver ui.js openShop/renderShopItems, que continua sem
+        // nenhum gate de nível/atributo na compra em si). Derivados do
+        // PRÓPRIO poder já calculado da peça (this.damage/defense/
+        // statBonuses/critBonus/mpBonus/maxAmmo, todos JÁ multiplicados
+        // por raridade/qualidade acima) — nunca uma tabela de requisitos
+        // hardcoded por template, então a MESMA arma em raridade Comum vs
+        // Lendária (ou qualidade de Forja baixa vs perfeita) automaticamente
+        // exige mais, sem duplicar lógica por tier (item 16: reaproveita o
+        // eixo raridade/qualidade já existente). O TIPO de requisito
+        // reflete o arquétipo real da peça — dano alto/bônus de Força pede
+        // STR, crítico/munição/bônus de Agilidade pede AGI, bônus de
+        // Mana/Inteligência pede INT, defesa alta pede DEF — nunca
+        // arbitrário (item 3 da diretiva).
+        const rarityLevelFloor = { 1: 1, 2: 3, 3: 6, 4: 10, 5: 14 }[rarityObj.id] || 1;
+        this.requiredLevel = Utils.clamp(rarityLevelFloor + Math.floor((baseTemplate.value || 0) / 60), 1, 20);
+        const req = {};
+        if (this.damage >= 12 || (this.statBonuses.str || 0) >= 3) {
+            req.str = Utils.clamp(Math.round(6 + this.requiredLevel * 1.3 + (this.statBonuses.str || 0) * 1.2), 5, 45);
+        }
+        if ((this.statBonuses.agi || 0) >= 2 || this.critBonus > 0 || this.maxAmmo) {
+            req.agi = Utils.clamp(Math.round(5 + this.requiredLevel * 1.1 + (this.statBonuses.agi || 0) * 1.2), 5, 40);
+        }
+        if ((this.statBonuses.int || 0) >= 1 || this.mpBonus > 0) {
+            req.int = Utils.clamp(Math.round(5 + this.requiredLevel * 1.1 + (this.statBonuses.int || 0) * 1.5), 5, 35);
+        }
+        if (this.defense >= 8) {
+            req.def = Utils.clamp(Math.round(4 + this.requiredLevel * 0.9), 4, 30);
+        }
+        this.requiredStats = Object.keys(req).length ? req : null;
     }
 }
 

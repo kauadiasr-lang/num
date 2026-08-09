@@ -2118,6 +2118,17 @@ class UIManager {
                 } else {
                     // Clique equipa o item (substituindo o atual se existir)
                     itemSlot.onclick = () => {
+                        // Mega Atualização item 4: "comprar ≠ equipar" — o
+                        // bloqueio acontece SÓ aqui (nunca na compra, ver
+                        // openShop). Requisitos não atendidos nunca
+                        // impedem guardar o item na mochila/banco, só de
+                        // vesti-lo agora.
+                        const check = p.canEquip(item);
+                        if (!check.ok) {
+                            window.AudioManager.playError();
+                            if (window.MainMenu) window.MainMenu.showToast(`Requisitos não atendidos: ${check.missing.join(', ')}`, 'error');
+                            return;
+                        }
                         const currentEquipped = p.equipment[item.slot];
                         p.equipment[item.slot] = item;
                         p.inventory.splice(i, 1); // Remove da bolsa
@@ -2414,10 +2425,21 @@ class UIManager {
             const regionCityDefForBadge = item.region && window.CityDatabase ? window.CityDatabase[item.region] : null;
             const regionBadge = regionCityDefForBadge ? `<span style="font-size:0.7rem; color:${regionCityDefForBadge.accentColor};">🌍 ${regionCityDefForBadge.name}</span>` : '';
 
+            // Mega Atualização item 4/18: "comprar ≠ equipar" — a loja
+            // SEMPRE deixa comprar (o botão abaixo nunca checa requisito,
+            // só ouro/espaço, ver onclick), mas SEMPRE mostra o requisito
+            // no próprio card, mesmo quando o jogador não atende — nunca
+            // esconde item forte só porque o jogador ainda é fraco.
+            const reqCheck = p.canEquip ? p.canEquip(item) : { ok: true };
+            const reqBadge = (item.requiredLevel > 1 || item.requiredStats)
+                ? `<span style="font-size:0.7rem; color:${reqCheck.ok ? '#88ccee' : '#ff5a5a'};">🔒 Nv.${item.requiredLevel}${item.requiredStats ? ' ' + Object.keys(item.requiredStats).map(k => `${item.requiredStats[k]}${k.toUpperCase()}`).join(' ') : ''}</span>`
+                : '';
+
             card.innerHTML = `
                 <div>
                     <h4 style="color: ${item.rarity.color}">${this._itemIcon(item)} ${item.name}</h4>
                     <p style="font-size: 0.8rem; color: #aaa;">${statsText} ${regionBadge}</p>
+                    <p style="font-size: 0.7rem;">${reqBadge}</p>
                 </div>
                 <button class="btn btn-small">${priceLabel}</button>
             `;
@@ -3611,6 +3633,21 @@ class UIManager {
                 statsHtml += `<p style="color:#88ccee">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
+                // Requisitos de equipar (Mega Atualização item 3/4/18) — a
+                // loja/tooltip SEMPRE mostra isto, mesmo quando o jogador
+                // não atende (nunca esconde item forte só por o jogador
+                // ser fraco ainda). Vermelho quando falta algo, azul claro
+                // quando já atende — mesma checagem de player.canEquip()
+                // usada de verdade no clique de equipar, nunca duplicada.
+                if (item.requiredLevel > 1 || item.requiredStats) {
+                    const reqParts = [`Nv.${item.requiredLevel}`];
+                    if (item.requiredStats) {
+                        for (const k in item.requiredStats) reqParts.push(`${item.requiredStats[k]} ${k.toUpperCase()}`);
+                    }
+                    const pForReq = window.Engine.state.player;
+                    const check = pForReq && pForReq.canEquip ? pForReq.canEquip(item) : { ok: true };
+                    statsHtml += `<p style="color:${check.ok ? '#88ccee' : '#ff5a5a'}">🔒 Requer: ${reqParts.join(', ')}</p>`;
+                }
                 // Origem regional (ver items.js `region`/citydatabase.js) —
                 // o tooltip é o único lugar de detalhe usado em TODA parte do
                 // jogo que mostra um item (loja, mochila, ícones de

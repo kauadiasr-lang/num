@@ -92,6 +92,30 @@ class Entity {
         return total;
     }
 
+    // Mega Atualização (item 3/4): "comprar ≠ equipar" — checa
+    // `requiredLevel`/`requiredStats` (já calculados no próprio item, ver
+    // items.js Equipment) contra o estado ATUAL desta entidade. Vive em
+    // Entity (não só Player) de propósito: a geração procedural de
+    // equipamento de inimigos (item 12/13 da diretiva, iteração futura)
+    // reaproveita exatamente esta função pra nunca dar a um inimigo uma
+    // arma que ele mesmo não atende os requisitos — mesma checagem, sem
+    // duplicar lógica entre jogador e inimigo. NUNCA usado na compra (ver
+    // ui.js openShop, que continua sem nenhum gate de nível/atributo) —
+    // só no momento de EQUIPAR de fato.
+    canEquip(item) {
+        if (!item || item.category !== 'equipment') return { ok: true, missing: [] };
+        const missing = [];
+        if (this.level < item.requiredLevel) missing.push(`Nível ${item.requiredLevel}`);
+        if (item.requiredStats) {
+            for (const stat in item.requiredStats) {
+                if (this.getTotalStat(stat) < item.requiredStats[stat]) {
+                    missing.push(`${item.requiredStats[stat]} ${stat.toUpperCase()}`);
+                }
+            }
+        }
+        return { ok: missing.length === 0, missing };
+    }
+
     // Calcula Sub-atributos baseados nos atributos principais
     calculateDerivedStats() {
         const str = this.getTotalStat('str');
