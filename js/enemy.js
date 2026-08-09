@@ -935,6 +935,42 @@ const RivalDatabase = {
                             message: 'A última guardiã do Santuário recusa cair — a floresta inteira parece lutar ao seu lado!' }
                     ] }
             ]
+        },
+        // Liga do Reino Anão — item explícito da mega-diretiva ("sua própria
+        // liga de lutadores usando a geração procedural já existente,
+        // builds variados: armadura pesada, armas gigantes, builds
+        // defensivos, martelos, machados, escudos"). MESMA estrutura de
+        // liga já usada por orc/elfica acima (nunca uma classe de rival
+        // paralela), continuando a progressão de nível de onde a Liga
+        // Élfica parou (25). `styleId` reaproveita 'guardiao' e
+        // 'brutamontes' — os dois estilos pros quais RACE_STYLE_WEIGHTS.anao
+        // (ver ai_data.js) já pesa MUITO mais que qualquer outro
+        // (guardiao: 2.3, brutamontes: 1.3), então esta liga é a mesma
+        // identidade defensiva/pesada que qualquer anão procedural comum já
+        // tende a ter, só que curada nos rivais nomeados — nunca um estilo
+        // de combate inventado do zero.
+        {
+            id: 'anao', name: 'Liga Anã',
+            rivals: [
+                { id: 'thrain', name: 'Thrain, Escudo da Montanha', title: 'Escudo da Montanha', level: 26, focus: { def: 0.5, str: 0.35, cha: 0.15 },
+                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 2 } },
+                { id: 'borga', name: 'Borga Machado-Duplo', title: 'Machado-Duplo', level: 27, focus: { str: 0.6, def: 0.3, agi: 0.1 },
+                    personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 } },
+                { id: 'dagna', name: 'Dagna, Martelo de Kharzum', title: 'Martelo de Kharzum', level: 28, focus: { str: 0.45, def: 0.4, acc: 0.15 },
+                    personalityId: 'veterano', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 1 } },
+                { id: 'anao_champion', name: 'Thorgrim, Rei da Forja', title: 'Rei da Forja', level: 30, focus: { def: 0.35, str: 0.35, agi: 0.15, acc: 0.15 },
+                    personalityId: 'honrado', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'anao',
+                    visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 3 },
+                    phases: [
+                        { hpPercent: 0.65, personalityId: 'protetor', unlockSkill: 'shield_bash', emotion: 'determinado',
+                            message: 'Thorgrim ergue o escudo forjado por seus ancestrais — a defesa de Kharzum começa!' },
+                        { hpPercent: 0.3, personalityId: 'berserker', unlockSkill: 'heavy_strike', emotion: 'desesperado', healPercent: 0.12,
+                            message: 'O Rei da Forja larga a cautela — cada golpe agora carrega o peso da montanha inteira!' }
+                    ] }
+            ]
         }
     ]
 };

@@ -273,8 +273,20 @@ const CityDatabase = {
         // eventos possíveis, garantindo frequência equilibrada sem
         // precisar de nenhuma lógica de "não repetir demais" nova.
         hasBandits: true,
-        arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
-        officialArenaBiome: 'montanhas',
+        // `forja_anao` (ver graphics.js ARENA_BIOMES) é a identidade visual
+        // PRÓPRIA da arena do Reino Anão, adicionada nesta iteração.
+        // `officialArenaBiome` é SEMPRE o bioma de fato usado em toda luta
+        // desta cidade (ver graphics.js resetForNewBattle — "cada arena
+        // possui UM cenário oficial, nunca alterna aleatoriamente"), então
+        // 'vulcanica'/'montanhas'/'ruinas' aqui em `arenaBiomes` não são
+        // mais sorteados; servem só como lista de compatibilidade temática
+        // (validada em main.js) e fallback caso `officialArenaBiome` algum
+        // dia fique indefinido. Antes desta mudança, `officialArenaBiome`
+        // apontava pra 'montanhas' — o MESMO bioma que a Fortaleza Orc usa
+        // em seu próprio `arenaBiomes` — deixando a arena "oficial" do
+        // Reino Anão visualmente indistinguível da Fortaleza Orc.
+        arenaBiomes: ['forja_anao', 'vulcanica', 'montanhas', 'ruinas'],
+        officialArenaBiome: 'forja_anao',
         arenaName: 'Fosso do Martelo',
         // Subterrâneo — chuva/tempestade não fazem sentido físico aqui
         // (ver city.js _updateWeather, que só sabe sortear entre

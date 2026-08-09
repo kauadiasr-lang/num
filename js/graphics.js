@@ -222,6 +222,39 @@ const ARENA_BIOMES = {
         vegetation: 'dense', special: 'fireflies',
         midground: 'treeline', midgroundColor: 'rgba(20,40,22,0.85)', hasCrowd: false, hasBanners: false,
         props: ['log', 'bush', 'flower', 'stump', 'rock']
+    },
+    // Fosso do Martelo (Reino Anão, ver citydatabase.js reino_anao) — item
+    // explícito da mega-diretiva do Reino Anão ("Arena própria com
+    // identidade visual distinta... esculpida na montanha"). Antes deste
+    // bioma, `officialArenaBiome` do Reino Anão reaproveitava 'montanhas'
+    // (mesmo bioma que a Fortaleza Orc já usa em `arenaBiomes`) — zero
+    // identidade própria, cores/props idênticos a outra facção. Paleta
+    // fria de basalto/rocha escura (bem distinta do marrom-avermelhado de
+    // `vulcanica`) cortada por brasas de forja; `special: 'lava'`
+    // reaproveita o MESMO efeito de brasas subindo + rachaduras
+    // incandescentes no chão já usado por `vulcanica` (_spawnBiomeAmbient/
+    // _groundLavaCracks), nunca uma partícula nova — só a cor de fundo
+    // muda a leitura pra "forja subterrânea" em vez de "vulcão ao ar
+    // livre". `midground: 'walls'` reaproveita a MESMA silhueta de parede
+    // esculpida já usada por castelo/ruínas, dando a sensação de arena
+    // fechada dentro da montanha em vez de céu aberto. Props únicos
+    // (`anvil`/`chain`, ver _propAnvil/_propChain) garantem que a arena
+    // nunca seja confundida com nenhuma outra, mesmo reaproveitando peças
+    // do sistema existente pro resto.
+    forja_anao: {
+        name: 'Fosso do Martelo',
+        ground: ['#232025', '#2c2730', '#1c1a1e', '#302a28'], accent: '#ffb03a',
+        vegetation: 'none', special: 'lava',
+        midground: 'walls', midgroundColor: 'rgba(35,30,32,0.88)', midgroundBroken: false,
+        hasCrowd: false, hasBanners: true, bannerTattered: false,
+        // Ver _drawSky/drawArenaBackground: substitui o céu aberto por
+        // _drawCavernCeiling (teto de rocha + cristal/tocha), MESMO
+        // tratamento já usado pela Praça subterrânea (cityDef.isUnderground)
+        // — sem isso, a arena "dentro da montanha" ainda mostrava um céu
+        // azul de dia comum acima da muralha esculpida (bug real, pego em
+        // teste visual desta iteração).
+        isUnderground: true,
+        props: ['anvil', 'chain', 'bigRock', 'brokenWeapon', 'torchStake']
     }
 };
 window.ARENA_BIOMES = ARENA_BIOMES;
@@ -763,7 +796,7 @@ class GraphicsEngine {
         const horizon = this._horizonY(h);
         const t = this._torchClock || 0;
 
-        this._drawSky(ctx, w, h, horizon, pal, t);
+        this._drawSky(ctx, w, h, horizon, pal, t, null, !!biome.isUnderground);
 
         // Plano intermediário: silhueta de fundo própria do bioma (arcos do
         // coliseu, dunas, mata, muralhas, colunas ou picos) — camada de
@@ -891,7 +924,8 @@ class GraphicsEngine {
             stake: this._propStake, log: this._propLog, stump: this._propStump, bush: this._propBush,
             deadBush: this._propDeadBush, flower: this._propFlower, brokenPillar: this._propBrokenPillar,
             statue: this._propStatue, oldBanner: this._propOldBanner, torchStake: this._propTorchStake,
-            icicleRock: this._propIcicleRock, frozenBanner: this._propFrozenBanner };
+            icicleRock: this._propIcicleRock, frozenBanner: this._propFrozenBanner,
+            anvil: this._propAnvil, chain: this._propChain };
         const propCount = Utils.randomInt(6, 9);
         for (let i = 0; i < propCount; i++) {
             const propType = biome.props[Utils.randomInt(0, biome.props.length - 1)];
@@ -1098,6 +1132,57 @@ class GraphicsEngine {
         ctx.restore();
     }
 
+    // Bigorna — prop exclusivo do Fosso do Martelo (ver ARENA_BIOMES
+    // forja_anao acima), silhueta clássica de bigorna de ferreiro (corpo
+    // + chifre lateral + base de tronco) com um brilho âmbar fraco no
+    // topo (metal ainda quente da forja), nunca um emoji/placeholder.
+    _propAnvil(ctx, x, y, s, accent) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(-8 * s, -4 * s, 16 * s, 6 * s); // tronco de base
+        ctx.fillStyle = '#2a2a2e';
+        ctx.beginPath();
+        ctx.moveTo(-12 * s, -10 * s);
+        ctx.lineTo(12 * s, -10 * s);
+        ctx.lineTo(9 * s, -16 * s);
+        ctx.lineTo(-6 * s, -16 * s);
+        ctx.closePath();
+        ctx.fill(); // corpo principal
+        ctx.beginPath();
+        ctx.moveTo(-6 * s, -16 * s);
+        ctx.lineTo(-16 * s, -14 * s);
+        ctx.lineTo(-16 * s, -11 * s);
+        ctx.lineTo(-8 * s, -10 * s);
+        ctx.closePath();
+        ctx.fill(); // chifre lateral
+        ctx.fillStyle = `rgba(255,176,58,0.5)`;
+        ctx.fillRect(-4 * s, -16 * s, 10 * s, 2 * s); // brilho de metal quente
+        ctx.restore();
+    }
+
+    // Corrente pendurada — prop exclusivo do Fosso do Martelo, sugere
+    // correntes/mecanismos descendo do teto da caverna (item explícito da
+    // especificação: "correntes, máquinas"). Elos alternados horizontal/
+    // vertical formando uma corrente vertical simples, ancorada acima do
+    // chão (nunca no chão em si — é algo QUE PENDE, diferente de todo
+    // resto dos props que ficam apoiados no solo).
+    _propChain(ctx, x, y, s, accent) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = '#5a5560';
+        ctx.lineWidth = 2.5 * s;
+        const linkCount = 5;
+        for (let i = 0; i < linkCount; i++) {
+            const ly = -i * 9 * s - 6 * s;
+            ctx.beginPath();
+            if (i % 2 === 0) ctx.ellipse(0, ly, 3 * s, 5 * s, 0, 0, Math.PI * 2);
+            else ctx.ellipse(0, ly, 5 * s, 3 * s, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     _propStake(ctx, x, y, s, accent) {
         ctx.fillStyle = '#4a3826';
         ctx.beginPath();
@@ -1226,27 +1311,34 @@ class GraphicsEngine {
     // das montanhas (ocultado pelo desenho delas, por cima do céu) — em vez
     // de pular de posição a cada troca de fase. A Arena de combate (dayProgress
     // null) mantém o céu estático de sempre, sorteado uma vez por luta.
-    _drawSky(ctx, w, h, horizon, pal, t, dayProgress = null) {
+    _drawSky(ctx, w, h, horizon, pal, t, dayProgress = null, undergroundArena = false) {
         if (dayProgress !== null) pal = this._blendCityPalette(dayProgress);
 
         // Reino Subterrâneo de Kharzum (ver citydatabase.js `isUnderground`)
         // — pedido explícito do usuário: cidade escavada dentro de uma
         // montanha, NUNCA um céu aberto com sol/lua/nuvens/pássaros por
-        // cima (bug de auditoria encontrado nesta mesma iteração: o
+        // cima (bug de auditoria encontrado numa iteração anterior: o
         // `skyTint` já existente só MISTURA uma cor por cima do céu normal,
         // nunca o substitui — a cidade renderizava um céu azul de dia
         // perfeitamente comum, contradizendo a própria premissa
-        // "subterrânea"). Só entra neste ramo quando `dayProgress !== null`
-        // (a Cidade explorável) — a Arena de combate (dayProgress null)
-        // continua com o céu normal mesmo em Duelo Rápido na cidade anã,
-        // já que seus biomas de arena (`arenaBiomes`, ver citydatabase.js)
-        // incluem cenários ao ar livre como 'montanhas'/'vulcanica'.
+        // "subterrânea"). Cobre os dois pontos de entrada: a Cidade
+        // explorável (`dayProgress !== null`, ver cityDef.isUnderground) E
+        // a Arena de combate (`undergroundArena`, ver ARENA_BIOMES
+        // forja_anao/drawArenaBackground) — quando o bioma da PRÓPRIA
+        // arena for subterrâneo, não basta a cidade ser subterrânea: bug
+        // pego em teste visual nesta iteração (screenshot mostrando céu
+        // azul comum de dia por cima do "Fosso do Martelo", claramente
+        // dentro da montanha) — antes desta correção só a Praça (Cidade)
+        // tinha esse tratamento, nunca a Arena.
         if (dayProgress !== null) {
             const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
             if (cityDef && cityDef.isUnderground) {
-                this._drawCavernCeiling(ctx, w, horizon, dayProgress, t);
+                this._drawCavernCeiling(ctx, w, horizon, this._cityNightFactor(dayProgress), t);
                 return;
             }
+        } else if (undergroundArena) {
+            this._drawCavernCeiling(ctx, w, horizon, this.arenaTime === 'night' ? 1 : 0, t);
+            return;
         }
 
         const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
@@ -1379,8 +1471,13 @@ class GraphicsEngine {
     // (turno de trabalho), de "noite" elas apagam e só os cristais frios
     // continuam brilhando — em vez de um sol/lua que não fariam sentido
     // nenhum dentro de uma montanha.
-    _drawCavernCeiling(ctx, w, horizon, dayProgress, t) {
-        const nightFactor = this._cityNightFactor(dayProgress); // 0 (dia) .. 1 (noite)
+    // `nightFactor` (0 dia .. 1 noite) já vem PRONTO de quem chama — a
+    // Cidade deriva o dela de `_cityNightFactor(dayProgress)` (progresso
+    // contínuo do ciclo dia/noite), a Arena do `arenaTime` fixo da luta
+    // (dawn/day/sunset/night, ver _drawSky `undergroundArena`) — os dois
+    // pontos de entrada têm noções de "hora do dia" diferentes, então esta
+    // função fica agnóstica a qual delas foi usada.
+    _drawCavernCeiling(ctx, w, horizon, nightFactor, t) {
         const rockGrad = ctx.createLinearGradient(0, 0, 0, horizon);
         rockGrad.addColorStop(0, this._lerpHex('#0c0c10', '#050507', nightFactor));
         rockGrad.addColorStop(0.6, this._lerpHex('#1c1c22', '#0c0c10', nightFactor));
