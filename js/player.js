@@ -739,6 +739,19 @@ class Player extends Entity {
         if ((this.magicStonesFound || 0) >= 5) tryUnlock('stone_collector');
         if ((this.rareAnimalsSighted || 0) >= 5) tryUnlock('naturalist');
 
+        // Reputação (ver reputation.js ReputationSystem) — checado sempre
+        // (barato, só leitura de um número) igual ao padrão já usado acima
+        // pra conquistas cumulativas (wins/level), nunca preso a um
+        // `context` específico porque reputação muda em vários lugares
+        // diferentes (batalha, missão, roubo — ver
+        // ReputationSystem._recordAndNotify, que chama checkAchievements
+        // depois de QUALQUER mudança real).
+        if (window.ReputationSystem) {
+            const tier = window.ReputationSystem.getTier(this);
+            if (tier.id === 'infame') tryUnlock('reputation_infame');
+            if (tier.id === 'lendario') tryUnlock('reputation_lendario');
+        }
+
         return unlocked;
     }
 }
@@ -771,7 +784,13 @@ const AchievementDB = {
     // só depois de batalha/viagem, como as outras).
     bookworm: { id: 'bookworm', name: 'Bibliófilo', description: 'Encontre 5 livros esquecidos pela Estrada.', rarity: 'comum', icon: '📖', goal: 5, progress: p => p.loreBooksFound || 0 },
     stone_collector: { id: 'stone_collector', name: 'Colecionador de Pedras', description: 'Encontre 5 pedras mágicas pela Estrada.', rarity: 'comum', icon: '🔮', goal: 5, progress: p => p.magicStonesFound || 0 },
-    naturalist: { id: 'naturalist', name: 'Naturalista', description: 'Aviste 5 animais raros pela Estrada.', rarity: 'comum', icon: '🦌', goal: 5, progress: p => p.rareAnimalsSighted || 0 }
+    naturalist: { id: 'naturalist', name: 'Naturalista', description: 'Aviste 5 animais raros pela Estrada.', rarity: 'comum', icon: '🦌', goal: 5, progress: p => p.rareAnimalsSighted || 0 },
+    // Reputação (ver reputation.js ReputationSystem) — os dois extremos da
+    // faixa, sem limite artificial (ver REPUTATION_TIERS). Checado sempre
+    // que a reputação muda de verdade, não só depois de batalha (ver
+    // checkAchievements acima e ReputationSystem._recordAndNotify).
+    reputation_infame: { id: 'reputation_infame', name: 'Nome Manchado', description: 'Alcance reputação Infame — sua fama é de temer, não de admirar.', rarity: 'épico', icon: '💀' },
+    reputation_lendario: { id: 'reputation_lendario', name: 'Ídolo do Povo', description: 'Alcance reputação Lendária — seu nome é sinônimo de confiança em toda cidade.', rarity: 'lendário', icon: '🏅' }
 };
 
 window.AchievementDB = AchievementDB;

@@ -98,6 +98,21 @@ window.ReputationSystem = {
             const kind = amount >= 0 ? 'success' : 'error';
             if (window.MainMenu) window.MainMenu.showToast(`${sign}${amount} Reputação — ${opts.toastMessage}`, kind);
         }
+
+        // Conquistas de reputação (ver player.js AchievementDB
+        // reputation_infame/reputation_lendario) — checado aqui, no ÚNICO
+        // funil de escrita, em vez de em cada chamador (battle.js, quests.js,
+        // ui.js roubo) — garante que a conquista aparece na hora certa não
+        // importa QUAL ação mudou a reputação, sem duplicar a checagem em
+        // 3+ lugares diferentes. checkAchievements já é idempotente
+        // (unlockAchievement só desbloqueia uma vez), então chamar toda
+        // mudança de reputação é seguro e barato (só leitura de número).
+        if (typeof player.checkAchievements === 'function') {
+            const unlocked = player.checkAchievements({ reputationChanged: true });
+            unlocked.forEach(a => {
+                if (window.MainMenu) window.MainMenu.showToast(`🏆 Conquista desbloqueada: ${a.name}!`, 'success');
+            });
+        }
     },
 
     // Funil ÚNICO de escrita pra qualquer ganho/perda "simples" (missões,
