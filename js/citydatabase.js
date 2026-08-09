@@ -189,6 +189,112 @@ const CityDatabase = {
         // paleta pedida explicitamente pra cidade élfica ("verde esmeralda,
         // azul claro, branco dourado").
         skyTint: { color: '#7be8b0', strength: 0.14 }
+    },
+    // Reino Subterrâneo de Kharzum (4ª Cidade-Hub, pedido explícito do
+    // usuário: "cidade dos anões... o lugar MAIS PERIGOSO do mundo
+    // atual... NÃO uma cópia da estrutura das cidades existentes"). Ao
+    // contrário das 3 cidades acima (todas ao ar livre, mesmo layout de 9
+    // prédios só reskinado), esta é subterrânea — escavada dentro de uma
+    // montanha, sem chuva/tempestade nenhuma possível (ver `weather`
+    // abaixo) e com `buildingNames`/`buildingIcons`/`buildingColors`
+    // (ver city.js `_syncBuildingsToCity`, mecanismo NOVO nesta
+    // atualização) reflavorando cada prédio civil pra função/cultura anã
+    // — sem duplicar o array de prédios das outras cidades, só
+    // sobrepondo nome/ícone/cor em cima da MESMA posição/colisão de
+    // sempre. `unlockLevel`/`travelCost` mais altos que qualquer cidade
+    // existente (10/380 vs o teto anterior de 6/220 do Santuário Élfico)
+    // — condizente com "a cidade mais difícil de evoluir" pedida.
+    reino_anao: {
+        id: 'reino_anao',
+        name: 'Reino Subterrâneo de Kharzum',
+        description: 'Escavado nas profundezas de uma cordilheira inteira — túneis, pontes de corrente, minas ativas e forjas que nunca esfriam. Nenhuma muralha aqui protege quem não sabe se defender: o próprio Reino cobra esse preço todos os dias.',
+        unlockLevel: 10,
+        travelCost: 380,
+        // Família de bioma da Estrada (ver porto_helenico.roadFamily acima e
+        // road.js ZONE_FAMILY_STAGES.anao) — "Trilhas de Pedra" → "Portal da
+        // Montanha", a travessia terrestre até a entrada da mina.
+        roadFamily: 'anao',
+        // Estilo de arquitetura (ver porto_helenico.buildingStyle acima) —
+        // alvenaria de pedra maciça + pilares de ferro com friso rúnico
+        // incandescente + correntes penduradas + telhado plano de laje com
+        // brilho de forja na borda (ver city.js _bakeBuildingShellAnao),
+        // distinto tanto do mármore grego quanto do ferro bruto orc quanto
+        // da madeira viva élfica.
+        buildingStyle: 'anao',
+        // Substitui o céu aberto por um teto de caverna de verdade (ver
+        // graphics.js _drawSky/_drawCavernCeiling) — sem sol, lua, nuvens
+        // ou pássaros, só rocha escura + pontos de brilho de cristal/tocha.
+        // NUNCA usado pela Arena de combate (Duelo Rápido continua podendo
+        // sortear um bioma ao ar livre, ver `arenaBiomes` abaixo) — só a
+        // Cidade explorável em si é subterrânea.
+        isUnderground: true,
+        arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
+        officialArenaBiome: 'montanhas',
+        arenaName: 'Fosso do Martelo',
+        // Subterrâneo — chuva/tempestade não fazem sentido físico aqui
+        // (ver city.js _updateWeather, que só sabe sortear entre
+        // 'clear'/'rain'); 0% em ambos os campos nunca deixa o clima sair
+        // do estado neutro nesta cidade, sem precisar ensinar
+        // _updateWeather sobre um terceiro estado "subterrâneo" novo.
+        weather: { rainChance: 0, stormChance: 0 },
+        raceDemographics: { anao: 75, orc: 10, humano: 8, elfo: 4, ateniense: 3 },
+        accentColor: '#4a5a68', // aço/ferro azulado, frio, distinto do cobre/ferrugem orc
+        // Piso de pedra escura de caverna, quase sem luz própria — mesmo
+        // motivo do campo acima (ver Fortaleza Orc/Santuário Élfico).
+        groundColors: ['#3a3a42', '#1c1c22'],
+        // Estalagmite com veio de cristal (borda) + aglomerado de cristais
+        // brutos brilhantes (centro) — NUNCA planta/árvore, coerente com
+        // "subterrâneo" (ver city.js _paintVegetation, tipos novos
+        // 'stalagmite'/'crystalCluster').
+        vegetationTypes: { edge: 'stalagmite', center: 'crystalCluster' },
+        // Estátuas de granito escuro entalhado — mesmo motivo do campo
+        // acima (ver city.js _drawStatue).
+        statueColor: '#5a5560',
+        // A "fonte" central vira um braseiro de metal fundido — mesmo
+        // motivo do campo acima (ver Fortaleza Orc, que já reinterpreta o
+        // mesmo slot como brasas; aqui é metal líquido de forja, não fogo
+        // de guerra).
+        fountainColors: { rim: '#2a2622', basin: '#7a2e10', jet: 'rgba(255,150,60,0.8)', spout: '#1a1613' },
+        // Muralha/torres de pedra de montanha escura, mais fria e maciça
+        // que a pedra vulcânica orc — mesmo motivo do campo acima.
+        wallColors: { base: 'rgba(40,38,44,0.94)', tower: 'rgba(30,28,34,0.96)' },
+        // Sem floresta nenhuma lá fora (é uma montanha) — a mesma "silhueta
+        // de fundo" vira a escuridão profunda da caverna, não uma cor de
+        // copa de árvore (ver graphics.js drawCityBackdrop/_drawTreeline).
+        treelineColor: 'rgba(15,15,20,0.75)',
+        // Tingimento do céu (ver porto_helenico.skyTint acima) — azul-aço
+        // frio por cima do céu em QUALQUER hora do dia, simulando a luz de
+        // cristais bioluminescentes/tochas distantes numa caverna sem sol
+        // de verdade, nunca o calor alaranjado orc nem o verde-esmeralda
+        // élfico.
+        skyTint: { color: '#385a7a', strength: 0.22 },
+        // Reflavor dos MESMOS 9 prédios civis de sempre (posição/colisão
+        // idênticas — ver city.js this._defaultBuildings/_syncBuildingsToCity)
+        // — NUNCA duplica o array de prédios, só sobrepõe nome/ícone/cor por
+        // id. Pedido explícito do usuário: "a cidade deve parecer construída
+        // pelos anões" mesmo nos prédios civis reaproveitados (Banco vira
+        // Tesouraria escavada na rocha, Taverna vira Salão da Cervejaria
+        // etc) — a ARENA e o comércio de verdade (Forja/matéria-prima)
+        // ficam pra iterações seguintes deste /loop (ver TaskCreate #187/#188).
+        buildingNames: {
+            arena: 'Fosso do Martelo', blacksmith: 'Ferreiro', armorer: 'Negociante de Minérios',
+            arcane: 'Câmara Rúnica', tavern: 'Salão da Cervejaria', bank: 'Tesouraria da Montanha',
+            house: 'Sua Câmara', halloffame: 'Salão dos Campeões', questboard: 'Quadro de Contratos'
+        },
+        buildingIcons: {
+            arena: '⚒️', armorer: '⛏️', tavern: '🍖'
+        },
+        buildingColors: {
+            arena: { wall: '#4a4650', roof: '#6a3a1a' },
+            blacksmith: { wall: '#4a4650', roof: '#6a3a1a' },
+            armorer: { wall: '#4a4650', roof: '#5a5a62' },
+            arcane: { wall: '#3a4650', roof: '#4a5a68' },
+            tavern: { wall: '#4a4650', roof: '#7a4a2a' },
+            bank: { wall: '#5a5560', roof: '#4a5a68' },
+            halloffame: { wall: '#5a5560', roof: '#6a3a1a' },
+            house: { wall: '#4a4650', roof: '#5a5a62' },
+            questboard: { wall: '#4a4650', roof: '#5a5a62' }
+        }
     }
 };
 window.CityDatabase = CityDatabase;
@@ -203,11 +309,17 @@ window.DEFAULT_CITY_ID = 'porto_helenico';
 // própria demografia (ver `raceDemographics` de cada cidade acima) — um Orc
 // nasce na Fortaleza Orc (78% orc), um Elfo no Santuário Élfico (70% elfo),
 // em vez de todo personagem novo, de qualquer raça, começar sempre em Porto
-// Helênico. Anão não tem cidade própria só dele (só existem 3 cidades no
-// jogo); Fortaleza Orc é a única com presença anã de verdade na demografia
-// (10%, ver acima), então é o lar mais coerente disponível. As 5 culturas
-// humanas (humano/espartano/ateniense/cretense/tebano) continuam todas
-// nascendo em Porto Helênico, que é 100% delas.
+// Helênico. As 5 culturas humanas (humano/espartano/ateniense/cretense/
+// tebano) continuam todas nascendo em Porto Helênico, que é 100% delas.
+//
+// Anão agora nasce no Reino Subterrâneo de Kharzum (75% anão, ver acima) —
+// antes (Cidades-Hub Regionais, quando só existiam 3 cidades) usava a
+// Fortaleza Orc como lar por falta de opção melhor (10% de presença anã na
+// demografia orc); a nova 4ª cidade é o lar de verdade. Um Anão nível 1
+// nascendo direto numa cidade de unlockLevel 10 é seguro (mesmo mecanismo
+// já usado por Orc/Elfo: ui.js finishCreation seta `visitedCityIds` na
+// hora, então o gate de nível de CityEngine.travelToCity nunca bloqueia a
+// cidade natal do próprio personagem).
 window.RACE_HOME_CITY = {
     humano: 'porto_helenico',
     espartano: 'porto_helenico',
@@ -215,7 +327,7 @@ window.RACE_HOME_CITY = {
     cretense: 'porto_helenico',
     tebano: 'porto_helenico',
     orc: 'fortaleza_orc',
-    anao: 'fortaleza_orc',
+    anao: 'reino_anao',
     elfo: 'santuario_elfico'
 };
 

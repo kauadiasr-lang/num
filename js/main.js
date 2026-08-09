@@ -416,7 +416,7 @@ function validateGameData() {
             if (c.statueColor !== undefined) {
                 need(hexRe.test(c.statueColor), `CityDatabase['${key}']: statueColor precisa ser uma cor hex válida`);
             }
-            const knownVegetationTypes = ['cypress', 'laurel', 'deadTree', 'emberBush', 'ancientRoot', 'glowFern'];
+            const knownVegetationTypes = ['cypress', 'laurel', 'deadTree', 'emberBush', 'ancientRoot', 'glowFern', 'stalagmite', 'crystalCluster'];
             if (c.vegetationTypes !== undefined) {
                 need(typeof c.vegetationTypes.edge === 'string' && typeof c.vegetationTypes.center === 'string',
                     `CityDatabase['${key}']: vegetationTypes precisa ter 'edge' e 'center' como strings`);

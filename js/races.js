@@ -152,7 +152,7 @@ const RACES = {
     anao: {
         id: 'anao', name: 'Anão', species: 'dwarf',
         tagline: 'Feito da mesma pedra dos salões que escavou — nada abala um Anão de pé firme.',
-        description: 'Clãs de mineradores e ferreiros das montanhas próximas à Fortaleza Orc, os anões trazem pra arena uma resistência quase teimosa e uma paciência forjada em décadas sob a rocha.',
+        description: 'Clãs de mineradores e ferreiros do Reino Subterrâneo de Kharzum, os anões trazem pra arena uma resistência quase teimosa e uma paciência forjada em décadas sob a rocha.',
         statMods: { def: 3, str: 1, agi: -2 },
         accent: '#8a3a1a', // cobre/ferrugem, forja anã
         passive: { statKey: 'bleedResistPercent', value: 30, label: 'Pele de Pedra: 30% de resistência a sangramento.' },

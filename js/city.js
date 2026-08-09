@@ -137,6 +137,19 @@ class CityEngine {
             // nenhum prédio nem com as Pedras de Luz (xFrac 0.05/0.5/0.95).
             { id: 'questboard', name: 'Quadro de Missões', icon: '📜', xFrac: 0.35, rowOffset: 165, w: 95, h: 78, wall: '#7a6a52', roof: '#8a6a2a', row: 'front' },
         ];
+        // Snapshot dos valores ORIGINAIS de name/icon/wall/roof — nunca
+        // mutado depois disso. `_syncBuildingsToCity` (ver abaixo) sempre
+        // deriva `this.buildings` A PARTIR deste snapshot + do override da
+        // cidade atual (ver citydatabase.js `buildingNames`/`buildingIcons`/
+        // `buildingColors`, usado pela primeira vez pelo Reino Anão), nunca
+        // mutando os objetos em cima uns dos outros — assim viajar de volta
+        // a uma cidade sem override (ex: Porto Helênico) sempre restaura os
+        // valores de sempre, em vez de herdar sobras da cidade anterior.
+        // Posição/tamanho/id (xFrac, rowOffset, w, h, row) NUNCA mudam por
+        // cidade — só a pele (nome/ícone/cor) é reskinável; a colisão e o
+        // layout físico da Praça continuam sendo os mesmos 9 prédios em
+        // todo lugar, exatamente como documentado em citydatabase.js.
+        this._defaultBuildings = this.buildings.map(b => ({ ...b }));
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
         this.fountain = { xFrac: 0.5, rowOffset: 130, r: 34 };
@@ -211,11 +224,43 @@ class CityEngine {
             const savedPlayer = window.Engine && window.Engine.state && window.Engine.state.player;
             if (savedPlayer && savedPlayer.dayCount) this.dayCount = savedPlayer.dayCount;
         }
+        // Sempre recomputado (nunca só na primeira vez): cobre tanto um jogo
+        // novo quanto um save CARREGADO direto numa cidade com reskin (ex:
+        // reabrir a página com um Anão salvo no Reino de Kharzum) — sem
+        // isso, `this.buildings` ficaria travado nos valores padrão até a
+        // primeira viagem de verdade.
+        this._syncBuildingsToCity();
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
         if (window.AudioManager) window.AudioManager.startCityAmbience();
         this._interactPromptEl = document.getElementById('city-interact-prompt');
         this._hintEl = document.getElementById('city-hint');
+    }
+
+    // Deriva `this.buildings` a partir de `_defaultBuildings` (imutável) +
+    // do override opcional da cidade atual (ver citydatabase.js
+    // `buildingNames`/`buildingIcons`/`buildingColors`) — só troca a PELE
+    // (nome/ícone/cor da parede/telhado) de cada prédio, nunca a posição/
+    // tamanho/colisão (`xFrac`/`rowOffset`/`w`/`h`/`row` sempre vêm do
+    // default, intocados). Chamado em toda entrada na Cidade (onEnterCity)
+    // e ao concluir uma viagem (travelToCity) — os dois únicos pontos em
+    // que "qual é a cidade atual" pode ter mudado.
+    _syncBuildingsToCity() {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const names = (cityDef && cityDef.buildingNames) || {};
+        const icons = (cityDef && cityDef.buildingIcons) || {};
+        const colors = (cityDef && cityDef.buildingColors) || {};
+        this.buildings = this._defaultBuildings.map(def => {
+            const b = { ...def };
+            if (names[b.id]) b.name = names[b.id];
+            if (icons[b.id]) b.icon = icons[b.id];
+            const c = colors[b.id];
+            if (c) {
+                if (c.wall) b.wall = c.wall;
+                if (c.roof) b.roof = c.roof;
+            }
+            return b;
+        });
     }
 
     // Bug reportado: personagem "sumindo" na praça depois de um resize da
@@ -1263,6 +1308,11 @@ class CityEngine {
         // de volta a `false`) trazia ele de volta — exatamente o sintoma
         // reportado. Resetar aqui, no mesmo lugar que `_arenaNpcsSpawned`,
         // corrige de vez.
+        // Reskin dos prédios civis pra identidade da cidade de chegada (ver
+        // _syncBuildingsToCity) — precisa rodar ANTES do resto do reset
+        // abaixo só por consistência de leitura, mas a ordem exata não
+        // importa (nenhum dos resets seguintes lê `this.buildings`).
+        this._syncBuildingsToCity();
         this.npcs = [];
         this.nightWanderers = [];
         this._arenaNpcsSpawned = false;
@@ -2492,6 +2542,48 @@ class CityEngine {
                 ctx.fill();
                 ctx.strokeStyle = '#6a9a5a';
             });
+        } else if (type === 'stalagmite') {
+            // Formação rochosa afiada com um veio de cristal brilhando por
+            // dentro (Reino Anão) — usada nos slots 'edge', em vez de
+            // árvore/planta: não há vegetação nenhuma dentro de uma montanha.
+            ctx.fillStyle = '#4a4650';
+            ctx.beginPath();
+            ctx.moveTo(x - 14 * scale, y - 2 * scale);
+            ctx.lineTo(x - 4 * scale, y - 70 * scale);
+            ctx.lineTo(x + 6 * scale, y - 2 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#6a6672';
+            ctx.beginPath();
+            ctx.moveTo(x + 2 * scale, y - 2 * scale);
+            ctx.lineTo(x + 8 * scale, y - 40 * scale);
+            ctx.lineTo(x + 13 * scale, y - 2 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(110,200,255,0.75)';
+            ctx.lineWidth = 2 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x - 6 * scale, y - 6 * scale);
+            ctx.lineTo(x - 2 * scale, y - 42 * scale);
+            ctx.stroke();
+        } else if (type === 'crystalCluster') {
+            // Aglomerado de cristais mágicos brutos, brilho azul-ciano
+            // pulsante (Reino Anão) — usado nos slots 'center', ladeando o
+            // braseiro de metal fundido em vez da fonte de água.
+            const facets = [[-8, -2, 10], [6, -4, 14], [0, -16, 18], [-4, -22,10], [9, -14, 9]];
+            facets.forEach(([dx, dy, hgt]) => {
+                ctx.fillStyle = 'rgba(70,180,220,0.55)';
+                ctx.beginPath();
+                ctx.moveTo(x + dx * scale - 4 * scale, y + dy * scale);
+                ctx.lineTo(x + dx * scale, y + dy * scale - hgt * scale);
+                ctx.lineTo(x + dx * scale + 4 * scale, y + dy * scale);
+                ctx.closePath();
+                ctx.fill();
+            });
+            ctx.fillStyle = 'rgba(180,240,255,0.8)';
+            ctx.beginPath();
+            ctx.arc(x, y - 14 * scale, 4 * scale, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
@@ -2586,6 +2678,7 @@ class CityEngine {
 
                 if (style === 'orc') this._bakeBuildingShellOrc(bctx, b, bw, bh, left, top);
                 else if (style === 'elfico') this._bakeBuildingShellElfico(bctx, b, bw, bh, left, top);
+                else if (style === 'anao') this._bakeBuildingShellAnao(bctx, b, bw, bh, left, top);
                 else this._bakeBuildingShellGreco(bctx, b, bw, bh, left, top);
 
                 // Porta — igual nos 3 estilos.
@@ -2719,6 +2812,81 @@ class CityEngine {
         bctx.beginPath();
         bctx.arc(0, top - bh * 0.32, 3.5, 0, Math.PI * 2);
         bctx.fill();
+    }
+
+    // Estilo ANÃO (Reino Subterrâneo de Kharzum, pedido explícito do
+    // usuário: "a cidade deve parecer construída pelos anões" — pedra
+    // maciça, metal, correntes, brilho de forja). Terceira variação real de
+    // fachada (depois de orc/elfico): alvenaria de blocos de pedra entalhada
+    // (frisos horizontais, nunca lisa como o mármore grego nem escurecida
+    // como o ferro orc), pilares retangulares grossos com um friso central
+    // brilhando em tom de brasa (rúnico, não decorativo à toa — remete à
+    // Forja), uma corrente pendurada entre os pilares laterais (identidade
+    // "correntes" pedida explicitamente) e um telhado de LAJE PLANA de
+    // pedra (sem pediment nem ameias) com uma fresta de brilho alaranjado
+    // na borda, como se o calor da forja escapasse por dentro.
+    _bakeBuildingShellAnao(bctx, b, bw, bh, left, top) {
+        const wallGrad = bctx.createLinearGradient(0, top, 0, top + bh);
+        wallGrad.addColorStop(0, this._lightenHex(b.wall, 0.12));
+        wallGrad.addColorStop(1, this._darkenHex(b.wall, 0.3));
+        bctx.fillStyle = wallGrad;
+        bctx.fillRect(left, top, bw, bh);
+
+        // Frisos horizontais de alvenaria (blocos de pedra entalhados).
+        bctx.strokeStyle = 'rgba(10,10,14,0.5)';
+        bctx.lineWidth = 1.5;
+        const rows = Math.max(2, Math.floor(bh / 22));
+        for (let i = 1; i < rows; i++) {
+            const sy = top + (bh / rows) * i;
+            bctx.beginPath();
+            bctx.moveTo(left, sy);
+            bctx.lineTo(left + bw, sy);
+            bctx.stroke();
+        }
+
+        // Pilares retangulares grossos (pedra maciça, não colunas finas de
+        // mármore) com um friso rúnico brilhante (brasa) no centro de cada um.
+        const pillarW = Math.max(9, bw * 0.08);
+        const pillarXs = [left + pillarW * 0.5, 0, left + bw - pillarW * 1.5];
+        for (const px of pillarXs) {
+            bctx.fillStyle = this._darkenHex(b.wall, 0.15);
+            bctx.fillRect(px, top + 4, pillarW, bh - 8);
+            bctx.strokeStyle = 'rgba(255,170,80,0.55)';
+            bctx.lineWidth = 1.4;
+            bctx.beginPath();
+            bctx.moveTo(px + pillarW / 2, top + 10);
+            bctx.lineTo(px + pillarW / 2, top + bh - 12);
+            bctx.stroke();
+        }
+
+        // Corrente pendurada entre os dois pilares laterais, perto do topo —
+        // identidade "correntes" pedida explicitamente pelo usuário.
+        bctx.strokeStyle = 'rgba(55,50,46,0.85)';
+        bctx.lineWidth = 2;
+        const chainY = top + 9;
+        bctx.beginPath();
+        let toggle = false;
+        for (let cx = pillarXs[0] + pillarW; cx <= pillarXs[2]; cx += 9) {
+            const y = chainY + (toggle ? 4 : 0);
+            if (cx === pillarXs[0] + pillarW) bctx.moveTo(cx, y); else bctx.lineTo(cx, y);
+            toggle = !toggle;
+        }
+        bctx.stroke();
+
+        // Telhado de laje plana e pesada (sem pediment, sem ameias) — mais
+        // maciço/horizontal que os outros 3 estilos, condizente com uma
+        // construção escavada dentro da própria montanha.
+        const roofH = bh * 0.16;
+        const roofGrad = bctx.createLinearGradient(0, top - roofH, 0, top);
+        roofGrad.addColorStop(0, this._lightenHex(b.roof, 0.18));
+        roofGrad.addColorStop(1, this._darkenHex(b.roof, 0.2));
+        bctx.fillStyle = roofGrad;
+        bctx.fillRect(left - 14, top - roofH, bw + 28, roofH + 6);
+
+        // Fresta de brilho de forja na borda do telhado — calor escapando
+        // de dentro, identidade "iluminação de forjas" pedida explicitamente.
+        bctx.fillStyle = 'rgba(255,140,50,0.55)';
+        bctx.fillRect(left - 14, top - 2, bw + 28, 3);
     }
 
     _drawBuilding(ctx, w, h, b) {

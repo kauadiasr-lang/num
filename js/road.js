@@ -231,6 +231,14 @@ window.RoadEngine = {
         elfico: [
             { name: 'Trilha Élfica', vegColor: 'rgba(45,150,110,0.5)' },
             { name: 'Bosque Luminoso', vegColor: 'rgba(70,210,160,0.45)' }
+        ],
+        // Reino Subterrâneo de Kharzum (ver citydatabase.js reino_anao) —
+        // trecho final da travessia terrestre até a boca da mina que dá
+        // acesso à cidade subterrânea (a cidade em si nunca é "estrada",
+        // só a aproximação por fora da montanha).
+        anao: [
+            { name: 'Trilhas de Pedra', vegColor: 'rgba(70,65,60,0.55)' },
+            { name: 'Portal da Montanha', vegColor: 'rgba(40,35,35,0.65)' }
         ]
     },
 

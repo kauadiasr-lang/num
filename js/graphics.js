@@ -1229,6 +1229,26 @@ class GraphicsEngine {
     _drawSky(ctx, w, h, horizon, pal, t, dayProgress = null) {
         if (dayProgress !== null) pal = this._blendCityPalette(dayProgress);
 
+        // Reino Subterrâneo de Kharzum (ver citydatabase.js `isUnderground`)
+        // — pedido explícito do usuário: cidade escavada dentro de uma
+        // montanha, NUNCA um céu aberto com sol/lua/nuvens/pássaros por
+        // cima (bug de auditoria encontrado nesta mesma iteração: o
+        // `skyTint` já existente só MISTURA uma cor por cima do céu normal,
+        // nunca o substitui — a cidade renderizava um céu azul de dia
+        // perfeitamente comum, contradizendo a própria premissa
+        // "subterrânea"). Só entra neste ramo quando `dayProgress !== null`
+        // (a Cidade explorável) — a Arena de combate (dayProgress null)
+        // continua com o céu normal mesmo em Duelo Rápido na cidade anã,
+        // já que seus biomas de arena (`arenaBiomes`, ver citydatabase.js)
+        // incluem cenários ao ar livre como 'montanhas'/'vulcanica'.
+        if (dayProgress !== null) {
+            const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+            if (cityDef && cityDef.isUnderground) {
+                this._drawCavernCeiling(ctx, w, horizon, dayProgress, t);
+                return;
+            }
+        }
+
         const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
         skyGrad.addColorStop(0, pal.top);
         skyGrad.addColorStop(0.6, pal.mid);
@@ -1346,6 +1366,41 @@ class GraphicsEngine {
             ctx.lineTo(b.x + 9, b.y - flap);
             ctx.stroke();
         });
+    }
+
+    // Teto de caverna — substitui o céu aberto POR COMPLETO pra qualquer
+    // cidade com `isUnderground` (ver _drawSky acima e citydatabase.js
+    // reino_anao). Rocha escura em gradiente + pontos de brilho fixos
+    // (metade cristal azulado, metade tocha/forja âmbar) reaproveitando as
+    // MESMAS posições de `this._stars` — nunca um array próprio novo, só
+    // cor/comportamento diferentes da luz de estrela normal. O ciclo dia/
+    // noite continua existindo NARRATIVAMENTE (ver _cityNightFactor,
+    // reaproveitado sem mudar): de "dia" as tochas das forjas ficam acesas
+    // (turno de trabalho), de "noite" elas apagam e só os cristais frios
+    // continuam brilhando — em vez de um sol/lua que não fariam sentido
+    // nenhum dentro de uma montanha.
+    _drawCavernCeiling(ctx, w, horizon, dayProgress, t) {
+        const nightFactor = this._cityNightFactor(dayProgress); // 0 (dia) .. 1 (noite)
+        const rockGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+        rockGrad.addColorStop(0, this._lerpHex('#0c0c10', '#050507', nightFactor));
+        rockGrad.addColorStop(0.6, this._lerpHex('#1c1c22', '#0c0c10', nightFactor));
+        rockGrad.addColorStop(1, this._lerpHex('#2a2a30', '#141418', nightFactor));
+        ctx.fillStyle = rockGrad;
+        ctx.fillRect(0, 0, w, horizon);
+
+        this._stars.forEach((s, i) => {
+            const isCrystal = i % 2 === 0;
+            if (!isCrystal && nightFactor > 0.5) return; // tochas apagam à noite, cristais nunca
+            const pulse = 0.3 + 0.3 * Math.sin(t * 2 + s.phase);
+            const baseAlpha = isCrystal ? 0.45 : 0.6 * (1 - nightFactor);
+            ctx.globalAlpha = Math.max(0, baseAlpha + pulse * 0.25);
+            ctx.fillStyle = isCrystal ? 'rgba(110,200,255,0.9)' : 'rgba(255,150,60,0.9)';
+            const size = isCrystal ? 2.2 : 2.6;
+            ctx.beginPath();
+            ctx.arc(s.x * w, s.y * horizon * 0.85, size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
     }
 
     // As 4 paletas nomeadas (dawn/day/sunset/night) usadas tanto pela Arena
