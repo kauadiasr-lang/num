@@ -298,13 +298,17 @@ class Enemy extends Entity {
     // equipStyleWeapon acima e AICombat.pickArmor) — nunca reintroduz o
     // problema de "item bom demais cedo demais" que o balanceamento
     // anterior corrigiu, e nunca equipa armadura de outra cidade.
+    // Mega Atualização item 12/13: `rarityChance` (0-100+) agora alimenta o
+    // mesmo sorteio ponderado de 5 raridades usado pela arma (ver
+    // ItemFactory.rollGearRarity/createEquipmentForEntity em items.js),
+    // nunca mais um coinflip Comum/Incomum — e nunca entrega uma armadura
+    // que o próprio inimigo não atenda os requisitos (Entity.canEquip).
     equipArmor() {
         const rarityChance = this.isElite
             ? (15 + this.level + 30)
             : Utils.clamp((this.level - 2) * 5, 0, 40);
         const armorId = window.AICombat.pickArmor();
-        const rarity = Utils.chance(rarityChance) ? RARITY.UNCOMMON : RARITY.COMMON;
-        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentForEntity(this, armorId, 'armors', rarityChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -422,11 +426,12 @@ class Vampire extends Entity {
     // Fantasma (ver classe Ghost abaixo) fica de fora de propósito: é
     // incorpóreo/etéreo (ver visuals.hasAura), nunca vestiria armadura
     // física — Vampiro é um morto-vivo com corpo de verdade.
+    // Mega Atualização item 12/13: mesmo sorteio ponderado de 5 raridades +
+    // checagem de requisitos do Enemy.equipArmor acima (ver comentário lá).
     equipArmor() {
         const rarityChance = Utils.clamp((this.level - 2) * 5, 0, 40);
         const armorId = window.AICombat.pickArmor();
-        const rarity = Utils.chance(rarityChance) ? RARITY.UNCOMMON : RARITY.COMMON;
-        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentForEntity(this, armorId, 'armors', rarityChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -719,6 +724,11 @@ class Rival extends Entity {
     // no peitoral; 2) um Rival da Fortaleza Orc podia nascer de Manto
     // Élfico, quebrando a identidade regional. `pickArmor()` já resolve os
     // dois de uma vez, então basta reusar a mesma função.
+    // Mega Atualização item 13: `rarity` continua CURADA por liga (não
+    // sorteada — ver RivalDatabase), mas agora passa pelo mesmo teto/
+    // downgrade de createEquipmentWithRarityCap (ver items.js) — nunca
+    // entrega ao próprio Rival uma peça que ele mesmo não atenda os
+    // requisitos, mesmo quando a liga pede uma raridade curada alta.
     equipGear(rarity) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
@@ -730,10 +740,10 @@ class Rival extends Entity {
         // (arco/besta) já carrega slot:SLOTS.RANGED — hasDualWeapons() nunca
         // via essa arma como a principal. activeWeaponSlot ajustado junto
         // pra sempre acompanhar onde a arma realmente está.
-        const weapon = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        const weapon = ItemFactory.createEquipmentWithRarityCap(this, weaponId, 'weapons', rarity);
         this.equipment[weapon.slot] = weapon;
         this.activeWeaponSlot = weapon.slot;
-        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(armorId, 'armors', rarity);
+        this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentWithRarityCap(this, armorId, 'armors', rarity);
         // Campeões carregam arma encantada com mais frequência que rivais
         // comuns — reforça que enfrentar um Campeão é diferente (ver
         // Enemy.maybeEnchantWeapon acima, compartilhado com o Duelo Rápido).
@@ -747,7 +757,7 @@ class Rival extends Entity {
         if (window.AICombat && Utils.chance(this.isChampion ? 55 : 30)) {
             const secondaryId = window.AICombat.pickSecondaryWeaponFromStyle(this.aiStyle.id);
             if (secondaryId) {
-                const secondary = ItemFactory.createEquipment(secondaryId, 'weapons', rarity);
+                const secondary = ItemFactory.createEquipmentWithRarityCap(this, secondaryId, 'weapons', rarity);
                 if (secondary.slot !== this.activeWeaponSlot) this.equipment[secondary.slot] = secondary;
             }
         }
@@ -769,7 +779,7 @@ class Rival extends Entity {
                 return !t.region || t.region === cityId;
             });
             const finalShieldId = shieldId || shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
-            this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(finalShieldId, 'shields', rarity);
+            this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipmentWithRarityCap(this, finalShieldId, 'shields', rarity);
         }
     }
 

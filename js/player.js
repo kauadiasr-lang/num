@@ -384,11 +384,19 @@ class Entity {
     // Enemy.maybeEnchantWeapon) simplesmente porque Vampire/Ghost tinham sua
     // própria cópia colada dessa função, sem a chamada; `enchantChancePercent`
     // (0 por padrão) deixa qualquer subclasse optar por essa chance também.
+    // Mega Atualização item 12/13: `rarityChancePercent` (0-100+, herdado da
+    // fórmula que cada chamador já calculava — Enemy.equipStyleWeapon,
+    // Vampire.equipStyleWeapon) agora alimenta ItemFactory.rollGearRarity
+    // (5 raridades ponderadas por "força" do inimigo, em vez do sorteio
+    // binário Comum/Incomum de antes) e createEquipmentWithRarityCap
+    // (nunca deixa a arma sorteada exigir mais do que a própria entidade
+    // atende, ver Entity.canEquip). O nome do parâmetro ficou o mesmo de
+    // propósito — todo chamador já passava um número 0-100 nessa escala,
+    // não precisou mudar nenhum call site.
     equipStyleWeaponGeneric(rarityChancePercent, enchantChancePercent = 0) {
         const styleId = this.aiStyle ? this.aiStyle.id : 'espadachim';
         const weaponId = window.AICombat.pickWeaponFromStyle(styleId);
-        const rarity = Utils.chance(rarityChancePercent) ? RARITY.UNCOMMON : RARITY.COMMON;
-        const weapon = ItemFactory.createEquipment(weaponId, 'weapons', rarity);
+        const weapon = ItemFactory.createEquipmentForEntity(this, weaponId, 'weapons', rarityChancePercent);
         // Bug de auditoria (sistema de duas armas): a arma sempre era gravada
         // em equipment[SLOTS.MAIN_HAND] aqui, mesmo quando o próprio item já
         // carrega slot:SLOTS.RANGED (arco/besta, ver items.js) — um Arqueiro
@@ -407,7 +415,7 @@ class Entity {
             Enemy.maybeEnchantWeapon(weapon, enchantChancePercent);
         }
         const shieldId = window.AICombat.pickShieldFromStyle(styleId);
-        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipment(shieldId, 'shields', rarity);
+        if (shieldId) this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipmentForEntity(this, shieldId, 'shields', rarityChancePercent);
 
         // Arma secundária (sistema de duas armas, pedido de balanceamento
         // item 2): complementa a principal com uma arma de categoria OPOSTA
@@ -416,7 +424,7 @@ class Entity {
         // em ai.js) sempre signifique uma mudança tática real de alcance.
         // Chance-gated (nem todo combatente carrega uma reserva) e nunca
         // sobrescreve o slot da arma principal.
-        this.maybeEquipSecondaryWeapon(styleId, rarity);
+        this.maybeEquipSecondaryWeapon(styleId, rarityChancePercent);
 
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
@@ -425,13 +433,14 @@ class Entity {
 
     // Ver comentário em equipStyleWeaponGeneric acima. 35% de chance de
     // carregar uma arma de reserva de categoria oposta à principal — usado
-    // por Enemy/Vampire/Ghost/Rival (todos passam por aqui ou chamam este
-    // método diretamente, ver Rival.equipGear em enemy.js).
-    maybeEquipSecondaryWeapon(styleId, rarity) {
+    // por Enemy/Vampire/Ghost (chamam este método com um strengthScore) e
+    // por Rival.equipGear (enemy.js, chamado com a raridade curada já
+    // resolvida por createEquipmentWithRarityCap — ver lá).
+    maybeEquipSecondaryWeapon(styleId, rarityChancePercent) {
         if (!window.AICombat || !Utils.chance(35)) return;
         const secondaryId = window.AICombat.pickSecondaryWeaponFromStyle(styleId);
         if (!secondaryId) return;
-        const secondary = ItemFactory.createEquipment(secondaryId, 'weapons', rarity);
+        const secondary = ItemFactory.createEquipmentForEntity(this, secondaryId, 'weapons', rarityChancePercent);
         if (secondary.slot === this.activeWeaponSlot) return; // nunca a mesma categoria da principal
         this.equipment[secondary.slot] = secondary;
     }

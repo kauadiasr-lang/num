@@ -10,6 +10,13 @@ const RARITY = {
     LEGENDARY: { id: 5, name: "Lendário", mult: 3.0, color: "#ff8000" }
 };
 
+// Ordem crescente por `id` — usada pelo gerador procedural de equipamento
+// de inimigos (Mega Atualização item 12/13, ver ItemFactory.rollGearRarity/
+// createEquipmentForEntity abaixo) pra sortear uma raridade e, se preciso,
+// "descer" um degrau de cada vez até achar algo que o próprio inimigo
+// atenda os requisitos.
+const RARITY_ORDER = [RARITY.COMMON, RARITY.UNCOMMON, RARITY.RARE, RARITY.EPIC, RARITY.LEGENDARY];
+
 const SLOTS = {
     HEAD: 'head', CHEST: 'chest', HANDS: 'hands', LEGS: 'legs', FEET: 'feet',
     MAIN_HAND: 'mainHand', OFF_HAND: 'offHand', AMULET: 'amulet', RING: 'ring',
@@ -440,6 +447,63 @@ window.ItemFactory = {
             return null;
         }
         return new Equipment(template, rarityObj, qualityValue);
+    },
+
+    // Mega Atualização item 12: sorteia uma raridade pra equipamento
+    // PROCEDURAL de inimigo a partir de um `strengthScore` (0-100+, mesma
+    // escala que Enemy/Vampire já calculavam pra decidir Comum-vs-Incomum
+    // antes desta iteração — ver equipStyleWeaponGeneric em player.js).
+    // Cada faixa é uma distribuição ponderada (Utils.weightedPick, já usado
+    // pela demografia racial) com as 5 raridades — nunca uma regra
+    // absoluta: mesmo um inimigo fraco tem uma chance mínima de Incomum, e
+    // mesmo um Elite forte tem boa chance de sair só com Comum/Incomum,
+    // exatamente a "tendência, nunca garantia" que a diretiva pede.
+    rollGearRarity(strengthScore) {
+        let weights;
+        if (strengthScore < 15) { // fraco
+            weights = { COMMON: 92, UNCOMMON: 8 };
+        } else if (strengthScore < 35) { // médio
+            weights = { COMMON: 68, UNCOMMON: 27, RARE: 5 };
+        } else if (strengthScore < 55) { // forte
+            weights = { COMMON: 38, UNCOMMON: 36, RARE: 22, EPIC: 4 };
+        } else { // elite/chefe
+            weights = { COMMON: 15, UNCOMMON: 28, RARE: 32, EPIC: 20, LEGENDARY: 5 };
+        }
+        const key = Utils.weightedPick(weights) || 'COMMON';
+        return RARITY[key];
+    },
+
+    // Mega Atualização item 13: cria um item numa raridade-TETO específica,
+    // descendo um degrau por vez (nunca sobe) até a própria `entity`
+    // atender `requiredLevel`/`requiredStats` do resultado (Entity.canEquip,
+    // ver player.js — construída na Iteração 1 exatamente pra esta
+    // reutilização). Separado de `createEquipmentForEntity` abaixo pra que
+    // chamadores com raridade já CURADA (ex: Rival.equipGear, cuja raridade
+    // vem de `def.gearRarity`, nunca de um sorteio) também ganhem a mesma
+    // proteção sem precisar rolar uma raridade nova por cima da curada.
+    // Common é o piso: se nem Common couber (nível da entidade abaixo do
+    // mínimo do próprio template), o item cai equipado mesmo assim — a
+    // alternativa seria a entidade nascer sem nada equipado, pior do que
+    // uma peça abaixo do ideal.
+    createEquipmentWithRarityCap(entity, templateId, category, maxRarity) {
+        let rarity = maxRarity;
+        let item = this.createEquipment(templateId, category, rarity);
+        while (item && entity.canEquip && !entity.canEquip(item).ok && rarity.id > RARITY.COMMON.id) {
+            rarity = RARITY_ORDER[rarity.id - 2]; // um degrau abaixo (ids são 1-indexed)
+            item = this.createEquipment(templateId, category, rarity);
+        }
+        return item;
+    },
+
+    // Mega Atualização item 12/13: cria um equipamento procedural pra uma
+    // entidade (inimigo/vampiro/fantasma) já respeitando os próprios
+    // requisitos dela — sorteia a raridade pelo `strengthScore`
+    // (rollGearRarity acima) e aplica o mesmo teto/downgrade de
+    // createEquipmentWithRarityCap. Nunca entrega "arma de 40 STR pra um
+    // inimigo de 18 STR" (exemplo literal da diretiva).
+    createEquipmentForEntity(entity, templateId, category, strengthScore) {
+        const rolledRarity = this.rollGearRarity(strengthScore);
+        return this.createEquipmentWithRarityCap(entity, templateId, category, rolledRarity);
     },
 
     createConsumable(templateId) {
