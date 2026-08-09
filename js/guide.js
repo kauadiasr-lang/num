@@ -15,6 +15,7 @@ const GuideSystem = {
 
     TABS: [
         { id: 'attrs', label: 'Atributos', icon: '💪' },
+        { id: 'consumables', label: 'Consumíveis', icon: '🧺' },
         { id: 'skills', label: 'Magias', icon: '🔮' },
         { id: 'enchant', label: 'Encantamentos', icon: '✨' },
         { id: 'lineages', label: 'Linhagens', icon: '🩸' },
@@ -55,6 +56,7 @@ const GuideSystem = {
         const content = document.getElementById('guide-content');
         const renderers = {
             attrs: () => this._renderAttrs(),
+            consumables: () => this._renderConsumables(),
             skills: () => this._renderSkills(),
             enchant: () => this._renderEnchant(),
             lineages: () => this._renderLineages(),
@@ -96,6 +98,100 @@ const GuideSystem = {
                 <p><strong>Fadiga:</strong> acumulada por derrotas ou noites sem dormir, reduz dano físico e esquiva em até 24% (cura dormindo na Taverna).</p>
                 <p><strong>Peças quebradas:</strong> uma arma/armadura com durabilidade zerada entrega só metade do dano/defesa até ser reparada no Ferreiro/Armeiro.</p>
                 <p><strong>Bloqueio de escudo:</strong> reduz o dano já mitigado pela metade, e depende só do equipamento (nenhum atributo contribui diretamente).</p>
+            </div>
+        `;
+    },
+
+    // ==========================================================================
+    // CONSUMÍVEIS (TAVERNA)
+    // ==========================================================================
+    // Lê direto de ItemDatabase.consumables/houseSpecialties (Rework da
+    // Taverna) — nunca duplica os números aqui, pra nunca ficar
+    // desatualizado. O jogo NÃO tem sistema de fome/sede: toda comida e
+    // bebida é consumível OPCIONAL com efeito próprio, nunca obrigatório.
+    _renderConsumables() {
+        const all = (typeof ItemDatabase !== 'undefined' && ItemDatabase.consumables) || {};
+        const byCategory = (cat) => Object.values(all).filter(t => t.consumableCategory === cat);
+        const health = byCategory('health');
+        const mana = byCategory('mana');
+        const bandages = byCategory('bandage');
+        const food = byCategory('food');
+        const drink = byCategory('drink');
+
+        const statLabel = {
+            physicalDamageFlat: 'Dano Físico', dodgeBonusPercent: 'Esquiva', defenseBonusPercent: 'Resistência',
+            defenseRatingFlat: 'Defesa', maxMpFlat: 'MP Máximo', healPowerBonusPercent: 'Poder de Cura'
+        };
+        const buffLine = (t) => {
+            const main = `${t.buffAmount >= 0 ? '+' : ''}${t.buffAmount} ${statLabel[t.statKey] || t.statKey}`;
+            const secondary = t.secondaryStatKey ? `, ${t.secondaryAmount >= 0 ? '+' : ''}${t.secondaryAmount} ${statLabel[t.secondaryStatKey] || t.secondaryStatKey}` : '';
+            const duration = t.durationBattles ? `por ${t.durationBattles} batalha(s)` : (t.durationDays ? `por ${t.durationDays} dia(s)` : '');
+            return `${main}${secondary} ${duration}`.trim();
+        };
+
+        const houseSpecialties = (typeof ItemDatabase !== 'undefined' && ItemDatabase.houseSpecialties) || {};
+        const cityNames = {};
+        Object.values(window.CityDatabase || {}).forEach(c => { cityNames[c.id] = c.name; });
+        const cityFlavor = {
+            porto_helenico: 'variedade equilibrada, um pouco de tudo, sempre disponível',
+            fortaleza_orc: 'comida forte e bebidas pesadas, tema de treino físico bruto',
+            santuario_elfico: 'ervas, frutas e chás com toque de magia da natureza',
+            reino_anao: 'hidromel, comida farta e bebidas fortes, tema de resistência'
+        };
+
+        return `
+            <p class="guide-section-intro">A Taverna de cada cidade vende cinco categorias de consumíveis, organizadas em abas próprias. O jogo NÃO tem sistema de fome ou sede — nenhuma comida ou bebida é obrigatória, cada uma é uma escolha estratégica OPCIONAL com efeito próprio. Tudo aqui usa a MESMA mochila, o mesmo ouro e o mesmo save do resto do jogo.</p>
+
+            <div class="guide-block">
+                <h4>❤️ Poções de Vida &nbsp;·&nbsp; 🔷 Poções de Mana</h4>
+                <p>Cura instantânea, utilizável a qualquer momento — inclusive DURANTE a batalha. Recebem bônus de Poder de Cura de equipamento/itens, ao contrário das Bandagens abaixo.</p>
+                <div class="guide-table-wrap">
+                    <table class="guide-table">
+                        <thead><tr><th>Item</th><th>Efeito</th><th>Preço</th></tr></thead>
+                        <tbody>
+                            ${[...health, ...mana].map(t => `<tr><td><strong>${t.name}</strong></td><td>${t.description}</td><td>${t.value}g</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="guide-block">
+                <h4>🩹 Bandagens</h4>
+                <p>Cura HP, mas SÓ FORA de combate — nunca substitui uma poção numa emergência de batalha. Não recebe bônus de atributo/equipamento (valor fixo sempre), e nunca ultrapassa o HP máximo. Opção mais econômica pra recuperar entre lutas; a poção continua sendo a opção versátil dentro da batalha.</p>
+                <div class="guide-table-wrap">
+                    <table class="guide-table">
+                        <thead><tr><th>Item</th><th>Cura</th><th>Preço</th></tr></thead>
+                        <tbody>
+                            ${bandages.map(t => `<tr><td><strong>${t.name}</strong></td><td>${t.power} HP</td><td>${t.value}g</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="guide-block">
+                <h4>🍞 Comida &nbsp;·&nbsp; 🍺 Bebidas</h4>
+                <p>Buffs temporários com duração medida em BATALHAS (não em tempo real) — pensados pra preparar o gladiador antes de uma sequência de lutas, nunca pra manter vivo durante uma. O jogador só pode carregar <strong>1 efeito de Comida + 1 efeito de Bebida ativos ao mesmo tempo</strong>: consumir outro da mesma categoria SUBSTITUI o anterior (nunca acumula). Algumas bebidas trazem um bônus e uma penalidade juntos (ex: mais dano, menos esquiva) — vantagem real, com uma escolha real por trás.</p>
+                <div class="guide-table-wrap">
+                    <table class="guide-table">
+                        <thead><tr><th>Item</th><th>Categoria</th><th>Efeito</th><th>Preço</th></tr></thead>
+                        <tbody>
+                            ${[...food, ...drink].map(t => `<tr><td><strong>${t.name}</strong></td><td>${t.consumableCategory === 'food' ? 'Comida' : 'Bebida'}</td><td>${buffLine(t)}</td><td>${t.value}g</td></tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="guide-block">
+                <h4>⭐ Especialidades da Casa</h4>
+                <p>Cada Taverna mantém de 1 a 3 produtos exclusivos em destaque, que giram dia a dia (com uma chance de repetir o mesmo produto do dia anterior, então vale a pena visitar em dias diferentes). São mais fortes — e mais caros — que o estoque comum, e algumas só aparecem em cidades específicas: nunca o mesmo produto vendido em duas cidades diferentes só trocando o nome.</p>
+                <div class="guide-grid">
+                    ${Object.keys(houseSpecialties).map(cityId => `
+                        <div class="guide-card">
+                            <div class="guide-card-tag">${cityNames[cityId] || cityId}${cityFlavor[cityId] ? ` · ${cityFlavor[cityId]}` : ''}</div>
+                            ${Object.values(houseSpecialties[cityId]).map(t => `<p><strong>${t.name}</strong> — ${buffLine(t)} (${t.value}g)</p>`).join('')}
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     },
