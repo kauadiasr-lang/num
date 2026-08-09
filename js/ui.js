@@ -1488,6 +1488,17 @@ class UIManager {
         const enchantableSlots = [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.CHEST, SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND];
         const allIds = Object.keys(window.ENCHANTMENTS);
 
+        // Rework Econômico item 10 (achado da Iteração 3): Encantamentos
+        // eram acessíveis de qualquer cidade pelo MESMO preço — nenhum
+        // motivo real pra visitar o Santuário Élfico especificamente.
+        // Desconto real de 20% aqui (só no custo de encantar, nunca no
+        // preço de itens/consumíveis — sistemas independentes) dá esse
+        // motivo, junto com o encantamento Arcano exclusivo (ver
+        // enchantments.js `region`, já filtrado automaticamente por
+        // `validIds` abaixo via EnchantmentSystem.canApply).
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const enchantDiscount = cityId === 'santuario_elfico' ? 0.20 : 0;
+
         enchantableSlots.forEach(slot => {
             const item = p.equipment[slot];
             if (!item) return;
@@ -1507,6 +1518,8 @@ class UIManager {
             const previewId = validIds[this._enchantCycle[cycleKey] % validIds.length];
             const preview = window.ENCHANTMENTS[previewId];
             const currentName = item.enchantmentId ? window.ENCHANTMENTS[item.enchantmentId].name : 'Nenhum';
+            const enchantPrice = Math.max(1, Math.round(preview.cost * (1 - enchantDiscount)));
+            const enchantPriceLabel = enchantDiscount > 0 ? `Aplicar (<s style="opacity:0.6">${preview.cost}</s> ${enchantPrice}g 🏷️)` : `Aplicar (${enchantPrice}g)`;
 
             // Item 12 da auditoria de balanceamento ("cada encantamento deve
             // aparecer na descrição"): bug de auditoria encontrado — esta
@@ -1521,7 +1534,7 @@ class UIManager {
                     <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
                     <small class="enchant-preview-desc" style="color:${preview.color}">${preview.description}</small>
                 </div>
-                <button class="btn-small btn-enchant-apply">Aplicar (${preview.cost}g)</button>
+                <button class="btn-small btn-enchant-apply">${enchantPriceLabel}</button>
             `;
 
             row.querySelector('.btn-enchant-cycle').addEventListener('click', () => {
@@ -1529,11 +1542,11 @@ class UIManager {
                 this.renderEnchantments();
             });
             row.querySelector('.btn-enchant-apply').addEventListener('click', () => {
-                if (p.gold < preview.cost) {
+                if (p.gold < enchantPrice) {
                     window.AudioManager.playError();
                     return;
                 }
-                p.gold -= preview.cost;
+                p.gold -= enchantPrice;
                 window.EnchantmentSystem.apply(item, previewId);
                 window.SaveManager.save(window.Engine.state);
                 this.renderEnchantments();

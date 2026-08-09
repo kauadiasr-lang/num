@@ -90,17 +90,49 @@ const ENCHANTMENTS = {
         onDefend(defender) {
             return { dodgeBonusPercent: 4 };
         }
+    },
+
+    // Rework Econômico item 10/16 (achado da Iteração 3): Encantamentos
+    // eram acessíveis de QUALQUER cidade pelo ícone de Inventário da HUD,
+    // sem NENHUM gate regional — minava a própria identidade "Elfos =
+    // magia" construída nas Iterações 3/6 (Ateliê Élfico). Reaproveita o
+    // MESMO campo `region` já usado por items.js pra equipamento regional
+    // (ver ui.js renderEnchantments, que agora filtra por região igual
+    // ItemFactory._pickRandomEquipmentId já fazia) — primeiro encantamento
+    // exclusivo do jogo, só aplicável fisicamente dentro do Santuário
+    // Élfico. Efeito baseado em Inteligência (nunca Força/Agilidade),
+    // reforçando a identidade "magia" sem reaproveitar o tema físico/
+    // defensivo das runas anãs.
+    arcano: {
+        id: 'arcano', name: 'Arcano', color: '#8a5fff', appliesTo: ['weapon', 'armor'], region: 'santuario_elfico',
+        description: 'Dano extra baseado em Inteligência ao acertar. Em armadura: +5% de esquiva (barreira arcana). Só aplicável no Santuário Élfico.',
+        cost: 200,
+        onHit(attacker, defender) {
+            const extra = Math.floor(attacker.getTotalStat('int') * 0.8);
+            return { extraDamage: extra, particleColor: '#8a5fff' };
+        },
+        onDefend(defender) {
+            return { dodgeBonusPercent: 5 };
+        }
     }
 };
 window.ENCHANTMENTS = ENCHANTMENTS;
 
 window.EnchantmentSystem = {
-    // Só pode encantar itens de equipamento reais (nunca consumíveis) e o
-    // encantamento precisa aceitar o tipo da peça (arma vs armadura).
+    // Só pode encantar itens de equipamento reais (nunca consumíveis), o
+    // encantamento precisa aceitar o tipo da peça (arma vs armadura), e —
+    // se o encantamento tiver `region` (ver Arcano acima) — o jogador
+    // precisa estar FISICAMENTE na cidade certa. Checado aqui (não só na
+    // UI que filtra a lista) pra nunca depender só do front-end: mesmo
+    // que algo chame apply() diretamente, a regra vale.
     canApply(item, enchantId) {
         if (!item || item.category !== 'equipment') return false;
         const ench = ENCHANTMENTS[enchantId];
         if (!ench) return false;
+        if (ench.region) {
+            const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+            if (ench.region !== cityId) return false;
+        }
         const isWeapon = item.slot === SLOTS.MAIN_HAND || item.slot === SLOTS.RANGED;
         return ench.appliesTo.includes(isWeapon ? 'weapon' : 'armor');
     },
