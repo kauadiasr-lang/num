@@ -581,8 +581,24 @@
                         <p id="shop-repair-status" class="shop-repair-status"></p>
                         <button class="btn btn-small" id="btn-repair-all">Reparar Equipamento</button>
                     </div>
+                    <!-- Rework da Taverna item 1: abas de consumíveis, só
+                         visíveis quando a loja atual É a Taverna
+                         (consumablesOnly=true, ver ui.js openShop) —
+                         reaproveita o MESMO padrão visual guide-tabs/
+                         guide-tab-btn do Guia do Jogo e do Banco, nunca um
+                         sistema de abas novo. Fora da Taverna (Mercado/
+                         Ferreiro/Armeiro, onde o Boticário é só uma seção
+                         lateral) as abas ficam escondidas e a lista continua
+                         plana, exatamente como antes. -->
                     <div id="shop-consumables-section">
-                        <h3 class="shop-section-title">Boticário</h3>
+                        <h3 class="shop-section-title" id="shop-consumables-title">Boticário</h3>
+                        <nav id="tavern-tabs" class="guide-tabs hidden">
+                            <button class="guide-tab-btn" data-taverntab="health">❤️ Vida</button>
+                            <button class="guide-tab-btn" data-taverntab="mana">🔵 Mana</button>
+                            <button class="guide-tab-btn" data-taverntab="bandage">🩹 Bandagens</button>
+                            <button class="guide-tab-btn" data-taverntab="food">🍖 Comida</button>
+                            <button class="guide-tab-btn" data-taverntab="drink">🍺 Bebidas</button>
+                        </nav>
                         <div id="shop-consumables-container" class="shop-grid">
                             <!-- Poções e consumíveis, estoque fixo -->
                         </div>

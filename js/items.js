@@ -177,6 +177,15 @@ class Consumable {
         // outro consumível, então nunca entra em jogo fora daqui.
         this.riskFatigueChance = baseTemplate.riskFatigueChance;
         this.riskFatigueAmount = baseTemplate.riskFatigueAmount;
+
+        // Rework da Taverna item 1/3: categoria de aba (health/mana/
+        // bandage/food/drink) — só usada pra filtrar as 5 abas da Taverna
+        // (ver ui.js renderConsumableShop); consumíveis de outras sub-lojas
+        // (Câmara Rúnica/Círculo de Treinamento/Ateliê Élfico, subShop !==
+        // 'tavern') nunca aparecem na Taverna, então ficam sem categoria —
+        // undefined nunca quebra nada, só significa "não filtra em
+        // nenhuma aba".
+        this.consumableCategory = baseTemplate.consumableCategory;
     }
 }
 
@@ -352,10 +361,10 @@ const ItemDatabase = {
         magmacoreamulet: { id: 't_09', name: "Amuleto do Núcleo de Magma", slot: SLOTS.AMULET, weight: 0.3, value: 210, durability: 999, stats: { def: 2 }, hpBonus: 30, region: 'reino_anao' }
     },
     consumables: {
-        health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },
-        greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP." },
-        mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP." },
-        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga." },
+        health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP.", consumableCategory: 'health' },
+        greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP.", consumableCategory: 'health' },
+        mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP.", consumableCategory: 'mana' },
+        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga.", consumableCategory: 'bandage' },
 
         // --- Identidade do Reino Anão (Rework Econômico item 8/9) ---
         // `region`+`subShop` combinados (ver ItemFactory.getConsumableStock
@@ -366,9 +375,9 @@ const ItemDatabase = {
         // statKey/amount dos passivos de raça/mutação (ver
         // player.js calculateDerivedStats) — nunca escalam com atributo
         // nenhum, exatamente como runas/hidromel deveriam funcionar.
-        mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationDays: 1, value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 1 dia.", region: 'reino_anao', subShop: 'tavern' },
-        dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationDays: 1, value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 1 dia.", region: 'reino_anao', subShop: 'tavern' },
-        smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern' },
+        mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationDays: 1, value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 1 dia.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'drink' },
+        dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationDays: 1, value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 1 dia.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
+        smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
         rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao', subShop: 'runes' },
         rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' },
 

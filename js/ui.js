@@ -148,6 +148,10 @@ class UIManager {
         // selectBankTab) — só estado de UI, sempre reseta pra "gold" ao
         // abrir a tela, nunca persistido no save.
         this._bankActiveTab = 'gold';
+        // Rework da Taverna item 1: aba ativa dos consumíveis da Taverna
+        // (ver openShop/selectTavernTab) — mesmo padrão do Banco acima,
+        // só estado de UI, sempre reseta pra "health" ao abrir a Taverna.
+        this._tavernActiveTab = 'health';
 
         this.initEventListeners();
     }
@@ -242,6 +246,10 @@ class UIManager {
         // Depositar Tudo/Sacar Tudo, cada par operando sobre a aba ATUAL.
         document.getElementById('bank-tabs').querySelectorAll('.guide-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => this.selectBankTab(btn.dataset.banktab));
+        });
+        // Rework da Taverna item 1: mesmo padrão de bind das abas do Banco.
+        document.getElementById('tavern-tabs').querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.selectTavernTab(btn.dataset.taverntab));
         });
         document.getElementById('btn-bank-deposit-all-gold').addEventListener('click', () => this.bankDepositAllGold());
         document.getElementById('btn-bank-withdraw-all-gold').addEventListener('click', () => this.bankWithdrawAllGold());
@@ -2353,7 +2361,16 @@ class UIManager {
             repairSection.style.display = 'none';
         }
 
-        this.renderConsumableShop();
+        // Rework da Taverna item 1: abas só existem na Taverna de verdade
+        // (consumablesOnly) — no Mercado geral o Boticário continua sendo
+        // uma seção lateral com lista plana, exatamente como antes.
+        // Sempre reseta pra "health" ao ABRIR a Taverna (mesmo padrão do
+        // Banco: `selectBankTab('gold')` em openBank), nunca preserva a
+        // aba da visita anterior.
+        document.getElementById('tavern-tabs').classList.toggle('hidden', !consumablesOnly);
+        document.getElementById('shop-consumables-title').classList.toggle('hidden', consumablesOnly);
+        if (consumablesOnly) this.selectTavernTab('health');
+        else this.renderConsumableShop();
         // O Boticário (poções/bandagens) aparece na Taverna (consumablesOnly)
         // e no Mercado geral; Ferreiro/Armeiro são especializados e não
         // vendem consumíveis.
@@ -2659,6 +2676,17 @@ class UIManager {
     }
 
     // Estoque fixo do Boticário (sempre disponível, não é consumido da lista)
+    // Rework da Taverna item 1: troca de aba — mesmo padrão de
+    // selectBankTab (toggle de classe `.active` + re-render filtrado),
+    // nunca uma tela nova nem uma lógica de abas paralela.
+    selectTavernTab(tabId) {
+        this._tavernActiveTab = tabId;
+        document.getElementById('tavern-tabs').querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.taverntab === tabId);
+        });
+        this.renderConsumableShop();
+    }
+
     renderConsumableShop() {
         const p = window.Engine.state.player;
         const container = document.getElementById('shop-consumables-container');
@@ -2666,7 +2694,18 @@ class UIManager {
 
         const discount = this._shopDiscount(p, this._currentShopTitle);
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-        ItemFactory.getConsumableStock(cityId, this._currentShopSubShop).forEach(item => {
+        let stock = ItemFactory.getConsumableStock(cityId, this._currentShopSubShop);
+        // Rework da Taverna item 1/3: só filtra por aba quando é a Taverna
+        // de verdade (consumablesOnly) — o Boticário do Mercado geral
+        // continua mostrando tudo junto, sem filtro, como sempre mostrou.
+        if (this._currentShopConsumablesOnly) {
+            stock = stock.filter(item => item.consumableCategory === this._tavernActiveTab);
+        }
+        if (this._currentShopConsumablesOnly && stock.length === 0) {
+            container.innerHTML = '<p class="bank-sub" style="grid-column:1/-1;">Nada disponível nesta categoria, por enquanto.</p>';
+            return;
+        }
+        stock.forEach(item => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
             const price = Math.max(1, Math.round(item.value * (1 - discount)));
