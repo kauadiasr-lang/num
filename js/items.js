@@ -111,11 +111,19 @@ class Consumable {
         this.uuid = Utils.generateUUID();
         this.id = baseTemplate.id;
         this.name = baseTemplate.name;
-        this.type = baseTemplate.type; // HEAL_HP | HEAL_MP | CURE_FATIGUE
+        this.type = baseTemplate.type; // HEAL_HP | HEAL_MP | CURE_FATIGUE | TEMP_BUFF
         this.power = baseTemplate.power;
         this.value = baseTemplate.value;
         this.description = baseTemplate.description;
         this.rarity = RARITY.COMMON; // usado apenas para exibir uma cor neutra na UI/tooltip
+        // Só usados por TEMP_BUFF (ver player.js useConsumable/
+        // calculateDerivedStats) — efeito FIXO e pré-definido, nunca
+        // escala com INT ou qualquer atributo (Rework Econômico item 9:
+        // runas anãs são "tecnologia artesã", não uma cópia da magia
+        // convencional de outra cidade).
+        this.statKey = baseTemplate.statKey;
+        this.buffAmount = baseTemplate.buffAmount;
+        this.durationDays = baseTemplate.durationDays;
     }
 }
 
@@ -157,7 +165,13 @@ const ItemDatabase = {
         // irrelevante pro item em si, igual acontece com qualquer arma).
         orcwaraxe: { id: 'w_11', name: "Machado de Guerra Orc", slot: SLOTS.MAIN_HAND, damage: 16, weight: 7.0, value: 140, durability: 110, stats: { str: 5 }, armorPierce: 0.20, region: 'fortaleza_orc',
             minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
-        dwarvenhammer: { id: 'w_12', name: "Martelo Rúnico Anão", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 170, durability: 160, stats: { str: 2, def: 1 }, armorPierce: 0.25, region: 'fortaleza_orc',
+        // Bug de auditoria corrigido (Rework Econômico item 15): item de
+        // nome/tema explicitamente anão estava com `region: 'fortaleza_orc'`
+        // — provavelmente um resquício de antes de o Reino Anão existir
+        // como cidade própria. Também é o único produto de receita
+        // exclusiva da Forja (ver forge.js RECIPES), então o bug escondia
+        // o item da loja da própria cidade que o forja.
+        dwarvenhammer: { id: 'w_12', name: "Martelo Rúnico Anão", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 170, durability: 160, stats: { str: 2, def: 1 }, armorPierce: 0.25, region: 'reino_anao',
             minRange: 0, maxRange: 2, atkSpeed: 0.65, approachSpeed: 1.3, retreatSpeed: 1.3 },
         elvenblade: { id: 'w_13', name: "Lâmina Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.2, value: 150, durability: 100, stats: { agi: 3, acc: 1 }, critBonus: 18, region: 'santuario_elfico',
             minRange: 0, maxRange: 3, atkSpeed: 1.5, approachSpeed: 2.4, retreatSpeed: 2.4 },
@@ -238,7 +252,22 @@ const ItemDatabase = {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP." },
         greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP." },
         mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP." },
-        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga." }
+        bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga." },
+
+        // --- Identidade do Reino Anão (Rework Econômico item 8/9) ---
+        // `region`+`subShop` combinados (ver ItemFactory.getConsumableStock
+        // abaixo) fazem esses itens SUBSTITUÍREM — nunca somarem a — o pool
+        // genérico acima nas sub-lojas da Taverna/Câmara Rúnica anãs. Nunca
+        // aparecem em nenhuma outra cidade nem no Mercado geral/Mercador
+        // Viajante. Efeitos TEMPORÁRIOS (TEMP_BUFF) usam o mesmo formato
+        // statKey/amount dos passivos de raça/mutação (ver
+        // player.js calculateDerivedStats) — nunca escalam com atributo
+        // nenhum, exatamente como runas/hidromel deveriam funcionar.
+        mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationDays: 1, value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 1 dia.", region: 'reino_anao', subShop: 'tavern' },
+        dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationDays: 1, value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 1 dia.", region: 'reino_anao', subShop: 'tavern' },
+        smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern' },
+        rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao', subShop: 'runes' },
+        rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' }
     },
     // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
     // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver
@@ -412,8 +441,26 @@ window.ItemFactory = {
         return this.createEquipment(picked.id, picked.category, rarityObj);
     },
 
-    // Estoque fixo de consumíveis sempre disponível no Mercado (Boticário)
-    getConsumableStock() {
-        return Object.keys(ItemDatabase.consumables).map(id => this.createConsumable(id));
+    // Estoque de consumíveis. Sem argumentos (Mercado geral/Mercador
+    // Viajante), continua vendo só o pool neutro de sempre (os 4 itens sem
+    // `region`) — nenhum comportamento pré-existente muda. Com `cityId`+
+    // `subShop` (ver ui.js openShop/renderConsumableShop), uma sub-loja com
+    // consumíveis PRÓPRIOS cadastrados (ex: Taverna/Câmara Rúnica do Reino
+    // Anão, ver ItemDatabase.consumables acima) SUBSTITUI o pool neutro por
+    // completo — nunca soma os dois (Rework Econômico item 8: "a Taverna
+    // Anã não deve vender as mesmas poções de qualquer outra cidade"). Uma
+    // cidade/sub-loja sem nenhum item regional cadastrado (Orc, Elfo,
+    // Central, ou uma sub-loja anã futura ainda vazia) cai automaticamente
+    // de volta pro pool neutro, sem precisar de nenhum caso especial aqui.
+    getConsumableStock(cityId = null, subShop = null) {
+        const allIds = Object.keys(ItemDatabase.consumables);
+        if (subShop) {
+            const regional = allIds.filter(id => {
+                const t = ItemDatabase.consumables[id];
+                return t.region === cityId && t.subShop === subShop;
+            });
+            if (regional.length > 0) return regional.map(id => this.createConsumable(id));
+        }
+        return allIds.filter(id => !ItemDatabase.consumables[id].region).map(id => this.createConsumable(id));
     }
 };

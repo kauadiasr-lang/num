@@ -264,6 +264,17 @@ const CityDatabase = {
         // usuário: "a cidade dos anões NÃO deve possuir lojas iguais às
         // outras".
         hasOreTrader: true,
+        // Prédio 'arcane' (Câmara Rúnica, ver buildingNames abaixo) continua
+        // abrindo a MESMA Árvore de Talentos de qualquer cidade (Rework
+        // Econômico item 8: "não remova mecânica importante sem substituir
+        // por algo melhor" — Mutação não tem equivalente em runas ainda) —
+        // mas agora com um botão extra dentro da própria tela (ver
+        // ui.js openSkillTree/index.html #btn-open-rune-shop) que abre a
+        // sub-loja de runas consumíveis de efeito fixo (ver items.js
+        // ItemDatabase.consumables subShop:'runes'). Só o Reino Anão tem
+        // este botão visível — nas outras 3 cidades a Câmara Arcana continua
+        // exatamente como sempre foi, sem nenhum botão extra.
+        hasRuneShop: true,
         // Bandidos anões (ver city.js _eventDwarfBandit/_makeBandit) —
         // "a cidade não deve ser segura" pedido explicitamente pelo
         // usuário. Entra no MESMO sorteio ponderado de eventos ambientes

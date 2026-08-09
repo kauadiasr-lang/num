@@ -192,8 +192,34 @@ class Entity {
         // Rival nunca definem esse campo), então nunca afeta inimigos.
         const racePassive = (this.race && window.RACES && window.RACES[this.race] && window.RACES[this.race].passive) ? window.RACES[this.race].passive : null;
         const raceBonus = (key) => (racePassive && racePassive.statKey === key) ? racePassive.value : 0;
-        if (raceBonus('defenseBonusPercent')) defenseRating *= (1 + raceBonus('defenseBonusPercent') / 100);
-        if (raceBonus('dodgeBonusPercent')) dodgeChance += raceBonus('dodgeBonusPercent');
+
+        // Bônus TEMPORÁRIOS de consumíveis regionais (Hidromel/Banquete
+        // Anão/Runas do Reino Anão — ver items.js TEMP_BUFF, useConsumable
+        // acima) — mesmo formato statKey/amount dos passivos de raça/
+        // mutação acima, reaproveitando a mesma infraestrutura em vez de
+        // criar um sistema de buff paralelo (Rework Econômico item 16).
+        // Filtra buffs vencidos comparando com o dia atual ANTES de somar
+        // — não precisa remover ativamente daqui pra parar de contar, só
+        // decai sozinho conforme os dias passam (ver CityEngine.
+        // advanceToNewDay, que também faz a limpeza física do array).
+        // `>` (não `>=`): comprado no dia D com durationDays=1 grava
+        // expiresAtDay=D+1 — deve continuar ativo pelo RESTO do dia D
+        // (currentDay ainda === D) e sumir assim que o dia VIRAR pra D+1
+        // (currentDay === expiresAtDay). Com `>=` o buff sobrevivia a uma
+        // virada de dia inteira a mais do que "dura 1 dia" prometia (bug
+        // encontrado em teste, ver /tmp/pw/test_dwarf_identity_iter2.js).
+        const currentDay = (window.City && window.City.dayCount) || 0;
+        const activeBuffs = (this.activeBuffs || []).filter(b => b.expiresAtDay > currentDay);
+        const buffBonus = (key) => activeBuffs.reduce((sum, b) => sum + (b.statKey === key ? b.amount : 0), 0);
+
+        const totalDefenseBonusPercent = raceBonus('defenseBonusPercent') + buffBonus('defenseBonusPercent');
+        if (totalDefenseBonusPercent) defenseRating *= (1 + totalDefenseBonusPercent / 100);
+        const totalDodgeBonusPercent = raceBonus('dodgeBonusPercent') + buffBonus('dodgeBonusPercent');
+        if (totalDodgeBonusPercent) dodgeChance += totalDodgeBonusPercent;
+        // Bônus fixos (Banquete Anão/Runa de Força) — sem equivalente
+        // percentual nos passivos de raça/mutação, então somam direto.
+        defenseRating += buffBonus('defenseRatingFlat');
+        physicalDamage += buffBonus('physicalDamageFlat');
 
         this.derivedStats.maxHp = maxHp;
         this.derivedStats.maxMp = maxMp;
@@ -568,6 +594,18 @@ class Player extends Entity {
         } else if (item.type === 'CURE_FATIGUE') {
             this.cureFatigue(item.power);
             message = `Curou ${item.power} nível(is) de fadiga`;
+        } else if (item.type === 'TEMP_BUFF') {
+            // Hidromel/Banquete/Runas do Reino Anão (ver items.js) — efeito
+            // FIXO e temporário, mesmo formato statKey/amount dos passivos
+            // de raça/mutação (ver calculateDerivedStats), nunca escala com
+            // atributo nenhum. Expira sozinho comparando `expiresAtDay` com
+            // `window.City.dayCount` a cada recálculo, sem precisar de timer.
+            if (!this.activeBuffs) this.activeBuffs = [];
+            const currentDay = (window.City && window.City.dayCount) || 0;
+            const durationDays = item.durationDays || 1;
+            this.activeBuffs.push({ statKey: item.statKey, amount: item.buffAmount, expiresAtDay: currentDay + durationDays });
+            this.calculateDerivedStats();
+            message = `Efeito ativo por ${durationDays} dia(s)`;
         }
 
         this.inventory.splice(index, 1);

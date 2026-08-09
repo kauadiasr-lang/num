@@ -241,7 +241,11 @@ class UIManager {
         document.getElementById('btn-close-skills').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
-        document.getElementById('btn-open-tavern-shop').addEventListener('click', () => this.openShop(null, 'Taverna', true));
+        document.getElementById('btn-open-tavern-shop').addEventListener('click', () => this.openShop(null, 'Taverna', true, 'tavern'));
+        // Só existe/fica visível no Reino Anão (ver openSkillTree, que
+        // alterna a visibilidade a cada abertura conforme citydatabase.js
+        // hasRuneShop) — sub-loja de runas consumíveis de efeito fixo.
+        document.getElementById('btn-open-rune-shop').addEventListener('click', () => this.openShop(null, 'Câmara Rúnica', true, 'runes'));
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -2235,7 +2239,7 @@ class UIManager {
         });
     }
 
-    openShop(filterSlots = null, title = 'Mercado', consumablesOnly = false) {
+    openShop(filterSlots = null, title = 'Mercado', consumablesOnly = false, subShop = null) {
         const p = window.Engine.state.player;
         document.getElementById('shop-player-gold').innerText = p.gold;
         document.getElementById('shop-panel-title').innerText = title;
@@ -2243,6 +2247,11 @@ class UIManager {
         this._currentShopFilter = filterSlots;
         this._currentShopTitle = title;
         this._currentShopConsumablesOnly = consumablesOnly;
+        // Marca qual sub-loja de consumíveis está aberta (ver
+        // renderConsumableShop/ItemFactory.getConsumableStock) — 'tavern'
+        // (Poções e Bandagens/Hidromel), 'runes' (Câmara Rúnica) ou null
+        // (Mercado geral/Mercador Viajante, sempre pool neutro).
+        this._currentShopSubShop = subShop;
 
         // Fala do comerciante: dá a sensação de um lugar com gente de
         // verdade, não só um menu de compras. Sorteada uma vez por visita
@@ -2291,7 +2300,7 @@ class UIManager {
                 }
                 p.calculateDerivedStats();
                 window.SaveManager.save(window.Engine.state);
-                this.openShop(this._currentShopFilter, this._currentShopTitle);
+                this.openShop(this._currentShopFilter, this._currentShopTitle, this._currentShopConsumablesOnly, this._currentShopSubShop);
             };
         } else {
             repairSection.style.display = 'none';
@@ -2400,7 +2409,7 @@ class UIManager {
                     this.currentShopItems.splice(index, 1); // Remove da loja
                     window.SaveManager.save(window.Engine.state);
                     this.hideTooltip();
-                    this.openShop(this._currentShopFilter, this._currentShopTitle); // Refresh, mantendo a categoria (Ferreiro/Armeiro)
+                    this.openShop(this._currentShopFilter, this._currentShopTitle, this._currentShopConsumablesOnly, this._currentShopSubShop); // Refresh, mantendo a categoria (Ferreiro/Armeiro)
                 } else if (p.gold < price) {
                     window.AudioManager.playError();
                     if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
@@ -2570,7 +2579,8 @@ class UIManager {
         container.innerHTML = '';
 
         const discount = this._shopDiscount(p, this._currentShopTitle);
-        ItemFactory.getConsumableStock().forEach(item => {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        ItemFactory.getConsumableStock(cityId, this._currentShopSubShop).forEach(item => {
             const card = document.createElement('div');
             card.className = 'shop-item-card';
             const price = Math.max(1, Math.round(item.value * (1 - discount)));
@@ -2610,6 +2620,15 @@ class UIManager {
     openSkillTree() {
         const p = window.Engine.state.player;
         document.getElementById('skill-points').innerText = p.skillPoints || 0;
+
+        // Botão da Câmara Rúnica (ver citydatabase.js hasRuneShop) — só o
+        // Reino Anão o mostra. A Árvore de Talentos em si continua idêntica
+        // em toda cidade (Rework Econômico item 8: preservar mecânica sem
+        // substituto melhor), o botão só ADICIONA uma sub-loja, nunca
+        // remove nada.
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const runeShopBtn = document.getElementById('btn-open-rune-shop');
+        if (runeShopBtn) runeShopBtn.classList.toggle('hidden', !(cityDef && cityDef.hasRuneShop));
 
         p._ensureSkillLoadout();
         const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
@@ -2697,6 +2716,16 @@ class UIManager {
     // --- CURANDEIRO ---
     openHealer() {
         document.getElementById('healer-message').innerText = '';
+        // Rótulo do botão da sub-loja reflete o que ela realmente vende
+        // (ver ItemDatabase.consumables/ItemFactory.getConsumableStock) —
+        // detecta pela PRÓPRIA presença de itens regionais `subShop:'tavern'`
+        // pra esta cidade, em vez de outra flag fixa em citydatabase.js:
+        // qualquer cidade futura que ganhe consumíveis próprios de Taverna
+        // já muda o rótulo sozinha, sem precisar editar este método de novo.
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const hasRegionalTavern = Object.values(ItemDatabase.consumables).some(t => t.region === cityId && t.subShop === 'tavern');
+        const shopBtn = document.getElementById('btn-open-tavern-shop');
+        if (shopBtn) shopBtn.innerText = hasRegionalTavern ? '🍖 Hidromel e Comidas' : '🍷 Poções e Bandagens';
         this.updateHealerScreen();
         this.showScreen('screen-healer');
     }

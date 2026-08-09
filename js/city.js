@@ -1762,6 +1762,16 @@ class CityEngine {
         if (dayCountPlayer) dayCountPlayer.dayCount = this.dayCount;
         this._applyBankInterest();
 
+        // Limpeza física dos buffs temporários vencidos (Hidromel/Banquete/
+        // Runas do Reino Anão, ver items.js TEMP_BUFF/player.js
+        // calculateDerivedStats) — calculateDerivedStats já FILTRA buffs
+        // vencidos antes de somar, então isso não é necessário pra
+        // correção, só evita o array crescer pra sempre no save do jogador
+        // ao longo de uma partida longa.
+        if (dayCountPlayer && dayCountPlayer.activeBuffs) {
+            dayCountPlayer.activeBuffs = dayCountPlayer.activeBuffs.filter(b => b.expiresAtDay > this.dayCount);
+        }
+
         // Vampiros noturnos se recolhem com a luz do sol.
         this.nightWanderers = [];
 
