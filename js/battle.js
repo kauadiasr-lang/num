@@ -372,6 +372,12 @@ class BattleSystem {
         if (enchantEff) {
             if (enchantEff.healPercent) attacker.currentHp = Utils.clamp(attacker.currentHp + Math.floor(mitigatedDamage * (enchantEff.healPercent / 100)), 0, attacker.derivedStats.maxHp);
             if (enchantEff.lifestealPercent) attacker.currentHp = Utils.clamp(attacker.currentHp + Math.floor(mitigatedDamage * (enchantEff.lifestealPercent / 100)), 0, attacker.derivedStats.maxHp);
+            // Mega Atualização item 9 (Sopro da Mata, ver enchantments.js):
+            // primeiro encantamento do jogo a interagir com MANA (a diretiva
+            // pede explicitamente essa identidade élfica) — restaura MP do
+            // atacante a cada acerto, simétrico a healPercent/lifestealPercent
+            // acima só que sobre `maxMp` em vez de `maxHp`.
+            if (enchantEff.manaRestoreFlat) attacker.currentMp = Utils.clamp(attacker.currentMp + enchantEff.manaRestoreFlat, 0, attacker.derivedStats.maxMp);
         }
 
         // --- Camada Visual/Sonora ---

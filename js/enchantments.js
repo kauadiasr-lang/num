@@ -116,6 +116,45 @@ const ENCHANTMENTS = {
         }
     },
 
+    // --- Mega Atualização item 9: reforço élfico — Arcano (acima) já
+    // cobria "magia baseada em Inteligência", mas a diretiva pede
+    // encantamentos NO PLURAL pra cada cultura. Os dois abaixo cobrem dois
+    // eixos que a diretiva menciona explicitamente e que NENHUM
+    // encantamento do jogo ainda tocava: mana (Sopro da Mata) e precisão
+    // que ignora armadura (Fenda Élfica) — nunca um segundo "+X dano
+    // baseado em INT" reaproveitando a mesma fórmula do Arcano.
+    soprodamata: {
+        id: 'soprodamata', name: 'Sopro da Mata', color: '#5fcf8a', appliesTo: ['weapon'], region: 'santuario_elfico',
+        description: 'A cada acerto, restaura uma pequena quantidade de Mana — a energia da floresta flui de volta pro conjurador. Só aplicável no Santuário Élfico.',
+        cost: 210,
+        onHit(attacker, defender) {
+            // Único encantamento do jogo que restaura MANA (não HP) —
+            // battle.js executeAttack ganhou um novo campo mínimo
+            // (manaRestoreFlat) só pra isso, simétrico a healPercent já
+            // existente. Escala com INT (quanto mais afinado com magia,
+            // mais mana o Sopro devolve), nunca um valor fixo solto.
+            const restore = Math.max(1, Math.floor(attacker.getTotalStat('int') * 0.25));
+            return { extraDamage: 0, manaRestoreFlat: restore, particleColor: '#5fcf8a' };
+        }
+    },
+    fendaelfica: {
+        id: 'fendaelfica', name: 'Fenda Élfica', color: '#c9e070', appliesTo: ['weapon'], region: 'santuario_elfico',
+        description: 'Golpe preciso o bastante pra encontrar a fenda em qualquer armadura — dano extra proporcional à própria Defesa do alvo (quanto mais couraçado, mais a lâmina rouba). Só aplicável no Santuário Élfico.',
+        cost: 220,
+        onHit(attacker, defender) {
+            // Único encantamento cujo dano escala com a DEFESA do
+            // DEFENSOR (todos os outros olham só o atacante ou o dano já
+            // calculado) — nunca duplica Peso Brutal (Orc, escala com a
+            // DIFERENÇA de Força) nem `armorPierce` (propriedade fixa de
+            // algumas armas — martelos, machados, lanças — que reduz a
+            // Defesa ANTES da mitigação, ver items.js/battle.js): este
+            // efeito soma dano DEPOIS da mitigação, então nunca reduz a
+            // Defesa em si, só recupera uma fração dela como dano bônus.
+            const pierce = Math.floor(defender.getTotalStat('def') * 0.22);
+            return { extraDamage: pierce, particleColor: '#c9e070' };
+        }
+    },
+
     // --- Mega Atualização item 7/8: Encantamentos Orcs — força bruta,
     // impacto físico, sobrevivência sob pressão. NUNCA um bônus numérico
     // solto (item 7 da diretiva é explícito: "não faça Encantamento Orc =
