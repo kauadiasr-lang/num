@@ -1047,6 +1047,28 @@ html, body {
 }
 .shop-item-card:hover { border-color: var(--color-gold); transform: translateY(-2px); }
 
+/* Forja dos Anões (ver js/forge.js/ui.js openForge) — receitas em cartões
+   verticais (nome, custo, botão), distinto do layout horizontal de item
+   de loja acima. `.forge-recipe-locked` esmaece a receita quando o
+   jogador não tem material/ouro suficiente, sem escondê-la (ele deve
+   VER o que falta, não adivinhar). */
+.forge-recipes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 15px; }
+.forge-recipe-card {
+    background: linear-gradient(160deg, rgba(43,36,29,0.9), rgba(22,17,11,0.9));
+    border: 1px solid var(--color-bronze); border-radius: 6px; padding: 10px;
+}
+.forge-recipe-card.forge-recipe-locked { opacity: 0.55; }
+.forge-recipe-card h4 { margin: 0 0 4px 0; color: #88ccee; }
+.forge-recipe-card button { margin-top: 8px; width: 100%; }
+.forge-result {
+    background: linear-gradient(160deg, rgba(60,50,20,0.9), rgba(30,24,10,0.9));
+    border: 1px solid var(--color-gold); border-radius: 6px; padding: 12px; text-align: center;
+}
+.forge-result h4 { margin: 0 0 4px 0; }
+@media (max-width: 700px) {
+    .forge-recipes { grid-template-columns: 1fr; }
+}
+
 /* Legenda de raridade (ver RARITY em items.js, gerada dinamicamente por
    ui.js _buildRarityLegend) — antes a cor de cada item (borda + nome) era a
    única pista de raridade, sem nenhum lugar explicando o que cada cor

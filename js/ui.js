@@ -247,6 +247,7 @@ class UIManager {
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-questboard').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-forge').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-road').addEventListener('click', () => this.abandonRoad());
         document.getElementById('btn-road-advance').addEventListener('click', () => this.advanceRoad());
         document.getElementById('btn-road-abandon').addEventListener('click', () => this.abandonRoad());
@@ -2406,6 +2407,82 @@ class UIManager {
         this.showScreen('screen-shop');
     }
 
+    // Tela da Forja (Reino Anão, ver js/forge.js) — economia baseada em
+    // produção (matéria-prima + receita + ouro -> equipamento com
+    // qualidade variável), NUNCA uma loja de lista de itens comum. Roda de
+    // novo toda vez que a Forja é reaberta (mesmo padrão de openShop), com
+    // `.onclick =` em vez de addEventListener nos botões dinâmicos pra
+    // nunca acumular listeners duplicados entre reaberturas.
+    openForge() {
+        const p = window.Engine.state.player;
+        document.getElementById('forge-player-gold').innerText = p.gold;
+        document.getElementById('forge-result').classList.add('hidden');
+
+        // Matérias-primas na mochila, agrupadas por template (a mochila
+        // guarda uma entrada por UNIDADE, ver items.js Material — nunca
+        // stackada — então agrupamos só aqui, na exibição, sem mudar como
+        // o inventário é guardado em nenhum outro lugar do jogo).
+        const materialsContainer = document.getElementById('forge-materials-container');
+        materialsContainer.innerHTML = '';
+        const counts = {};
+        p.inventory.forEach(item => {
+            if (item.category !== 'material') return;
+            counts[item.id] = (counts[item.id] || 0) + 1;
+        });
+        const materialIds = Object.keys(ItemDatabase.materials);
+        if (materialIds.every(id => !counts[ItemDatabase.materials[id].id])) {
+            materialsContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma matéria-prima na mochila — minere os veios espalhados pela cidade.</p>';
+        } else {
+            materialIds.forEach(templateKey => {
+                const template = ItemDatabase.materials[templateKey];
+                const have = counts[template.id] || 0;
+                if (have <= 0) return;
+                const card = document.createElement('div');
+                card.className = 'shop-item-card';
+                card.innerHTML = `<h4>⛏️ ${template.name}</h4><p style="font-size:0.8rem; color:#aaa;">Nível ${template.tier} · você tem ${have}</p>`;
+                materialsContainer.appendChild(card);
+            });
+        }
+
+        // Receitas — cada uma mostra o custo completo (materiais + ouro) e
+        // desabilita o botão quando o jogador não pode pagar, nunca deixa
+        // clicar e falhar silenciosamente.
+        const recipesContainer = document.getElementById('forge-recipes-container');
+        recipesContainer.innerHTML = '';
+        Object.keys(ForgeSystem.RECIPES).forEach(recipeId => {
+            const recipe = ForgeSystem.RECIPES[recipeId];
+            const affordable = ForgeSystem.canAfford(p, recipeId);
+            const materialsText = recipe.materials.map(req => `${req.amount}x ${ItemDatabase.materials[req.materialId].name}`).join(', ');
+            const card = document.createElement('div');
+            card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
+            card.innerHTML = `
+                <h4>${recipe.name}</h4>
+                <p style="font-size:0.8rem; color:#aaa;">${materialsText} + ${recipe.goldCost}g</p>
+                <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Forjar</button>
+            `;
+            card.querySelector('button').onclick = () => {
+                const result = ForgeSystem.attemptForge(p, recipeId);
+                if (!result) {
+                    window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Mochila cheia ou recursos insuficientes!', 'error');
+                    return;
+                }
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                const resultEl = document.getElementById('forge-result');
+                resultEl.classList.remove('hidden');
+                resultEl.innerHTML = `
+                    <h4 style="color:${result.item.rarity.color}">${result.item.name}</h4>
+                    <p>${result.label} — Qualidade ${result.quality}/100</p>
+                `;
+                this.openForge(); // Refresh (mochila/ouro/receitas mudaram)
+            };
+            recipesContainer.appendChild(card);
+        });
+
+        this.showScreen('screen-forge');
+    }
+
     // Estoque fixo do Boticário (sempre disponível, não é consumido da lista)
     renderConsumableShop() {
         const p = window.Engine.state.player;
@@ -3380,6 +3457,13 @@ class UIManager {
                 if (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId]) {
                     const ench = window.ENCHANTMENTS[item.enchantmentId];
                     statsHtml += `<p style="color:${ench.color}">✨ Encantamento: ${ench.name} — ${ench.description}</p>`;
+                }
+                // Qualidade de Forja (ver js/forge.js/items.js Equipment.quality)
+                // — eixo separado de raridade, só existe em itens forjados
+                // (null em todo item de loja/loot, então este bloco nunca
+                // aparece fora da Forja).
+                if (item.quality !== null && item.quality !== undefined) {
+                    statsHtml += `<p style="color:#88ccee">⚒️ ${window.ForgeSystem.qualityLabel(item.quality)} — Qualidade ${item.quality}/100</p>`;
                 }
                 if (item.damage) statsHtml += `<p>Dano Base: ${item.damage}</p>`;
                 if (item.defense) statsHtml += `<p>Defesa Base: ${item.defense}</p>`;

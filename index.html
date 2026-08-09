@@ -583,6 +583,26 @@
                 </div>
             </div>
 
+            <!-- TELA: FORJA (Reino Subterrâneo de Kharzum, ver js/forge.js/
+                 ui.js openForge) — economia baseada em produção (matéria-
+                 prima + receita + ouro -> equipamento com qualidade
+                 variável), nunca uma loja de lista de itens comum. -->
+            <div id="screen-forge" class="screen">
+                <div class="panel shop-panel">
+                    <button class="btn-close" id="btn-close-forge">X</button>
+                    <h2 class="panel-title">⚒️ Forja dos Anões</h2>
+                    <p class="shop-merchant-greeting">"Traga o minério, eu trago o fogo. O resto é sorte e técnica, gladiador."</p>
+                    <div class="shop-header">
+                        <p>Seu Ouro: <span id="forge-player-gold" class="highlight-gold">0</span></p>
+                    </div>
+                    <h3 class="shop-section-title">Matérias-Primas na Mochila</h3>
+                    <div id="forge-materials-container" class="shop-grid"></div>
+                    <h3 class="shop-section-title">Receitas</h3>
+                    <div id="forge-recipes-container" class="forge-recipes"></div>
+                    <div id="forge-result" class="forge-result hidden"></div>
+                </div>
+            </div>
+
             <!-- TELA: BANCO -->
             <div id="screen-bank" class="screen">
                 <div class="panel bank-panel">
@@ -796,6 +816,7 @@
     <script src="js/audio.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/items.js"></script>
+    <script src="js/forge.js"></script>
     <script src="js/enchantments.js"></script>
     <script src="js/skills.js"></script>
     <script src="js/lineages.js"></script>

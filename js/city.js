@@ -1372,9 +1372,17 @@ class CityEngine {
             case 'arena':
                 document.getElementById('city-arena-menu').classList.remove('hidden');
                 break;
-            case 'blacksmith':
-                window.UI.openShop([SLOTS.MAIN_HAND, SLOTS.RANGED], 'Ferreiro');
+            case 'blacksmith': {
+                // Reino Anão: Ferreiro vira a Forja de verdade (ver
+                // js/forge.js/ui.js openForge) — economia baseada em
+                // produção com matéria-prima, não loja padrão. Qualquer
+                // outra cidade (sem `hasForge`) continua exatamente como
+                // sempre foi.
+                const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+                if (cityDef && cityDef.hasForge && window.UI.openForge) window.UI.openForge();
+                else window.UI.openShop([SLOTS.MAIN_HAND, SLOTS.RANGED], 'Ferreiro');
                 break;
+            }
             case 'armorer':
                 window.UI.openShop([SLOTS.HEAD, SLOTS.CHEST, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND, SLOTS.AMULET, SLOTS.RING], 'Armeiro');
                 break;

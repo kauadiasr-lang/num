@@ -234,6 +234,11 @@ const CityDatabase = {
         // atualização). Nenhuma das outras 3 cidades tem esse campo, então
         // continuam sem nenhum veio, como sempre.
         hasOreVeins: true,
+        // Prédio 'blacksmith' abre a tela de Forja (ver js/forge.js/ui.js
+        // openForge) em vez da loja padrão de armas — economia baseada em
+        // produção, não em "abrir loja → comprar da lista" (pedido
+        // explícito do usuário, item 8 da especificação).
+        hasForge: true,
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
         officialArenaBiome: 'montanhas',
         arenaName: 'Fosso do Martelo',

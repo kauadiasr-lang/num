@@ -20,19 +20,35 @@ const SLOTS = {
 };
 
 class Equipment {
-    constructor(baseTemplate, rarityObj) {
+    // `qualityValue` (0-100, ver js/forge.js) — NOVO, opcional, default
+    // `null`. Todo item de loja/loot continua chamando `new
+    // Equipment(template, rarityObj)` sem o 3º argumento, então
+    // `this.quality` fica `null` e NENHUM multiplicador extra é aplicado —
+    // comportamento 100% idêntico ao de antes deste campo existir. Só a
+    // Forja (Reino Anão) passa um valor real aqui. Pedido explícito do
+    // usuário: qualidade é um eixo DIFERENTE de raridade, nunca a
+    // substitui — por isso o multiplicador extra é discreto (0.85x-1.25x)
+    // e some por cima do multiplicador de raridade já existente, nunca no
+    // lugar dele.
+    constructor(baseTemplate, rarityObj, qualityValue = null) {
         this.category = 'equipment';
         this.uuid = Utils.generateUUID();
         this.id = baseTemplate.id;
         this.name = `${baseTemplate.name}`;
         this.slot = baseTemplate.slot;
         this.rarity = rarityObj;
+        this.quality = qualityValue;
+        // 0.85x (qualidade 0, forja ruim) a 1.25x (qualidade 100, forja
+        // perfeita) — intervalo deliberadamente contido (ver comentário
+        // acima do construtor) pra nunca competir em magnitude com o
+        // multiplicador de raridade (1.0x-3.0x).
+        const qMult = qualityValue !== null ? (0.85 + (qualityValue / 100) * 0.4) : 1;
 
         // Atributos base multiplicados pela raridade (arredondados)
-        this.damage = Math.floor((baseTemplate.damage || 0) * rarityObj.mult);
-        this.defense = Math.floor((baseTemplate.defense || 0) * rarityObj.mult);
+        this.damage = Math.floor((baseTemplate.damage || 0) * rarityObj.mult * qMult);
+        this.defense = Math.floor((baseTemplate.defense || 0) * rarityObj.mult * qMult);
         this.weight = baseTemplate.weight;
-        this.value = Math.floor(baseTemplate.value * (rarityObj.mult * 2));
+        this.value = Math.floor(baseTemplate.value * (rarityObj.mult * 2) * qMult);
         this.durability = baseTemplate.durability;
         this.maxDurability = baseTemplate.durability;
 
@@ -40,18 +56,18 @@ class Equipment {
         this.statBonuses = {};
         if (baseTemplate.stats) {
             for (let stat in baseTemplate.stats) {
-                this.statBonuses[stat] = Math.floor(baseTemplate.stats[stat] * rarityObj.mult);
+                this.statBonuses[stat] = Math.floor(baseTemplate.stats[stat] * rarityObj.mult * qMult);
             }
         }
 
         // Bônus diretos de combate (não escalam com raridade de forma linear
         // demais para não quebrar o balanceamento em itens lendários)
-        this.critBonus = baseTemplate.critBonus ? +(baseTemplate.critBonus * rarityObj.mult).toFixed(1) : 0;
-        this.accBonus = baseTemplate.accBonus ? +(baseTemplate.accBonus * rarityObj.mult).toFixed(1) : 0;
-        this.blockChance = baseTemplate.blockChance ? +(baseTemplate.blockChance * rarityObj.mult).toFixed(1) : 0;
+        this.critBonus = baseTemplate.critBonus ? +(baseTemplate.critBonus * rarityObj.mult * qMult).toFixed(1) : 0;
+        this.accBonus = baseTemplate.accBonus ? +(baseTemplate.accBonus * rarityObj.mult * qMult).toFixed(1) : 0;
+        this.blockChance = baseTemplate.blockChance ? +(baseTemplate.blockChance * rarityObj.mult * qMult).toFixed(1) : 0;
         this.armorPierce = baseTemplate.armorPierce || 0; // fixo por arquétipo de arma, não escala com raridade
-        this.hpBonus = baseTemplate.hpBonus ? Math.floor(baseTemplate.hpBonus * rarityObj.mult) : 0;
-        this.mpBonus = baseTemplate.mpBonus ? Math.floor(baseTemplate.mpBonus * rarityObj.mult) : 0;
+        this.hpBonus = baseTemplate.hpBonus ? Math.floor(baseTemplate.hpBonus * rarityObj.mult * qMult) : 0;
+        this.mpBonus = baseTemplate.mpBonus ? Math.floor(baseTemplate.mpBonus * rarityObj.mult * qMult) : 0;
 
         // Alcance e velocidade (relevante para armas equipadas em mainHand; fixo
         // por arquétipo, não escala com raridade — um punhal lendário não fica
@@ -261,13 +277,17 @@ class Material {
 }
 
 window.ItemFactory = {
-    createEquipment(templateId, category, rarityObj = RARITY.COMMON) {
+    // `qualityValue` (ver Equipment acima/js/forge.js) — opcional, só usado
+    // pela Forja. Todo chamador existente (loja, loot) passa só os 3
+    // primeiros argumentos, então continua criando itens sem quality
+    // nenhuma, exatamente como antes.
+    createEquipment(templateId, category, rarityObj = RARITY.COMMON, qualityValue = null) {
         const template = ItemDatabase[category][templateId];
         if (!template) {
             console.error(`[ItemFactory] Template ${templateId} não encontrado.`);
             return null;
         }
-        return new Equipment(template, rarityObj);
+        return new Equipment(template, rarityObj, qualityValue);
     },
 
     createConsumable(templateId) {
