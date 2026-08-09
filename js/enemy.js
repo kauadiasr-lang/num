@@ -628,6 +628,17 @@ class Rival extends Entity {
         // de personalidade/habilidades/emoção ao cruzar limiares de HP) — opt-in,
         // rivais comuns simplesmente não têm esse campo e não são afetados.
         this.phases = def.phases || null;
+        // Rivalidades (item 4 da mega-diretiva Arena+Estilos): `rivalOf`
+        // aponta pro id de outro rival da ladder — se o jogador já o
+        // derrotou (player.rivalsDefeated), a tela de batalha reconhece
+        // isso com uma linha própria (ver ui.js beginBattleWith). `intro`
+        // é uma fala curta e opcional pra lutadores importantes (item 24),
+        // mostrada no mesmo local. Nenhum dos dois afeta mecânica de
+        // combate — é só identidade/personalidade, como o pedido explícito
+        // "pequenas interações são suficientes, não um sistema gigantesco
+        // de diálogo".
+        this.rivalOf = def.rivalOf || null;
+        this.introLine = def.intro || null;
 
         this.distributeStats(def.focus);
 
@@ -675,9 +686,15 @@ class Rival extends Entity {
             // MESMA cor de `accent` já estabelecida pra cada raça (ver
             // races.js) — a identidade visual da liga combina com a da
             // raça que a domina, em vez de uma cor arbitrária nova.
+            // `anao` estava faltando aqui (bug de auditoria encontrado nesta
+            // iteração) — Thorgrim, Rei da Forja, caía no fallback
+            // `leagueAuraColors.gold` (âmbar) igual Aurelion, apesar de a
+            // Liga Anã já existir há um bom tempo com identidade própria.
+            // Mesmo padrão das outras: usa o `accent` já cadastrado pra raça
+            // Anão em races.js (cobre/ferrugem da forja).
             const leagueAuraColors = {
                 bronze: 'rgba(205,127,50,0.35)', silver: 'rgba(200,208,216,0.4)', gold: 'rgba(240,185,35,0.4)',
-                orc: 'rgba(58,90,26,0.4)', elfica: 'rgba(74,138,58,0.4)'
+                orc: 'rgba(58,90,26,0.4)', elfica: 'rgba(74,138,58,0.4)', anao: 'rgba(138,58,26,0.4)'
             };
             this.visuals.hasAura = true;
             this.visuals.auraColor = leagueAuraColors[this.league] || leagueAuraColors.gold;
@@ -827,8 +844,19 @@ const RivalDatabase = {
                 { id: 'thom', name: 'Thom Punho-de-Ferro', title: 'Punho-de-Ferro', level: 4, focus: { str: 0.6, def: 0.4 },
                     personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON,
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 } },
+                // Item 3 da mega-diretiva (~12 lutadores por liga, evitando
+                // clones de stats): Petra preenche o arquétipo "defensor"
+                // (ainda ausente na Bronze) e Ren o "arqueiro" — nenhum dos
+                // dois reaproveita personalidade/estilo já usados nesta liga.
+                { id: 'petra', name: 'Petra, Muralha Jovem', title: 'Muralha Jovem', level: 3, focus: { def: 0.5, str: 0.3, cha: 0.2 },
+                    personalityId: 'sobrevivente', styleId: 'guardiao', gearRarity: RARITY.COMMON,
+                    visuals: { gender: 'Feminino', archetype: 'cavaleiro', scarStyle: 1 } },
+                { id: 'ren', name: 'Ren, Flecha Errante', title: 'Flecha Errante', level: 4, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
+                    personalityId: 'mercenario', styleId: 'arqueiro', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 0 } },
                 { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
+                    intro: 'Chegou longe pra um novato. Vamos ver se sua sorte aguenta o Campeão de Bronze.',
                     visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.6, personalityId: 'executor', unlockSkill: 'shield_bash', emotion: 'determinado',
@@ -850,8 +878,20 @@ const RivalDatabase = {
                 { id: 'nyx', name: 'Nyx, a Sombria', title: 'a Sombria', level: 8, focus: { int: 0.35, acc: 0.35, luk: 0.3 },
                     personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.RARE,
                     visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 3 } },
+                // Kellan preenche o arquétipo "controle de distância/reach"
+                // (lanceiro, ainda ausente na Prata); rivalOf aponta pra
+                // Skarza (Liga Orc, mais à frente na sequência) — o
+                // reconhecimento acontece quando o jogador chega em Skarza
+                // já tendo derrotado Kellan (ver ui.js beginBattleWith).
+                { id: 'kellan', name: 'Kellan, Lança do Norte', title: 'Lança do Norte', level: 7, focus: { str: 0.4, def: 0.35, acc: 0.25 },
+                    personalityId: 'tatico', styleId: 'lanceiro', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 2 } },
+                { id: 'rurik', name: 'Rurik, o Inflexível', title: 'o Inflexível', level: 9, focus: { def: 0.5, str: 0.35, cha: 0.15 },
+                    personalityId: 'sobrevivente', styleId: 'guardiao', gearRarity: RARITY.RARE,
+                    visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 3 } },
                 { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
+                    intro: 'Cada oponente me ensina algo. Hoje, você é a lição.',
                     visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.65, personalityId: 'calculista', unlockSkill: 'heavy_strike', emotion: 'determinado',
@@ -867,14 +907,28 @@ const RivalDatabase = {
                 { id: 'freya', name: 'Freya Tempestade', title: 'Tempestade', level: 11, focus: { agi: 0.45, acc: 0.35, luk: 0.2 },
                     personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.RARE,
                     visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 } },
+                // rivalOf: Moloch reconhece Thom (Liga de Bronze, já
+                // derrotado a esta altura da ladder sequencial) — dois
+                // brutamontes, mesma linhagem de fúria física.
                 { id: 'moloch', name: 'Moloch, o Destruidor', title: 'o Destruidor', level: 12, focus: { str: 0.65, def: 0.35 },
-                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.EPIC,
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.EPIC, rivalOf: 'thom',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
                 { id: 'sable', name: 'Sable, a Serpente', title: 'a Serpente', level: 13, focus: { luk: 0.4, agi: 0.35, acc: 0.25 },
                     personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.EPIC,
                     visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
+                // Corvin preenche "controle de distância" com um estilo mais
+                // furtivo que Kellan (calculista, não tático); Wynne é o
+                // arquétipo "usuário de magia auxiliar" (mago/tático,
+                // focado em defesa própria em vez de dano puro).
+                { id: 'corvin', name: 'Corvin, o Fantasma', title: 'o Fantasma', level: 12, focus: { str: 0.35, agi: 0.35, acc: 0.3 },
+                    personalityId: 'calculista', styleId: 'lanceiro', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Masculino', archetype: 'assassino', scarStyle: 2 } },
+                { id: 'wynne', name: 'Wynne, Cântico de Ferro', title: 'Cântico de Ferro', level: 14, focus: { int: 0.4, acc: 0.3, def: 0.3 },
+                    personalityId: 'tatico', styleId: 'mago', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 1 } },
                 { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
                     personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
+                    intro: 'Séculos de arena, e ainda procuro alguém digno. Talvez seja você.',
                     visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 1 },
                     phases: [
                         { hpPercent: 0.7, personalityId: 'gladiador_experiente', unlockSkill: 'shield_bash', emotion: 'confiante',
@@ -906,14 +960,27 @@ const RivalDatabase = {
                 { id: 'grukthar', name: 'Grukthar, Punho de Gorkhal', title: 'Punho de Gorkhal', level: 16, focus: { str: 0.6, def: 0.4 },
                     personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.EPIC, race: 'orc',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 } },
+                // rivalOf: Skarza reconhece Kellan (Liga de Prata, já
+                // derrotado a esta altura) — a mesma arma (lança), duas
+                // filosofias diferentes de usá-la.
                 { id: 'skarza', name: 'Skarza, Lança Vulcânica', title: 'Lança Vulcânica', level: 17, focus: { str: 0.4, agi: 0.35, acc: 0.25 },
-                    personalityId: 'cacador', styleId: 'lanceiro', gearRarity: RARITY.EPIC, race: 'orc',
+                    personalityId: 'cacador', styleId: 'lanceiro', gearRarity: RARITY.EPIC, race: 'orc', rivalOf: 'kellan',
                     visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 2 } },
                 { id: 'bruk', name: 'Brûk, o Inabalável', title: 'o Inabalável', level: 18, focus: { def: 0.5, str: 0.35, cha: 0.15 },
                     personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'orc',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
+                // Vrag preenche "assassino" (ainda ausente na Orc) e Uzgar o
+                // "usuário de magia auxiliar" numa chave orc/xamânica —
+                // nenhuma liga deve virar só variações de brutamontes.
+                { id: 'vrag', name: 'Vrag, Presa Negra', title: 'Presa Negra', level: 17, focus: { agi: 0.4, luk: 0.35, acc: 0.25 },
+                    personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'assassino', scarStyle: 4 } },
+                { id: 'uzgar', name: 'Uzgar, Voz dos Tambores', title: 'Voz dos Tambores', level: 19, focus: { int: 0.4, def: 0.3, str: 0.3 },
+                    personalityId: 'executor', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
                 { id: 'orc_champion', name: 'Gorkhal, Senhor da Guerra', title: 'Senhor da Guerra', level: 20, focus: { str: 0.35, def: 0.3, agi: 0.2, acc: 0.15 },
                     personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'orc',
+                    intro: 'Você chegou longe demais pelas terras de Gorkhal.',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 },
                     phases: [
                         { hpPercent: 0.65, personalityId: 'executor', unlockSkill: 'fury', emotion: 'determinado',
@@ -929,14 +996,27 @@ const RivalDatabase = {
                 { id: 'sylara', name: 'Sylara, Flecha Ancestral', title: 'Flecha Ancestral', level: 21, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
                     personalityId: 'cacador', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, race: 'elfo',
                     visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 } },
+                // rivalOf: Thalindor reconhece Sable (Liga de Ouro, já
+                // derrotada a esta altura) — duelo antigo entre assassinos.
                 { id: 'thalindor', name: 'Thalindor, Lâmina da Clareira', title: 'Lâmina da Clareira', level: 22, focus: { agi: 0.45, luk: 0.3, acc: 0.25 },
-                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.LEGENDARY, race: 'elfo', rivalOf: 'sable',
                     visuals: { gender: 'Masculino', archetype: 'assassino', scarStyle: 0 } },
                 { id: 'ilwenna', name: 'Ilwenna, Voz das Raízes', title: 'Voz das Raízes', level: 23, focus: { int: 0.45, acc: 0.3, luk: 0.25 },
                     personalityId: 'calculista', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'elfo',
                     visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 0 } },
+                // Aerindil preenche "duelista de espada" (mobilidade/AGI, o
+                // arquétipo mais próximo de Dança das Lâminas nesta liga) e
+                // Faelwen o "defensor" — a Élfica antes só tinha
+                // arqueiro/assassino/mago, sem nenhum tanque.
+                { id: 'aerindil', name: 'Aerindil, Lâmina do Vento', title: 'Lâmina do Vento', level: 22, focus: { agi: 0.45, acc: 0.35, str: 0.2 },
+                    personalityId: 'duelista', styleId: 'espadachim', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Masculino', archetype: 'guerreira', scarStyle: 0 } },
+                { id: 'faelwen', name: 'Faelwen, Escudo Ancestral', title: 'Escudo Ancestral', level: 24, focus: { def: 0.45, agi: 0.3, cha: 0.25 },
+                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'cavaleiro', scarStyle: 0 } },
                 { id: 'elfica_champion', name: 'Sylvaneth, Guardiã Ancestral', title: 'Guardiã Ancestral', level: 25, focus: { agi: 0.3, int: 0.25, acc: 0.25, luk: 0.2 },
                     personalityId: 'tatico', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'elfo',
+                    intro: 'O Santuário não cai pra qualquer mercenário. Prove que é diferente.',
                     visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 },
                     phases: [
                         { hpPercent: 0.65, personalityId: 'cacador', unlockSkill: 'vampiric_strike', emotion: 'determinado',
@@ -962,8 +1042,11 @@ const RivalDatabase = {
         {
             id: 'anao', name: 'Liga Anã',
             rivals: [
+                // rivalOf: Thrain reconhece Brûk (Liga Orc, já derrotado a
+                // esta altura) — dois "muralhas" defensivas de ligas
+                // diferentes, cada um convencido de que a sua é mais firme.
                 { id: 'thrain', name: 'Thrain, Escudo da Montanha', title: 'Escudo da Montanha', level: 26, focus: { def: 0.5, str: 0.35, cha: 0.15 },
-                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'anao', rivalOf: 'bruk',
                     visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 2 } },
                 { id: 'borga', name: 'Borga Machado-Duplo', title: 'Machado-Duplo', level: 27, focus: { str: 0.6, def: 0.3, agi: 0.1 },
                     personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
@@ -971,8 +1054,22 @@ const RivalDatabase = {
                 { id: 'dagna', name: 'Dagna, Martelo de Kharzum', title: 'Martelo de Kharzum', level: 28, focus: { str: 0.45, def: 0.4, acc: 0.15 },
                     personalityId: 'veterano', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
                     visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 1 } },
+                // Ivar preenche "arqueiro" (a Anã antes era só
+                // guardiao/brutamontes — nenhum especialista em alcance) e
+                // reconhece Sylara (Liga Élfica, já derrotada) — rivalidade
+                // de atiradores entre as duas raças mais associadas a arco.
+                // Sunna é o "usuário de magia auxiliar" da liga, com tema de
+                // runas/forja coerente com os itens já regionais de
+                // reino_anao (ver items.js rune_protection/rune_strength).
+                { id: 'ivar', name: 'Ivar, Flecha da Mina', title: 'Flecha da Mina', level: 28, focus: { agi: 0.35, acc: 0.4, def: 0.25 },
+                    personalityId: 'calculista', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, race: 'anao', rivalOf: 'sylara',
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 2 } },
+                { id: 'sunna', name: 'Sunna, Cântico da Forja', title: 'Cântico da Forja', level: 29, focus: { int: 0.4, def: 0.35, str: 0.25 },
+                    personalityId: 'sobrevivente', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'veterano', scarStyle: 1 } },
                 { id: 'anao_champion', name: 'Thorgrim, Rei da Forja', title: 'Rei da Forja', level: 30, focus: { def: 0.35, str: 0.35, agi: 0.15, acc: 0.15 },
                     personalityId: 'honrado', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'anao',
+                    intro: 'Toda lâmina se quebra contra a pedra de Kharzum. Vamos ver a sua.',
                     visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 3 },
                     phases: [
                         { hpPercent: 0.65, personalityId: 'protetor', unlockSkill: 'shield_bash', emotion: 'determinado',

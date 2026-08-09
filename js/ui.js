@@ -1015,6 +1015,19 @@ class UIManager {
         if (opponent.isElite) {
             log.innerHTML += `<p style="color:var(--color-gold-bright,#ffd700); font-weight:bold;">✦ Um inimigo Elite! Mais forte, mas com recompensa muito maior.</p>`;
         }
+        // Introduções de combate + rivalidades (itens 4 e 24 da mega-diretiva
+        // Arena+Estilos) — só Rivais nomeados da Ladder carregam `introLine`/
+        // `rivalOf` (ver enemy.js Rival constructor); Vampiro/Fantasma/
+        // inimigos procedurais do Duelo Rápido nunca têm esses campos, então
+        // este bloco simplesmente não aparece pra eles.
+        if (opponent.introLine) {
+            log.innerHTML += `<p style="color:var(--color-gold); font-style:italic;">"${opponent.introLine}"</p>`;
+        }
+        if (opponent.rivalOf && p.rivalsDefeated.includes(opponent.rivalOf)) {
+            const rivalDef = this._getAllRivals().find(r => r.id === opponent.rivalOf);
+            const rivalName = rivalDef ? rivalDef.name : opponent.rivalOf;
+            log.innerHTML += `<p style="color:var(--color-marble-dark); font-style:italic;">${opponent.name} reconhece você: "Você derrotou ${rivalName}. Isso não vai se repetir aqui."</p>`;
+        }
 
         // Reseta botões
         document.querySelectorAll('.btn-action').forEach(btn => btn.disabled = false);
