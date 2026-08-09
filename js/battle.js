@@ -143,9 +143,14 @@ class BattleSystem {
     // (ver executeAttack acima); esta função ADICIONA os 3 efeitos que
     // faltavam sem tocar nesse comportamento existente:
     //
-    // 1. Mana extra (além da regeneração passiva por turno de
-    //    Entity.regenMp, já chamada no início de todo turno próprio) — só
-    //    se aplica a quem realmente tem mana (maxMp > 0).
+    // 1. Mana (pedido do usuário: mana só volta com Defender ou poção,
+    //    nunca de graça a cada turno — ver player.js Entity, onde a
+    //    regeneração passiva antiga foi removida) — só se aplica a quem
+    //    realmente tem mana (maxMp > 0), e SEMPRE menos que a Poção de Mana
+    //    (items.js `mana_potion`, 25 fixo): o teto de 18 abaixo garante essa
+    //    relação mesmo pra builds extremas de INT (maxMp pode passar de
+    //    1000 em builds bem investidas — 10% cru já ultrapassaria a poção
+    //    de longe, então o teto é indispensável, não só a porcentagem).
     // 2. Limpa sangramento ativo (bleedTurns/bleedDamage) com 50% de
     //    chance — "quando apropriado" (pedido original) significa: só
     //    quando existe algo pra limpar, e nunca garantido. Bug de auditoria
@@ -167,7 +172,7 @@ class BattleSystem {
 
         if (entity.derivedStats.maxMp > 0) {
             const manaBefore = entity.currentMp;
-            const manaRestore = Math.max(1, Math.ceil(entity.derivedStats.maxMp * 0.10));
+            const manaRestore = Math.min(18, Math.max(1, Math.ceil(entity.derivedStats.maxMp * 0.06)));
             entity.currentMp = Utils.clamp(entity.currentMp + manaRestore, 0, entity.derivedStats.maxMp);
             const actuallyRestored = entity.currentMp - manaBefore;
             if (actuallyRestored > 0) msg += `, recuperando ${actuallyRestored} de mana`;
@@ -529,7 +534,9 @@ class BattleSystem {
         this.playerState.holdingDistance = false; // Reseta a postura de manter distância
         window.UI.toggleBattleButtons(false); // Bloqueia a UI
         if (this.player.tickCooldowns) this.player.tickCooldowns(); // Recargas de habilidade avançam a cada turno do jogador
-        if (this.player.regenMp) this.player.regenMp(); // Regeneração passiva de mana (ver Entity.regenMp)
+        // Regeneração passiva de mana REMOVIDA (pedido do usuário: mana só
+        // volta com Defender ou poção, ver player.js Entity — comentário
+        // onde regenMp() vivia antes).
 
         // Sangramento/dot do jogador tica no início do turno dele — espelha
         // exatamente o tique do inimigo em executeEnemyTurn. Bug corrigido
@@ -1170,7 +1177,8 @@ class BattleSystem {
         this.enemyState.isDefending = false;
         this.enemyState.holdingDistance = false; // Reseta a postura de manter distância — espelha o reset do jogador em executePlayerTurn
         if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
-        if (this.enemy.regenMp) this.enemy.regenMp(); // Regeneração passiva de mana (ver Entity.regenMp) — mesma regra do jogador
+        // Regeneração passiva de mana REMOVIDA — mesma regra do jogador
+        // (ver executePlayerTurn acima), simetria mantida dos dois lados.
         // Bug de auditoria (relatado pelo usuário): inimigos usavam item de
         // cura em turnos seguidos ("spam de poção") sempre que HP e cargas
         // permitiam — a cura de 25% do HP máximo raramente tirava o inimigo

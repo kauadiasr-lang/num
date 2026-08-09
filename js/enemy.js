@@ -71,7 +71,14 @@ const RACE_ENEMY_NAMES = {
 // Guardião). Existe pra dar ao Duelo Rápido repetido uma chance ocasional de
 // "vale a pena continuar tentando a sorte", igual a um monstro raro de
 // qualquer RPG de loot.
-const ELITE_ENEMY_CHANCE = 8; // % por Duelo Rápido gerado
+// Balanceamento (pedido do usuário: "o jogo tá ficando fácil, deixe
+// levemente a moderadamente mais difícil com inimigos mais fortes") — era
+// 8%, subiu pra 12%. Elite já soma +2 níveis e ~2.2x em quase todo stat/
+// recompensa (ver generateStatsFromStyle/expValue/goldValue abaixo), então
+// só a chance precisa mudar pra esse tipo de encontro mais duro aparecer
+// com mais frequência, sem precisar duplicar a fórmula de força do Elite
+// em lugar nenhum.
+const ELITE_ENEMY_CHANCE = 12; // % por Duelo Rápido gerado
 
 // Antes deste sistema, Enemy/Rival não tinham NENHUM `visuals` (a classe
 // base Entity não define o campo, só Player) — todo inimigo caía no
@@ -154,7 +161,12 @@ class Enemy extends Entity {
         const name = `${namePool.names[Utils.randomInt(0, namePool.names.length - 1)]} ${namePool.adjectives[Utils.randomInt(0, namePool.adjectives.length - 1)]}`;
         super(name);
 
-        this.level = playerLevel + Utils.randomInt(-1, 1);
+        // Balanceamento (pedido do usuário: jogo ficando fácil demais) —
+        // era `randomInt(-1, 1)` (média = nível do jogador, podia até vir
+        // mais fraco). Agora nunca vem mais fraco que o jogador, só igual
+        // ou até 2 níveis acima — empurra a dificuldade média pra cima sem
+        // criar picos absurdos (isso já é papel do bônus de Elite acima).
+        this.level = playerLevel + Utils.randomInt(0, 2);
         if (this.level < 1) this.level = 1;
 
         // Elite: raro, mais forte, recompensa maior e nome de destaque (ver
