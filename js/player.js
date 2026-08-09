@@ -608,8 +608,18 @@ class Player extends Entity {
             const currentDay = (window.City && window.City.dayCount) || 0;
             const durationDays = item.durationDays || 1;
             this.activeBuffs.push({ statKey: item.statKey, amount: item.buffAmount, expiresAtDay: currentDay + durationDays });
-            this.calculateDerivedStats();
             message = `Efeito ativo por ${durationDays} dia(s)`;
+            // Estimulantes de "uso pesado" da Fortaleza Orc (ver items.js
+            // orc_wild_stimulant) — risco real de fadiga, reaproveitando
+            // Player.addFatigue (item 16: não inventar sistema de custo
+            // novo). `riskFatigueChance`/`riskFatigueAmount` só existem
+            // nesse tipo de item — undefined em qualquer outro consumível,
+            // então este bloco nunca roda fora do Estimulante Selvagem.
+            if (item.riskFatigueChance && Utils.chance(item.riskFatigueChance)) {
+                this.addFatigue(item.riskFatigueAmount || 1);
+                message += ` — o corpo sobrecarregou (+${item.riskFatigueAmount || 1} fadiga)`;
+            }
+            this.calculateDerivedStats();
         }
 
         this.inventory.splice(index, 1);

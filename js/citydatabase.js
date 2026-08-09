@@ -107,6 +107,22 @@ const CityDatabase = {
         // aqui se encontra uma arma boa — só que a probabilidade aqui é
         // maior que nas outras cidades.
         specialization: ['weapons'],
+        // Identidade econômica própria (Rework Econômico item 11): o
+        // prédio 'arcane' vira o CÍRCULO DE TREINAMENTO — mesmo mecanismo
+        // genérico `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel`
+        // criado nas Iterações 2/3 (Câmara Rúnica anã, Ateliê Élfico), só
+        // trocando rótulo/subShop/itens (item 16: nunca duplicar sistema).
+        // Vende treinos seguros (Força/Resistência/Combate) + um
+        // estimulante de USO PESADO com risco real de fadiga (ver
+        // items.js ItemDatabase.consumables subShop:'training') — reforça
+        // a identidade "físico/treino" bem distinta de forja anã ou magia
+        // élfica.
+        hasMagicSubShop: true,
+        magicSubShopId: 'training',
+        magicSubShopLabel: '💪 Círculo de Treinamento',
+        buildingNames: {
+            arcane: 'Círculo de Treinamento'
+        },
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a

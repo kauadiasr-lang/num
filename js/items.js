@@ -124,6 +124,13 @@ class Consumable {
         this.statKey = baseTemplate.statKey;
         this.buffAmount = baseTemplate.buffAmount;
         this.durationDays = baseTemplate.durationDays;
+        // Só usados pelos estimulantes de "uso pesado" da Fortaleza Orc
+        // (ver player.js useConsumable) — risco real de fadiga ao usar,
+        // distinguindo uso seguro (Treino, sem risco) de uso pesado
+        // (bônus maior, mas rola uma chance de custo). undefined em todo
+        // outro consumível, então nunca entra em jogo fora daqui.
+        this.riskFatigueChance = baseTemplate.riskFatigueChance;
+        this.riskFatigueAmount = baseTemplate.riskFatigueAmount;
     }
 }
 
@@ -279,7 +286,22 @@ const ItemDatabase = {
         // algo que o jogador não pode simplesmente comprar em outro
         // lugar"), sem copiar o tema anão.
         stardust: { id: 'c_10', name: "Poeira de Estrelas", type: 'TEMP_BUFF', statKey: 'healPowerBonusPercent', buffAmount: 12, durationDays: 1, value: 90, description: "Pó colhido sob a lua cheia de Sylvaneth — +12% de poder de cura mágica por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' },
-        clarity_crystal: { id: 'c_11', name: "Cristal de Clareza", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 15, durationDays: 1, value: 90, description: "Cristal élfico que amplia a reserva de mana — +15 de MP máximo por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' }
+        clarity_crystal: { id: 'c_11', name: "Cristal de Clareza", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 15, durationDays: 1, value: 90, description: "Cristal élfico que amplia a reserva de mana — +15 de MP máximo por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' },
+
+        // --- Identidade da Fortaleza Orc (Rework Econômico item 11) ---
+        // Círculo de Treinamento (ver citydatabase.js buildingNames/
+        // hasMagicSubShop) — mesmo mecanismo region+subShop, mas o Orc
+        // ganha uma DISTINÇÃO estrutural que Anões/Elfos não têm: os 3
+        // treinos são uso SEGURO (bônus pequeno, sem custo além do ouro),
+        // enquanto o Estimulante Selvagem é uso PESADO — bônus maior, mas
+        // `riskFatigueChance`/`riskFatigueAmount` (ver player.js
+        // useConsumable) rola uma chance real de custar fadiga, reaproveita
+        // o sistema de fadiga JÁ existente (Player.addFatigue) em vez de
+        // inventar um "custo de uso pesado" novo do zero (item 16).
+        orc_training_str: { id: 'c_12', name: "Treino de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 4, durationDays: 1, value: 55, description: "Sessão de treino sob supervisão dos veteranos de Gorkhal — +4 de dano físico por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
+        orc_training_res: { id: 'c_13', name: "Treino de Resistência", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 4, durationDays: 1, value: 55, description: "Exercícios de resistência ao golpe — +4 de defesa por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
+        orc_training_combat: { id: 'c_14', name: "Treino de Combate", type: 'TEMP_BUFF', statKey: 'dodgeBonusPercent', buffAmount: 5, durationDays: 1, value: 55, description: "Prática de reflexos e esquiva no Fosso de Guerra — +5% de esquiva por 1 dia. Uso seguro, sem risco.", region: 'fortaleza_orc', subShop: 'training' },
+        orc_wild_stimulant: { id: 'c_15', name: "Estimulante Selvagem", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 9, durationDays: 1, riskFatigueChance: 40, riskFatigueAmount: 1, value: 70, description: "Extrato natural bruto, sem diluição — +9 de dano físico por 1 dia, mas 40% de chance de sobrecarregar o corpo (+1 nível de fadiga). Uso pesado: risco real.", region: 'fortaleza_orc', subShop: 'training' }
     },
     // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
     // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver
