@@ -17,6 +17,7 @@ const GuideSystem = {
         { id: 'attrs', label: 'Atributos', icon: '💪' },
         { id: 'consumables', label: 'Consumíveis', icon: '🧺' },
         { id: 'skills', label: 'Magias', icon: '🔮' },
+        { id: 'styles', label: 'Estilos de Combate', icon: '🥊' },
         { id: 'enchant', label: 'Encantamentos', icon: '✨' },
         { id: 'lineages', label: 'Linhagens', icon: '🩸' },
         { id: 'cities', label: 'Cidades', icon: '🏛️' },
@@ -58,6 +59,7 @@ const GuideSystem = {
             attrs: () => this._renderAttrs(),
             consumables: () => this._renderConsumables(),
             skills: () => this._renderSkills(),
+            styles: () => this._renderCombatStyles(),
             enchant: () => this._renderEnchant(),
             lineages: () => this._renderLineages(),
             cities: () => this._renderCities(),
@@ -201,7 +203,7 @@ const GuideSystem = {
     // ==========================================================================
     _renderSkills() {
         const all = Object.values(window.SkillDB || {})
-            .filter(s => !s.isBossSkill && !s.isMutationSkill)
+            .filter(s => !s.isBossSkill && !s.isMutationSkill && !s.isStyleSkill)
             .sort((a, b) => a.levelReq - b.levelReq);
         const typeLabel = {
             PHYSICAL: 'Físico', MAGIC: 'Mágico', HEAL: 'Cura', BLEED: 'Sangramento', STUN: 'Atordoante',
@@ -217,6 +219,43 @@ const GuideSystem = {
                     </tbody>
                 </table>
             </div>
+        `;
+    },
+
+    // ==========================================================================
+    // ESTILOS DE COMBATE (Mega Atualização Arena + Estilos)
+    // ==========================================================================
+    // Lê direto de COMBAT_STYLES/COMBAT_STYLE_TREES (combatstyles.js) —
+    // nunca duplica os números aqui. Sistema TOTALMENTE separado de
+    // Linhagem: nunca substitui a árvore de Mutação, e o jogador pode ter
+    // as duas ativas ao mesmo tempo.
+    _renderCombatStyles() {
+        const styles = Object.values(window.COMBAT_STYLES || {});
+        const statLabel = {
+            unarmedDamageBonusPercent: 'Dano desarmado', unarmedDodgeBonusPercent: 'Esquiva desarmado',
+            lightWeaponDodgeBonusPercent: 'Esquiva (arma leve)', lightWeaponCritBonus: 'Crítico (arma leve)',
+            shieldBlockChanceBonusFlat: 'Bloqueio (escudo)', shieldCounterChanceBonusFlat: 'Contra-ataque (escudo)',
+            rangedDistanceDamageBonusPercent: 'Dano à distância (escala com a distância)', rangedRetreatSpeedBonusFlat: 'Velocidade ao recuar'
+        };
+        return `
+            <p class="guide-section-intro">Uma camada de especialização de combate separada de Linhagem — não substitui a Árvore de Mutação, e as duas podem estar ativas ao mesmo tempo. Cada estilo é aprendido com ouro na sua cidade de origem (Mercado Arcano → "Estilos de Combate") e exige um equipamento específico pra funcionar; equipar algo incompatível nunca remove o item sozinho, só desativa os bônus e bloqueia as habilidades do estilo até você reequipar o certo. Só UM estilo fica ATIVO por vez, mas o progresso de cada estilo aprendido é preservado independentemente — trocar de estilo ativo (botão "Ativar") não apaga nada.</p>
+            ${styles.map(style => {
+                const tree = window.COMBAT_STYLE_TREES[style.id];
+                const activeNodes = tree.nodes.filter(n => n.type === 'passive');
+                const skillNodes = tree.nodes.filter(n => n.type === 'active');
+                const cityName = (window.CityDatabase[style.cityId] && window.CityDatabase[style.cityId].name) || style.cityId;
+                return `
+                    <div class="guide-block">
+                        <h4>${style.icon} ${style.name}</h4>
+                        <p>${style.description}</p>
+                        <p><strong>Aprendido em:</strong> ${cityName} (${window.CombatStyleSystem.LEARN_COST}g)</p>
+                        <p style="color:#ffcc66;">${style.incompatibleMessage}</p>
+                        <p style="color:var(--color-marble-dark); font-size:0.85rem;">Árvore com ${tree.nodes.length} nós em 4 tiers — pré-requisitos reais (nunca compre pulando ou na diagonal, cada nó exige um nó-pai específico já desbloqueado).</p>
+                        <p><strong>Passivos:</strong> ${activeNodes.map(n => `${n.name} (${(Object.keys(n.statMods)[0] && statLabel[Object.keys(n.statMods)[0]]) || ''})`).join(', ')}</p>
+                        <p><strong>Habilidades ativas:</strong> ${skillNodes.map(n => n.name).join(', ')}</p>
+                    </div>
+                `;
+            }).join('')}
         `;
     },
 

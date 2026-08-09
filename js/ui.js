@@ -277,6 +277,15 @@ class UIManager {
             const title = (cityDef && cityDef.magicSubShopLabel) || 'Câmara Rúnica';
             this.openShop(null, title, true, subShop);
         });
+        // Estilos de Combate (ver combatstyles.js) — botão dentro do Mercado
+        // Arcano, mesma tela onde o jogador já aprende habilidades comuns.
+        document.getElementById('btn-open-combatstyles').addEventListener('click', () => this.openCombatStyles());
+        document.getElementById('btn-close-combatstyles').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-combatstyles-back').addEventListener('click', () => {
+            document.getElementById('combatstyles-detail').classList.add('hidden');
+            document.getElementById('combatstyles-list').classList.remove('hidden');
+            this._renderCombatStylesList();
+        });
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -1322,7 +1331,13 @@ class UIManager {
             }
             const inRange = !skillRange || b.isInRange(skillRange);
 
-            const canCast = hasMana && !onCooldown && inRange;
+            // Estilo de Combate incompatível (item 19 da diretiva Arena +
+            // Estilos) — segunda camada do mesmo bloqueio de battle.js
+            // executePlayerTurn (nunca confia só na UI, mesmo padrão já
+            // usado pra Bandagens fora de combate/outOfCombatOnly).
+            const styleOk = !skill.isStyleSkill || window.CombatStyleSystem.isStyleCompatible(p, skill.styleId);
+
+            const canCast = hasMana && !onCooldown && inRange && styleOk;
             if (!canCast) btn.disabled = true;
 
             let statusLabel = `${skill.mpCost} MP`;
@@ -1330,6 +1345,7 @@ class UIManager {
             if (onCooldown) { statusLabel = `Recarregando (${p.skillCooldowns[skillId]})`; statusColor = '#888'; }
             else if (!hasMana) { statusColor = '#888'; }
             else if (!inRange) { statusLabel = 'Fora de alcance'; statusColor = '#ff5555'; }
+            else if (!styleOk) { statusLabel = 'Estilo inativo'; statusColor = '#ff5555'; }
 
             btn.innerHTML = `
                 <strong>${skill.name}</strong><br>
@@ -1601,6 +1617,163 @@ class UIManager {
     // do jogador (se houver), o progresso dos Rituais de descoberta (ver
     // rituals.js), a Skill Tree da linhagem ativa (ver skilltrees.js) e os
     // bosses de ritual já derrotados (ver enemy.js BOSS_DEFS).
+    // ==========================================================================
+    // ESTILOS DE COMBATE (Mega Atualização Arena + Estilos) — ver
+    // combatstyles.js CombatStyleSystem. Sistema TOTALMENTE separado de
+    // Linhagem/Mutações (nunca reaproveita player.lineage/skillTreeUnlocked/
+    // mutationSkillPoints), mas reaproveita o MESMO layout visual de árvore
+    // em tiers (_renderStyleTreeInto abaixo é uma cópia enxuta de
+    // _renderSkillTreeInto só pra não acoplar os dois motores).
+    // ==========================================================================
+    openCombatStyles() {
+        const p = window.Engine.state.player;
+        this._combatStylesDetailId = null;
+        document.getElementById('combatstyles-detail').classList.add('hidden');
+        document.getElementById('combatstyles-list').classList.remove('hidden');
+        this._renderCombatStylesList();
+        this.showScreen('screen-combatstyles');
+    }
+
+    _renderCombatStylesList() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('combatstyles-list');
+        container.innerHTML = '';
+        const currentCityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+
+        Object.values(window.COMBAT_STYLES).forEach(style => {
+            const learned = !!(p.combatStylesLearned && p.combatStylesLearned[style.id]);
+            const isActive = p.combatStyle === style.id;
+            const compatible = learned && window.CombatStyleSystem.isStyleCompatible(p, style.id);
+            const card = document.createElement('div');
+            card.className = 'skill-card' + (isActive ? ' unlocked' : (learned ? '' : ''));
+
+            let actionHtml;
+            if (!learned) {
+                const cityOk = currentCityId === style.cityId;
+                const cityName = (window.CityDatabase[style.cityId] && window.CityDatabase[style.cityId].name) || style.cityId;
+                actionHtml = cityOk
+                    ? `<button class="btn btn-small btn-learn-style" ${p.gold < window.CombatStyleSystem.LEARN_COST ? 'disabled' : ''}>Aprender (${window.CombatStyleSystem.LEARN_COST}g)</button>`
+                    : `<div class="node-cost">Aprenda em: ${cityName}</div>`;
+            } else {
+                actionHtml = `
+                    <button class="btn btn-small btn-view-style-tree">Ver Árvore</button>
+                    ${isActive ? '<div class="node-cost">✅ Ativo</div>' : `<button class="btn btn-small btn-activate-style">Ativar</button>`}
+                `;
+            }
+
+            card.innerHTML = `
+                <h5>${style.icon} ${style.name}</h5>
+                <div class="node-type">${learned ? (compatible ? 'Compatível agora' : 'Equipamento incompatível') : 'Não aprendido'}</div>
+                <div>${style.tagline}</div>
+                <div style="margin-top:8px;">${actionHtml}</div>
+            `;
+
+            const learnBtn = card.querySelector('.btn-learn-style');
+            if (learnBtn) {
+                learnBtn.addEventListener('click', () => {
+                    const result = window.CombatStyleSystem.learnStyle(p, style.id);
+                    if (result.ok) {
+                        window.SaveManager.save(window.Engine.state);
+                        if (window.AudioManager) window.AudioManager.playConfirm();
+                    } else {
+                        if (window.AudioManager) window.AudioManager.playError();
+                        if (window.MainMenu) window.MainMenu.showToast(result.reason, 'error');
+                    }
+                    this._renderCombatStylesList();
+                });
+            }
+            const activateBtn = card.querySelector('.btn-activate-style');
+            if (activateBtn) {
+                activateBtn.addEventListener('click', () => {
+                    p.setActiveCombatStyle(style.id);
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.AudioManager) window.AudioManager.playConfirm();
+                    this._renderCombatStylesList();
+                });
+            }
+            const viewBtn = card.querySelector('.btn-view-style-tree');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', () => this._openCombatStyleDetail(style.id));
+            }
+            container.appendChild(card);
+        });
+    }
+
+    _openCombatStyleDetail(styleId) {
+        this._combatStylesDetailId = styleId;
+        document.getElementById('combatstyles-list').classList.add('hidden');
+        const detail = document.getElementById('combatstyles-detail');
+        detail.classList.remove('hidden');
+        this._renderCombatStyleDetail();
+    }
+
+    _renderCombatStyleDetail() {
+        const p = window.Engine.state.player;
+        const styleId = this._combatStylesDetailId;
+        const style = window.CombatStyleSystem.getStyle(styleId);
+        if (!style) return;
+
+        document.getElementById('combatstyles-detail-title').innerText = `${style.icon} ${style.name}`;
+        const compatible = window.CombatStyleSystem.isStyleCompatible(p, styleId);
+        const statusEl = document.getElementById('combatstyles-detail-status');
+        statusEl.innerText = compatible ? 'Equipamento compatível — passivos e habilidades ativos.' : style.incompatibleMessage;
+        statusEl.style.color = compatible ? '#33ff66' : '#ff5555';
+        document.getElementById('combatstyles-points').innerText = (p.styleSkillPoints && p.styleSkillPoints[styleId]) || 0;
+
+        this._renderStyleTreeInto(p, styleId, document.getElementById('combatstyles-skilltree'));
+    }
+
+    // Cópia enxuta de _renderSkillTreeInto (ver comentário acima) pro motor
+    // de Estilos — mesma lógica de desenho por tier, mesmo botão Equipar/
+    // Desequipar pra nós ativos, só troca SkillTreeSystem por
+    // CombatStyleSystem e usa o bucket equippedStyleSkills/limits.style.
+    _renderStyleTreeInto(p, styleId, containerEl) {
+        containerEl.innerHTML = '';
+        const tree = window.CombatStyleSystem.getTreeForDisplay(p, styleId);
+        if (!tree) return;
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2, style: 2 };
+        const tiers = {};
+        tree.nodes.forEach(n => { (tiers[n.tier] = tiers[n.tier] || []).push(n); });
+        Object.keys(tiers).sort((a, b) => a - b).forEach(tierNum => {
+            const tierRow = document.createElement('div');
+            tierRow.className = 'skilltree-tier';
+            tiers[tierNum].forEach(node => {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'skilltree-node ' + (node.unlocked ? 'unlocked' : (node.unlockable ? 'unlockable' : 'locked'));
+                const isActiveUnlocked = node.unlocked && node.type === 'active' && node.skillDef;
+                const isEquipped = isActiveUnlocked && p.isSkillEquipped(node.skillDef.id);
+                const equipDisabled = isActiveUnlocked && !isEquipped && p.equippedStyleSkills.length >= limits.style;
+                nodeEl.innerHTML = `
+                    <h5>${node.name}</h5>
+                    <div class="node-type">${node.type === 'active' ? 'Ativa' : 'Passiva'}</div>
+                    <div>${node.description}</div>
+                    <div class="node-cost">Custo: ${node.cost}${node.unlocked ? ' (Desbloqueado)' : ''}</div>
+                    ${isActiveUnlocked ? `<button class="btn btn-small btn-equip-style" style="margin-top:8px;" ${equipDisabled ? 'disabled' : ''}>${isEquipped ? 'Desequipar' : 'Equipar'}</button>` : ''}
+                `;
+                if (isActiveUnlocked) {
+                    nodeEl.querySelector('.btn-equip-style').addEventListener('click', (evt) => {
+                        evt.stopPropagation();
+                        if (isEquipped) p.unequipSkill(node.skillDef.id); else p.equipSkill(node.skillDef.id);
+                        window.SaveManager.save(window.Engine.state);
+                        this._renderCombatStyleDetail();
+                    });
+                }
+                if (node.unlockable) {
+                    nodeEl.addEventListener('click', () => {
+                        if (window.CombatStyleSystem.unlockNode(p, styleId, node.id)) {
+                            if (node.type === 'active' && node.skillDef) p.equipSkill(node.skillDef.id);
+                            window.SaveManager.save(window.Engine.state);
+                            if (window.AudioManager) window.AudioManager.playConfirm();
+                            this._renderCombatStyleDetail();
+                        }
+                    });
+                }
+                tierRow.appendChild(nodeEl);
+            });
+            containerEl.appendChild(tierRow);
+        });
+    }
+
     // Desenha os nós de uma árvore de habilidades (tiers, custo, botões de
     // desbloquear/equipar) dentro de `containerEl` — extraído para ser usado
     // tanto pela linhagem PRINCIPAL quanto pela SECUNDÁRIA (Natureza, ver
@@ -2881,7 +3054,7 @@ class UIManager {
             // boss (ex: Julgamento Final do Anjo Guardião) com pontos de
             // talento comuns, desde o nível 1, sem nunca ter enfrentado o
             // boss — um exploit real de balanceamento.
-            if (skill.isBossSkill || skill.isMutationSkill) continue;
+            if (skill.isBossSkill || skill.isMutationSkill || skill.isStyleSkill) continue;
             const isUnlocked = p.learnedSkills.includes(key);
             const canUnlock = p.level >= skill.levelReq && p.skillPoints > 0 && !isUnlocked;
             const isEquipped = isUnlocked && p.isSkillEquipped(key);

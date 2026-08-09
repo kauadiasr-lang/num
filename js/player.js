@@ -209,6 +209,21 @@ class Entity {
             if (secondaryMutation.dodgeBonusPercent) dodgeChance += secondaryMutation.dodgeBonusPercent;
         }
 
+        // Estilo de Combate ATIVO (ver combatstyles.js) — sistema
+        // TOTALMENTE separado de Linhagem acima. `sumActiveStylePassives`
+        // já devolve tudo zerado se o equipamento atual não for compatível
+        // com o estilo (ver CombatStyles[id].isCompatible) — nunca precisa
+        // reconferir aqui, e nunca remove o equipamento sozinho, só deixa
+        // de contribuir os bônus até o jogador reequipar algo compatível.
+        const stylePassives = window.CombatStyleSystem ? window.CombatStyleSystem.sumActiveStylePassives(this) : null;
+        if (stylePassives) {
+            if (stylePassives.unarmedDamageBonusPercent) physicalDamage = Math.floor(physicalDamage * (1 + stylePassives.unarmedDamageBonusPercent / 100));
+            if (stylePassives.unarmedDodgeBonusPercent) dodgeChance += stylePassives.unarmedDodgeBonusPercent;
+            if (stylePassives.lightWeaponDodgeBonusPercent) dodgeChance += stylePassives.lightWeaponDodgeBonusPercent;
+            if (stylePassives.lightWeaponCritBonus) critChance += stylePassives.lightWeaponCritBonus;
+            if (stylePassives.shieldBlockChanceBonusFlat) blockChance += stylePassives.shieldBlockChanceBonusFlat;
+        }
+
         // Traço único de raça (ver races.js `passive`) — mesmo formato dos
         // passivos de linhagem acima (statKey/value), então generaliza pra
         // qualquer chave de derivedStats sem precisar de mais nenhum caso
@@ -360,10 +375,19 @@ class Entity {
     // Velocidades de ataque/aproximação/recuo da arma equipada
     getWeaponSpeed() {
         const weapon = this.getActiveWeapon();
-        if (weapon && weapon.atkSpeed !== undefined) {
-            return { atkSpeed: weapon.atkSpeed, approachSpeed: weapon.approachSpeed, retreatSpeed: weapon.retreatSpeed };
+        const base = (weapon && weapon.atkSpeed !== undefined)
+            ? { atkSpeed: weapon.atkSpeed, approachSpeed: weapon.approachSpeed, retreatSpeed: weapon.retreatSpeed }
+            : UNARMED_SPEED;
+        // Estilo de Combate — Caminho do Predador: recupera distância mais
+        // rápido (ver combatstyles.js `rangedRetreatSpeedBonusFlat`) — só
+        // Player tem `combatStyle`, Enemy/Rival sempre recebem bônus zero
+        // daqui (sumActiveStylePassives trata `combatStyle` undefined
+        // como "sem estilo ativo").
+        const stylePassives = window.CombatStyleSystem ? window.CombatStyleSystem.sumActiveStylePassives(this) : null;
+        if (stylePassives && stylePassives.rangedRetreatSpeedBonusFlat) {
+            return { ...base, retreatSpeed: base.retreatSpeed + stylePassives.rangedRetreatSpeedBonusFlat };
         }
-        return UNARMED_SPEED;
+        return base;
     }
 
     // Distribuição procedural de atributos enviesada pelo estilo de luta já
@@ -493,6 +517,7 @@ class Player extends Entity {
         // como `[]`, `Object.assign` sobrescreve o `null` normalmente).
         this.equippedCommonSkills = null;
         this.equippedMutationSkills = null;
+        this.equippedStyleSkills = null; // mesmo padrão acima (null, não []) — subconjunto equipado das ativas de Estilo de Combate, ver combatstyles.js
         // skillCooldowns já vem inicializado do construtor de Entity
 
         this.fatigue = 0; // 0-3 estágios de fadiga acumulados por derrotas
@@ -589,6 +614,21 @@ class Player extends Entity {
             vampirismo: { vampiricEssences: 0 },
             luz: { potionsUsed: 0, noMagicWins: 0, sacredFragments: 0 }
         };
+
+        // --- Estilos de Combate (ver combatstyles.js CombatStyleSystem) ---
+        // Sistema TOTALMENTE separado de Linhagem acima: nunca ocupa
+        // `this.lineage`/`this.secondaryLineage`/`this.skillTreeUnlocked`/
+        // `this.mutationSkillPoints`. O jogador pode aprender vários
+        // estilos (progresso de cada um preservado independentemente em
+        // `styleSkillPoints`/`styleTreeUnlocked`), mas só UM fica ATIVO
+        // por vez (`combatStyle`) — é o ativo que contribui passivos em
+        // calculateDerivedStats e libera o menu de habilidade em batalha.
+        // null/{} são o padrão neutro pra saves antigos, que nunca
+        // tiveram este sistema.
+        this.combatStyle = null;             // id do estilo ATIVO no momento, ou null
+        this.combatStylesLearned = {};       // { styleId: true } — estilos já aprendidos (todos, não só o ativo)
+        this.styleSkillPoints = {};          // { styleId: número } — pool de pontos PRÓPRIO de cada estilo aprendido
+        this.styleTreeUnlocked = {};         // { nodeId: true } — nós já desbloqueados (de qualquer árvore de estilo)
 
         // --- Missões Secundárias (ver quests.js) ---
         // activeQuests: instanceId -> instância completa (ver
@@ -757,8 +797,16 @@ class Player extends Entity {
         // pools crescem de forma totalmente independente, já que as duas
         // linhagens podem estar ativas ao mesmo tempo.
         if (this.secondaryLineage) this.natureSkillPoints = (this.natureSkillPoints || 0) + 1;
+        // Mesmo padrão acima, mas pro estilo de combate ATIVO (ver
+        // combatstyles.js) — só o ATIVO ganha ponto a cada nível; estilos
+        // aprendidos mas não-ativos continuam com o pool que já tinham até
+        // o jogador reativá-los (ver Player.setActiveCombatStyle).
+        if (this.combatStyle) {
+            this.styleSkillPoints = this.styleSkillPoints || {};
+            this.styleSkillPoints[this.combatStyle] = (this.styleSkillPoints[this.combatStyle] || 0) + 1;
+        }
         this.calculateDerivedStats();
-        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point${this.lineage ? ', +1 Ponto de Mutação' : ''}${this.secondaryLineage ? ', +1 Ponto de Natureza' : ''}`);
+        console.log(`Level Up! Nível atual: ${this.level}. +3 Stats, +1 Skill Point${this.lineage ? ', +1 Ponto de Mutação' : ''}${this.secondaryLineage ? ', +1 Ponto de Natureza' : ''}${this.combatStyle ? ', +1 Ponto de Estilo' : ''}`);
     }
 
     learnSkill(skillId) {
@@ -769,6 +817,18 @@ class Player extends Entity {
         return false;
     }
 
+    // Troca qual estilo aprendido está ATIVO no momento (ver
+    // combatstyles.js) — nunca apaga progresso do estilo anterior
+    // (styleTreeUnlocked/styleSkillPoints continuam intactos, só param de
+    // contribuir passivos/habilidades até serem reativados). Retorna false
+    // se o estilo pedido nunca foi aprendido.
+    setActiveCombatStyle(styleId) {
+        if (styleId !== null && (!this.combatStylesLearned || !this.combatStylesLearned[styleId])) return false;
+        this.combatStyle = styleId;
+        this.calculateDerivedStats();
+        return true;
+    }
+
     // Migração/inicialização preguiçosa do loadout de batalha — ver
     // comentário no construtor sobre por que os campos começam `null`.
     // Saves antigos (de antes desta feature) chegam aqui com as duas listas
@@ -777,22 +837,39 @@ class Player extends Entity {
     // existente"), auto-equipa as primeiras já aprendidas até o novo limite,
     // preservando o comportamento anterior (tudo aprendido = tudo utilizável)
     // o mais fielmente possível dentro do novo teto.
+    // Qual das 3 listas (comum/mutação/estilo) e limite corresponde a uma
+    // habilidade — extraído pra nunca repetir o mesmo if/else em cada um
+    // dos métodos abaixo. `isStyleSkill` (ver combatstyles.js) é o
+    // terceiro bucket, mesmo padrão de `isMutationSkill` já existente.
+    _skillLoadoutBucket(skill) {
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2, style: 2 };
+        if (skill && skill.isStyleSkill) return { list: this.equippedStyleSkills, limit: limits.style };
+        if (skill && skill.isMutationSkill) return { list: this.equippedMutationSkills, limit: limits.mutation };
+        return { list: this.equippedCommonSkills, limit: limits.common };
+    }
+
     _ensureSkillLoadout() {
-        if (this.equippedCommonSkills && this.equippedMutationSkills) return;
-        const common = [];
-        const mutation = [];
-        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
-        (this.learnedSkills || []).forEach(id => {
-            const skill = window.SkillDB && window.SkillDB[id];
-            if (!skill || skill.isBossSkill) return;
-            if (skill.isMutationSkill) {
-                if (mutation.length < limits.mutation) mutation.push(id);
-            } else if (common.length < limits.common) {
-                common.push(id);
-            }
-        });
+        if (this.equippedCommonSkills && this.equippedMutationSkills && this.equippedStyleSkills) return;
+        const common = this.equippedCommonSkills || [];
+        const mutation = this.equippedMutationSkills || [];
+        const style = this.equippedStyleSkills || [];
+        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2, style: 2 };
+        if (!this.equippedCommonSkills || !this.equippedMutationSkills || !this.equippedStyleSkills) {
+            (this.learnedSkills || []).forEach(id => {
+                const skill = window.SkillDB && window.SkillDB[id];
+                if (!skill || skill.isBossSkill) return;
+                if (skill.isStyleSkill) {
+                    if (!this.equippedStyleSkills && style.length < limits.style) style.push(id);
+                } else if (skill.isMutationSkill) {
+                    if (!this.equippedMutationSkills && mutation.length < limits.mutation) mutation.push(id);
+                } else if (!this.equippedCommonSkills && common.length < limits.common) {
+                    common.push(id);
+                }
+            });
+        }
         this.equippedCommonSkills = common;
         this.equippedMutationSkills = mutation;
+        this.equippedStyleSkills = style;
     }
 
     // Retorna true/false conforme conseguiu equipar (falha se a habilidade
@@ -803,9 +880,7 @@ class Player extends Entity {
         this._ensureSkillLoadout();
         const skill = window.SkillDB && window.SkillDB[skillId];
         if (!skill || !this.learnedSkills.includes(skillId)) return false;
-        const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };
-        const list = skill.isMutationSkill ? this.equippedMutationSkills : this.equippedCommonSkills;
-        const limit = skill.isMutationSkill ? limits.mutation : limits.common;
+        const { list, limit } = this._skillLoadoutBucket(skill);
         if (list.includes(skillId)) return true;
         if (list.length >= limit) return false;
         list.push(skillId);
@@ -815,7 +890,7 @@ class Player extends Entity {
     unequipSkill(skillId) {
         this._ensureSkillLoadout();
         const skill = window.SkillDB && window.SkillDB[skillId];
-        const list = (skill && skill.isMutationSkill) ? this.equippedMutationSkills : this.equippedCommonSkills;
+        const { list } = this._skillLoadoutBucket(skill);
         const idx = list.indexOf(skillId);
         if (idx === -1) return false;
         list.splice(idx, 1);
@@ -824,14 +899,14 @@ class Player extends Entity {
 
     isSkillEquipped(skillId) {
         this._ensureSkillLoadout();
-        return this.equippedCommonSkills.includes(skillId) || this.equippedMutationSkills.includes(skillId);
+        return this.equippedCommonSkills.includes(skillId) || this.equippedMutationSkills.includes(skillId) || this.equippedStyleSkills.includes(skillId);
     }
 
     // Lista efetivamente utilizável em batalha (ver ui.js openBattleSkillMenu)
     // — nunca `learnedSkills` diretamente, que pode ser maior que o loadout.
     getEquippedSkills() {
         this._ensureSkillLoadout();
-        return [...this.equippedCommonSkills, ...this.equippedMutationSkills];
+        return [...this.equippedCommonSkills, ...this.equippedMutationSkills, ...this.equippedStyleSkills];
     }
 
     // Converte Pontos de Talento (SP) em Inteligência permanente, 1 pra 1

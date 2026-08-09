@@ -869,6 +869,34 @@
                          Élfico: Ateliê Élfico), mesma ideia do botão "Poções e
                          Bandagens" da Taverna (#btn-open-tavern-shop acima). -->
                     <button id="btn-open-rune-shop" class="btn hidden" style="margin-top:16px;">🔮 Câmara Rúnica (Runas)</button>
+                    <!-- Mega Atualização Arena + Estilos, item 18: Estilos de
+                         Combate são aprendidos no mundo (cidade certa, ver
+                         combatstyles.js COMBAT_STYLES.cityId), nunca de graça
+                         no início — botão aqui no Mercado Arcano (mesma tela
+                         onde o jogador já aprende habilidades comuns), nunca
+                         um prédio/NPC novo por cidade. -->
+                    <button id="btn-open-combatstyles" class="btn" style="margin-top:8px;">🥊 Estilos de Combate</button>
+                </div>
+            </div>
+
+            <!-- TELA: ESTILOS DE COMBATE (ver combatstyles.js CombatStyleSystem)
+                 — sistema TOTALMENTE separado de Linhagem/Mutações. Reaproveita
+                 o MESMO layout de árvore em grade por tier (.skilltree-tier/
+                 .skilltree-node, ver ui.js _renderSkillTreeInto/openMutations)
+                 pra nunca inventar uma segunda forma visual de árvore. -->
+            <div id="screen-combatstyles" class="screen">
+                <div class="panel skills-panel">
+                    <button class="btn-close" id="btn-close-combatstyles">X</button>
+                    <h2 class="panel-title">Estilos de Combate</h2>
+                    <p class="mutations-hint">Cada estilo é uma especialização de combate própria, separada de Linhagem — exige o equipamento certo pra funcionar, e é aprendido na cidade de origem dele.</p>
+                    <div id="combatstyles-list" class="skills-grid"></div>
+                    <div id="combatstyles-detail" class="hidden">
+                        <h3 id="combatstyles-detail-title" style="color:var(--color-gold);"></h3>
+                        <p id="combatstyles-detail-status"></p>
+                        <p class="highlight-gold">Pontos de Estilo: <span id="combatstyles-points">0</span></p>
+                        <div id="combatstyles-skilltree" class="mutations-skilltree"></div>
+                        <button class="btn btn-small" id="btn-combatstyles-back" style="margin-top:12px;">◀ Voltar aos Estilos</button>
+                    </div>
                 </div>
             </div>
 
@@ -921,6 +949,7 @@
     <script src="js/citydatabase.js"></script>
     <script src="js/roads.js"></script>
     <script src="js/skilltrees.js"></script>
+    <script src="js/combatstyles.js"></script>
     <script src="js/nature.js"></script>
     <script src="js/corruption.js"></script>
     <script src="js/rituals.js"></script>

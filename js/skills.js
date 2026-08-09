@@ -113,4 +113,4 @@ window.SkillDB = SkillDatabase;
 // (ver Player.equipSkill/getEquippedSkills em player.js), mesmo que mais
 // tenham sido aprendidas/desbloqueadas — aprender continua permanente,
 // só o USO em batalha é limitado.
-window.SKILL_LOADOUT_LIMITS = { common: 3, mutation: 2 };
+window.SKILL_LOADOUT_LIMITS = { common: 3, mutation: 2, style: 2 };

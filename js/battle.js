@@ -40,8 +40,8 @@ class BattleSystem {
         // encantamento permanente do item (ver executeAttack/
         // _getEffectiveEnchantment) — sempre reseta pra null/0 no fim da
         // duração, nunca ficando "vazado" pra fora da batalha (não é salvo).
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -183,6 +183,16 @@ class BattleSystem {
             state.bleedDamage = 0;
             msg += ' e estancou o sangramento';
         }
+
+        // Estilo de Combate — Muralha de Ferro (item 14 da diretiva Arena +
+        // Estilos): Defender ganha sinergia especial com o nó "Contra-
+        // Ataque Ensaiado" — chance extra de revidar no PRÓXIMO golpe
+        // recebido (ver executeAttack, consumido/resetado logo abaixo,
+        // nunca acumula turno após turno — não é regeneração infinita).
+        if (window.CombatStyleSystem && window.CombatStyleSystem.hasActiveStyleNode(entity, 'muralha_contra_ataque')) {
+            state.muralhaCounterBonus = 25;
+            msg += ', pronta para revidar';
+        }
         msg += '!';
 
         if (window.GFX) window.GFX.playAnim(isPlayer, 'defend', 500);
@@ -258,6 +268,21 @@ class BattleSystem {
         // defensor "vampirismo", já que a fraqueza declarada do Vampirismo é a
         // Luz — ver LINEAGES em lineages.js).
         damage = this.applyLineageWeakness(attacker, defender, damage);
+
+        // Estilo de Combate — Caminho do Predador (item 15 da diretiva
+        // Arena + Estilos): "quanto maior a distância, maior o bônus" —
+        // escala linearmente de 0% (distância 0) até o bônus cheio dos
+        // passivos (distância 10, o máximo do BattleSystem). Só entra em
+        // jogo com arma de longo alcance ATIVA (ver
+        // CombatStyles.predador.isCompatible) — sumActiveStylePassives já
+        // devolve tudo zerado se o estilo não estiver ativo/compatível ou
+        // se `attacker` não for o Player (Enemy/Rival nunca têm
+        // `combatStyle` definido).
+        const stylePassivesAtk = window.CombatStyleSystem ? window.CombatStyleSystem.sumActiveStylePassives(attacker) : null;
+        if (stylePassivesAtk && stylePassivesAtk.rangedDistanceDamageBonusPercent) {
+            const distanceFactor = Utils.clamp(this.distance / 10, 0, 1);
+            damage = Math.floor(damage * (1 + (stylePassivesAtk.rangedDistanceDamageBonusPercent * distanceFactor) / 100));
+        }
         if (isCrit) damage = Math.floor(damage * 1.5); // Crítico padrão x1.5
 
         // 4. Mitigação por Defesa, reduzida pela perfuração de armadura da arma do atacante
@@ -419,7 +444,12 @@ class BattleSystem {
         // sem criar nenhum sistema novo (reaproveita o próprio executeAttack).
         let counter = null;
         if (blocked && !isCounter && defender.currentHp > 0 && attacker.currentHp > 0) {
-            const riposteChance = Math.min(45, defender.derivedStats.blockChance * 1.5);
+            // Muralha de Ferro (Contra-Ataque Ensaiado): bônus de UM turno só,
+            // concedido por _resolveDefend e sempre consumido aqui —
+            // acerte ou erre o revide, não sobra pro próximo golpe.
+            const muralhaBonus = defenderState.muralhaCounterBonus || 0;
+            defenderState.muralhaCounterBonus = 0;
+            const riposteChance = Math.min(70, defender.derivedStats.blockChance * 1.5 + muralhaBonus);
             if (Utils.chance(riposteChance)) {
                 counter = this.executeAttack(defender, attacker, defenderState, attackerState, 0.45, true);
                 msg += ` <span style="color:#88ccff">${defender.name} contra-ataca com o escudo! ${counter.message}</span>`;
@@ -551,6 +581,7 @@ class BattleSystem {
 
         this.isPlayerTurn = false;
         this.playerState.isDefending = false; // Reseta a defesa do turno anterior
+        this.playerState.muralhaCounterBonus = 0; // Mesmo ciclo de vida de isDefending acima — nunca sobrevive além do turno em que foi concedido, mesmo sem ser consumido por um bloqueio
         this.playerState.holdingDistance = false; // Reseta a postura de manter distância
         window.UI.toggleBattleButtons(false); // Bloqueia a UI
         if (this.player.tickCooldowns) this.player.tickCooldowns(); // Recargas de habilidade avançam a cada turno do jogador
@@ -748,6 +779,23 @@ class BattleSystem {
             // Recarga: impede o uso se a habilidade ainda não recuperou os turnos de cooldown
             if (this.player.skillCooldowns && this.player.skillCooldowns[skillId] > 0) {
                 resultMsg = `${skill.name} ainda está recarregando! (${this.player.skillCooldowns[skillId]} turno(s) restante(s))`;
+                this.isPlayerTurn = true;
+                window.UI.toggleBattleButtons(true);
+                window.UI.appendBattleLog(resultMsg);
+                window.AudioManager.playError();
+                return;
+            }
+
+            // Estilo de Combate incompatível (item 19 da diretiva Arena +
+            // Estilos): equipar algo errado NUNCA remove o equipamento
+            // sozinho, só bloqueia a habilidade do estilo até o jogador
+            // reequipar o certo — mesma ideia de duas camadas já usada
+            // pras Bandagens (outOfCombatOnly, ver useConsumable/
+            // openBattleItemMenu), aqui a segunda camada é
+            // openBattleSkillMenu (ui.js), que já filtra do menu.
+            if (skill.isStyleSkill && !window.CombatStyleSystem.isStyleCompatible(this.player, skill.styleId)) {
+                const style = window.CombatStyleSystem.getStyle(skill.styleId);
+                resultMsg = (style && style.incompatibleMessage) || `${skill.name} exige equipamento compatível com o estilo.`;
                 this.isPlayerTurn = true;
                 window.UI.toggleBattleButtons(true);
                 window.UI.appendBattleLog(resultMsg);
@@ -1201,6 +1249,7 @@ class BattleSystem {
         if (!this.isBattleActive) return;
 
         this.enemyState.isDefending = false;
+        this.enemyState.muralhaCounterBonus = 0; // Mesmo ciclo de vida de isDefending acima — ver executePlayerTurn
         this.enemyState.holdingDistance = false; // Reseta a postura de manter distância — espelha o reset do jogador em executePlayerTurn
         if (this.enemy.tickCooldowns) this.enemy.tickCooldowns();
         // Regeneração passiva de mana REMOVIDA — mesma regra do jogador
