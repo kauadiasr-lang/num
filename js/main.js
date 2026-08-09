@@ -506,10 +506,11 @@ function validateGameData() {
     // 'generic'/'famous'/'legendary' são pools base (não cidades);
     // 'vampirismo'/'luz' são chaves de Linhagem (ver lineages.js); 'rumors'
     // é o pool de Rumores (item #6 do novo pedido de auditoria, ver
-    // _talkToNpc) — nenhuma delas é cidade, só as demais chaves precisam
-    // existir em CityDatabase.
+    // _talkToNpc); 'infame'/'respeitado' são chaves de Reputação (ver
+    // reputation.js ReputationSystem.getTier/city.js _talkToNpc) — nenhuma
+    // delas é cidade, só as demais chaves precisam existir em CityDatabase.
     if (typeof CityEngine !== 'undefined' && CityEngine.NPC_DIALOGUE && window.CityDatabase) {
-        const nonCityDialogueKeys = ['generic', 'famous', 'legendary', 'vampirismo', 'luz', 'rumors'];
+        const nonCityDialogueKeys = ['generic', 'famous', 'legendary', 'vampirismo', 'luz', 'rumors', 'infame', 'respeitado'];
         for (const key in CityEngine.NPC_DIALOGUE) {
             if (nonCityDialogueKeys.includes(key)) continue;
             need(!!window.CityDatabase[key], `NPC_DIALOGUE['${key}']: cidade não existe em CityDatabase`);

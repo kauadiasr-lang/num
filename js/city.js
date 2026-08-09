@@ -1003,10 +1003,21 @@ class CityEngine {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const cityDialoguePool = (cityId && cityId !== 'porto_helenico') ? CityEngine.NPC_DIALOGUE[cityId] : null;
 
+        // Reputação (ver reputation.js) — eixo separado de fama de vitórias
+        // acima. `infame` tem prioridade sobre a fama de vitórias (pedido
+        // explícito, seção 5: "NPCs demonstram desconfiança" mesmo que o
+        // jogador seja um campeão de arena); `respeitado` só entra se o
+        // jogador ainda não tem fama de vitórias própria (senão a fala de
+        // vitórias, mais específica/dramática, continua tendo prioridade).
+        const repTier = window.ReputationSystem ? window.ReputationSystem.getTier(p) : null;
+
         if (p && p.lineage && CityEngine.NPC_DIALOGUE[p.lineage]) {
             pool = CityEngine.NPC_DIALOGUE[p.lineage];
+        } else if (repTier && repTier.tone === 'negative') {
+            pool = CityEngine.NPC_DIALOGUE.infame;
         } else if (wins >= 25) pool = CityEngine.NPC_DIALOGUE.legendary;
         else if (wins >= 10) pool = CityEngine.NPC_DIALOGUE.famous;
+        else if (repTier && repTier.tone === 'positive') pool = CityEngine.NPC_DIALOGUE.respeitado;
         // Chance de comentar sobre a própria cidade em vez da profissão —
         // não every vez, pra profissão continuar sendo a identidade
         // principal de cada NPC na maior parte das conversas.
@@ -2804,6 +2815,28 @@ class CityEngine {
                 'Por Zeus... é você mesmo? Achei que só existia em histórias.',
                 'Vou contar aos meus netos que troquei uma palavra com uma lenda viva.',
                 'A cidade inteira fala do seu nome. Você é motivo de orgulho pra essa arena.'
+            ],
+            // Reação à REPUTAÇÃO (ver reputation.js ReputationSystem) — eixo
+            // separado da fama de vitórias acima (`famous`/`legendary`):
+            // um gladiador pode ter um recorde impecável na arena e ainda
+            // assim ser malvisto (roubos, crimes), ou o contrário. `infame`
+            // tem prioridade sobre a fama de vitórias no _talkToNpc (a
+            // desconfiança fala mais alto que o hype de vitórias), pedido
+            // explícito da seção 5: "NPCs demonstram desconfiança".
+            infame: [
+                'Fica longe de mim. Já ouvi o suficiente sobre você pra não confiar.',
+                'Guarda bem sua bolsa por perto — dizem que gente como você não hesita.',
+                'Não é bem-vindo nesta conversa. Vá incomodar outro alguém.',
+                'Seu nome anda pela cidade, mas não do jeito que você gostaria de ouvir.'
+            ],
+            // `respeitado` reage a reputação alta (mas sem depender do
+            // contador de vitórias, que já tem seu próprio pool acima) —
+            // pedido explícito: "NPCs podem reconhecê-lo" mesmo sem ser um
+            // campeão de arena, só por agir bem pelo mundo.
+            respeitado: [
+                'Ouvi falar bem de você por aí — gente como você faz falta nesta cidade.',
+                'Um gladiador de bom nome. É raro encontrar um desses de verdade.',
+                'Minha filha fala de você como exemplo. Continue assim.'
             ],
             // Reação à Linhagem despertada (ver lineages.js/_talkToNpc) — a
             // mutação já muda a aparência de verdade (presas/pele pálida,
