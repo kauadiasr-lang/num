@@ -2706,44 +2706,120 @@ class UIManager {
         if (this._currentShopConsumablesOnly) {
             stock = stock.filter(item => item.consumableCategory === this._tavernActiveTab);
         }
-        if (this._currentShopConsumablesOnly && stock.length === 0) {
+
+        // Rework da Taverna item 15: Especialidades da Casa só aparecem na
+        // Taverna de verdade, e só nas abas Comida/Bebidas (são sempre
+        // `consumableCategory` 'food' ou 'drink', nunca poção/bandagem).
+        // Renderizadas ANTES do estoque normal, numa seção destacada.
+        let specialties = [];
+        if (this._currentShopConsumablesOnly && (this._tavernActiveTab === 'food' || this._tavernActiveTab === 'drink') && cityId) {
+            specialties = this._getHouseSpecialties(cityId).filter(item => item.consumableCategory === this._tavernActiveTab);
+        }
+
+        if (this._currentShopConsumablesOnly && stock.length === 0 && specialties.length === 0) {
             container.innerHTML = '<p class="bank-sub" style="grid-column:1/-1;">Nada disponível nesta categoria, por enquanto.</p>';
             return;
         }
-        stock.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'shop-item-card';
-            const price = Math.max(1, Math.round(item.value * (1 - discount)));
-            const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
 
-            card.innerHTML = `
-                <div>
-                    <h4 style="color: #33cc99">${this._itemIcon(item)} ${item.name}</h4>
-                    <p style="font-size: 0.8rem; color: #aaa;">${item.description}</p>
-                </div>
-                <button class="btn btn-small">${priceLabel}</button>
-            `;
+        if (specialties.length > 0) {
+            const header = document.createElement('h4');
+            header.className = 'house-specialty-header';
+            header.innerText = '⭐ Especialidade da Casa';
+            header.style.gridColumn = '1/-1';
+            container.appendChild(header);
+            specialties.forEach(item => container.appendChild(this._buildConsumableCard(item, discount, true)));
+        }
+        stock.forEach(item => container.appendChild(this._buildConsumableCard(item, discount, false)));
+    }
 
-            this.attachTooltip(card, item);
+    // Card de consumível compartilhado pelo estoque normal e pelas
+    // Especialidades da Casa (ver renderConsumableShop acima) — só muda o
+    // estilo visual (`isSpecialty`, borda dourada + brilho, ver
+    // css/style.css .house-specialty-card) e o texto do botão. A lógica de
+    // compra é IDÊNTICA nos dois casos — nunca um segundo fluxo de compra.
+    _buildConsumableCard(item, discount, isSpecialty) {
+        const p = window.Engine.state.player;
+        const card = document.createElement('div');
+        card.className = isSpecialty ? 'shop-item-card house-specialty-card' : 'shop-item-card';
+        const price = Math.max(1, Math.round(item.value * (1 - discount)));
+        const priceLabel = discount > 0 ? `Comprar (<s style="opacity:0.6">${item.value}</s> ${price}g 🏷️)` : `Comprar (${price}g)`;
 
-            card.querySelector('button').onclick = () => {
-                if (p.gold >= price && p.inventory.length < p.inventoryCapacity) {
-                    p.gold -= price;
-                    p.inventory.push(item);
-                    window.SaveManager.save(window.Engine.state);
-                    this.hideTooltip();
-                    document.getElementById('shop-player-gold').innerText = p.gold;
-                } else if (p.gold < price) {
-                    window.AudioManager.playError();
-                    if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
-                } else {
-                    window.AudioManager.playError();
-                    if (window.MainMenu) window.MainMenu.showToast('Inventário cheio!', 'error');
-                }
-            };
+        card.innerHTML = `
+            <div>
+                <h4 style="color: #33cc99">${this._itemIcon(item)} ${item.name}</h4>
+                <p style="font-size: 0.8rem; color: #aaa;">${item.description}</p>
+            </div>
+            <button class="btn btn-small">${priceLabel}</button>
+        `;
 
-            container.appendChild(card);
+        this.attachTooltip(card, item);
+
+        card.querySelector('button').onclick = () => {
+            if (p.gold >= price && p.inventory.length < p.inventoryCapacity) {
+                p.gold -= price;
+                p.inventory.push(item);
+                window.SaveManager.save(window.Engine.state);
+                this.hideTooltip();
+                document.getElementById('shop-player-gold').innerText = p.gold;
+            } else if (p.gold < price) {
+                window.AudioManager.playError();
+                if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente!', 'error');
+            } else {
+                window.AudioManager.playError();
+                if (window.MainMenu) window.MainMenu.showToast('Inventário cheio!', 'error');
+            }
+        };
+
+        return card;
+    }
+
+    // Rework da Taverna item 15: sorteio diário de 1-3 Especialidades da
+    // Casa por cidade, com chance de PERSISTÊNCIA (itens de ontem
+    // continuam hoje) em vez de reroll total a cada dia — reaproveita o
+    // MESMO padrão de cache-por-dia já usado pelo estoque de equipamento
+    // (ver openShop `_shopStockCache`), só chaveado por cidade (a Taverna
+    // é sempre 1 por cidade, cityId sozinho já é chave única).
+    _getHouseSpecialties(cityId) {
+        this._houseSpecialtyCache = this._houseSpecialtyCache || {};
+        const currentDay = window.City ? window.City.dayCount : 1;
+        const cached = this._houseSpecialtyCache[cityId];
+        if (cached && cached.day === currentDay) {
+            return cached.keys.map(k => ItemFactory.createHouseSpecialty(cityId, k)).filter(Boolean);
+        }
+
+        const pool = ItemFactory.getHouseSpecialtyPool(cityId);
+        const poolKeys = Object.keys(pool);
+        if (poolKeys.length === 0) {
+            this._houseSpecialtyCache[cityId] = { day: currentDay, keys: [] };
+            return [];
+        }
+
+        const previousKeys = cached ? cached.keys : [];
+        const targetCount = Utils.randomInt(1, Math.min(3, poolKeys.length));
+        const chosenKeys = [];
+
+        // 60% de chance de cada especialidade de ONTEM continuar hoje — dá
+        // ao estoque uma sensação natural de ir e vir, nunca 100%
+        // aleatório a cada dia (item 15: "o jogador deve ter motivo pra
+        // voltar à taverna em dias diferentes", não uma loteria completa).
+        previousKeys.forEach(key => {
+            if (chosenKeys.length < targetCount && poolKeys.includes(key) && Utils.chance(60)) {
+                chosenKeys.push(key);
+            }
         });
+
+        const remainingKeys = poolKeys.filter(k => !chosenKeys.includes(k));
+        while (chosenKeys.length < targetCount && remainingKeys.length > 0) {
+            const weights = {};
+            remainingKeys.forEach(k => { weights[k] = pool[k].specialtyWeight || 10; });
+            const picked = Utils.weightedPick(weights);
+            if (!picked) break;
+            chosenKeys.push(picked);
+            remainingKeys.splice(remainingKeys.indexOf(picked), 1);
+        }
+
+        this._houseSpecialtyCache[cityId] = { day: currentDay, keys: chosenKeys };
+        return chosenKeys.map(k => ItemFactory.createHouseSpecialty(cityId, k)).filter(Boolean);
     }
 
     // --- ÁRVORE DE TALENTOS ---

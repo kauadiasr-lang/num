@@ -1047,6 +1047,19 @@ html, body {
 }
 .shop-item-card:hover { border-color: var(--color-gold); transform: translateY(-2px); }
 
+/* Rework da Taverna item 15: "⭐ Especialidade da Casa" — precisa parecer
+   claramente diferente do estoque comum (item 15 da diretiva: "deve
+   parecer especial em comparação aos produtos comuns"), reaproveitando a
+   MESMA estrutura de .shop-item-card, só com borda/brilho dourados. */
+.house-specialty-header {
+    color: var(--color-gold); font-size: 0.95rem; margin: 4px 0 2px;
+    text-shadow: 0 0 6px rgba(212,175,55,0.5);
+}
+.house-specialty-card {
+    border: 1px solid var(--color-gold); box-shadow: 0 0 10px 1px rgba(212,175,55,0.25);
+}
+.house-specialty-card:hover { box-shadow: 0 0 14px 2px rgba(212,175,55,0.4); }
+
 /* Forja dos Anões (ver js/forge.js/ui.js openForge) — receitas em cartões
    verticais (nome, custo, botão), distinto do layout horizontal de item
    de loja acima. `.forge-recipe-locked` esmaece a receita quando o

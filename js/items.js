@@ -477,6 +477,39 @@ const ItemDatabase = {
         orc_boar_meat: { id: 'c_24', name: "Carne de Javali", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 6, durationBattles: 3, foodSlot: 'food', value: 50, description: "Prato pesado dos guerreiros de Gorkhal — comida de verdade, não petisco. +6 de dano físico por 3 batalhas.", region: 'fortaleza_orc', subShop: 'tavern', consumableCategory: 'food' },
         orc_black_ale: { id: 'c_25', name: "Cerveja Negra Orc", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 8, secondaryStatKey: 'dodgeBonusPercent', secondaryAmount: -4, durationBattles: 2, foodSlot: 'drink', value: 55, description: "A bebida mais forte da Fortaleza — pesa o braço, atrasa os reflexos, mas ninguém nega o golpe. +8 de dano físico, -4% de esquiva, por 2 batalhas.", region: 'fortaleza_orc', subShop: 'tavern', consumableCategory: 'drink' }
     },
+
+    // Rework da Taverna item 15: "Especialidades da Casa" — produtos
+    // EXCLUSIVOS e ROTATIVOS de cada Taverna, nunca disponíveis o tempo
+    // todo (ver ItemFactory.getHouseSpecialties/ui.js openShop pra como o
+    // reroll diário funciona). Mesma classe Consumable/mesmo mecanismo
+    // TEMP_BUFF de items.js consumables acima — NUNCA um sistema de item
+    // paralelo, só um registry SEPARADO porque estes não fazem parte do
+    // estoque fixo (region+subShop:'tavern' de `consumables` acima sempre
+    // está disponível; estes aqui entram e saem). `specialtyWeight` decide
+    // a chance relativa de aparecer no reroll — comuns (peso alto) vs raros
+    // (peso baixo, efeito mais forte, preço maior), nunca um efeito potente
+    // custando pouco (item 15 da diretiva: "preço deve considerar força do
+    // efeito... nunca deixar produtos poderosos custarem valores
+    // insignificantes"). Cada cidade tem só as SUAS próprias — nunca cópias
+    // com nome trocado entre cidades.
+    houseSpecialties: {
+        porto_helenico: {
+            traveler_stew: { id: 'hs_01', name: "Guisado do Viajante", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 3, durationBattles: 2, foodSlot: 'food', consumableCategory: 'food', specialtyWeight: 60, value: 55, description: "Receita comum de qualquer taberna do porto — nada extraordinário, mas sempre disponível." },
+            house_wine: { id: 'hs_02', name: "Vinho da Casa", type: 'TEMP_BUFF', statKey: 'dodgeBonusPercent', buffAmount: 5, durationBattles: 2, foodSlot: 'drink', consumableCategory: 'drink', specialtyWeight: 55, value: 50, description: "A garrafa que o taberneiro guarda pra fregueses de confiança." }
+        },
+        fortaleza_orc: {
+            black_boar_meat: { id: 'hs_03', name: "Carne de Javali Negro", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 7, durationBattles: 3, foodSlot: 'food', consumableCategory: 'food', specialtyWeight: 35, value: 90, description: "Só os caçadores mais experientes da Fortaleza voltam com um javali negro inteiro. +7 de dano físico por 3 batalhas.", region: 'fortaleza_orc' },
+            iron_fist_brew: { id: 'hs_04', name: "Punho de Ferro", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 10, secondaryStatKey: 'dodgeBonusPercent', secondaryAmount: -5, durationBattles: 2, foodSlot: 'drink', consumableCategory: 'drink', specialtyWeight: 18, value: 130, description: "Destilado reservado pros campeões do Fosso de Guerra — a bebida mais forte que existe. +10 de dano físico, -5% de esquiva, por 2 batalhas.", region: 'fortaleza_orc' }
+        },
+        santuario_elfico: {
+            full_moon_infusion: { id: 'hs_05', name: "Infusão da Lua Cheia", type: 'TEMP_BUFF', statKey: 'healPowerBonusPercent', buffAmount: 15, durationBattles: 2, foodSlot: 'drink', consumableCategory: 'drink', specialtyWeight: 35, value: 95, description: "Colhida uma vez por mês, sob a lua cheia sobre o Santuário. +15% de poder de cura por 2 batalhas.", region: 'santuario_elfico' },
+            ancestral_sap_fruit: { id: 'hs_06', name: "Fruta da Seiva Ancestral", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 30, secondaryStatKey: 'healPowerBonusPercent', secondaryAmount: 8, durationBattles: 3, foodSlot: 'food', consumableCategory: 'food', specialtyWeight: 15, value: 140, description: "Fruta rara das árvores mais antigas do Santuário — poucas nascem por ano. +30 de MP máximo e +8% de poder de cura por 3 batalhas.", region: 'santuario_elfico' }
+        },
+        reino_anao: {
+            iron_stew: { id: 'hs_07', name: "Ensopado de Ferro", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 10, durationBattles: 3, foodSlot: 'food', consumableCategory: 'food', specialtyWeight: 35, value: 100, description: "Cozido lento nas forjas comunais de Kharzum — pesado o bastante pra grudar nas costelas. +10 de defesa por 3 batalhas.", region: 'reino_anao' },
+            black_mead: { id: 'hs_08', name: "Hidromel Negro Anão", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 6, secondaryStatKey: 'dodgeBonusPercent', secondaryAmount: -2, durationBattles: 2, foodSlot: 'drink', consumableCategory: 'drink', specialtyWeight: 15, value: 120, description: "Envelhecido em barris de adamante — só sai das adegas mais fundas do Reino em ocasiões raras. +6 de dano físico, -2% de esquiva, por 2 batalhas.", region: 'reino_anao' }
+        }
+    },
     // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
     // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver
     // js/forge.js). Deliberadamente só 6 (pedido explícito: "não adicione
@@ -727,5 +760,22 @@ window.ItemFactory = {
             if (regional.length > 0) return regional.map(id => this.createConsumable(id));
         }
         return allIds.filter(id => !ItemDatabase.consumables[id].region).map(id => this.createConsumable(id));
+    },
+
+    // Rework da Taverna item 15: pool bruto de candidatos a Especialidade
+    // da Casa da cidade (ver ItemDatabase.houseSpecialties acima) — o
+    // SORTEIO ponderado + a chance de permanência entre dias fica em
+    // ui.js (mesmo lugar que já cacheia/rerola o estoque da loja, ver
+    // openShop `_shopStockCache`), esta função só devolve os templates
+    // disponíveis pra essa cidade específica.
+    getHouseSpecialtyPool(cityId) {
+        return (ItemDatabase.houseSpecialties && ItemDatabase.houseSpecialties[cityId]) || {};
+    },
+
+    createHouseSpecialty(cityId, templateKey) {
+        const pool = this.getHouseSpecialtyPool(cityId);
+        const template = pool[templateKey];
+        if (!template) return null;
+        return new Consumable(template);
     }
 };
