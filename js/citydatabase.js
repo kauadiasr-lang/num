@@ -228,6 +228,12 @@ const CityDatabase = {
         // sortear um bioma ao ar livre, ver `arenaBiomes` abaixo) — só a
         // Cidade explorável em si é subterrânea.
         isUnderground: true,
+        // Veios de Minério físicos na Praça (ver city.js
+        // _spawnOreVeinsIfNeeded/items.js ItemDatabase.materials) — a base
+        // de recursos do sistema de Forja (próxima iteração desta mesma
+        // atualização). Nenhuma das outras 3 cidades tem esse campo, então
+        // continuam sem nenhum veio, como sempre.
+        hasOreVeins: true,
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas'],
         officialArenaBiome: 'montanhas',
         arenaName: 'Fosso do Martelo',

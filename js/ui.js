@@ -2059,10 +2059,17 @@ class UIManager {
             if (i < p.inventory.length) {
                 const item = p.inventory[i];
                 const isConsumable = item.category === 'consumable';
+                // Matéria-prima (ver items.js Material) — nunca "equipável"
+                // (não tem `.slot`); tratar como equipamento no clique
+                // corromperia `p.equipment[undefined]`. Sem função de
+                // clique própria ainda (ver js/forge.js, iteração seguinte
+                // desta mesma atualização) — só pode ser vendida por ora,
+                // igual equipamento, através do botão dedicado abaixo.
+                const isMaterial = item.category === 'material';
 
                 itemSlot.innerText = this._itemIcon(item);
-                itemSlot.style.borderColor = isConsumable ? '#33cc99' : item.rarity.color;
-                itemSlot.style.color = isConsumable ? '#33cc99' : item.rarity.color;
+                itemSlot.style.borderColor = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : item.rarity.color);
+                itemSlot.style.color = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : item.rarity.color);
                 // Brilho na cor do elemento (ver enchantments.js/renderEquipment)
                 itemSlot.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
                     ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
@@ -2078,6 +2085,8 @@ class UIManager {
                         this.hideTooltip();
                         this.openInventory(); // Refresh
                     };
+                } else if (isMaterial) {
+                    itemSlot.onclick = () => { if (window.MainMenu) window.MainMenu.showToast('Matéria-prima — leve até a Forja pra transformar em equipamento.', 'info'); };
                 } else {
                     // Clique equipa o item (substituindo o atual se existir)
                     itemSlot.onclick = () => {
@@ -3342,6 +3351,13 @@ class UIManager {
             if (item.category === 'consumable') {
                 document.getElementById('tt-type').innerText = 'Consumível';
                 statsHtml += `<p style="color:#33cc99">${item.description}</p>`;
+            } else if (item.category === 'material') {
+                // Matéria-prima (ver items.js Material/ForgeSystem) — sem
+                // slot/dano/defesa, então precisa do próprio ramo (o `else`
+                // genérico abaixo assume equipamento e quebraria em
+                // `item.slot.toUpperCase()`).
+                document.getElementById('tt-type').innerText = `Matéria-Prima (Nível ${item.tier})`;
+                statsHtml += `<p style="color:#88ccee">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
                 // Origem regional (ver items.js `region`/citydatabase.js) —
@@ -3411,6 +3427,7 @@ class UIManager {
     // um sistema de sprites novo só pra isso.
     _itemIcon(item) {
         if (item.category === 'consumable') return '🧪';
+        if (item.category === 'material') return '⛏️';
         // Bug de auditoria (visual): "ícones inconsistentes" — toda arma
         // corpo-a-corpo (adaga, machado, martelo, lança, rapieira, chicote,
         // espada) caía no MESMO ícone genérico só por compartilhar o slot

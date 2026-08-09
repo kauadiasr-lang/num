@@ -223,8 +223,42 @@ const ItemDatabase = {
         greater_health_potion: { id: 'c_02', name: "Poção de Vida Maior", type: 'HEAL_HP', power: 90, value: 55, description: "Restaura 90 de HP." },
         mana_potion: { id: 'c_03', name: "Poção de Mana", type: 'HEAL_MP', power: 25, value: 30, description: "Restaura 25 de MP." },
         bandage: { id: 'c_04', name: "Bandagem", type: 'CURE_FATIGUE', power: 1, value: 40, description: "Cura 1 nível de fadiga." }
+    },
+    // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
+    // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver
+    // js/forge.js). Deliberadamente só 6 (pedido explícito: "não adicione
+    // dezenas de recursos inúteis, cada recurso deve possuir função real")
+    // — cada um mapeado a UM `tier` (1-5) que a Forja usa pra calcular a
+    // qualidade final do item forjado (ver ForgeSystem._computeQuality).
+    // Sem slot/dano/defesa — nunca equipável, só consumido como insumo.
+    materials: {
+        common_ore: { id: 'm_01', name: "Minério Comum", tier: 1, value: 4, description: "Rocha com veios metálicos visíveis a olho nu — a matéria-prima mais básica de qualquer forja." },
+        iron_ore: { id: 'm_02', name: "Ferro", tier: 2, value: 9, description: "Minério de ferro já parcialmente puro, pronto pra fundição." },
+        coal: { id: 'm_03', name: "Carvão", tier: 2, value: 7, description: "Combustível denso — sem ele, nenhuma forja atinge temperatura pra nada além do trabalho mais grosseiro." },
+        steel_ingot: { id: 'm_04', name: "Lingote de Aço", tier: 3, value: 22, description: "Ferro e carvão já fundidos e trabalhados — a base de qualquer equipamento anão de verdade." },
+        arcane_crystal: { id: 'm_05', name: "Cristal Mágico", tier: 4, value: 55, description: "Cristal bruto que ainda pulsa com energia própria — raro fora das cavernas mais profundas do Reino." },
+        dwarven_adamant: { id: 'm_06', name: "Adamante Anão", tier: 5, value: 140, description: "O material mais denso e raro conhecido nas minas de Kharzum — lendas entre os próprios anões." }
     }
 };
+
+// Matérias-primas (ver ItemDatabase.materials acima) — sem slot de
+// equipamento, sem raridade própria (usa RARITY.COMMON só pra cor neutra
+// de tooltip/bolsa, mesmo padrão de Consumable acima), nunca clicável pra
+// "equipar" no inventário (ver ui.js renderBag, que já distingue por
+// `category`). `tier` é o único campo que realmente importa pra fora
+// desta classe — é o que a Forja (js/forge.js) lê pra calcular qualidade.
+class Material {
+    constructor(baseTemplate) {
+        this.category = 'material';
+        this.uuid = Utils.generateUUID();
+        this.id = baseTemplate.id;
+        this.name = baseTemplate.name;
+        this.tier = baseTemplate.tier;
+        this.value = baseTemplate.value;
+        this.description = baseTemplate.description;
+        this.rarity = RARITY.COMMON;
+    }
+}
 
 window.ItemFactory = {
     createEquipment(templateId, category, rarityObj = RARITY.COMMON) {
@@ -243,6 +277,15 @@ window.ItemFactory = {
             return null;
         }
         return new Consumable(template);
+    },
+
+    createMaterial(templateId) {
+        const template = ItemDatabase.materials[templateId];
+        if (!template) {
+            console.error(`[ItemFactory] Material ${templateId} não encontrado.`);
+            return null;
+        }
+        return new Material(template);
     },
 
     // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do

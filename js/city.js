@@ -198,6 +198,27 @@ class CityEngine {
         this._pendingCollectStone = null;
         this._lightStoneSparkleTimer = 0;
 
+        // Veios de Minério (Reino Subterrâneo de Kharzum, ver
+        // citydatabase.js `hasOreVeins`/items.js ItemDatabase.materials) —
+        // MESMO padrão físico de coleta que as Pedras de Luz acima
+        // (aproximação + clique, ver _approachAndCollectOre/
+        // _updatePendingCollectOre abaixo), reaproveitado em vez de
+        // duplicado. Diferem em UMA coisa: nenhuma condição de
+        // elegibilidade (qualquer jogador pode minerar, sempre — a Pedra
+        // de Luz exige ausência de Linhagem/ritual incompleto) e cada veio
+        // sorteia seu próprio `tier` (1-5) ao nascer/renascer, não um
+        // recurso fixo único (ver _rollOreTier). Só existem em cidades que
+        // declararem `hasOreVeins: true` (ver _spawnOreVeinsIfNeeded) —
+        // nenhuma das 3 cidades antigas tem esse campo, então continuam
+        // sem nenhum veio, como sempre.
+        this.oreVeinSpots = [
+            { xFrac: 0.12, rowOffset: 145 },
+            { xFrac: 0.88, rowOffset: 145 },
+            { xFrac: 0.5, rowOffset: 205 },
+        ];
+        this.oreVeins = [];
+        this._pendingCollectOre = null;
+
         this._interactPromptEl = null;
         this._hintEl = null;
     }
@@ -232,6 +253,7 @@ class CityEngine {
         this._syncBuildingsToCity();
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
+        this._spawnOreVeinsIfNeeded();
         if (window.AudioManager) window.AudioManager.startCityAmbience();
         this._interactPromptEl = document.getElementById('city-interact-prompt');
         this._hintEl = document.getElementById('city-hint');
@@ -407,6 +429,31 @@ class CityEngine {
         if (!eligible) { this.lightStones = []; return; }
         if (this.lightStones.length > 0) return;
         this.lightStones = this.lightStoneSpots.map((spot, i) => ({ id: i, spot, collected: false, respawnTimer: 0 }));
+    }
+
+    // Veios de Minério (ver comentário completo em this.oreVeinSpots no
+    // construtor) — só nasce em cidades com `hasOreVeins: true` (hoje só o
+    // Reino Anão). Chamado nos MESMOS pontos que _spawnLightStonesIfNeeded
+    // (onEnterCity/travelToCity), nunca um ciclo de vida próprio separado.
+    _spawnOreVeinsIfNeeded() {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        if (!cityDef || !cityDef.hasOreVeins) { this.oreVeins = []; return; }
+        if (this.oreVeins.length > 0) return;
+        this.oreVeins = this.oreVeinSpots.map((spot, i) => ({ id: i, spot, tier: this._rollOreTier(), collected: false, respawnTimer: 0 }));
+    }
+
+    // Sorteia o tier (1-5, ver items.js ItemDatabase.materials) de um veio
+    // ao nascer/renascer — gradiente decrescente de raridade (mesma
+    // filosofia "raro de verdade, nunca garantido" já usada em
+    // ItemFactory.generateShopInventory pra raridade de equipamento),
+    // nunca uniforme entre os 5 tiers.
+    _rollOreTier() {
+        const roll = Math.random() * 100;
+        if (roll < 55) return 1;
+        if (roll < 80) return 2;
+        if (roll < 93) return 3;
+        if (roll < 99) return 4;
+        return 5;
     }
 
     // NPC fixo no vão do portão da muralha — raio de "pin" bem pequeno, já
@@ -793,6 +840,15 @@ class CityEngine {
             return;
         }
 
+        // Veio de Minério (ver _spawnOreVeinsIfNeeded) — mesmo fluxo de
+        // aproximação física do bloco de Pedra de Luz acima, reaproveitado
+        // em vez de duplicado.
+        const vein = this._oreVeinAtPoint(x, y);
+        if (vein) {
+            this._approachAndCollectOre(vein);
+            return;
+        }
+
         // Estruturas abrem na hora do clique — diferente de NPCs/Pedras de
         // Luz (que continuam exigindo aproximação física acima). Pedido
         // explícito: "Estruturas: CLICK → INTERAÇÃO IMEDIATA / NPCs: CLICK →
@@ -1000,6 +1056,96 @@ class CityEngine {
         if (have >= 5) this.lightStones.forEach(s => { s.collected = true; s.respawnTimer = Infinity; });
     }
 
+    // Posição de tela de um Veio de Minério — mesma convenção de
+    // _lightStonePos acima, reaproveitada.
+    _oreVeinPos(vein) {
+        const w = this._worldWidth(), h = window.Engine.height;
+        const scale = this._cityScale(h);
+        return { x: vein.spot.xFrac * w, y: this._horizon(h) + vein.spot.rowOffset * scale };
+    }
+
+    // Veio de Minério mais próximo do clique — mesma ideia de
+    // _lightStoneAtPoint acima.
+    _oreVeinAtPoint(x, y) {
+        const radius = 30 * this._cityScale(window.Engine.height);
+        let closest = null, closestDist = radius;
+        for (const vein of this.oreVeins) {
+            if (vein.collected) continue;
+            const pos = this._oreVeinPos(vein);
+            const d = Math.hypot(pos.x - x, pos.y - y);
+            if (d <= closestDist) { closest = vein; closestDist = d; }
+        }
+        return closest;
+    }
+
+    // Manda o jogador andar até perto do veio clicado — mesma ideia de
+    // _approachAndCollectStone.
+    _approachAndCollectOre(vein) {
+        if (this._pendingCollectOre === vein) return;
+        this._pendingCollectOre = vein;
+        const veinPos = this._oreVeinPos(vein);
+        const dir = (veinPos.x >= this.player.x) ? -1 : 1;
+        const pos = this._safeApproachPoint(veinPos.x, veinPos.y, dir, 34);
+        this._setPlayerDestination(pos.x, pos.y);
+    }
+
+    // Chamado a cada frame (ver update()) — mesmo padrão de
+    // _updatePendingCollectStone.
+    _updatePendingCollectOre() {
+        if (!this._pendingCollectOre) return;
+        const vein = this._pendingCollectOre;
+        const stillExists = this.oreVeins.includes(vein) && !vein.collected;
+        if (!stillExists) { this._pendingCollectOre = null; return; }
+
+        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
+        if (!arrived) return;
+
+        this._pendingCollectOre = null;
+        const pos = this._oreVeinPos(vein);
+        if (this._distanceTo(pos) > 60) return; // desviado no meio do caminho, desiste
+        this._collectOreVein(vein);
+    }
+
+    // Coleta de verdade: 1-3 unidades da matéria-prima correspondente ao
+    // `tier` sorteado do veio (ver items.js ItemDatabase.materials/
+    // ItemFactory.createMaterial), respeitando `inventoryCapacity` (mesmo
+    // cuidado já usado pelo loot de inimigo derrotado, ver ui.js
+    // showBattleResults "Mochila cheia") — nunca sobrescreve/ignora o
+    // limite normal da mochila só porque é um recurso de mundo.
+    _collectOreVein(vein) {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        const materialPool = CityEngine.ORE_TIER_MATERIAL[vein.tier];
+        const materialId = materialPool[Utils.randomInt(0, materialPool.length - 1)];
+        const template = ItemDatabase.materials[materialId];
+        const amount = Utils.randomInt(1, 3);
+        let gained = 0;
+        for (let i = 0; i < amount; i++) {
+            if (p.inventory.length >= p.inventoryCapacity) break;
+            p.inventory.push(ItemFactory.createMaterial(materialId));
+            gained++;
+        }
+        vein.collected = true;
+        // Mesma janela de tempo (50-100s) que a Pedra de Luz usa pra
+        // respawn — mantém o mesmo ritmo de exploração já testado.
+        vein.respawnTimer = Utils.randomFloat(50, 100);
+
+        const pos = this._oreVeinPos(vein);
+        const tierColors = { 1: '#a8a8a8', 2: '#c8905a', 3: '#88ccee', 4: '#b088ee', 5: '#ffd85a' };
+        const glowColor = tierColors[vein.tier] || '#a8a8a8';
+        if (window.GFX) {
+            window.GFX.spawnParticles(pos.x, pos.y - 10, glowColor, 16, 4, 3);
+            if (gained > 0) window.GFX.spawnText(pos.x, pos.y - 40, `+${gained} ${template.name}`, glowColor, false);
+        }
+        if (window.AudioManager) window.AudioManager.playLightPickup();
+        if (gained > 0) {
+            this._toast(`Você extrai ${gained}x ${template.name} do veio.`, 'success');
+            window.SaveManager.save(window.Engine.state);
+        } else {
+            this._toast('Mochila cheia! Não há espaço pra guardar o minério.', 'error');
+        }
+    }
+
     // Decrementa o respawn de cada pedra já coletada (ver update()) e a
     // faz reaparecer na MESMA posição — só se o jogador ainda precisar dela
     // (ritual ainda incompleto, nenhuma Linhagem despertada nesse meio-tempo).
@@ -1013,6 +1159,21 @@ class CityEngine {
                 const rp = p ? p.ritualProgress.luz : null;
                 const stillEligible = p && !p.lineage && (!rp || rp.sacredFragments < 5);
                 if (stillEligible) stone.collected = false;
+            }
+        }
+    }
+
+    // Decrementa o respawn de cada veio já minerado e o faz reaparecer na
+    // MESMA posição, com um `tier` NOVO sorteado (ver _rollOreTier) — a
+    // recompensa varia a cada ciclo, mesmo padrão de _updateLightStones.
+    _updateOreVeins(dt) {
+        if (this.oreVeins.length === 0) return;
+        for (const vein of this.oreVeins) {
+            if (!vein.collected) continue;
+            vein.respawnTimer -= dt;
+            if (vein.respawnTimer <= 0) {
+                vein.collected = false;
+                vein.tier = this._rollOreTier();
             }
         }
     }
@@ -1328,8 +1489,13 @@ class CityEngine {
         // cidade de chegada.
         this.lightStones = [];
         this._pendingCollectStone = null;
+        // Veios de Minério (ver _spawnOreVeinsIfNeeded) — mesma razão do
+        // resto do ambiente acima.
+        this.oreVeins = [];
+        this._pendingCollectOre = null;
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
+        this._spawnOreVeinsIfNeeded();
 
         // Troca o MOOD da trilha ambiente pra da nova cidade (ver
         // audio.js CITY_MUSIC_MOODS) — startAmbientMusic() é um no-op se já
@@ -1363,6 +1529,8 @@ class CityEngine {
         this._updatePendingTalk();
         this._updatePendingCollectStone();
         this._updateLightStones(dt);
+        this._updatePendingCollectOre();
+        this._updateOreVeins(dt);
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
         // continuar simulando o passeio de alguém que ninguém vê.
@@ -1456,8 +1624,15 @@ class CityEngine {
         this.lightStones = [];
         this._pendingCollectStone = null;
 
+        // Veios de Minério (ver _spawnOreVeinsIfNeeded) — mesmo motivo do
+        // campo acima: um novo dia sorteia uma leva nova, nunca "atravessa"
+        // congelada.
+        this.oreVeins = [];
+        this._pendingCollectOre = null;
+
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
+        this._spawnOreVeinsIfNeeded();
 
         // Missões Secundárias (ver quests.js) — falha qualquer missão ativa
         // cujo prazo tenha vencido; o quadro da cidade também sorteia uma
@@ -2243,6 +2418,9 @@ class CityEngine {
             // jogador precisa poder ficar tanto atrás quanto na frente dele
             // dependendo de quem está mais "embaixo" na tela.
             ...this.lightStones.filter(s => !s.collected).map(s => ({ y: this._lightStonePos(s).y, draw: () => this._drawLightStone(ctx, s) })),
+            // Veios de Minério (ver _spawnOreVeinsIfNeeded) — mesmo
+            // ordenamento por profundidade que as Pedras de Luz acima.
+            ...this.oreVeins.filter(v => !v.collected).map(v => ({ y: this._oreVeinPos(v).y, draw: () => this._drawOreVein(ctx, v) })),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);
@@ -2398,6 +2576,54 @@ class CityEngine {
         ctx.beginPath();
         ctx.arc(pos.x, pos.y - r * 0.5, r * 0.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+    }
+
+    // Veio de Minério (Reino Anão) — mesma estrutura de _drawLightStone
+    // acima (rocha + brilho pulsante, sem bake), mas com uma silhueta
+    // maior e mais "achatada" (um afloramento de rocha, não uma pedra
+    // solta) e a cor do brilho variando pelo `tier` sorteado (ver
+    // CityEngine.ORE_TIER_MATERIAL) — cinza opaco pro minério comum até
+    // dourado pro Adamante Anão, dando uma pista visual de valor antes
+    // mesmo de clicar.
+    _drawOreVein(ctx, vein) {
+        const h = window.Engine.height;
+        const pos = this._oreVeinPos(vein);
+        const scale = this._cityScale(h);
+        const t = performance.now() * 0.0025;
+        const pulse = 0.6 + Math.sin(t + vein.id * 1.7) * 0.4;
+        const r = 11 * scale;
+        const tierColors = { 1: '170,170,170', 2: '220,150,90', 3: '140,210,240', 4: '190,140,240', 5: '255,220,110' };
+        const rgb = tierColors[vein.tier] || tierColors[1];
+
+        ctx.save();
+        const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, r * 2.6);
+        glow.addColorStop(0, `rgba(${rgb},${0.45 * pulse})`);
+        glow.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, r * 2.6, 0, Math.PI * 2); ctx.fill();
+
+        // Afloramento de rocha — mais largo/baixo que a Pedra de Luz, como
+        // um pedaço de parede mineral saindo do chão.
+        ctx.fillStyle = '#4a4650';
+        ctx.beginPath();
+        ctx.moveTo(pos.x - r * 1.3, pos.y);
+        ctx.lineTo(pos.x - r * 0.8, pos.y - r * 0.55);
+        ctx.lineTo(pos.x - r * 0.1, pos.y - r * 0.85);
+        ctx.lineTo(pos.x + r * 0.7, pos.y - r * 0.5);
+        ctx.lineTo(pos.x + r * 1.3, pos.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Veios minerais visíveis na rocha, na cor do tier.
+        ctx.strokeStyle = `rgba(${rgb},${0.75 + pulse * 0.25})`;
+        ctx.lineWidth = 2 * scale;
+        ctx.beginPath();
+        ctx.moveTo(pos.x - r * 0.7, pos.y - r * 0.1);
+        ctx.lineTo(pos.x - r * 0.2, pos.y - r * 0.5);
+        ctx.moveTo(pos.x + r * 0.1, pos.y - r * 0.2);
+        ctx.lineTo(pos.x + r * 0.6, pos.y - r * 0.55);
+        ctx.stroke();
         ctx.restore();
     }
 
@@ -2987,6 +3213,16 @@ class CityEngine {
     // quanto por _makeCaravanTraveler (posiciona o NPC exatamente dentro do
     // vão), pra nunca dessincronizar visual e posição de interação.
     static get GATE_XFRAC() { return 0.965; }
+
+    // Mapa tier→id(s) de material (ver items.js ItemDatabase.materials/
+    // _collectOreVein acima) — um veio guarda o TIER sorteado (número), não
+    // o id do template diretamente. Tier 2 lista DOIS materiais (Ferro e
+    // Carvão) — sem isso, Carvão nunca seria minerável em lugar nenhum do
+    // jogo (nenhum outro sistema o produz), um recurso cadastrado e
+    // completamente inalcançável.
+    static get ORE_TIER_MATERIAL() {
+        return { 1: ['common_ore'], 2: ['iron_ore', 'coal'], 3: ['steel_ingot'], 4: ['arcane_crystal'], 5: ['dwarven_adamant'] };
+    }
 
     // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —
     // nunca revelam mecanismos de jogo, só reagem à fama (vitórias) do
