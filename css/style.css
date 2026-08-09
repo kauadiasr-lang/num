@@ -1113,6 +1113,38 @@ html, body {
        original continua intacto. */
     .shop-item-card { flex-direction: column; align-items: stretch; gap: 8px; }
     .shop-item-card button { width: 100%; white-space: normal; }
+    /* Bug de enquadramento mobile: seção de reparo do Ferreiro/Armeiro é
+       flex row com justify-content:space-between — o texto de status e o
+       botão "Reparar Equipamento" disputavam a mesma linha estreita e o
+       botão cortava (mesma causa-raiz do .shop-item-card acima). */
+    #shop-repair-section { flex-direction: column; align-items: stretch; }
+    #btn-repair-all { width: 100%; white-space: normal; }
+    /* Bug de enquadramento mobile: tabelas do Guia do Jogo (.guide-table)
+       têm cabeçalho `white-space:nowrap` — em telas estreitas isso força
+       a coluna a ficar mais larga que o painel, e o conteúdo só aparece
+       rolando horizontalmente dentro de .guide-table-wrap (scroll real,
+       mas sem nenhuma pista visual — lê como texto cortado/corrompido).
+       Deixando o cabeçalho quebrar linha igual ao corpo da tabela, elimina
+       a maior parte da necessidade de rolagem horizontal nessa largura. */
+    .guide-table th { white-space: normal; }
+    .guide-table { font-size: 0.72rem; }
+    .guide-table th, .guide-table td { padding: 5px 5px; }
+    /* Tabelas largas de verdade (ex: Magias, 6 colunas) continuam
+       precisando de rolagem horizontal mesmo com o cabeçalho quebrando —
+       sem nenhuma pista visual isso lê como conteúdo cortado/quebrado, não
+       como "role pro lado". Sombra de rolagem só-CSS (background-attachment
+       local/scroll) some sozinha quando não há mais o que rolar em cada
+       lado, sem precisar de JS pra medir scrollWidth. */
+    .guide-table-wrap {
+        background:
+            linear-gradient(to right, var(--color-panel) 30%, rgba(0,0,0,0)) left,
+            linear-gradient(to left, var(--color-panel) 30%, rgba(0,0,0,0)) right,
+            linear-gradient(to right, rgba(212,175,55,0.55), rgba(212,175,55,0) 70%) left,
+            linear-gradient(to left, rgba(212,175,55,0.55), rgba(212,175,55,0) 70%) right;
+        background-repeat: no-repeat;
+        background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
+        background-attachment: local, local, scroll, scroll;
+    }
 }
 
 /* ==========================================================================
