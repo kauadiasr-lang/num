@@ -144,6 +144,10 @@ class UIManager {
         this._previewRAFId = null;
 
         this.currentShopItems = [];
+        // Mega Atualização item 14: aba ativa do Banco (ver openBank/
+        // selectBankTab) — só estado de UI, sempre reseta pra "gold" ao
+        // abrir a tela, nunca persistido no save.
+        this._bankActiveTab = 'gold';
 
         this.initEventListeners();
     }
@@ -233,6 +237,16 @@ class UIManager {
         document.getElementById('btn-close-guide').addEventListener('click', () => window.GuideSystem.close());
         document.getElementById('btn-bank-deposit').addEventListener('click', () => this.bankDeposit());
         document.getElementById('btn-bank-withdraw').addEventListener('click', () => this.bankWithdraw());
+        // Mega Atualização item 14/16: abas Dinheiro/Itens (padrão visual
+        // reaproveitado do Guia do Jogo, ver guide-tabs em guide.js) +
+        // Depositar Tudo/Sacar Tudo, cada par operando sobre a aba ATUAL.
+        document.getElementById('bank-tabs').querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.selectBankTab(btn.dataset.banktab));
+        });
+        document.getElementById('btn-bank-deposit-all-gold').addEventListener('click', () => this.bankDepositAllGold());
+        document.getElementById('btn-bank-withdraw-all-gold').addEventListener('click', () => this.bankWithdrawAllGold());
+        document.getElementById('btn-bank-deposit-all-items').addEventListener('click', () => this.bankDepositAllItems());
+        document.getElementById('btn-bank-withdraw-all-items').addEventListener('click', () => this.bankWithdrawAllItems());
         document.getElementById('btn-respec-stats').addEventListener('click', () => this.respecStats());
 
         // --- Fechar painéis ---
@@ -2963,9 +2977,27 @@ class UIManager {
     // Ouro guardado (`bankGold`) fica fora do que o jogador "carrega" (`gold`)
     // — separado só pra dar função ao prédio; nenhuma mecânica existente
     // depende de `gold` incluir o que está no banco.
+    //
+    // Mega Atualização item 14/15/16/17: duas abas (Dinheiro/Itens, ver
+    // index.html bank-tabs) reaproveitando o padrão visual do Guia do Jogo.
+    // `this._bankActiveTab` (inicializado no constructor) só controla QUAL
+    // conteúdo está visível nesta sessão de UI — não é persistido (sempre
+    // abre em "Dinheiro", comportamento idêntico ao Guia, que também
+    // sempre abre na primeira aba).
     openBank() {
-        this.updateBankScreen();
+        this.selectBankTab('gold');
         this.showScreen('screen-bank');
+    }
+
+    selectBankTab(tabId) {
+        this._bankActiveTab = tabId;
+        document.getElementById('bank-tabs').querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.banktab === tabId);
+        });
+        document.getElementById('bank-tab-gold').classList.toggle('hidden', tabId !== 'gold');
+        document.getElementById('bank-tab-items').classList.toggle('hidden', tabId !== 'items');
+        if (tabId === 'gold') this.updateBankScreen();
+        else this.renderBankItemsTab();
     }
 
     updateBankScreen() {
@@ -2999,6 +3031,159 @@ class UIManager {
         window.AudioManager.playConfirm();
         this.updateBankScreen();
         this.updateHubStats();
+    }
+
+    // Item 16: "Depositar Tudo"/"Sacar Tudo" da aba Dinheiro — move o
+    // TOTAL respeitando os mesmos limites do fluxo manual acima (aqui só
+    // não há limite nenhum a respeitar além de "ter alguma coisa pra
+    // mover", já que ouro não tem teto de capacidade como o inventário).
+    bankDepositAllGold() {
+        const p = window.Engine.state.player;
+        if (!p.gold || p.gold <= 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro na mão pra depositar.', 'error'); return; }
+        p.bankGold = (p.bankGold || 0) + p.gold;
+        const moved = p.gold;
+        p.gold = 0;
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.updateBankScreen();
+        this.updateHubStats();
+        if (window.MainMenu) window.MainMenu.showToast(`Depositado: ${moved}g`, 'success');
+    }
+
+    bankWithdrawAllGold() {
+        const p = window.Engine.state.player;
+        if (!p.bankGold || p.bankGold <= 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro guardado pra sacar.', 'error'); return; }
+        const moved = p.bankGold;
+        p.gold += p.bankGold;
+        p.bankGold = 0;
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.updateBankScreen();
+        this.updateHubStats();
+        if (window.MainMenu) window.MainMenu.showToast(`Sacado: ${moved}g`, 'success');
+    }
+
+    // Item 15: itens elegíveis pra depósito — só EQUIPAMENTO de verdade
+    // (arma/armadura/escudo/amuleto, `category === 'equipment'`), nunca
+    // consumíveis nem matéria-prima (ver comentário em player.js
+    // `bankItems`). `p.bankItems` sem teto de propósito (ver mesmo
+    // comentário) — só o INVENTÁRIO tem capacidade limitada, então só a
+    // grade da Mochila (esquerda) mostra slots vazios até `inventoryCapacity`;
+    // a grade do Banco (direita) só mostra os itens que já estão lá.
+    renderBankItemsTab() {
+        const p = window.Engine.state.player;
+        const invGrid = document.getElementById('bank-inventory-grid');
+        const bankGrid = document.getElementById('bank-items-grid');
+        const eligibleInv = p.inventory.filter(i => i.category === 'equipment');
+
+        invGrid.innerHTML = '';
+        if (eligibleInv.length === 0) {
+            invGrid.innerHTML = '<p class="bank-sub" style="grid-column:1/-1;">Nenhum equipamento na mochila pra depositar.</p>';
+        } else {
+            eligibleInv.forEach(item => invGrid.appendChild(this._buildBankItemSlot(item, 'deposit')));
+        }
+
+        bankGrid.innerHTML = '';
+        if (p.bankItems.length === 0) {
+            bankGrid.innerHTML = '<p class="bank-sub" style="grid-column:1/-1;">Nada guardado ainda.</p>';
+        } else {
+            p.bankItems.forEach(item => bankGrid.appendChild(this._buildBankItemSlot(item, 'withdraw')));
+        }
+    }
+
+    // Slot compartilhado pelas duas grades da aba Itens — só muda a ação
+    // do badge (📥 depositar / 📤 sacar) e pra qual função ele chama.
+    _buildBankItemSlot(item, direction) {
+        const slot = document.createElement('div');
+        slot.className = 'bag-item';
+        slot.innerText = this._itemIcon(item);
+        slot.style.borderColor = item.rarity.color;
+        slot.style.color = item.rarity.color;
+        slot.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
+            ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
+        this.attachTooltip(slot, item);
+
+        const actionBtn = document.createElement('div');
+        actionBtn.className = 'bag-item-sell';
+        if (direction === 'deposit') {
+            actionBtn.innerText = '📥';
+            actionBtn.title = 'Depositar no Banco';
+            actionBtn.onclick = (e) => { e.stopPropagation(); this.bankDepositItem(item.uuid); };
+        } else {
+            actionBtn.innerText = '📤';
+            actionBtn.title = 'Sacar pra Mochila';
+            actionBtn.onclick = (e) => { e.stopPropagation(); this.bankWithdrawItem(item.uuid); };
+        }
+        slot.appendChild(actionBtn);
+        return slot;
+    }
+
+    // Item 15/17: mover é sempre SPLICE de um array + PUSH no outro — nunca
+    // clona/duplica o objeto, então o mesmo item nunca existe nos dois
+    // lugares ao mesmo tempo (a checagem de exploit de duplicação do item
+    // 22 da diretiva foi justamente procurar por isso).
+    bankDepositItem(uuid) {
+        const p = window.Engine.state.player;
+        const idx = p.inventory.findIndex(i => i.uuid === uuid);
+        if (idx === -1) return; // já foi movido por outro clique/tab duplo
+        const [item] = p.inventory.splice(idx, 1);
+        p.bankItems.push(item);
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.renderBankItemsTab();
+    }
+
+    bankWithdrawItem(uuid) {
+        const p = window.Engine.state.player;
+        if (p.inventory.length >= p.inventoryCapacity) {
+            window.AudioManager.playError();
+            if (window.MainMenu) window.MainMenu.showToast('Mochila cheia — abra espaço antes de sacar.', 'error');
+            return;
+        }
+        const idx = p.bankItems.findIndex(i => i.uuid === uuid);
+        if (idx === -1) return;
+        const [item] = p.bankItems.splice(idx, 1);
+        p.inventory.push(item);
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.renderBankItemsTab();
+    }
+
+    // Item 16: "Depositar Tudo" da aba Itens — move TODO equipamento
+    // elegível da mochila pro banco de uma vez (nunca toca consumíveis/
+    // matéria-prima, que continuam só na mochila).
+    bankDepositAllItems() {
+        const p = window.Engine.state.player;
+        const eligible = p.inventory.filter(i => i.category === 'equipment');
+        if (eligible.length === 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Nenhum equipamento na mochila pra depositar.', 'error'); return; }
+        p.inventory = p.inventory.filter(i => i.category !== 'equipment');
+        p.bankItems.push(...eligible);
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.renderBankItemsTab();
+        if (window.MainMenu) window.MainMenu.showToast(`${eligible.length} item(ns) depositado(s).`, 'success');
+    }
+
+    // Item 16: "Sacar Tudo" da aba Itens — move o que COUBER na mochila e
+    // avisa claramente quando não coube tudo (nunca falha silenciosamente
+    // nem descarta o que não coube — o restante simplesmente continua no
+    // banco, exatamente como antes de clicar).
+    bankWithdrawAllItems() {
+        const p = window.Engine.state.player;
+        if (p.bankItems.length === 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Nada guardado no banco pra sacar.', 'error'); return; }
+        const freeSlots = p.inventoryCapacity - p.inventory.length;
+        if (freeSlots <= 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Mochila cheia — abra espaço antes de sacar.', 'error'); return; }
+        const moving = p.bankItems.splice(0, freeSlots);
+        p.inventory.push(...moving);
+        window.SaveManager.save(window.Engine.state);
+        window.AudioManager.playConfirm();
+        this.renderBankItemsTab();
+        const remaining = p.bankItems.length;
+        if (remaining > 0) {
+            if (window.MainMenu) window.MainMenu.showToast(`${moving.length} item(ns) sacado(s). ${remaining} não coube(ram) — mochila cheia.`, 'info');
+        } else {
+            if (window.MainMenu) window.MainMenu.showToast(`${moving.length} item(ns) sacado(s).`, 'success');
+        }
     }
 
     // --- CASA DO JOGADOR ---

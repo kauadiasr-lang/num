@@ -455,6 +455,17 @@ class Player extends Entity {
         this.inventory = [];
         this.inventoryCapacity = 20; // Expansível com mochilas/força no futuro
 
+        // Mega Atualização item 14/15: Depósito de Itens do Banco — SEM
+        // limite de capacidade de propósito (a diretiva pede que equipamento
+        // guardado "nunca desapareça"; um teto aqui só recriaria o mesmo
+        // problema de espaço que a Mochila já tem, contrariando o ponto do
+        // Banco existir). Só EQUIPAMENTO (arma/armadura/escudo/amuleto —
+        // `category === 'equipment'`) pode ser depositado, nunca consumíveis
+        // nem matéria-prima (ver ui.js bankDepositItem) — a diretiva descreve
+        // o depósito em termos de "armas, armaduras, itens especiais,
+        // equipamentos raros", nunca poções ou minério.
+        this.bankItems = [];
+
         this.statPoints = 0;   // Pontos de atributo por nível (distribuição manual)
         this.skillPoints = 0;  // Pontos de talento por nível
         this.learnedSkills = []; // IDs das habilidades aprendidas

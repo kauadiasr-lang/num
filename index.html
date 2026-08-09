@@ -633,28 +633,57 @@
             </div>
 
             <!-- TELA: BANCO -->
+            <!-- Mega Atualização item 14/15/16: Banco com duas abas
+                 (Dinheiro / Depósito de Itens), reaproveitando o MESMO
+                 padrão visual do Guia do Jogo (guide-tabs/guide-tab-btn, ver
+                 css/style.css e js/guide.js) em vez de inventar um sistema
+                 de abas paralelo — só uma segunda `nav` com a mesma classe,
+                 alternando qual `.bank-tab-content` fica visível. -->
             <div id="screen-bank" class="screen">
-                <div class="panel bank-panel">
+                <div class="panel bank-panel bank-panel-wide">
                     <button class="btn-close" id="btn-close-bank">X</button>
                     <div class="panel-watermark">🏛️</div>
                     <h2 class="panel-title">Banco</h2>
-                    <p class="bank-sub">Guarde seu ouro em segurança — o que está no banco não pode ser roubado na cidade, e ainda rende 2% de juros a cada amanhecer.</p>
-                    <div class="bank-balances">
-                        <div class="bank-balance-card">
-                            <span class="bank-balance-label">Na Mão</span>
-                            <span id="bank-carried-gold" class="bank-balance-value highlight-gold">0</span>
+                    <nav id="bank-tabs" class="guide-tabs">
+                        <button class="guide-tab-btn" data-banktab="gold">💰 Dinheiro</button>
+                        <button class="guide-tab-btn" data-banktab="items">🎒 Depósito de Itens</button>
+                    </nav>
+
+                    <div id="bank-tab-gold" class="bank-tab-content">
+                        <p class="bank-sub">Guarde seu ouro em segurança — o que está no banco não pode ser roubado na cidade, e ainda rende 2% de juros a cada amanhecer.</p>
+                        <div class="bank-balances">
+                            <div class="bank-balance-card">
+                                <span class="bank-balance-label">Na Mão</span>
+                                <span id="bank-carried-gold" class="bank-balance-value highlight-gold">0</span>
+                            </div>
+                            <div class="bank-balance-card">
+                                <span class="bank-balance-label">Guardado</span>
+                                <span id="bank-stored-gold" class="bank-balance-value highlight-gold">0</span>
+                            </div>
                         </div>
-                        <div class="bank-balance-card">
-                            <span class="bank-balance-label">Guardado</span>
-                            <span id="bank-stored-gold" class="bank-balance-value highlight-gold">0</span>
+                        <div class="bank-actions">
+                            <input type="number" id="bank-amount" class="bank-amount-input" min="1" placeholder="Quantidade de ouro">
+                            <div class="bank-buttons">
+                                <button id="btn-bank-deposit" class="btn primary">Depositar</button>
+                                <button id="btn-bank-withdraw" class="btn">Sacar</button>
+                            </div>
+                            <div class="bank-buttons">
+                                <button id="btn-bank-deposit-all-gold" class="btn primary">Depositar Tudo</button>
+                                <button id="btn-bank-withdraw-all-gold" class="btn">Sacar Tudo</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="bank-actions">
-                        <input type="number" id="bank-amount" class="bank-amount-input" min="1" placeholder="Quantidade de ouro">
+
+                    <div id="bank-tab-items" class="bank-tab-content hidden">
+                        <p class="bank-sub">Armas, armaduras e outros equipamentos guardados aqui NUNCA desaparecem — mesmo acima do seu nível atual. Ideal pra planejar builds futuras.</p>
                         <div class="bank-buttons">
-                            <button id="btn-bank-deposit" class="btn primary">Depositar</button>
-                            <button id="btn-bank-withdraw" class="btn">Sacar</button>
+                            <button id="btn-bank-deposit-all-items" class="btn primary">Depositar Tudo</button>
+                            <button id="btn-bank-withdraw-all-items" class="btn">Sacar Tudo</button>
                         </div>
+                        <h3 class="shop-section-title" style="margin-top:14px;">Sua Mochila</h3>
+                        <div id="bank-inventory-grid" class="bag-grid"></div>
+                        <h3 class="shop-section-title" style="margin-top:14px;">Guardado no Banco</h3>
+                        <div id="bank-items-grid" class="bag-grid"></div>
                     </div>
                 </div>
             </div>

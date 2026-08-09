@@ -1184,6 +1184,12 @@ html, body {
 
 /* --- Banco --- */
 .bank-panel { width: 90%; max-width: 480px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
+/* Mega Atualização item 14: a aba de Itens precisa de espaço pra um grid de
+   equipamento (ver .bag-grid, já usado pela Mochila) — a aba de Dinheiro
+   continua com o mesmo layout centralizado de antes, só que dentro de um
+   painel mais largo. */
+.bank-panel-wide { max-width: 640px; }
+.bank-tab-content { text-align: center; }
 .bank-sub { color: var(--color-marble-dark); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5; }
 .bank-balances { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
 .bank-balance-card {
