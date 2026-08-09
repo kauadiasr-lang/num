@@ -9,6 +9,17 @@
  * aqui, sem tocar em battle.js.
  */
 
+// Identidade visual por TIPO de dano contínuo (dot.type) — sangramento,
+// veneno e queimadura ficavam todos com o mesmo ícone/cor genéricos de
+// "sangramento" na UI de status e na mensagem de tique (bug de auditoria
+// visual: efeitos diferentes pareciam idênticos ao jogador). Usado por
+// battle.js (applyBleedTick) e ui.js (_buildStatusIconsHtml).
+const DOT_VISUALS = {
+    sangramento: { icon: '🩸', color: '#c0392b', label: 'sangramento' },
+    veneno: { icon: '☠️', color: '#7fbf3f', label: 'veneno' },
+    queimadura: { icon: '🔥', color: '#ff5a1e', label: 'queimadura' }
+};
+
 const ENCHANTMENTS = {
     fogo: {
         id: 'fogo', name: 'Fogo', color: '#ff5a1e', appliesTo: ['weapon'],
@@ -227,6 +238,7 @@ const ENCHANTMENTS = {
     }
 };
 window.ENCHANTMENTS = ENCHANTMENTS;
+window.DOT_VISUALS = DOT_VISUALS;
 
 window.EnchantmentSystem = {
     // Só pode encantar itens de equipamento reais (nunca consumíveis), o

@@ -1200,7 +1200,14 @@ class UIManager {
         if (!state) return '';
         const icons = [];
         if (state.bleedTurns > 0) {
-            icons.push(`<span class="status-icon" title="Sangramento contínuo: ${state.bleedDamage} de dano por ${state.bleedTurns} turno(s)">🩸${state.bleedTurns}</span>`);
+            // Item de auditoria visual: sangramento/veneno/queimadura
+            // dividem os mesmos bleedTurns/bleedDamage, mas antes SEMPRE
+            // mostravam o mesmo ícone 🩸 vermelho — confundindo, por
+            // exemplo, Veneno com Sangramento. dotType (ver battle.js) diz
+            // qual efeito é de verdade; DOT_VISUALS (enchantments.js) dá a
+            // cada um seu próprio ícone e cor.
+            const visuals = (window.DOT_VISUALS && window.DOT_VISUALS[state.dotType]) || window.DOT_VISUALS.sangramento;
+            icons.push(`<span class="status-icon" style="color:${visuals.color}" title="Dano contínuo (${visuals.label}): ${state.bleedDamage} de dano por ${state.bleedTurns} turno(s)">${visuals.icon}${state.bleedTurns}</span>`);
         }
         if (state.stunned) {
             icons.push(`<span class="status-icon" title="Atordoado: perde a próxima ação">💫</span>`);
@@ -4033,7 +4040,7 @@ class UIManager {
     // usado pelos prédios da Cidade (ver city.js `icon:`), em vez de inventar
     // um sistema de sprites novo só pra isso.
     _itemIcon(item) {
-        if (item.category === 'consumable') return '🧪';
+        if (item.category === 'consumable') return this._consumableIcon(item);
         if (item.category === 'material') return '⛏️';
         // Bug de auditoria (visual): "ícones inconsistentes" — toda arma
         // corpo-a-corpo (adaga, machado, martelo, lança, rapieira, chicote,
@@ -4059,6 +4066,46 @@ class UIManager {
             [SLOTS.LEGS]: '👖', [SLOTS.FEET]: '👢', [SLOTS.AMULET]: '📿', [SLOTS.RING]: '💍'
         };
         return icons[item.slot] || '❔';
+    }
+
+    // Ícone de consumível, por item específico (mais variedade) com
+    // fallback por consumableCategory. Bug de auditoria visual reportado
+    // pelo jogador: TODO consumível — poção, bandagem, comida, bebida —
+    // caía no mesmo ícone genérico de tubo de ensaio 🧪; comida com cara
+    // de laboratório não fazia sentido, e a categoria toda perdia
+    // identidade. Segue o mesmo padrão de mapa-por-id já usado acima pras
+    // armas (weaponIcons).
+    _consumableIcon(item) {
+        const byId = {
+            c_01: '🧪', c_02: '⚗️', // poções de vida (comum / maior)
+            c_03: '🔷', // poção de mana
+            c_04: '🩹', c_16: '🩹', // bandagens (simples / reforçada)
+            c_17: '⚕️', // bandagem medicinal (topo de linha)
+            c_18: '🍞', // pão de taverna
+            c_19: '🍖', // carne assada
+            c_20: '🍺', // cerveja
+            c_21: '🍷', // vinho
+            c_05: '🍯', // hidromel forte
+            c_06: '🍗', // banquete anão
+            c_07: '🥓', // carne defumada
+            c_22: '🌿', // pão de ervas élfico
+            c_23: '🍵', // chá da lua élfica
+            c_24: '🍗', // carne de javali
+            c_25: '🍻', // cerveja negra orc
+            hs_01: '🍲', // guisado do viajante
+            hs_02: '🍷', // vinho da casa
+            hs_03: '🐗', // carne de javali negro
+            hs_04: '🥃', // punho de ferro
+            hs_05: '🌙', // infusão da lua cheia
+            hs_06: '🍇', // fruta da seiva ancestral
+            hs_07: '🍲', // ensopado de ferro
+            hs_08: '🍯'  // hidromel negro anão
+        };
+        if (item.id && byId[item.id]) return byId[item.id];
+        const byCategory = {
+            health: '🧪', mana: '🔷', bandage: '🩹', food: '🍽️', drink: '🍶'
+        };
+        return byCategory[item.consumableCategory] || '🧪';
     }
 
     hideTooltip() {

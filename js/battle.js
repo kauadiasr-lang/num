@@ -40,8 +40,8 @@ class BattleSystem {
         // encantamento permanente do item (ver executeAttack/
         // _getEffectiveEnchantment) — sempre reseta pra null/0 no fim da
         // duração, nunca ficando "vazado" pra fora da batalha (não é salvo).
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -335,6 +335,14 @@ class BattleSystem {
                 // Item 12 da auditoria: `ignoresArmor` (Veneno) agora tem
                 // efeito real de verdade — ver applyBleedTick.
                 defenderState.bleedIgnoresArmor = !!enchantEff.dot.ignoresArmor;
+                // Bug de auditoria visual: sangramento/veneno/queimadura
+                // dividiam os MESMOS bleedTurns/bleedDamage e por isso
+                // pareciam idênticos na UI (mesmo ícone, mesma cor, mesma
+                // mensagem "sofre X de dano por sangramento!" mesmo quando a
+                // fonte era Veneno). dotType guarda qual efeito é de
+                // verdade, pra applyBleedTick/_buildStatusIconsHtml
+                // mostrarem cada um com sua própria identidade visual.
+                defenderState.dotType = enchantEff.dot.type;
             }
             if (enchantEff.stunChance && Utils.chance(this._precisionEffectChance(enchantEff.stunChance, attacker) * (1 - negResist))) defenderState.stunned = true;
             if (enchantEff.slowChance && Utils.chance(this._precisionEffectChance(enchantEff.slowChance, attacker) * (1 - negResist))) defenderState.justRan = true; // reaproveita a penalidade de esquiva já existente como "lentidão"
@@ -471,14 +479,20 @@ class BattleSystem {
         target.currentHp = Utils.clamp(target.currentHp - tickDamage, 0, target.derivedStats.maxHp);
         state.bleedTurns--;
 
+        // Item de auditoria visual: partícula/mensagem seguem o dotType real
+        // (sangramento/veneno/queimadura) em vez de sempre mostrar sangue
+        // vermelho e "de dano por sangramento" mesmo quando a fonte era
+        // outra — ver DOT_VISUALS em enchantments.js.
+        const visuals = (window.DOT_VISUALS && window.DOT_VISUALS[state.dotType]) || window.DOT_VISUALS.sangramento;
+
         const x = window.GFX.getEntityX(isPlayerTarget, window.innerWidth);
         const y = window.innerHeight / 2;
         if (window.GFX) {
             window.GFX.spawnText(x, y - 80, `-${tickDamage}`, '#ff3333', false);
-            window.GFX.spawnParticles(x, y, '#8b0000', 10, 3, 3);
+            window.GFX.spawnParticles(x, y, visuals.color, 10, 3, 3);
         }
 
-        return `<span style="color:#ff5555">${target.name} sofre ${tickDamage} de dano por sangramento!</span>`;
+        return `<span style="color:${visuals.color}">${target.name} sofre ${tickDamage} de dano por ${visuals.label}!</span>`;
     }
 
     // Contagem regressiva da Maldição Sanguínea (item 9 da auditoria —
@@ -840,6 +854,7 @@ class BattleSystem {
                     this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
                     this.enemyState.bleedTurns = skill.duration;
                     this.enemyState.bleedDamage = Math.max(1, Math.floor(this.player.getTotalStat('str') * 0.8));
+                    this.enemyState.dotType = 'sangramento';
                     // Item 12 da auditoria: um corte de habilidade é mitigado
                     // por Defesa como qualquer dano físico — nunca deixa
                     // `bleedIgnoresArmor` travado em `true` de um Veneno
@@ -1064,6 +1079,7 @@ class BattleSystem {
             this.player.currentHp = Utils.clamp(this.player.currentHp - mitigatedDamage, 0, this.player.derivedStats.maxHp);
             this.playerState.bleedTurns = skill.duration;
             this.playerState.bleedDamage = Math.max(1, Math.floor(this.enemy.getTotalStat('str') * 0.8));
+            this.playerState.dotType = 'sangramento';
             // Item 12 da auditoria: mesmo motivo do ramo do jogador acima.
             this.playerState.bleedIgnoresArmor = false;
             message = `<span style="color:#ff5555">${this.enemy.name} usou ${skill.name}, causando ${mitigatedDamage} de dano e sangramento!</span>`;
