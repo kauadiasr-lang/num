@@ -757,7 +757,29 @@ window.ItemFactory = {
                 const t = ItemDatabase.consumables[id];
                 return t.region === cityId && t.subShop === subShop;
             });
-            if (regional.length > 0) return regional.map(id => this.createConsumable(id));
+            if (regional.length > 0) {
+                // Bug de auditoria final do Rework da Taverna: a
+                // substituição "tudo ou nada" abaixo sempre funcionou bem
+                // pras sub-lojas de categoria única (Câmara Rúnica/Círculo
+                // de Treinamento/Ateliê — cada uma vende só UM tipo de
+                // coisa, então substituir o pool inteiro é o comportamento
+                // certo, e continua sendo). Mas a Taverna (subShop:'tavern')
+                // cobre 5 categorias (vida/mana/bandagem/comida/bebida) no
+                // MESMO subShop — qualquer cidade com só 1 item regional de
+                // comida/bebida (Orc/Elfo/Anão) perdia TODAS as poções de
+                // vida/mana e bandagens da Taverna, categorias que nunca
+                // deveriam ser tocadas. Só pra 'tavern', a substituição
+                // passa a ser POR CATEGORIA: cada categoria com item
+                // regional próprio é substituída, as demais continuam
+                // mostrando o estoque neutro normal.
+                if (subShop === 'tavern') {
+                    const neutral = allIds.filter(id => !ItemDatabase.consumables[id].region);
+                    const regionalCategories = new Set(regional.map(id => ItemDatabase.consumables[id].consumableCategory));
+                    const kept = neutral.filter(id => !regionalCategories.has(ItemDatabase.consumables[id].consumableCategory));
+                    return [...kept, ...regional].map(id => this.createConsumable(id));
+                }
+                return regional.map(id => this.createConsumable(id));
+            }
         }
         return allIds.filter(id => !ItemDatabase.consumables[id].region).map(id => this.createConsumable(id));
     },
