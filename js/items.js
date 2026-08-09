@@ -267,7 +267,19 @@ const ItemDatabase = {
         dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationDays: 1, value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 1 dia.", region: 'reino_anao', subShop: 'tavern' },
         smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern' },
         rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao', subShop: 'runes' },
-        rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' }
+        rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' },
+
+        // --- Identidade do Santuário Élfico (Rework Econômico item 10) ---
+        // Mesmo mecanismo `region`+`subShop` da Iteração 2 (ver
+        // ItemFactory.getConsumableStock) — o Ateliê Élfico SUBSTITUI o
+        // pool genérico da sua sub-loja, nunca soma. Ao contrário das
+        // runas anãs (efeito defensivo/físico, "tecnologia de forja"),
+        // os artefatos élficos afetam MANA e cura mágica — a mesma
+        // distinção de identidade pedida no item 12 ("cada cidade deve ter
+        // algo que o jogador não pode simplesmente comprar em outro
+        // lugar"), sem copiar o tema anão.
+        stardust: { id: 'c_10', name: "Poeira de Estrelas", type: 'TEMP_BUFF', statKey: 'healPowerBonusPercent', buffAmount: 12, durationDays: 1, value: 90, description: "Pó colhido sob a lua cheia de Sylvaneth — +12% de poder de cura mágica por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' },
+        clarity_crystal: { id: 'c_11', name: "Cristal de Clareza", type: 'TEMP_BUFF', statKey: 'maxMpFlat', buffAmount: 15, durationDays: 1, value: 90, description: "Cristal élfico que amplia a reserva de mana — +15 de MP máximo por 1 dia.", region: 'santuario_elfico', subShop: 'atelier' }
     },
     // Matérias-primas do Reino Subterrâneo de Kharzum (ver citydatabase.js
     // reino_anao / city.js oreVeinSpots) — a base do sistema de Forja (ver

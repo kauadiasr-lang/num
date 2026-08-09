@@ -216,10 +216,12 @@ class Entity {
         if (totalDefenseBonusPercent) defenseRating *= (1 + totalDefenseBonusPercent / 100);
         const totalDodgeBonusPercent = raceBonus('dodgeBonusPercent') + buffBonus('dodgeBonusPercent');
         if (totalDodgeBonusPercent) dodgeChance += totalDodgeBonusPercent;
-        // Bônus fixos (Banquete Anão/Runa de Força) — sem equivalente
-        // percentual nos passivos de raça/mutação, então somam direto.
+        // Bônus fixos (Banquete Anão/Runa de Força/Cristal de Clareza
+        // élfico) — sem equivalente percentual nos passivos de raça/
+        // mutação, então somam direto.
         defenseRating += buffBonus('defenseRatingFlat');
         physicalDamage += buffBonus('physicalDamageFlat');
+        maxMp += buffBonus('maxMpFlat');
 
         this.derivedStats.maxHp = maxHp;
         this.derivedStats.maxMp = maxMp;
@@ -242,7 +244,9 @@ class Entity {
         this.derivedStats.lowHpDamageBonusPercent = (mutation ? mutation.lowHpDamageBonusPercent : 0) + sec('lowHpDamageBonusPercent') + raceBonus('lowHpDamageBonusPercent');
         this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + sec('bleedResistPercent') + raceBonus('bleedResistPercent');
         this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + sec('drainOnCritPercent') + raceBonus('drainOnCritPercent');
-        this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + sec('healPowerBonusPercent') + raceBonus('healPowerBonusPercent');
+        // Poeira de Estrelas élfica (TEMP_BUFF, ver items.js) soma aqui
+        // igual às outras fontes — mesmo agregado, sem caso especial.
+        this.derivedStats.healPowerBonusPercent = (mutation ? mutation.healPowerBonusPercent : 0) + sec('healPowerBonusPercent') + raceBonus('healPowerBonusPercent') + buffBonus('healPowerBonusPercent');
         // Sorte ganha aqui uma das interações pedidas na revisão profunda
         // (item 10: "chance de evitar certos efeitos") — nunca mais dano,
         // só resistência real a atordoamento/lentidão/maldição (ver

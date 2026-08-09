@@ -242,10 +242,19 @@ class UIManager {
         document.getElementById('btn-close-ladder').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-healer').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-open-tavern-shop').addEventListener('click', () => this.openShop(null, 'Taverna', true, 'tavern'));
-        // Só existe/fica visível no Reino Anão (ver openSkillTree, que
-        // alterna a visibilidade a cada abertura conforme citydatabase.js
-        // hasRuneShop) — sub-loja de runas consumíveis de efeito fixo.
-        document.getElementById('btn-open-rune-shop').addEventListener('click', () => this.openShop(null, 'Câmara Rúnica', true, 'runes'));
+        // Botão genérico de "sub-loja mágica" (ver openSkillTree, que
+        // alterna visibilidade/rótulo a cada abertura conforme
+        // citydatabase.js hasMagicSubShop/magicSubShopId/magicSubShopLabel)
+        // — Reino Anão usa pra runas consumíveis, Santuário Élfico usa pro
+        // Ateliê Élfico (Iteração 3). Lê a config da cidade ATUAL no
+        // momento do clique (não no bind, que só roda uma vez no início do
+        // jogo) pra funcionar certo depois de qualquer viagem entre cidades.
+        document.getElementById('btn-open-rune-shop').addEventListener('click', () => {
+            const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+            const subShop = (cityDef && cityDef.magicSubShopId) || 'runes';
+            const title = (cityDef && cityDef.magicSubShopLabel) || 'Câmara Rúnica';
+            this.openShop(null, title, true, subShop);
+        });
         document.getElementById('btn-close-bank').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-house').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-halloffame').addEventListener('click', () => this.showScreen('screen-hub'));
@@ -2621,14 +2630,21 @@ class UIManager {
         const p = window.Engine.state.player;
         document.getElementById('skill-points').innerText = p.skillPoints || 0;
 
-        // Botão da Câmara Rúnica (ver citydatabase.js hasRuneShop) — só o
-        // Reino Anão o mostra. A Árvore de Talentos em si continua idêntica
-        // em toda cidade (Rework Econômico item 8: preservar mecânica sem
+        // Botão genérico de sub-loja mágica (ver citydatabase.js
+        // hasMagicSubShop/magicSubShopLabel) — cada cidade com a flag
+        // mostra seu PRÓPRIO rótulo (Reino Anão: Câmara Rúnica; Santuário
+        // Élfico: Ateliê Élfico, Iteração 3); sem a flag, some por
+        // completo. A Árvore de Talentos em si continua idêntica em toda
+        // cidade (Rework Econômico item 8: preservar mecânica sem
         // substituto melhor), o botão só ADICIONA uma sub-loja, nunca
         // remove nada.
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const runeShopBtn = document.getElementById('btn-open-rune-shop');
-        if (runeShopBtn) runeShopBtn.classList.toggle('hidden', !(cityDef && cityDef.hasRuneShop));
+        if (runeShopBtn) {
+            const show = !!(cityDef && cityDef.hasMagicSubShop);
+            runeShopBtn.classList.toggle('hidden', !show);
+            if (show) runeShopBtn.innerText = cityDef.magicSubShopLabel || '🔮 Câmara Rúnica (Runas)';
+        }
 
         p._ensureSkillLoadout();
         const limits = window.SKILL_LOADOUT_LIMITS || { common: 3, mutation: 2 };

@@ -166,6 +166,24 @@ const CityDatabase = {
         // `trinkets`, os itens "mágicos" do jogo), condizente com "melhor
         // qualidade média em amuletos, itens mágicos" pedido pelo usuário.
         specialization: ['trinkets'],
+        // Identidade econômica própria (Rework Econômico item 10): o
+        // prédio 'arcane' (que em toda outra cidade só abre a Árvore de
+        // Talentos genérica) vira o ATELIÊ ÉLFICO — mesmo mecanismo
+        // genérico `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel`
+        // criado na Iteração 2 pro Reino Anão (ver ui.js openSkillTree/
+        // btn-open-rune-shop), só trocando o rótulo/sub-loja/itens (nunca
+        // duplicando o botão ou a lógica de visibilidade — item 16 da
+        // diretiva: "reaproveite, expanda, especialize"). Vende
+        // componentes mágicos/artefatos élficos (ver items.js
+        // ItemDatabase.consumables subShop:'atelier'), nunca metalurgia —
+        // reforça a diferença de identidade com a Câmara Rúnica anã
+        // (magia arcana/encantamento vs. tecnologia de forja/runa).
+        hasMagicSubShop: true,
+        magicSubShopId: 'atelier',
+        magicSubShopLabel: '✨ Ateliê Élfico (Artefatos)',
+        buildingNames: {
+            arcane: 'Ateliê Élfico'
+        },
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — a cidade já é descrita
@@ -271,10 +289,16 @@ const CityDatabase = {
         // mas agora com um botão extra dentro da própria tela (ver
         // ui.js openSkillTree/index.html #btn-open-rune-shop) que abre a
         // sub-loja de runas consumíveis de efeito fixo (ver items.js
-        // ItemDatabase.consumables subShop:'runes'). Só o Reino Anão tem
-        // este botão visível — nas outras 3 cidades a Câmara Arcana continua
-        // exatamente como sempre foi, sem nenhum botão extra.
-        hasRuneShop: true,
+        // ItemDatabase.consumables subShop:'runes'). Mecanismo genérico
+        // `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel` (ver
+        // também santuario_elfico.hasMagicSubShop, Iteração 3) — o MESMO
+        // botão/lógica de visibilidade serve qualquer cidade com sub-loja
+        // mágica própria, só trocando rótulo/subShop/itens (item 16 da
+        // diretiva: nunca duplicar sistema). Nas outras cidades sem essa
+        // flag, a Câmara Arcana continua exatamente como sempre foi.
+        hasMagicSubShop: true,
+        magicSubShopId: 'runes',
+        magicSubShopLabel: '🔮 Câmara Rúnica (Runas)',
         // Bandidos anões (ver city.js _eventDwarfBandit/_makeBandit) —
         // "a cidade não deve ser segura" pedido explicitamente pelo
         // usuário. Entra no MESMO sorteio ponderado de eventos ambientes
