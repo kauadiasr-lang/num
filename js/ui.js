@@ -2218,9 +2218,17 @@ class UIManager {
             btn.onclick = () => {
                 const severity = btn.dataset.severity;
                 const result = window.ReputationSystem.commitTheft(p, severity);
+                optionsEl.classList.add('hidden'); // some depois de escolher — ação deliberada, não fica pedindo confirmação de novo
+                // Limite diário (ver reputation.js commitTheft/THEFTS_PER_DAY)
+                // — sem isto, o painel podia ser reaberto e clicado sem
+                // parar, virando ouro efetivamente infinito.
+                if (result.blocked) {
+                    window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Os comerciantes da cidade já estão de olho em você hoje — melhor não arriscar de novo.', 'error');
+                    return;
+                }
                 document.getElementById('shop-player-gold').innerText = p.gold;
                 this.updateHubStats(); // mantém o HUD (ouro/reputação) já corretos quando o jogador voltar ao Hub
-                optionsEl.classList.add('hidden'); // some depois de escolher — ação deliberada, não fica pedindo confirmação de novo
                 window.AudioManager.playTone(320, 'sawtooth', 0.15, 0.3);
                 if (window.MainMenu) window.MainMenu.showToast(`+${result.gold}g roubados.`, 'success');
             };

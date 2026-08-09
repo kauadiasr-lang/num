@@ -224,10 +224,33 @@ window.ReputationSystem = {
         major: { goldMin: 60, goldMax: 120, repLoss: 28, label: 'um roubo grave' }
     },
 
+    // Limite diário de roubos (Rework Econômico, item 15 — "reroll
+    // abusivo"/"exploits de dinheiro"): antes deste limite, o painel de
+    // roubo em QUALQUER loja podia ser reaberto e clicado indefinidamente
+    // — "roubo grave" sozinho rendia 60-120g por clique, sem cooldown
+    // nenhum, e a única penalidade (reputação) não tem piso e o pior efeito
+    // encontrado é só +16% de sobretaxa nas lojas (ver shopPriceModifier
+    // abaixo) — irrelevante depois de acumular ouro suficiente. Contado por
+    // `dayCount` (ver city.js advanceToNewDay, agora protegido contra spam
+    // de "dormir" por sua própria trava de 20s reais), então o limite só
+    // reseta quando um dia de verdade se passa, nunca por spam de clique.
+    THEFTS_PER_DAY: 2,
+
     commitTheft(player, severityId) {
         this._ensureFields(player);
         const severity = this.THEFT_SEVERITY[severityId];
-        if (!severity) return { gold: 0, reputationLoss: 0 };
+        if (!severity) return { gold: 0, reputationLoss: 0, blocked: false };
+
+        const dayCount = (window.City && window.City.dayCount) || 0;
+        if (player.theftDayCount !== dayCount) {
+            player.theftDayCount = dayCount;
+            player.theftsToday = 0;
+        }
+        if (player.theftsToday >= this.THEFTS_PER_DAY) {
+            return { gold: 0, reputationLoss: 0, blocked: true };
+        }
+        player.theftsToday++;
+
         const gold = Utils.randomInt(severity.goldMin, severity.goldMax);
         player.gold += gold;
         const applied = this.applyChange(player, -severity.repLoss, {
@@ -235,7 +258,7 @@ window.ReputationSystem = {
             toastMessage: `Você cometeu ${severity.label}.`
         });
         if (window.SaveManager) window.SaveManager.save(window.Engine.state);
-        return { gold, reputationLoss: applied };
+        return { gold, reputationLoss: applied, blocked: false };
     },
 
     // --- Seção 5: impacto econômico da reputação nas lojas — chamado por

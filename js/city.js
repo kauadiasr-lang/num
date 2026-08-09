@@ -1729,12 +1729,36 @@ class CityEngine {
     // plugar seu próprio "reroll de novo dia" AQUI, nunca duplicar esta
     // função em outro lugar.
     advanceToNewDay() {
+        // Trava anti-spam (Rework Econômico, item 15 — "duplicação de
+        // dinheiro"/"exploits de progressão"): antes desta trava, QUALQUER
+        // clique em "dormir" com fadiga 0 (grátis, sem custo nenhum, ver
+        // ui.js healFatigue/_healerCost) disparava esta função inteira de
+        // novo, incluindo _applyBankInterest() — clicar repetidamente
+        // rendia juros de 2% compostos ILIMITADAS vezes por sessão, ouro
+        // efetivamente infinito com qualquer valor guardado no Banco. Como
+        // esta é a ÚNICA função que executa QUALQUER consequência de "um
+        // dia se passou" (juros do Banco, reroll de estoque de loja via
+        // dayCount, quadro de missões, NPCs/Viajante/Mercador novos — ver
+        // comentário "PONTO DE EXTENSÃO" abaixo), travar bem AQUI protege
+        // todos esses sistemas de uma vez, sem precisar de uma trava
+        // separada em cada um. `lastDayAdvanceAt` usa Date.now() (não
+        // performance.now()) e vive no Player — sobrevive a save/load e
+        // reload de página, então recarregar a página pra "resetar" o
+        // relógio não escapa da trava. 20s reais nunca atrapalha o ciclo
+        // natural dia/noite (uma transição real a cada 300s, ver
+        // dayPhaseDuration=75 * 4 fases), só barra clique repetido.
+        const p = window.Engine && window.Engine.state && window.Engine.state.player;
+        const now = Date.now();
+        const MIN_INTERVAL_MS = 20000;
+        if (p && p.lastDayAdvanceAt && now - p.lastDayAdvanceAt < MIN_INTERVAL_MS) return;
+        if (p) p.lastDayAdvanceAt = now;
+
         this.dayCount++; // novo dia — ver openShop (ui.js), invalida o cache de estoque sozinho
         // Persiste o novo valor no Player (item #8 do novo pedido de
         // auditoria — ver onEnterCity/player.js `dayCount`), senão um
         // refresh logo depois desfaria este incremento (o contador
         // "voltaria no tempo" pra 1, mesmo o dia tendo passado de verdade).
-        const dayCountPlayer = window.Engine && window.Engine.state && window.Engine.state.player;
+        const dayCountPlayer = p;
         if (dayCountPlayer) dayCountPlayer.dayCount = this.dayCount;
         this._applyBankInterest();
 
@@ -1777,7 +1801,6 @@ class CityEngine {
         // cujo prazo tenha vencido; o quadro da cidade também sorteia uma
         // nova leva procedural sozinho no próximo openQuestBoard (cacheado
         // por dia, mesmo padrão do estoque de loja).
-        const p = window.Engine && window.Engine.state && window.Engine.state.player;
         if (window.QuestSystem && p) window.QuestSystem.onNewDay(p);
     }
 
