@@ -1138,6 +1138,19 @@ const RivalDatabase = {
                 { id: 'morna', name: 'Morna, a Cruel', title: 'a Cruel', level: 4, focus: { str: 0.5, def: 0.3, luk: 0.2 },
                     personalityId: 'sadico', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON,
                     visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 3 } },
+                // Iteração 21 (item 3 da mega-diretiva, fechando ~12
+                // lutadores/liga): os 8 estilos base já estão todos
+                // cobertos há duas iterações — Ilsa reaproveita "gladiador"
+                // (só o Campeão Karg usava, protetor) com "calculista",
+                // versátil e metódica em vez de protetora. Bram reaproveita
+                // "arqueiro" (Ren/mercenário) com "fanático" — atira por fé
+                // cega, não por dinheiro.
+                { id: 'ilsa', name: 'Ilsa, Cálculo de Arena', title: 'Cálculo de Arena', level: 4, focus: { str: 0.28, def: 0.28, agi: 0.24, acc: 0.2 },
+                    personalityId: 'calculista', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Feminino', archetype: 'campeao', scarStyle: 0 } },
+                { id: 'bram', name: 'Bram, Flecha da Fé', title: 'Flecha da Fé', level: 5, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
+                    personalityId: 'fanatico', styleId: 'arqueiro', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 } },
                 { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
                     intro: 'Chegou longe pra um novato. Vamos ver se sua sorte aguenta o Campeão de Bronze.',
@@ -1198,6 +1211,18 @@ const RivalDatabase = {
                 { id: 'wren', name: 'Wren, o Metódico', title: 'o Metódico', level: 9, focus: { def: 0.45, acc: 0.3, str: 0.25 },
                     personalityId: 'calculista', styleId: 'guardiao', gearRarity: RARITY.RARE,
                     visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 0 } },
+                // Iteração 21 (item 3 da mega-diretiva): Alaric reaproveita
+                // "mago" (Nyx/covarde, Petro/impulsivo) com "honrado" — cura
+                // e apoia por devoção, nunca por medo nem imprudência.
+                // Renata reaproveita "assassino" (Ysolda/caçadora) com
+                // "executor" — mata com eficiência fria, sem o instinto de
+                // caça de Ysolda.
+                { id: 'alaric', name: 'Alaric, Cântico Solene', title: 'Cântico Solene', level: 7, focus: { int: 0.4, def: 0.35, acc: 0.25 },
+                    personalityId: 'honrado', styleId: 'mago', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 0 } },
+                { id: 'renata', name: 'Renata, Fio da Navalha', title: 'Fio da Navalha', level: 8, focus: { agi: 0.4, luk: 0.3, acc: 0.3 },
+                    personalityId: 'executor', styleId: 'assassino', gearRarity: RARITY.RARE,
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 1 } },
                 { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
                     intro: 'Cada oponente me ensina algo. Hoje, você é a lição.',
@@ -1256,6 +1281,18 @@ const RivalDatabase = {
                 { id: 'doran', name: 'Doran, Flecha à Venda', title: 'Flecha à Venda', level: 13, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
                     personalityId: 'mercenario', styleId: 'arqueiro', gearRarity: RARITY.EPIC,
                     visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 2 } },
+                // Iteração 21 (item 3 da mega-diretiva): Bors reaproveita
+                // "brutamontes" (Moloch/fanático) com "veterano" — força
+                // bruta temperada por décadas de arena, não fervor cego.
+                // Selene reaproveita "lanceiro" (Corvin/calculista) com
+                // "gladiador_experiente" — domina a lança pela experiência
+                // de arena, não pelo cálculo frio de Corvin.
+                { id: 'bors', name: 'Bors, Cicatriz de Ferro', title: 'Cicatriz de Ferro', level: 11, focus: { str: 0.55, def: 0.35, luk: 0.1 },
+                    personalityId: 'veterano', styleId: 'brutamontes', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 4 } },
+                { id: 'selene', name: 'Selene, Lança da Arena', title: 'Lança da Arena', level: 14, focus: { str: 0.35, agi: 0.35, acc: 0.3 },
+                    personalityId: 'gladiador_experiente', styleId: 'lanceiro', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 2 } },
                 { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
                     personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
                     intro: 'Séculos de arena, e ainda procuro alguém digno. Talvez seja você.',
@@ -1335,6 +1372,19 @@ const RivalDatabase = {
                 { id: 'nazgra', name: 'Nazgra, Olho de Corvo', title: 'Olho de Corvo', level: 19, focus: { int: 0.4, def: 0.3, acc: 0.3 },
                     personalityId: 'tatico', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'orc',
                     visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 2 } },
+                // Iteração 21 (item 3 da mega-diretiva): Drog reaproveita
+                // "brutamontes" (Grukthar/berserker, Gorkhal campeão/
+                // fanático) com "calculista" — um orc raro que PLANEJA a
+                // violência em vez de só desencadeá-la, quebra de
+                // estereótipo deliberada. Vrenna reaproveita "guardião"
+                // (Brûk/protetor, Ghazuk/veterano) com "sádico" — escuda
+                // devagar de propósito, saboreando o desgaste do inimigo.
+                { id: 'drog', name: 'Drog, o Estrategista', title: 'o Estrategista', level: 17, focus: { str: 0.4, def: 0.35, int: 0.25 },
+                    personalityId: 'calculista', styleId: 'brutamontes', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 1 } },
+                { id: 'vrenna', name: 'Vrenna, Escudo Sangrento', title: 'Escudo Sangrento', level: 18, focus: { def: 0.5, str: 0.3, luk: 0.2 },
+                    personalityId: 'sadico', styleId: 'guardiao', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Feminino', archetype: 'cavaleiro', scarStyle: 3 } },
                 { id: 'orc_champion', name: 'Gorkhal, Senhor da Guerra', title: 'Senhor da Guerra', level: 20, focus: { str: 0.35, def: 0.3, agi: 0.2, acc: 0.15 },
                     personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'orc',
                     intro: 'Você chegou longe demais pelas terras de Gorkhal.',
@@ -1397,6 +1447,19 @@ const RivalDatabase = {
                 { id: 'fendrel', name: 'Fendrel, Lâmina de Aluguel', title: 'Lâmina de Aluguel', level: 24, focus: { agi: 0.4, acc: 0.35, str: 0.25 },
                     personalityId: 'mercenario', styleId: 'espadachim', gearRarity: RARITY.LEGENDARY, race: 'elfo',
                     visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 } },
+                // Iteração 21 (item 3 da mega-diretiva): Thalorin
+                // reaproveita "mago" (Ilwenna/calculista) com "honrado" —
+                // canta pela devoção ao Santuário, não pelo cálculo frio de
+                // Ilwenna. Miriel reaproveita "guardião" (Faelwen/protetor)
+                // com "gladiador_experiente" — domina o escudo pela
+                // experiência de incontáveis arenas, não pelo instinto
+                // protetor de Faelwen.
+                { id: 'thalorin', name: 'Thalorin, Voz da Lua', title: 'Voz da Lua', level: 21, focus: { int: 0.45, acc: 0.3, def: 0.25 },
+                    personalityId: 'honrado', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 0 } },
+                { id: 'miriel', name: 'Miriel, Veterana do Santuário', title: 'Veterana do Santuário', level: 24, focus: { def: 0.45, agi: 0.3, cha: 0.25 },
+                    personalityId: 'gladiador_experiente', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'cavaleiro', scarStyle: 1 } },
                 { id: 'elfica_champion', name: 'Sylvaneth, Guardiã Ancestral', title: 'Guardiã Ancestral', level: 25, focus: { agi: 0.3, int: 0.25, acc: 0.25, luk: 0.2 },
                     personalityId: 'tatico', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'elfo',
                     intro: 'O Santuário não cai pra qualquer mercenário. Prove que é diferente.',
@@ -1476,6 +1539,19 @@ const RivalDatabase = {
                 { id: 'krona', name: 'Krona, a Algoz', title: 'a Algoz', level: 27, focus: { str: 0.55, def: 0.3, acc: 0.15 },
                     personalityId: 'executor', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
                     visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 4 } },
+                // Iteração 21 (item 3 da mega-diretiva, fecha a Anã em 12):
+                // Thrud reaproveita "arqueiro" (Ivar/calculista) com
+                // "berserker" — atira avançando aos gritos, o oposto do
+                // cálculo frio de Ivar. Drenna reaproveita "mago" (Sunna/
+                // sobrevivente) com "fanático" — runas de devoção ao
+                // deus-forja, ecoando o mesmo tema religioso de Modrek
+                // (guardião/fanático) numa chave de estilo diferente.
+                { id: 'thrud', name: 'Thrud, Fúria da Mina', title: 'Fúria da Mina', level: 28, focus: { str: 0.35, agi: 0.35, acc: 0.3 },
+                    personalityId: 'berserker', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 3 } },
+                { id: 'drenna', name: 'Drenna, Chama da Forja Sagrada', title: 'Chama da Forja Sagrada', level: 29, focus: { int: 0.4, def: 0.35, str: 0.25 },
+                    personalityId: 'fanatico', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'veterano', scarStyle: 2 } },
                 { id: 'anao_champion', name: 'Thorgrim, Rei da Forja', title: 'Rei da Forja', level: 30, focus: { def: 0.35, str: 0.35, agi: 0.15, acc: 0.15 },
                     personalityId: 'honrado', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'anao',
                     intro: 'Toda lâmina se quebra contra a pedra de Kharzum. Vamos ver a sua.',
