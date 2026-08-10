@@ -475,10 +475,23 @@ const GuideSystem = {
             const lineageNote = b.lineage
                 ? `Representa a Linhagem <strong>${(window.LINEAGES[b.lineage] || {}).name || b.lineage}</strong> — jogadores que já possuem essa Linhagem não podem enfrentá-lo.`
                 : '';
+            // Item 27 da mega-diretiva ("atualizar o livro de instruções")
+            // + item 32 ("mecânica precisa ser legível") — bug de auditoria
+            // corrigido nesta iteração: até aqui o Guia só mostrava nome/
+            // título/pré-requisito de cada Boss Especial, nunca a mecânica
+            // própria dele (Fúria Crescente, Manto de Sombras, Ciclo
+            // Lunar, Forja Viva) — o jogador não tinha como aprender o
+            // padrão de combate lendo o Guia, só descobrindo na luta.
+            // `mechanicName`/`mechanicDescription` (ver enemy.js
+            // ARENA_BOSS_DEFS) lidos ao vivo, nunca duplicados aqui.
+            const mechanicBlock = b.mechanicName
+                ? `<p><strong>Mecânica — ${b.mechanicName}:</strong> ${b.mechanicDescription}</p>`
+                : '';
             return `
                 <div class="guide-block">
                     <h4>${b.name} — <em style="color:var(--color-marble-dark);">${b.title}</em></h4>
                     <p>Desbloqueado ao derrotar <strong>${prereq ? prereq.name : b.unlocksAfterRival}</strong>. ${lineageNote}</p>
+                    ${mechanicBlock}
                 </div>
             `;
         }).join('');

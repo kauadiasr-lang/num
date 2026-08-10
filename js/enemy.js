@@ -633,6 +633,12 @@ const ARENA_BOSS_DEFS = {
         armorId: 'orcheavyarmor', armorRarity: 'LEGENDARY',
         trophyId: 'grokmaraxe', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         furyPerHit: 12, furyMax: 100,
+        // Item 27 da mega-diretiva ("atualizar o livro de instruções, não
+        // esquecer") + item 32 ("mecânica precisa ser legível") — texto
+        // curto voltado ao JOGADOR (sem jargão de código), lido ao vivo
+        // por guide.js _renderArena() no bloco de cada Boss Especial.
+        mechanicName: 'Fúria Crescente',
+        mechanicDescription: 'Cada golpe que ele RECEBE acumula fúria — ao cruzar certos limiares, fica permanentemente mais forte e mais imprudente pelo resto da luta. Termine rápido ou prepare-se pra fúria total.',
         race: 'orc',
         visuals: { gender: 'Masculino', skinTone: '#4a6a2a', eyeColor: '#ff2a1a', eyebrowColor: '#1a1a0a',
             hairStyle: 3, hairColor: '#1a1a0a', beardStyle: 2, beardColor: '#1a1a0a', faceShape: 4, archetype: 'barbaro', scarStyle: 4 }
@@ -654,6 +660,8 @@ const ARENA_BOSS_DEFS = {
         trophyId: 'nyxaradagger', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         lineage: 'sombras',
         shadowStackMax: 4, shadowDodgeBonusPerStack: 12,
+        mechanicName: 'Manto de Sombras',
+        mechanicDescription: 'Cada turno DELA sem ser atingida acumula um véu de sombras que aumenta a esquiva — um golpe certeiro dissipa tudo na hora. Manter pressão constante é a única forma de evitar que ela fique quase intocável.',
         visuals: { gender: 'Feminino', skinTone: '#3a3040', eyeColor: '#8a3ae0', eyebrowColor: '#1a1420',
             hairStyle: 6, hairColor: '#1a1420', beardStyle: 0, beardColor: '#1a1420', faceShape: 2, archetype: 'assassino', scarStyle: 0, hasSmoke: true }
     },
@@ -675,6 +683,8 @@ const ARENA_BOSS_DEFS = {
         armorId: 'elvencloak', armorRarity: 'LEGENDARY',
         trophyId: 'sylwynbow', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         moonCycle: true,
+        mechanicName: 'Ciclo Lunar',
+        mechanicDescription: 'Sua força varia num ciclo previsível: mais fraca sob a Lua Nova (e se curando aos poucos), normal na Crescente, e muito mais perigosa — com a flecha mais forte dela garantida — na Lua Cheia. Aprenda o ritmo.',
         race: 'elfo',
         visuals: { gender: 'Feminino', skinTone: '#d8c8b8', eyeColor: '#c8d8f0', eyebrowColor: '#e0e0e8',
             hairStyle: 4, hairColor: '#e8e8f0', beardStyle: 0, beardColor: '#e8e8f0', faceShape: 1, archetype: 'guerreira', scarStyle: 0 }
@@ -702,6 +712,8 @@ const ARENA_BOSS_DEFS = {
         armorId: 'platearmor', armorRarity: 'LEGENDARY',
         trophyId: 'brakkahammer', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         runeForge: true,
+        mechanicName: 'Forja Viva',
+        mechanicDescription: 'Cada vez que ela ergue o Escudo Rúnico, acumula uma carga na forja interior — ao encher o limite, descarrega tudo num único golpe devastador. Fique de olho em quando ela se defende: é aí que o próximo golpe forte está sendo preparado.',
         race: 'anao',
         visuals: { gender: 'Feminino', skinTone: '#c8a888', eyeColor: '#e8a020', eyebrowColor: '#4a3020',
             hairStyle: 2, hairColor: '#8a4020', beardStyle: 3, beardColor: '#8a4020', faceShape: 3, archetype: 'veterano', scarStyle: 2 }
