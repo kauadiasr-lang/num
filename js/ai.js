@@ -839,6 +839,13 @@ const AICombat = {
         if (lukRatio > 1.3 && battle.player.derivedStats.maxHp > 0 && (battle.player.currentHp / battle.player.derivedStats.maxHp) < 0.35) {
             atkScore *= 1 + Utils.clamp(lukRatio - 1, 0, 1.2) * 0.5;
         }
+        // "Jogador com HP baixo -> aumentar pressão geral" (item 15) — versão
+        // mais modesta e SEM depender de LUK alta (isso já é o bônus
+        // oportunista acima): qualquer personalidade com alguma agressão
+        // reconhece que o oponente está perto da derrota, não só a sortuda.
+        if (battle.player.derivedStats.maxHp > 0 && (battle.player.currentHp / battle.player.derivedStats.maxHp) < 0.3) {
+            atkScore *= 1 + p.aggression * 0.25;
+        }
         // Alvo mais perto que o alcance mínimo da arma: o ataque ainda sai,
         // mas com 40% menos dano (ver _weaponRangeMulti em battle.js) — vale
         // proporcionalmente menos frente às outras opções (ex: recuar).
@@ -1019,6 +1026,24 @@ const AICombat = {
         // o jogador ESTÁ fraco agora, não em qualquer HP.
         const playerHpPercent = battle.player.derivedStats.maxHp > 0 ? battle.player.currentHp / battle.player.derivedStats.maxHp : 1;
         if (playerHpPercent <= 0.3 && this.playerFleesWhenLow(mem)) approachScore *= 1.6;
+        // Leitura de padrão (item 15, lacuna confirmada na auditoria):
+        // "jogador usando arco/magia -> considerar se aproximar" ainda não
+        // tinha nenhum consumidor — o inimigo nunca reagia à ARMA ativa do
+        // jogador, só à distância/memória de ações. Fechar espaço contra um
+        // jogador de longo alcance elimina a vantagem dele (mesma lógica
+        // tática usada pelos próprios inimigos Arqueiros pra manter
+        // distância — aqui é o espelho do lado do jogador). Não é leitura
+        // de memória histórica, é um fato observável AGORA (arma equipada),
+        // então nenhum turno de "aprendizado" é necessário.
+        const playerWeapon = battle.player.getActiveWeapon ? battle.player.getActiveWeapon() : null;
+        if (!ctx.subRange && playerWeapon && playerWeapon.slot === SLOTS.RANGED) approachScore *= 1.35;
+        // "Jogador com HP baixo -> aumentar pressão geral" (item 15): a
+        // versão acima (playerFleesWhenLow) só reage quando existe TAMBÉM
+        // um padrão histórico de fuga; esta é a leitura mais simples e
+        // direta do item — qualquer personalidade com alguma agressão
+        // sente a vantagem tática de um oponente perto da derrota, mesmo
+        // sem qualquer histórico prévio.
+        if (playerHpPercent <= 0.3) approachScore *= 1 + p.aggression * 0.3;
         // Mesmo raciocínio de AGI do RETREAT acima, na direção oposta: um
         // inimigo ágil também persegue com mais disposição, porque o custo
         // de gastar o turno se movendo (em vez de atacar) é menor pra quem
@@ -1115,28 +1140,89 @@ const AICombat = {
         return list;
     },
 
+    // ==========================================================================
+    // INTELIGÊNCIA PROGRESSIVA (Iteração 12 da mega-diretiva de IA de
+    // combate, item 16/17 — lacuna confirmada: até aqui todo inimigo, fraco
+    // ou forte, passava pelo MESMO pipeline de pontuação em _pickWeighted,
+    // sem nenhum mecanismo de erro proposital. "Nível deve influenciar a
+    // QUALIDADE DA DECISÃO, não só subir status" — esta função converte
+    // nível + INT relativo (nunca INT bruto: um Brutamontes de nível alto
+    // não deve virar estrategista só por ter subido de nível) numa nota de
+    // 0 (comete erros com frequência real) a 1 (quase sempre acerta a
+    // melhor opção, nunca 100%) usada por _pickWeighted logo abaixo.
+    // NUNCA chamada para bosses — eles usam bossai.js/BossAI.decide,
+    // inteiramente fora deste pipeline (ver executeEnemyTurn em battle.js),
+    // então este mecanismo nunca poderia, mesmo por acidente, deixar um
+    // boss mais burro.
+    // ==========================================================================
+    _decisionQuality(enemy) {
+        const levelFactor = Utils.clamp((enemy.level - 1) / 15, 0, 1); // satura perto do nível 16
+        const statBaseline = 5 + (window.totalStatPointsForLevel ? window.totalStatPointsForLevel(enemy.level || 1) : 35) / 7;
+        const intRatio = enemy.getTotalStat('int') / statBaseline;
+        const intFactor = Utils.clamp((intRatio - 0.5) / 1.5, 0, 1);
+        // Elite (ver enemy.js) já é um adversário de destaque por design —
+        // ganha um piso mínimo de qualidade mesmo em nível baixo, coerente
+        // com o resto do bônus de Elite (raridade/recompensa maiores).
+        const eliteBonus = enemy.isElite ? 0.15 : 0;
+        return Utils.clamp(levelFactor * 0.55 + intFactor * 0.35 + eliteBonus, 0, 1);
+    },
+
     // Escolhe entre os melhores candidatos com um pouco de aleatoriedade
-    // (nunca 100% determinístico, nunca 100% aleatório).
+    // (nunca 100% determinístico, nunca 100% aleatório) — a "aleatoriedade"
+    // em si agora é moldada pela qualidade de decisão do inimigo (item 16/
+    // 17/20): inimigos fracos/pouco inteligentes avaliam um leque MAIOR de
+    // opções (incluindo algumas bem piores) com uma distribuição mais
+    // achatada (ainda favorece a melhor opção, só que menos), então erram
+    // de verdade com alguma frequência; inimigos fortes/inteligentes olham
+    // um leque mais estreito com uma distribuição mais concentrada no topo
+    // — continuam imprevisíveis, só que raramente escolhem algo ruim.
+    // Nunca 100% travado na melhor opção nem em nível máximo, nunca
+    // uniformemente aleatório nem no nível mínimo — sempre uma FORMA da
+    // mesma distribuição por score, nunca uma segunda rolagem desconectada.
     _pickWeighted(candidates, enemy) {
         if (candidates.length === 0) return { action: 'ATK', message: `${enemy.name} ataca!` };
         candidates.sort((a, b) => b.score - a.score);
-        const top = candidates.slice(0, Math.min(3, candidates.length));
-        const totalWeight = top.reduce((sum, c) => sum + Math.max(0.01, c.score), 0);
+
+        const quality = this._decisionQuality(enemy);
+        const poolSize = Math.max(2, Math.round(4 - quality * 2)); // 4 (fraco) até 2 (forte)
+        const top = candidates.slice(0, Math.min(poolSize, candidates.length));
+
+        // Expoente da pontuação antes de virar peso: <1 achata a
+        // distribuição (opções piores ficam relativamente mais prováveis,
+        // sem nunca superar as boas — ainda não é aleatoriedade pura), >1
+        // concentra ainda mais no topo do que a fórmula linear original.
+        // Piso em 0.85 (não mais baixo): mesmo o inimigo mais fraco/burro
+        // possível ainda favorece a melhor opção na maioria das vezes — o
+        // item 20 pede "imperfeições controladas", nunca burrice total.
+        const sharpness = 0.85 + quality * 1.15; // 0.85 (fraco) até 2.0 (forte)
+        const weight = (c) => Math.pow(Math.max(0.01, c.score), sharpness);
+        const totalWeight = top.reduce((sum, c) => sum + weight(c), 0);
+
         let roll = Math.random() * totalWeight;
+        let chosen = top[0];
         for (const c of top) {
-            roll -= Math.max(0.01, c.score);
-            if (roll <= 0) {
-                if (c.action === 'TAUNT') {
-                    enemy.aiState.morale = Utils.clamp(enemy.aiState.morale + 6, 0, 100);
-                    return { action: 'HOLD', message: c.message };
-                }
-                if (c.action === 'SWAP') {
-                    return { action: 'SWAP_INTERNAL' }; // resolvido por battle.js chamando trySwapWeapon
-                }
-                return c;
-            }
+            roll -= weight(c);
+            if (roll <= 0) { chosen = c; break; }
         }
-        return top[0];
+
+        if (window.AICombat.debugMode) {
+            // Item 22: log opcional (nunca em produção por padrão) do
+            // "porquê" da decisão — estado relevante + candidatos
+            // considerados + a escolha final, pra depuração durante o
+            // desenvolvimento sem expor nada ao jogador.
+            console.debug(`[AICombat] ${enemy.name} (Nv.${enemy.level}, qualidade=${quality.toFixed(2)}, leque=${top.length}, nitidez=${sharpness.toFixed(2)})`,
+                top.map(c => `${c.action}${c.param ? ':' + c.param : ''}=${c.score.toFixed(2)}`),
+                '-> escolhido:', `${chosen.action}${chosen.param ? ':' + chosen.param : ''}`);
+        }
+
+        if (chosen.action === 'TAUNT') {
+            enemy.aiState.morale = Utils.clamp(enemy.aiState.morale + 6, 0, 100);
+            return { action: 'HOLD', message: chosen.message };
+        }
+        if (chosen.action === 'SWAP') {
+            return { action: 'SWAP_INTERNAL' }; // resolvido por battle.js chamando trySwapWeapon
+        }
+        return chosen;
     },
 };
 
