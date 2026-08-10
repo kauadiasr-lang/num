@@ -787,6 +787,19 @@ const AICombat = {
         const defRatio = enemy.getTotalStat('def') / statBaseline;
         const accRatio = enemy.getTotalStat('acc') / statBaseline;
         const agiRatio = enemy.getTotalStat('agi') / statBaseline;
+        // Iteração 5 (item 3, lacuna confirmada na auditoria: DEF/ACC/AGI já
+        // influenciavam decisão desde a Iteração 4, mas STR/INT/LUK ainda
+        // não tinham NENHUM consumidor fora do dano bruto/statFocus) —
+        // completa a lista do item 3: "STR → preferência física/golpes
+        // pesados/pressão", "INT → uso de magia/gestão de mana", "LUK →
+        // comportamento oportunista". CHA fica de fora de propósito: já
+        // sustenta moral via onSelfEvent (chaBonus) desde antes desta
+        // diretiva — inventar um bônus de dano/decisão pra CHA além disso
+        // seria exatamente o "bônus artificial" que o item 3 pede pra NÃO
+        // criar.
+        const strRatio = enemy.getTotalStat('str') / statBaseline;
+        const intRatio = enemy.getTotalStat('int') / statBaseline;
+        const lukRatio = enemy.getTotalStat('luk') / statBaseline;
 
         // ATK
         // Bug de auditoria: essa pontuação nunca conferia a própria munição
@@ -815,6 +828,17 @@ const AICombat = {
         if (accRatio > 1.3) {
             atkScore *= 1 + Utils.clamp(accRatio - 1, 0, 1) * (activeWeapon && activeWeapon.slot === SLOTS.RANGED ? 0.5 : 0.25);
         }
+        // STR alta = preferência física/pressão constante (item 3, Iteração
+        // 5): um inimigo forte tem motivo real pra insistir no ataque básico
+        // em vez de recorrer a habilidades/reposicionamento — o próprio
+        // corpo já resolve bem o problema.
+        if (strRatio > 1.3) atkScore *= 1 + Utils.clamp(strRatio - 1, 0, 1) * 0.3;
+        // LUK alta = comportamento oportunista (item 3): pressiona MUITO
+        // mais quando o jogador já está fraco — sabe reconhecer e explorar
+        // uma abertura, em vez de só manter o ritmo normal de ataque.
+        if (lukRatio > 1.3 && battle.player.derivedStats.maxHp > 0 && (battle.player.currentHp / battle.player.derivedStats.maxHp) < 0.35) {
+            atkScore *= 1 + Utils.clamp(lukRatio - 1, 0, 1.2) * 0.5;
+        }
         // Alvo mais perto que o alcance mínimo da arma: o ataque ainda sai,
         // mas com 40% menos dano (ver _weaponRangeMulti em battle.js) — vale
         // proporcionalmente menos frente às outras opções (ex: recuar).
@@ -839,6 +863,19 @@ const AICombat = {
             const skill = window.SkillDB[skillId];
             let s = style.actionBias.SKILL * (0.4 + p.skillUsage) * (em.SKILL || 1) * (0.6 + p.critHunger * 0.5);
             if (ctx.repeatedPattern === skillId) s *= 0.5; // evita repetir a mesma skill que já virou padrão
+
+            // STR/INT influenciando a ESCOLHA de habilidade (item 3,
+            // Iteração 5): "STR → preferência por golpes pesados", "INT →
+            // uso de magia mais consciente". Golpes pesados (PHYSICAL/
+            // BLEED/STUN/LIFESTEAL escalam com dano físico, ver
+            // executeEnemySkill) fazem mais sentido pra quem já é
+            // fisicamente forte; MAGIC/HEAL (escalam com Inteligência) fazem
+            // mais sentido pra quem investiu em INT — em vez de tratar toda
+            // habilidade como intercambiável.
+            const isPhysicalSkill = skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL';
+            const isMindSkill = skill.type === 'MAGIC' || skill.type === 'HEAL';
+            if (isPhysicalSkill && strRatio > 1.3) s *= 1 + Utils.clamp(strRatio - 1, 0, 1) * 0.35;
+            if (isMindSkill && intRatio > 1.3) s *= 1 + Utils.clamp(intRatio - 1, 0, 1) * 0.4;
 
             if (skill.type === 'HEAL') {
                 // Item 10: nunca desperdiça cura em HP quase cheio, escala
