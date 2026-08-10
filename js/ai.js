@@ -599,8 +599,18 @@ const AICombat = {
         // --- Anti-exploração: identifica padrão repetitivo do jogador ---
         const repeatedPattern = this.detectRepeatedPattern(mem);
 
+        // Dança das Lâminas (item 25 da mega-diretiva: "IA deve reconhecer
+        // estilo de combate") — só entra na pontuação de utilidade (não como
+        // early-return de ação fixa como Predador/Colosso/Muralha acima),
+        // porque a reação certa aqui é SUPRIMIR uma opção, não FORÇAR outra
+        // (ver `_buildCandidates` abaixo). `dancaActive` calculado uma vez
+        // aqui e reaproveitado lá pra nunca duplicar a checagem de
+        // isStyleCompatible.
+        const dancaActive = !subRange && battle.player.combatStyle === 'danca'
+            && window.CombatStyleSystem && window.CombatStyleSystem.isStyleCompatible(battle.player, 'danca');
+
         // --- Pontuação de utilidade entre as ações fisicamente possíveis ---
-        const candidates = this._buildCandidates(battle, { risk, repeatedPattern, emotionMods, subRange });
+        const candidates = this._buildCandidates(battle, { risk, repeatedPattern, emotionMods, subRange, dancaActive });
         return this._pickWeighted(candidates, enemy);
     },
 
@@ -748,6 +758,17 @@ const AICombat = {
         // existia há tempos mas nunca era lida em lugar nenhum, então
         // assassinos nunca recuavam de propósito fora do combo pré-roteirizado.
         if (style.hitAndRun && enemy.aiState.hitStreak > 0) retreatScore *= 2.2;
+        // Dança das Lâminas (ver combatstyles.js) exige arma LEVE — e toda
+        // arma leve do jogo (adaga/rapieira/espada curta/élfica, ver
+        // LIGHT_WEAPON_IDS) tem approachSpeed/retreatSpeed acima da média
+        // (ex: adaga 2.5/2.5 vs. martelo de guerra 1.2/1.2). Abrir distância
+        // de um duelista assim só entrega o turno de graça — ele alcança de
+        // volta mais rápido do que o inimigo consegue fugir. Reduz (nunca
+        // zera: ainda pode valer a pena sob risco extremo) o interesse de
+        // recuar contra um estilo Dança REALMENTE ativo, distinto da reação
+        // de Punho do Colosso acima (que FORÇA recuo por outro motivo:
+        // ausência total de resposta à distância, não velocidade).
+        if (ctx.dancaActive) retreatScore *= 0.45;
         add('RETREAT', null, retreatScore, `${enemy.name} recua, mantendo distância segura.`);
 
         // APPROACH voluntário (perseguição extra quando o jogador kita) — não

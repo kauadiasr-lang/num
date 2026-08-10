@@ -27,7 +27,23 @@
 // isCompatible(entity) — checagem de equipamento (item 19 da diretiva).
 // Nunca remove equipamento sozinho: só informa se o estilo está
 // ativo/inativo no momento (ver Player.getActiveStyleStatus).
-const LIGHT_WEAPON_IDS = ['dagger', 'rapier', 'elvenblade', 'shortsword'];
+//
+// Iteração 15 — bug de auditoria crítico encontrado (item 31 da
+// mega-diretiva): esta lista guardava as CHAVES de template de
+// ItemDatabase.weapons ('dagger', 'rapier', ...), mas `entity.equipment
+// [MAIN_HAND].id` é o campo `id` do PRÓPRIO template (`w_03`, `w_06`,
+// ...), nunca a chave (ver items.js Equipment constructor: `this.id =
+// baseTemplate.id`). `LIGHT_WEAPON_IDS.includes(w.id)` comparava 'w_03'
+// contra a string 'dagger' — SEMPRE falso, pra QUALQUER arma leve
+// equipada. Resultado: Dança das Lâminas nunca esteve realmente "ativa"
+// desde que o sistema de Estilos foi implementado (Iteração 1 desta
+// mega-atualização) — nenhum statMods de skill tree (lightWeapon*) e
+// nenhuma habilidade de estilo dela jamais funcionaram em jogo, apesar
+// de tudo estar corretamente cadastrado. Corrigido derivando os ids reais
+// a partir das mesmas chaves de template (auto-corrige se qualquer um dos
+// 4 templates mudar de `id` no futuro, nunca mais duplica o valor à mão).
+const LIGHT_WEAPON_TEMPLATE_KEYS = ['dagger', 'rapier', 'elvenblade', 'shortsword'];
+const LIGHT_WEAPON_IDS = LIGHT_WEAPON_TEMPLATE_KEYS.map(k => ItemDatabase.weapons[k].id);
 
 const COMBAT_STYLES = {
     colosso: {
