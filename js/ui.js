@@ -1125,18 +1125,28 @@ class UIManager {
             bossGrid.className = 'ladder-grid';
 
             Object.values(window.ARENA_BOSS_DEFS).forEach(bossDef => {
-                const isUnlocked = p.rivalsDefeated.includes(bossDef.unlocksAfterRival);
+                // Item 7 da mega-diretiva (bosses de Linhagem): um jogador
+                // que JÁ possui a MESMA linhagem do boss nunca deve poder
+                // enfrentá-lo — regra explícita, aplicada aqui de forma
+                // genérica (qualquer boss futuro com `lineage` definido
+                // fica sujeito a ela automaticamente, não só Nyxara).
+                const sameLineage = !!(bossDef.lineage && p.lineage === bossDef.lineage);
+                const isUnlocked = !sameLineage && p.rivalsDefeated.includes(bossDef.unlocksAfterRival);
                 const isDefeated = (p.arenaBossesDefeated || []).includes(bossDef.id);
                 const prereqRival = allRivals.find(r => r.id === bossDef.unlocksAfterRival);
+
+                let statusLabel, statusColor, subtitle;
+                if (isDefeated) { statusLabel = 'Derrotado'; statusColor = '#1eff00'; subtitle = bossDef.title; }
+                else if (sameLineage) { statusLabel = 'Indisponível'; statusColor = '#666'; subtitle = `${bossDef.title} · Vocês compartilham a mesma linhagem`; }
+                else if (isUnlocked) { statusLabel = 'Disponível'; statusColor = 'var(--color-gold)'; subtitle = bossDef.title; }
+                else { statusLabel = 'Bloqueado'; statusColor = '#666'; subtitle = `${bossDef.title} · Requer: derrotar ${prereqRival ? prereqRival.name : bossDef.unlocksAfterRival}`; }
 
                 const card = document.createElement('div');
                 card.className = `rival-card champion ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
                 card.innerHTML = `
                     <h4>${bossDef.name}</h4>
-                    <p>${bossDef.title}${isUnlocked ? '' : ` · Requer: derrotar ${prereqRival ? prereqRival.name : bossDef.unlocksAfterRival}`}</p>
-                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
-                        ${isDefeated ? 'Derrotado' : (isUnlocked ? 'Disponível' : 'Bloqueado')}
-                    </p>
+                    <p>${subtitle}</p>
+                    <p class="rival-status" style="color:${statusColor}">${statusLabel}</p>
                 `;
                 if (isUnlocked) {
                     card.onclick = () => {

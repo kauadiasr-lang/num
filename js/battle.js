@@ -390,6 +390,17 @@ class BattleSystem {
             defender.furyStacks = Math.min((defender.furyStacks || 0) + defender.furyPerHit, defender.furyMax || 100);
         }
 
+        // Mecânica de Manto de Sombras (Nyxara, Senhora das Sombras — ver
+        // enemy.js ARENA_BOSS_DEFS.nyxara_sombras) — só sinaliza QUE um
+        // golpe acertou neste round; a própria IA do boss (bossai.js
+        // nyxara_sombras.decideAction) decide o que fazer com isso no
+        // início do turno dela (zera os stacks acumulados e reseta a
+        // esquiva de volta ao valor base). Nunca afeta nenhum outro
+        // combatente, igual ao hook de Fúria acima.
+        if (defender.isBoss && defender.shadowStackMax && mitigatedDamage > 0) {
+            defender.wasHitThisRound = true;
+        }
+
         // 5d. Roubo de vida passivo da Linhagem (Vampirismo) — cura o
         // atacante por uma % do dano causado, com bônus extra em críticos.
         // Totalmente separado do LIFESTEAL de habilidades específicas (que

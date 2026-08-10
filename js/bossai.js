@@ -52,7 +52,18 @@ function registerBossSkills() {
         { id: 'grokmar_investida_furiosa', name: 'Investida Furiosa', type: 'STUN', mpCost: 22, powerMulti: 1.6,
             description: 'Um investida bruta que derruba a vítima, guiada pela fúria acumulada.', extra: { stunChance: 65, cooldown: 3, animation: 'boss_slam' } },
         { id: 'grokmar_ultimo_fio', name: 'Último Fio de Fúria', type: 'LIFESTEAL', mpCost: 30, powerMulti: 2.0,
-            description: 'No auge da fúria, Grokmar golpeia sem qualquer defesa, drenando a força da vítima.', extra: { lifestealPercent: 60, cooldown: 3, animation: 'attack' } }
+            description: 'No auge da fúria, Grokmar golpeia sem qualquer defesa, drenando a força da vítima.', extra: { lifestealPercent: 60, cooldown: 3, animation: 'attack' } },
+
+        // Nyxara, Senhora das Sombras (Boss de Linhagem da Arena — ver
+        // enemy.js ARENA_BOSS_DEFS.nyxara_sombras) — golpe de adaga rápido,
+        // um véu defensivo que reforça a fantasia de "quase intocável", e
+        // um golpe final desesperado só usado com o Manto de Sombras cheio.
+        { id: 'nyxara_corte_sombrio', name: 'Corte Sombrio', type: 'PHYSICAL', mpCost: 16, powerMulti: 1.7,
+            description: 'Nyxara golpeia com a adaga vinda de um ângulo impossível de prever.', extra: { cooldown: 2, animation: 'attack' } },
+        { id: 'nyxara_passo_das_sombras', name: 'Passo das Sombras', type: 'SHIELD', mpCost: 20, powerMulti: 1,
+            description: 'Nyxara se dissolve parcialmente em sombra, absorvendo grande parte do próximo golpe.', extra: { shieldPercent: 40, duration: 2, cooldown: 4, animation: 'cast' } },
+        { id: 'nyxara_mil_cortes', name: 'Mil Cortes', type: 'LIFESTEAL', mpCost: 28, powerMulti: 1.9,
+            description: 'Envolta em sombras, Nyxara desfere uma sequência de cortes rápidos demais para acompanhar.', extra: { lifestealPercent: 50, cooldown: 3, animation: 'attack' } }
     ];
     defs.forEach(d => {
         if (!window.SkillDB[d.id]) {
@@ -234,6 +245,62 @@ const BOSS_AI = {
             }
             return { action: 'ATK', message: `${boss.name} ataca com força orc bruta!` };
         }
+    },
+
+    // ==================================================================
+    // NYXARA, SENHORA DAS SOMBRAS — Boss de Linhagem da Arena (ver enemy.js
+    // ARENA_BOSS_DEFS.nyxara_sombras/lineages.js LINEAGES.sombras).
+    // Mecânica própria: MANTO DE SOMBRAS. Cada turno DELA sem ser atingida
+    // desde o turno anterior acumula um véu de sombras (até 4 estágios,
+    // +12% de esquiva cada); um golpe que a acerta dissipa o véu
+    // inteiro na hora. Ao contrário da Fúria de Grokmar (que recompensa
+    // castigar o boss), esta pune o jogador que hesita — deixá-la "respirar"
+    // por alguns turnos a torna quase intocável, então manter pressão
+    // constante é a única forma de evitar isso.
+    nyxara_sombras: {
+        decideAction(battle) {
+            const boss = battle.enemy;
+            const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
+            const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 1 };
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
+
+            // Resolve o Manto de Sombras no início do turno DELA — reflete
+            // o que aconteceu durante o turno do jogador que acabou de
+            // passar (ver battle.js executeAttack, que só seta
+            // `wasHitThisRound`, nunca decide nada por conta própria).
+            let cloakMsg = null;
+            if (boss.wasHitThisRound) {
+                const hadStacks = boss.shadowStacks > 0;
+                boss.shadowStacks = 0;
+                boss.derivedStats.dodgeChance = boss.baseDodgeChance;
+                boss.wasHitThisRound = false;
+                if (hadStacks) cloakMsg = `O golpe quebra a concentração sombria de ${boss.name}!`;
+            } else if (boss.shadowStacks < boss.shadowStackMax) {
+                boss.shadowStacks++;
+                boss.derivedStats.dodgeChance = boss.baseDodgeChance + boss.shadowStacks * boss.shadowDodgeBonusPerStack;
+                if (boss.shadowStacks === boss.shadowStackMax) {
+                    cloakMsg = `${boss.name} se funde quase completamente às sombras — praticamente impossível de acertar agora!`;
+                }
+            }
+
+            if (!battle.isInRange(range)) {
+                return { action: 'APPROACH', message: cloakMsg || `${boss.name} desliza silenciosamente para mais perto.` };
+            }
+
+            const cloaked = boss.shadowStacks >= boss.shadowStackMax;
+            const desperate = hpFrac <= 0.3;
+
+            if (desperate && cloaked && ready('nyxara_mil_cortes') && Utils.chance(55)) {
+                return { action: 'SKILL', param: 'nyxara_mil_cortes', message: cloakMsg || `${boss.name}, envolta em sombras, desfere uma sequência de cortes implacável!` };
+            }
+            if (!battle.enemyState.shieldTurns && ready('nyxara_passo_das_sombras') && Utils.chance(30)) {
+                return { action: 'SKILL', param: 'nyxara_passo_das_sombras', message: cloakMsg || `${boss.name} se dissolve parcialmente em sombra!` };
+            }
+            if (ready('nyxara_corte_sombrio') && Utils.chance(50)) {
+                return { action: 'SKILL', param: 'nyxara_corte_sombrio', message: cloakMsg || `${boss.name} golpeia com um corte sombrio!` };
+            }
+            return { action: 'ATK', message: cloakMsg || `${boss.name} ataca com a adaga vinda das sombras!` };
+        }
     }
 };
 window.BossAI = {
@@ -252,5 +319,6 @@ window.BossAI = {
 window.BOSS_SKILL_IDS = {
     conde_vampiro: ['conde_garras_sombrias', 'conde_sugar_vida', 'conde_enxame_morcegos', 'conde_garra_final'],
     anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final'],
-    grokmar_furia: ['grokmar_machadada_dupla', 'grokmar_investida_furiosa', 'grokmar_ultimo_fio']
+    grokmar_furia: ['grokmar_machadada_dupla', 'grokmar_investida_furiosa', 'grokmar_ultimo_fio'],
+    nyxara_sombras: ['nyxara_corte_sombrio', 'nyxara_passo_das_sombras', 'nyxara_mil_cortes']
 };

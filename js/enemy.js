@@ -635,6 +635,25 @@ const ARENA_BOSS_DEFS = {
         race: 'orc',
         visuals: { gender: 'Masculino', skinTone: '#4a6a2a', eyeColor: '#ff2a1a', eyebrowColor: '#1a1a0a',
             hairStyle: 3, hairColor: '#1a1a0a', beardStyle: 2, beardColor: '#1a1a0a', faceShape: 4, archetype: 'barbaro', scarStyle: 4 }
+    },
+    // Boss de Linhagem (item 7 da mega-diretiva) — Nyxara representa a
+    // Linhagem Sombras (ver lineages.js LINEAGES.sombras), que NUNCA teve
+    // ritual/boss próprio (só é despertada via Corrupção, ver
+    // corruption.js) — este NÃO é o boss que desperta a linhagem, é um
+    // desafio opcional temático dela na Arena. `lineage: 'sombras'` é
+    // usado por ui.js openLadder pra aplicar a regra explícita da
+    // diretiva: um jogador que JÁ possui uma linhagem nunca deve poder
+    // enfrentar o boss temático dessa MESMA linhagem.
+    nyxara_sombras: {
+        id: 'nyxara_sombras', name: 'Nyxara, Senhora das Sombras', title: 'Senhora das Sombras',
+        unlocksAfterRival: 'anao_champion', // último campeão de liga — desafio opcional mais tardio que Grokmar
+        levelBonus: 10, statMult: 1.75,
+        weaponId: 'dagger', weaponRarity: 'LEGENDARY',
+        armorId: 'leatherchest', armorRarity: 'LEGENDARY',
+        lineage: 'sombras',
+        shadowStackMax: 4, shadowDodgeBonusPerStack: 12,
+        visuals: { gender: 'Feminino', skinTone: '#3a3040', eyeColor: '#8a3ae0', eyebrowColor: '#1a1420',
+            hairStyle: 6, hairColor: '#1a1420', beardStyle: 0, beardColor: '#1a1420', faceShape: 2, archetype: 'assassino', scarStyle: 0, hasSmoke: true }
     }
 };
 window.ARENA_BOSS_DEFS = ARENA_BOSS_DEFS;
@@ -652,6 +671,7 @@ function createArenaBoss(bossId, playerLevel) {
     boss.isBoss = true;
     boss.bossId = bossId;
     boss.race = def.race || null;
+    boss.lineage = def.lineage || null; // lido por ui.js openLadder pra bloquear o boss contra jogadores da MESMA linhagem (item 7 da diretiva)
     boss.aiSkills = (window.BOSS_SKILL_IDS && window.BOSS_SKILL_IDS[bossId]) || [];
     boss.level = Math.max(playerLevel + def.levelBonus, 22);
 
@@ -659,6 +679,17 @@ function createArenaBoss(bossId, playerLevel) {
     boss.furyMax = def.furyMax || 100;
     boss.furyStacks = 0;
     boss.furyTier = 0;
+
+    // Mecânica de Manto de Sombras (Nyxara) — cresce enquanto o boss NÃO é
+    // atingido, reseta no instante em que um golpe acerta (ver battle.js
+    // executeAttack e bossai.js nyxara_sombras.decideAction). `shadowStacks`
+    // acumula em cima de `baseDodgeChance` (capturado logo após
+    // calculateDerivedStats, mais abaixo) pra nunca sofrer drift por
+    // reaplicação cumulativa, diferente do bônus de dano de Grokmar acima.
+    boss.shadowStackMax = def.shadowStackMax || 0;
+    boss.shadowDodgeBonusPerStack = def.shadowDodgeBonusPerStack || 0;
+    boss.shadowStacks = 0;
+    boss.wasHitThisRound = false;
 
     const totalPoints = Math.floor((40 + boss.level * 6) * def.statMult);
     const keys = Object.keys(boss.baseStats);
@@ -673,6 +704,7 @@ function createArenaBoss(bossId, playerLevel) {
     boss.currentHp = boss.derivedStats.maxHp;
     boss.derivedStats.maxMp = Math.floor(boss.derivedStats.maxMp * 1.5);
     boss.currentMp = boss.derivedStats.maxMp;
+    boss.baseDodgeChance = boss.derivedStats.dodgeChance; // ponto de referência do Manto de Sombras (Nyxara)
 
     boss.expValue = Math.floor(75 * Math.pow(1.15, boss.level));
     boss.goldValue = Math.floor(140 + boss.level * 12);
