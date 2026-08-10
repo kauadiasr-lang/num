@@ -1017,6 +1017,23 @@ const RivalDatabase = {
                 { id: 'elin', name: 'Elin, Chama Novata', title: 'Chama Novata', level: 4, focus: { int: 0.45, acc: 0.3, def: 0.25 },
                     personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.UNCOMMON,
                     visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 0 } },
+                // Iteração 16 (item 3 da mega-diretiva, rumo a ~12
+                // lutadores/liga): os 8 estilos base já estão todos
+                // cobertos na Bronze desde a Iteração 14 — a partir daqui,
+                // identidade vem de REAPROVEITAR um estilo com
+                // personalidade/foco/visual genuinamente diferentes
+                // (nunca um clone reescalado). Fenrik reaproveita
+                // "assassino" (já usado por Vesna/duelista) com
+                // "caçador"/foco em sorte — persegue por instinto, não por
+                // técnica de duelo. Morna reaproveita "brutamontes" (já
+                // usado por Thom/berserker) com "sádico" — tortura
+                // devagar, não explode em fúria.
+                { id: 'fenrik', name: 'Fenrik, o Rastreador', title: 'o Rastreador', level: 3, focus: { agi: 0.4, luk: 0.35, acc: 0.25 },
+                    personalityId: 'cacador', styleId: 'assassino', gearRarity: RARITY.COMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 2 } },
+                { id: 'morna', name: 'Morna, a Cruel', title: 'a Cruel', level: 4, focus: { str: 0.5, def: 0.3, luk: 0.2 },
+                    personalityId: 'sadico', styleId: 'brutamontes', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 3 } },
                 { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
                     intro: 'Chegou longe pra um novato. Vamos ver se sua sorte aguenta o Campeão de Bronze.',
@@ -1064,6 +1081,19 @@ const RivalDatabase = {
                 { id: 'vesper', name: 'Vesper, Olhar Frio', title: 'Olhar Frio', level: 8, focus: { agi: 0.35, acc: 0.45, luk: 0.2 },
                     personalityId: 'sadico', styleId: 'arqueiro', gearRarity: RARITY.RARE, rivalOf: 'ren',
                     visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
+                // Iteração 16 (item 3 da mega-diretiva): Petro reaproveita
+                // "mago" (já usado por Nyx/covarde) com "impulsivo" — arrisca
+                // feitiços grandes demais cedo demais, o oposto do
+                // conservadorismo medroso de Nyx. Wren reaproveita
+                // "guardião" (já usado por Rurik/sobrevivente e o próprio
+                // Campeão Draven/veterano) com "calculista" — escuda com
+                // precisão cirúrgica, nunca por instinto de sobrevivência.
+                { id: 'petro', name: 'Petro, Chama Impulsiva', title: 'Chama Impulsiva', level: 6, focus: { int: 0.4, str: 0.3, acc: 0.3 },
+                    personalityId: 'impulsivo', styleId: 'mago', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 } },
+                { id: 'wren', name: 'Wren, o Metódico', title: 'o Metódico', level: 9, focus: { def: 0.45, acc: 0.3, str: 0.25 },
+                    personalityId: 'calculista', styleId: 'guardiao', gearRarity: RARITY.RARE,
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 0 } },
                 { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
                     intro: 'Cada oponente me ensina algo. Hoje, você é a lição.',
@@ -1110,6 +1140,18 @@ const RivalDatabase = {
                 { id: 'thessaly', name: 'Thessaly, Espada Cortesã', title: 'Espada Cortesã', level: 13, focus: { agi: 0.35, acc: 0.35, str: 0.3 },
                     personalityId: 'veterano', styleId: 'espadachim', gearRarity: RARITY.EPIC,
                     visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 2 } },
+                // Iteração 16 (item 3 da mega-diretiva): Ilyra reaproveita
+                // "assassino" (já usado por Sable/sádico) com "executor" —
+                // mata rápido e sem prazer nenhum, o oposto do gosto de
+                // Sable por prolongar. Doran reaproveita "arqueiro" (já
+                // usado por Freya/caçador) com "mercenário" — atira por
+                // contrato, nunca por instinto de caça.
+                { id: 'ilyra', name: 'Ilyra, a Precisa', title: 'a Precisa', level: 12, focus: { agi: 0.4, luk: 0.3, acc: 0.3 },
+                    personalityId: 'executor', styleId: 'assassino', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 1 } },
+                { id: 'doran', name: 'Doran, Flecha à Venda', title: 'Flecha à Venda', level: 13, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
+                    personalityId: 'mercenario', styleId: 'arqueiro', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 2 } },
                 { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
                     personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
                     intro: 'Séculos de arena, e ainda procuro alguém digno. Talvez seja você.',
@@ -1177,6 +1219,18 @@ const RivalDatabase = {
                 { id: 'thokka', name: 'Thokka, Lâmina de Honra', title: 'Lâmina de Honra', level: 18, focus: { str: 0.35, agi: 0.3, acc: 0.35 },
                     personalityId: 'honrado', styleId: 'espadachim', gearRarity: RARITY.EPIC, race: 'orc',
                     visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 3 } },
+                // Iteração 16 (item 3 da mega-diretiva): Ghazuk reaproveita
+                // "guardião" (já usado por Brûk/protetor) com "veterano" —
+                // escuda por experiência de mil arenas, não por instinto
+                // protetor. Nazgra reaproveita "mago" (já usado por Uzgar/
+                // executor) com "tático" — xamã que planeja com antecedência,
+                // o oposto da execução implacável e imediata de Uzgar.
+                { id: 'ghazuk', name: 'Ghazuk, Veterano de Mil Arenas', title: 'Veterano de Mil Arenas', level: 17, focus: { def: 0.45, str: 0.4, cha: 0.15 },
+                    personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 4 } },
+                { id: 'nazgra', name: 'Nazgra, Olho de Corvo', title: 'Olho de Corvo', level: 19, focus: { int: 0.4, def: 0.3, acc: 0.3 },
+                    personalityId: 'tatico', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'orc',
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 2 } },
                 { id: 'orc_champion', name: 'Gorkhal, Senhor da Guerra', title: 'Senhor da Guerra', level: 20, focus: { str: 0.35, def: 0.3, agi: 0.2, acc: 0.15 },
                     personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'orc',
                     intro: 'Você chegou longe demais pelas terras de Gorkhal.',
@@ -1226,6 +1280,19 @@ const RivalDatabase = {
                 { id: 'gaurwen', name: 'Gaurwen, Fúria da Floresta Antiga', title: 'Fúria da Floresta Antiga', level: 23, focus: { str: 0.5, def: 0.3, agi: 0.2 },
                     personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'elfo',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 1 } },
+                // Iteração 16 (item 3 da mega-diretiva): Nimrieth reaproveita
+                // "assassino" (já usado por Thalindor/duelista) com
+                // "sobrevivente" — só mata quando não há outra saída, o
+                // oposto do duelo ritualizado de Thalindor. Fendrel
+                // reaproveita "espadachim" (já usado por Aerindil/duelista)
+                // com "mercenário" — luta por contrato, quebrando ainda
+                // mais o estereótipo nobre-élfico que Gaurwen já começou.
+                { id: 'nimrieth', name: 'Nimrieth, Última Saída', title: 'Última Saída', level: 22, focus: { agi: 0.4, luk: 0.3, def: 0.3 },
+                    personalityId: 'sobrevivente', styleId: 'assassino', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
+                { id: 'fendrel', name: 'Fendrel, Lâmina de Aluguel', title: 'Lâmina de Aluguel', level: 24, focus: { agi: 0.4, acc: 0.35, str: 0.25 },
+                    personalityId: 'mercenario', styleId: 'espadachim', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 } },
                 { id: 'elfica_champion', name: 'Sylvaneth, Guardiã Ancestral', title: 'Guardiã Ancestral', level: 25, focus: { agi: 0.3, int: 0.25, acc: 0.25, luk: 0.2 },
                     personalityId: 'tatico', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'elfo',
                     intro: 'O Santuário não cai pra qualquer mercenário. Prove que é diferente.',
@@ -1291,6 +1358,20 @@ const RivalDatabase = {
                 { id: 'baldrik', name: 'Baldrik, Pique de Kharzum', title: 'Pique de Kharzum', level: 28, focus: { str: 0.4, def: 0.35, acc: 0.25 },
                     personalityId: 'tatico', styleId: 'lanceiro', gearRarity: RARITY.LEGENDARY, race: 'anao',
                     visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 2 } },
+                // Iteração 16 (item 3 da mega-diretiva): Modrek reaproveita
+                // "guardião" (já usado por Thrain/protetor e o próprio
+                // Campeão Thorgrim/honrado) com "fanático" — escuda por
+                // devoção religiosa ao deus-forja, não por instinto
+                // protetor nem honra pessoal. Krona reaproveita
+                // "brutamontes" (já usado por Borga/berserker e Dagna/
+                // veterano) com "executor" — mata com eficiência fria de
+                // carrasco, sem a fúria de um nem a cautela do outro.
+                { id: 'modrek', name: 'Modrek, Punho Sagrado', title: 'Punho Sagrado', level: 26, focus: { def: 0.45, str: 0.4, cha: 0.15 },
+                    personalityId: 'fanatico', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 3 } },
+                { id: 'krona', name: 'Krona, a Algoz', title: 'a Algoz', level: 27, focus: { str: 0.55, def: 0.3, acc: 0.15 },
+                    personalityId: 'executor', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'barbaro', scarStyle: 4 } },
                 { id: 'anao_champion', name: 'Thorgrim, Rei da Forja', title: 'Rei da Forja', level: 30, focus: { def: 0.35, str: 0.35, agi: 0.15, acc: 0.15 },
                     personalityId: 'honrado', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'anao',
                     intro: 'Toda lâmina se quebra contra a pedra de Kharzum. Vamos ver a sua.',
