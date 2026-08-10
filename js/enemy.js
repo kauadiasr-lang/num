@@ -1007,6 +1007,16 @@ const RivalDatabase = {
                 { id: 'ren', name: 'Ren, Flecha Errante', title: 'Flecha Errante', level: 4, focus: { agi: 0.4, acc: 0.4, luk: 0.2 },
                     personalityId: 'mercenario', styleId: 'arqueiro', gearRarity: RARITY.UNCOMMON,
                     visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 0 } },
+                // Iteração 14 (item 3 da mega-diretiva, rumo a ~12
+                // lutadores/liga): Dain preenche "lanceiro" e Elin "mago" —
+                // os dois únicos estilos ainda ausentes na Bronze depois da
+                // Iteração 2.
+                { id: 'dain', name: 'Dain, Guarda de Fronteira', title: 'Guarda de Fronteira', level: 3, focus: { str: 0.35, acc: 0.35, def: 0.3 },
+                    personalityId: 'tatico', styleId: 'lanceiro', gearRarity: RARITY.COMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 } },
+                { id: 'elin', name: 'Elin, Chama Novata', title: 'Chama Novata', level: 4, focus: { int: 0.45, acc: 0.3, def: 0.25 },
+                    personalityId: 'covarde', styleId: 'mago', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 0 } },
                 { id: 'bronze_champion', name: 'Karg, Campeão de Bronze', title: 'Campeão de Bronze', level: 5, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'protetor', styleId: 'gladiador', gearRarity: RARITY.UNCOMMON, isChampion: true,
                     intro: 'Chegou longe pra um novato. Vamos ver se sua sorte aguenta o Campeão de Bronze.',
@@ -1042,6 +1052,18 @@ const RivalDatabase = {
                 { id: 'rurik', name: 'Rurik, o Inflexível', title: 'o Inflexível', level: 9, focus: { def: 0.5, str: 0.35, cha: 0.15 },
                     personalityId: 'sobrevivente', styleId: 'guardiao', gearRarity: RARITY.RARE,
                     visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 3 } },
+                // Iteração 14 (item 3 da mega-diretiva): Cassian preenche
+                // "espadachim" e Vesper "arqueiro" — os dois únicos estilos
+                // ainda ausentes na Prata. Vesper reconhece Ren (Liga de
+                // Bronze, já derrotado a esta altura) — a mesma arma, duas
+                // filosofias opostas: Ren caça por instinto, Vesper por
+                // cálculo frio.
+                { id: 'cassian', name: 'Cassian, Lâmina Cortesã', title: 'Lâmina Cortesã', level: 7, focus: { agi: 0.4, acc: 0.35, str: 0.25 },
+                    personalityId: 'duelista', styleId: 'espadachim', gearRarity: RARITY.UNCOMMON,
+                    visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 0 } },
+                { id: 'vesper', name: 'Vesper, Olhar Frio', title: 'Olhar Frio', level: 8, focus: { agi: 0.35, acc: 0.45, luk: 0.2 },
+                    personalityId: 'sadico', styleId: 'arqueiro', gearRarity: RARITY.RARE, rivalOf: 'ren',
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 2 } },
                 { id: 'silver_champion', name: 'Draven, Campeão de Prata', title: 'Campeão de Prata', level: 10, focus: { str: 0.3, def: 0.3, agi: 0.2, acc: 0.2 },
                     personalityId: 'veterano', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
                     intro: 'Cada oponente me ensina algo. Hoje, você é a lição.',
@@ -1079,6 +1101,15 @@ const RivalDatabase = {
                 { id: 'wynne', name: 'Wynne, Cântico de Ferro', title: 'Cântico de Ferro', level: 14, focus: { int: 0.4, acc: 0.3, def: 0.3 },
                     personalityId: 'tatico', styleId: 'mago', gearRarity: RARITY.EPIC,
                     visuals: { gender: 'Feminino', archetype: 'mercenario', scarStyle: 1 } },
+                // Iteração 14 (item 3 da mega-diretiva): Perrin preenche
+                // "guardião" e Thessaly "espadachim" — os dois únicos
+                // estilos ainda ausentes na Ouro.
+                { id: 'perrin', name: 'Perrin, Bastião Dourado', title: 'Bastião Dourado', level: 12, focus: { def: 0.45, str: 0.3, cha: 0.25 },
+                    personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Masculino', archetype: 'cavaleiro', scarStyle: 1 } },
+                { id: 'thessaly', name: 'Thessaly, Espada Cortesã', title: 'Espada Cortesã', level: 13, focus: { agi: 0.35, acc: 0.35, str: 0.3 },
+                    personalityId: 'veterano', styleId: 'espadachim', gearRarity: RARITY.EPIC,
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 2 } },
                 { id: 'gold_champion', name: 'Aurelion, o Imortal', title: 'o Imortal', level: 15, focus: { str: 0.28, def: 0.28, agi: 0.22, acc: 0.22 },
                     personalityId: 'honrado', styleId: 'gladiador', gearRarity: RARITY.LEGENDARY, isChampion: true,
                     intro: 'Séculos de arena, e ainda procuro alguém digno. Talvez seja você.',
@@ -1131,6 +1162,21 @@ const RivalDatabase = {
                 { id: 'uzgar', name: 'Uzgar, Voz dos Tambores', title: 'Voz dos Tambores', level: 19, focus: { int: 0.4, def: 0.3, str: 0.3 },
                     personalityId: 'executor', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'orc',
                     visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 } },
+                // Iteração 14 (item 3 da mega-diretiva): Krag preenche
+                // "arqueiro" e Thokka "espadachim" — os dois únicos estilos
+                // ainda ausentes na Orc, quebrando de propósito o estereótipo
+                // "orc = corpo a corpo pesado" que a própria liga já tem de
+                // sobra (Grukthar/Gorkhal). Krag reconhece Freya (Liga de
+                // Ouro, já derrotada) — duelo de arqueiros entre raças.
+                // Thokka é uma orc que despreza a brutalidade dos seus pares
+                // e só respeita duelo de lâmina — quebra de identidade
+                // deliberada, não um clone com pele orc.
+                { id: 'krag', name: 'Krag, Flecha do Trovão', title: 'Flecha do Trovão', level: 17, focus: { str: 0.3, agi: 0.35, acc: 0.35 },
+                    personalityId: 'duelista', styleId: 'arqueiro', gearRarity: RARITY.EPIC, race: 'orc', rivalOf: 'freya',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 2 } },
+                { id: 'thokka', name: 'Thokka, Lâmina de Honra', title: 'Lâmina de Honra', level: 18, focus: { str: 0.35, agi: 0.3, acc: 0.35 },
+                    personalityId: 'honrado', styleId: 'espadachim', gearRarity: RARITY.EPIC, race: 'orc',
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 3 } },
                 { id: 'orc_champion', name: 'Gorkhal, Senhor da Guerra', title: 'Senhor da Guerra', level: 20, focus: { str: 0.35, def: 0.3, agi: 0.2, acc: 0.15 },
                     personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'orc',
                     intro: 'Você chegou longe demais pelas terras de Gorkhal.',
@@ -1167,6 +1213,19 @@ const RivalDatabase = {
                 { id: 'faelwen', name: 'Faelwen, Escudo Ancestral', title: 'Escudo Ancestral', level: 24, focus: { def: 0.45, agi: 0.3, cha: 0.25 },
                     personalityId: 'protetor', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, race: 'elfo',
                     visuals: { gender: 'Feminino', archetype: 'cavaleiro', scarStyle: 0 } },
+                // Iteração 14 (item 3 da mega-diretiva): Caelistra preenche
+                // "lanceiro" e Gaurwen "brutamontes" — os dois únicos
+                // estilos ainda ausentes na Élfica. Gaurwen quebra de
+                // propósito o estereótipo "elfo = ágil e frágil": um elfo
+                // que canaliza séculos de força da floresta antiga em
+                // golpes brutos, nunca um clone de Grukthar/Borga com
+                // orelhas pontudas — a fúria dele é ritual, não instintiva.
+                { id: 'caelistra', name: 'Caelistra, Lança Solar', title: 'Lança Solar', level: 22, focus: { agi: 0.4, acc: 0.35, str: 0.25 },
+                    personalityId: 'veterano', styleId: 'lanceiro', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 } },
+                { id: 'gaurwen', name: 'Gaurwen, Fúria da Floresta Antiga', title: 'Fúria da Floresta Antiga', level: 23, focus: { str: 0.5, def: 0.3, agi: 0.2 },
+                    personalityId: 'fanatico', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, race: 'elfo',
+                    visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 1 } },
                 { id: 'elfica_champion', name: 'Sylvaneth, Guardiã Ancestral', title: 'Guardiã Ancestral', level: 25, focus: { agi: 0.3, int: 0.25, acc: 0.25, luk: 0.2 },
                     personalityId: 'tatico', styleId: 'arqueiro', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'elfo',
                     intro: 'O Santuário não cai pra qualquer mercenário. Prove que é diferente.',
@@ -1220,6 +1279,18 @@ const RivalDatabase = {
                 { id: 'sunna', name: 'Sunna, Cântico da Forja', title: 'Cântico da Forja', level: 29, focus: { int: 0.4, def: 0.35, str: 0.25 },
                     personalityId: 'sobrevivente', styleId: 'mago', gearRarity: RARITY.LEGENDARY, race: 'anao',
                     visuals: { gender: 'Feminino', archetype: 'veterano', scarStyle: 1 } },
+                // Iteração 14 (item 3 da mega-diretiva): Grimna preenche
+                // "assassino" e Baldrik "lanceiro" — dois estilos ainda
+                // ausentes na Anã. Grimna quebra o estereótipo "anão =
+                // tanque pesado" com um perfil furtivo de mineira que
+                // aprendeu a golpear nos túneis mais estreitos, onde
+                // armadura pesada só atrapalha.
+                { id: 'grimna', name: 'Grimna, Punhal da Mina Funda', title: 'Punhal da Mina Funda', level: 27, focus: { agi: 0.35, luk: 0.3, acc: 0.35 },
+                    personalityId: 'sadico', styleId: 'assassino', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Feminino', archetype: 'assassino', scarStyle: 3 } },
+                { id: 'baldrik', name: 'Baldrik, Pique de Kharzum', title: 'Pique de Kharzum', level: 28, focus: { str: 0.4, def: 0.35, acc: 0.25 },
+                    personalityId: 'tatico', styleId: 'lanceiro', gearRarity: RARITY.LEGENDARY, race: 'anao',
+                    visuals: { gender: 'Masculino', archetype: 'veterano', scarStyle: 2 } },
                 { id: 'anao_champion', name: 'Thorgrim, Rei da Forja', title: 'Rei da Forja', level: 30, focus: { def: 0.35, str: 0.35, agi: 0.15, acc: 0.15 },
                     personalityId: 'honrado', styleId: 'guardiao', gearRarity: RARITY.LEGENDARY, isChampion: true, race: 'anao',
                     intro: 'Toda lâmina se quebra contra a pedra de Kharzum. Vamos ver a sua.',
