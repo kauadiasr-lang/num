@@ -367,8 +367,30 @@ const AICombat = {
     },
 
     // ==========================================================================
-    // AVALIAÇÃO DE RISCO
+    // DISTÂNCIA — conceito central e reutilizável (item 6 da mega-diretiva de
+    // IA de combate: "distância deve ser uma das entradas mais importantes da
+    // IA"). Antes cada ponto do motor que precisava saber "essa distância é
+    // perigosa?" reimplementava a própria conta na hora (ver a versão inicial
+    // da pontuação de TELEPORT_FAR na Iteração 2). Centralizar aqui garante
+    // que risco, defesa, recuo e magias de fuga concordem sobre o que conta
+    // como "zona perigosa", em vez de cada um ter seu próprio critério.
     // ==========================================================================
+
+    // A distância atual está dentro do alcance de ataque do JOGADOR? Se sim,
+    // o jogador pode acertar o inimigo neste exato instante — não é uma
+    // opinião de personalidade, é um fato físico do combate.
+    _isDangerousDistance(battle) {
+        const playerRange = battle.player.getWeaponRange();
+        return battle.distance <= playerRange.max;
+    },
+
+    // A distância atual está dentro do alcance de ataque do PRÓPRIO inimigo?
+    // Reaproveita battle.isInRange (mesmo gate físico já usado em
+    // decideAction) só para dar um nome mais legível ao conceito de "alcance
+    // ideal" nos pontos que precisam dele.
+    _isIdealRange(battle) {
+        return battle.isInRange(battle.enemy.getWeaponRange());
+    },
 
     // Retorna 0 (sem risco algum) a 1 (risco extremo) combinando HP próprio,
     // ameaça do jogador (dano/fadiga), adequação de distância, mana disponível
@@ -386,8 +408,16 @@ const AICombat = {
 
         // Estar fora do próprio alcance ideal (precisa se reposicionar) é
         // percebido como vulnerabilidade
-        const range = enemy.getWeaponRange();
-        if (!battle.isInRange(range)) risk += 0.1;
+        const inOwnRange = this._isIdealRange(battle);
+        if (!inOwnRange) risk += 0.1;
+
+        // O pior dos dois mundos: o jogador já consegue acertar o inimigo
+        // (zona perigosa) mas o inimigo ainda não consegue revidar (fora do
+        // próprio alcance) — apanhar sem conseguir bater de volta é
+        // objetivamente mais arriscado do que qualquer um dos dois fatores
+        // isolados, então soma um termo próprio em vez de só reusar os 0.1
+        // acima.
+        if (this._isDangerousDistance(battle) && !inOwnRange) risk += 0.15;
 
         // Poucos recursos (mana para habilidades, cargas de item) aumenta o risco
         const mpPercent = enemy.derivedStats.maxMp > 0 ? enemy.currentMp / enemy.derivedStats.maxMp : 1;
@@ -742,6 +772,22 @@ const AICombat = {
             list.push({ action, param, score: baseScore * Utils.randomFloat(0.85, 1.15), message });
         };
 
+        // Atributos influenciando a decisão DIRETAMENTE (Iteração 4 da
+        // mega-diretiva de IA de combate, item 3: "atributos devem definir
+        // personalidade/comportamento, não só matemática de dano"). Antes
+        // DEF/ACC/AGI só alimentavam `statFocus` na geração procedural do
+        // inimigo (ai_data.js) e o dano bruto em battle.js — nunca
+        // influenciavam a ESCOLHA de ação em si. `statBaseline` é a média
+        // esperada de UM atributo pra esse nível se os pontos fossem
+        // distribuídos igualmente entre os 7 (ver totalStatPointsForLevel em
+        // enemy.js) — usar uma média relativa ao nível em vez de um número
+        // fixo evita que os bônus fiquem exagerados num inimigo de nível 1 ou
+        // insignificantes num de nível 30, o que um limiar absoluto faria.
+        const statBaseline = 5 + (window.totalStatPointsForLevel ? window.totalStatPointsForLevel(enemy.level || 1) : 35) / 7;
+        const defRatio = enemy.getTotalStat('def') / statBaseline;
+        const accRatio = enemy.getTotalStat('acc') / statBaseline;
+        const agiRatio = enemy.getTotalStat('agi') / statBaseline;
+
         // ATK
         // Bug de auditoria: essa pontuação nunca conferia a própria munição
         // do inimigo (ver o gate equivalente já aplicado na EXECUÇÃO real
@@ -760,6 +806,15 @@ const AICombat = {
         if (rare && rare.id === 'so_habilidades') atkScore *= 0.05;
         if (ctx.risk > 0.6) atkScore *= (1 - p.resilience * 0.6);
         if (ctx.repeatedPattern === 'DEF') atkScore *= 1.6; // jogador vive se defendendo: pressiona mais
+        // ACC alta = confiança em ataques de precisão (item 3): um inimigo
+        // com Precisão bem acima da média do próprio nível tende a preferir
+        // resolver o turno com o ataque básico em vez de arriscar uma
+        // habilidade/recuo — reforçado ainda mais quando a arma ativa é de
+        // longo alcance (a precisão é literalmente o que sustenta aquele
+        // estilo de combate).
+        if (accRatio > 1.3) {
+            atkScore *= 1 + Utils.clamp(accRatio - 1, 0, 1) * (activeWeapon && activeWeapon.slot === SLOTS.RANGED ? 0.5 : 0.25);
+        }
         // Alvo mais perto que o alcance mínimo da arma: o ataque ainda sai,
         // mas com 40% menos dano (ver _weaponRangeMulti em battle.js) — vale
         // proporcionalmente menos frente às outras opções (ex: recuar).
@@ -778,7 +833,6 @@ const AICombat = {
         // substituem a variabilidade de personalidade, só a ENQUADRAM no
         // contexto certo (item 9: "magia deixa de ser botão de spam").
         const range = enemy.getWeaponRange();
-        const playerRange = battle.player.getWeaponRange();
         const hpPercent = enemy.currentHp / enemy.derivedStats.maxHp;
         enemy.aiSkills.forEach(skillId => {
             if (!this._skillUsable(battle, skillId)) return;
@@ -796,9 +850,9 @@ const AICombat = {
             } else if (skill.type === 'TELEPORT_FAR') {
                 // "Lampejo de Fuga" (item 7/9): só interessa de verdade
                 // quando a distância atual é perigosa (dentro do alcance
-                // da arma do JOGADOR) — nunca some do campo de batalha só
-                // porque a magia está disponível.
-                const dangerClose = battle.distance <= playerRange.max;
+                // da arma do JOGADOR, ver _isDangerousDistance) — nunca
+                // some do campo de batalha só porque a magia está disponível.
+                const dangerClose = this._isDangerousDistance(battle);
                 s *= dangerClose ? (1.4 + ctx.risk) : 0.1;
                 if (!dangerClose && hpPercent > 0.7 && ctx.risk < 0.3) s *= 0.3;
             } else if (skill.type === 'TELEPORT_ENEMY') {
@@ -833,6 +887,18 @@ const AICombat = {
         if (!(rare && rare.id === 'nunca_defende')) {
             let defScore = style.actionBias.DEF * (0.3 + p.caution) * (em.DEF || 1) * (0.5 + ctx.risk);
             if (ctx.repeatedPattern === 'ATK') defScore *= 1.5; // jogador sempre ataca: passa a se defender mais
+            // DEF alta = mais tendência a Defender, INDEPENDENTE de
+            // personalidade (item 3): mesmo um inimigo pouco cauteloso tem
+            // razão prática pra bloquear quando sua própria Defesa já
+            // mitiga bem o dano recebido — a mitigação de Defender só
+            // aumenta cima de uma base que já é boa.
+            if (defRatio > 1.3) defScore *= 1 + Utils.clamp(defRatio - 1, 0, 1.2) * 0.4;
+            // Distância central (item 6): apanhar sem conseguir revidar
+            // (zona perigosa do jogador, fora do próprio alcance) é
+            // exatamente quando bloquear compensa mais — reaproveita o
+            // mesmo par de condições já somado como risco extra em
+            // assessRisk, agora como um motivo direto pra escolher DEF.
+            if (this._isDangerousDistance(battle) && !this._isIdealRange(battle)) defScore *= 1.35;
             add('DEF', null, defScore, `${enemy.name} assume uma postura defensiva.`);
         }
 
@@ -864,6 +930,11 @@ const AICombat = {
         // de Punho do Colosso acima (que FORÇA recuo por outro motivo:
         // ausência total de resposta à distância, não velocidade).
         if (ctx.dancaActive) retreatScore *= 0.45;
+        // AGI alta = mais disposição a se reposicionar (item 3: "AGI →
+        // movimento/reposicionamento/evasão") — um inimigo ágil tem menos a
+        // perder ao abrir mão do turno de ataque pra se mover, porque
+        // recupera a distância perdida rápido de qualquer forma.
+        if (agiRatio > 1.3) retreatScore *= 1 + Utils.clamp(agiRatio - 1, 0, 1) * 0.3;
         add('RETREAT', null, retreatScore, `${enemy.name} recua, mantendo distância segura.`);
 
         // APPROACH voluntário (perseguição extra quando o jogador kita) — não
@@ -881,6 +952,11 @@ const AICombat = {
         // o jogador ESTÁ fraco agora, não em qualquer HP.
         const playerHpPercent = battle.player.derivedStats.maxHp > 0 ? battle.player.currentHp / battle.player.derivedStats.maxHp : 1;
         if (playerHpPercent <= 0.3 && this.playerFleesWhenLow(mem)) approachScore *= 1.6;
+        // Mesmo raciocínio de AGI do RETREAT acima, na direção oposta: um
+        // inimigo ágil também persegue com mais disposição, porque o custo
+        // de gastar o turno se movendo (em vez de atacar) é menor pra quem
+        // se movimenta rápido.
+        if (!ctx.subRange && agiRatio > 1.3) approachScore *= 1 + Utils.clamp(agiRatio - 1, 0, 1) * 0.3;
         add('APPROACH', null, approachScore, `${enemy.name} avança, recusando-se a perder distância.`);
 
         // ITEM
