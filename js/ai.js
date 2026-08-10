@@ -546,6 +546,32 @@ const AICombat = {
             return { action: 'APPROACH', message: `${enemy.name} avança, recusando lutar à distância favorável ao oponente!` };
         }
 
+        // Punho do Colosso (ver combatstyles.js) é desarmado — sem alcance
+        // à distância nenhum. Um inimigo que já ataca de longe (arma
+        // RANGED ativa) ganha uma chance extra de recuar em vez de
+        // aproveitar o próprio turno pra atacar, já que o Colosso não tem
+        // nenhuma resposta a distância. Só dentro do próprio alcance (fora
+        // dele o gate de alcance já decide por outro motivo).
+        if (!subRange && battle.distance < range.max && battle.player.combatStyle === 'colosso'
+            && window.CombatStyleSystem && window.CombatStyleSystem.isStyleCompatible(battle.player, 'colosso')
+            && enemy.activeWeaponSlot === SLOTS.RANGED && Utils.chance(35)) {
+            return { action: 'RETREAT', message: `${enemy.name} recua, evitando o alcance curto do oponente desarmado!` };
+        }
+
+        // Muralha de Ferro (ver combatstyles.js) ganha uma chance extra de
+        // contra-ataque no PRÓXIMO golpe recebido depois de Defender — um
+        // inimigo cauteloso deveria hesitar em atacar cegamente um
+        // adversário com o escudo ainda erguido daquele jeito. `wasHitThisRound`
+        // não se aplica aqui (é exclusivo do Manto de Sombras de Nyxara);
+        // o sinal usado é `playerState.isDefending`, ainda verdadeiro no
+        // turno do inimigo logo após o jogador Defender (só reseta no
+        // início do PRÓXIMO turno do próprio jogador, ver battle.js).
+        if (battle.player.combatStyle === 'muralha' && battle.playerState.isDefending
+            && window.CombatStyleSystem && window.CombatStyleSystem.isStyleCompatible(battle.player, 'muralha')
+            && Utils.chance(30)) {
+            return { action: 'DEF', message: `${enemy.name} hesita diante do escudo erguido, sem arriscar um ataque.` };
+        }
+
         // --- Arquétipo "Espelho": tenta repetir a última ação do jogador ---
         if (rare && rare.id === 'imitador' && battle.playerActionHistory.length > 0) {
             const lastPlayerAction = battle.playerActionHistory[battle.playerActionHistory.length - 1];
