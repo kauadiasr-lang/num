@@ -63,7 +63,18 @@ function registerBossSkills() {
         { id: 'nyxara_passo_das_sombras', name: 'Passo das Sombras', type: 'SHIELD', mpCost: 20, powerMulti: 1,
             description: 'Nyxara se dissolve parcialmente em sombra, absorvendo grande parte do próximo golpe.', extra: { shieldPercent: 40, duration: 2, cooldown: 4, animation: 'cast' } },
         { id: 'nyxara_mil_cortes', name: 'Mil Cortes', type: 'LIFESTEAL', mpCost: 28, powerMulti: 1.9,
-            description: 'Envolta em sombras, Nyxara desfere uma sequência de cortes rápidos demais para acompanhar.', extra: { lifestealPercent: 50, cooldown: 3, animation: 'attack' } }
+            description: 'Envolta em sombras, Nyxara desfere uma sequência de cortes rápidos demais para acompanhar.', extra: { lifestealPercent: 50, cooldown: 3, animation: 'attack' } },
+
+        // Sylwyn, Arqueira da Lua Cheia (Boss Especial da Arena — ver
+        // enemy.js ARENA_BOSS_DEFS.sylwyn_lua) — tiro certeiro básico,
+        // uma chuva de flechas em área, e a Flecha da Lua Cheia (só
+        // realmente forte durante a fase "cheia" do Ciclo Lunar dela).
+        { id: 'sylwyn_tiro_precebido', name: 'Tiro Precebido', type: 'PHYSICAL', mpCost: 14, powerMulti: 1.5,
+            description: 'Sylwyn mira com calma e acerta um ponto vital.', extra: { cooldown: 2, range: 10, animation: 'attack' } },
+        { id: 'sylwyn_chuva_de_flechas', name: 'Chuva de Flechas', type: 'PHYSICAL', mpCost: 20, powerMulti: 1.7,
+            description: 'Uma saraivada de flechas cai sobre a vítima.', extra: { cooldown: 3, range: 10, animation: 'boss_bats' } },
+        { id: 'sylwyn_flecha_da_lua_cheia', name: 'Flecha da Lua Cheia', type: 'PHYSICAL', mpCost: 26, powerMulti: 2.3,
+            description: 'Sob a luz plena da lua, Sylwyn solta a flecha mais precisa de sua vida.', extra: { cooldown: 4, range: 10, animation: 'boss_slam' } }
     ];
     defs.forEach(d => {
         if (!window.SkillDB[d.id]) {
@@ -301,6 +312,76 @@ const BOSS_AI = {
             }
             return { action: 'ATK', message: cloakMsg || `${boss.name} ataca com a adaga vinda das sombras!` };
         }
+    },
+
+    // ==================================================================
+    // SYLWYN, ARQUEIRA DA LUA CHEIA — Boss Especial da Arena Élfica (ver
+    // enemy.js ARENA_BOSS_DEFS.sylwyn_lua). Mecânica própria: CICLO LUNAR.
+    // Diferente de Grokmar (guiado por dano RECEBIDO) e Nyxara (guiada por
+    // ausência de dano recebido), Sylwyn é guiada por TEMPO — a cada turno
+    // DELA a fase avança (Lua Nova: 2 turnos, mais fraca mas se cura um
+    // pouco; Lua Crescente: 2 turnos, força normal; Lua Cheia: 1 turno,
+    // crítico/dano bem acima do normal e usa sua habilidade mais forte
+    // garantida se estiver pronta) — um ritmo previsível e legível: o
+    // jogador aprende o padrão e decide se pressiona durante a Nova (mais
+    // seguro) ou se guarda recursos defensivos pra sobreviver à Cheia.
+    sylwyn_lua: {
+        decideAction(battle) {
+            const boss = battle.enemy;
+            const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 10 };
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
+
+            const PHASE_ORDER = ['nova', 'crescente', 'cheia'];
+            const PHASE_DURATIONS = { nova: 2, crescente: 2, cheia: 1 };
+            let moonMsg = null;
+            boss.moonPhaseTurnsLeft--;
+            if (boss.moonPhaseTurnsLeft <= 0) {
+                const currentIdx = PHASE_ORDER.indexOf(boss.moonPhase);
+                boss.moonPhase = PHASE_ORDER[(currentIdx + 1) % PHASE_ORDER.length];
+                boss.moonPhaseTurnsLeft = PHASE_DURATIONS[boss.moonPhase];
+                // Sempre recalculado a partir da BASE capturada em
+                // createArenaBoss (moonBaseCrit/moonBaseDamage), nunca
+                // cumulativo — evita o mesmo tipo de drift que o comentário
+                // de shadowStacks acima já evita pra Nyxara.
+                if (boss.moonPhase === 'nova') {
+                    boss.derivedStats.critChance = Math.max(5, boss.moonBaseCrit * 0.6);
+                    boss.derivedStats.physicalDamage = boss.moonBaseDamage;
+                    moonMsg = `${boss.name} recolhe o arco sob a lua nova, reunindo forças em silêncio.`;
+                } else if (boss.moonPhase === 'crescente') {
+                    boss.derivedStats.critChance = boss.moonBaseCrit;
+                    boss.derivedStats.physicalDamage = boss.moonBaseDamage;
+                    moonMsg = `A lua crescente ilumina o arco de ${boss.name} — sua pontaria volta ao normal.`;
+                } else {
+                    boss.derivedStats.critChance = Math.min(95, boss.moonBaseCrit + 25);
+                    boss.derivedStats.physicalDamage = Math.floor(boss.moonBaseDamage * 1.3);
+                    moonMsg = `A LUA CHEIA NASCE! Os olhos de ${boss.name} brilham — prepare-se!`;
+                }
+            }
+
+            // Cura leve só durante a Lua Nova — suaviza a fase segura sem
+            // mudar o desfecho da luta; a fase realmente perigosa é a Cheia.
+            if (boss.moonPhase === 'nova' && Utils.chance(35)) {
+                const healAmt = Math.floor(boss.derivedStats.maxHp * 0.04);
+                boss.currentHp = Math.min(boss.derivedStats.maxHp, boss.currentHp + healAmt);
+            }
+
+            if (!battle.isInRange(range)) {
+                return { action: 'APPROACH', message: moonMsg || `${boss.name} recua o suficiente para manter distância de tiro.` };
+            }
+
+            const inFullMoon = boss.moonPhase === 'cheia';
+
+            if (inFullMoon && ready('sylwyn_flecha_da_lua_cheia')) {
+                return { action: 'SKILL', param: 'sylwyn_flecha_da_lua_cheia', message: moonMsg || `${boss.name} solta a Flecha da Lua Cheia — um brilho prateado corta o ar!` };
+            }
+            if (ready('sylwyn_chuva_de_flechas') && Utils.chance(inFullMoon ? 55 : 30)) {
+                return { action: 'SKILL', param: 'sylwyn_chuva_de_flechas', message: moonMsg || `${boss.name} dispara uma chuva de flechas!` };
+            }
+            if (ready('sylwyn_tiro_precebido') && Utils.chance(50)) {
+                return { action: 'SKILL', param: 'sylwyn_tiro_precebido', message: moonMsg || `${boss.name} mira com precisão letal!` };
+            }
+            return { action: 'ATK', message: moonMsg || `${boss.name} atira uma flecha certeira!` };
+        }
     }
 };
 window.BossAI = {
@@ -320,5 +401,6 @@ window.BOSS_SKILL_IDS = {
     conde_vampiro: ['conde_garras_sombrias', 'conde_sugar_vida', 'conde_enxame_morcegos', 'conde_garra_final'],
     anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final'],
     grokmar_furia: ['grokmar_machadada_dupla', 'grokmar_investida_furiosa', 'grokmar_ultimo_fio'],
-    nyxara_sombras: ['nyxara_corte_sombrio', 'nyxara_passo_das_sombras', 'nyxara_mil_cortes']
+    nyxara_sombras: ['nyxara_corte_sombrio', 'nyxara_passo_das_sombras', 'nyxara_mil_cortes'],
+    sylwyn_lua: ['sylwyn_tiro_precebido', 'sylwyn_chuva_de_flechas', 'sylwyn_flecha_da_lua_cheia']
 };

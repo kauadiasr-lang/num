@@ -656,6 +656,28 @@ const ARENA_BOSS_DEFS = {
         shadowStackMax: 4, shadowDodgeBonusPerStack: 12,
         visuals: { gender: 'Feminino', skinTone: '#3a3040', eyeColor: '#8a3ae0', eyebrowColor: '#1a1420',
             hairStyle: 6, hairColor: '#1a1420', beardStyle: 0, beardColor: '#1a1420', faceShape: 2, archetype: 'assassino', scarStyle: 0, hasSmoke: true }
+    },
+    // Sylwyn, Arqueira da Lua Cheia (Iteração 17, item 6 da mega-diretiva —
+    // "bosses especiais além dos campeões, cada um com mecânica própria,
+    // NUNCA só +HP+STR+DEF"). Desbloqueada depois do Campeão Élfico,
+    // espelhando como Grokmar desbloqueia depois do Orc — mas com uma
+    // mecânica de NATUREZA totalmente diferente das outras duas: CICLO
+    // LUNAR, guiado por TEMPO (turnos DELA), não por dano recebido (Fúria
+    // de Grokmar) nem por ausência de dano recebido (Manto de Sombras de
+    // Nyxara). A lógica do ciclo mora inteira em bossai.js (ver
+    // BOSS_AI.sylwyn_lua) — aqui só os campos de estado inicial, mesmo
+    // padrão de furyPerHit/shadowStackMax acima.
+    sylwyn_lua: {
+        id: 'sylwyn_lua', name: 'Sylwyn, Arqueira da Lua Cheia', title: 'Arqueira da Lua Cheia',
+        unlocksAfterRival: 'elfica_champion',
+        levelBonus: 8, statMult: 1.7,
+        weaponId: 'elvenlongbow', weaponRarity: 'LEGENDARY',
+        armorId: 'elvencloak', armorRarity: 'LEGENDARY',
+        trophyId: 'sylwynbow', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
+        moonCycle: true,
+        race: 'elfo',
+        visuals: { gender: 'Feminino', skinTone: '#d8c8b8', eyeColor: '#c8d8f0', eyebrowColor: '#e0e0e8',
+            hairStyle: 4, hairColor: '#e8e8f0', beardStyle: 0, beardColor: '#e8e8f0', faceShape: 1, archetype: 'guerreira', scarStyle: 0 }
     }
 };
 window.ARENA_BOSS_DEFS = ARENA_BOSS_DEFS;
@@ -693,11 +715,41 @@ function createArenaBoss(bossId, playerLevel) {
     boss.shadowStacks = 0;
     boss.wasHitThisRound = false;
 
+    // Mecânica de Ciclo Lunar (Sylwyn, Iteração 17) — ver bossai.js
+    // BOSS_AI.sylwyn_lua pra toda a lógica de fase; aqui só o estado
+    // inicial, mesmo padrão de furyStacks/shadowStacks acima.
+    // `moonBaseCrit`/`moonBaseDamage` capturados logo após
+    // calculateDerivedStats, mais abaixo, igual a `baseDodgeChance`.
+    boss.moonCycle = !!def.moonCycle;
+    boss.moonPhase = 'nova';
+    // 3, não 2: bossai.js decrementa ANTES de agir a cada turno dela (pra
+    // poder reagir já no turno em que uma fase termina), então o primeiro
+    // decremento consumiria 1 dos 2 turnos nominais da Nova inicial antes
+    // mesmo dela agir — com 3, a Nova inicial dura os mesmos 2 turnos
+    // reais que qualquer Nova seguinte no ciclo (achado testando o rastro
+    // completo de 8 turnos: sem isso a primeiríssima Nova da luta durava
+    // só 1 turno em vez de 2, um ritmo inconsistente com o resto do ciclo).
+    boss.moonPhaseTurnsLeft = 3;
+    boss.moonBaseCrit = 0;
+    boss.moonBaseDamage = 0;
+
     const totalPoints = Math.floor((40 + boss.level * 6) * def.statMult);
     const keys = Object.keys(boss.baseStats);
     for (let i = 0; i < totalPoints; i++) boss.baseStats[keys[Utils.randomInt(0, keys.length - 1)]]++;
 
-    boss.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(def.weaponId, 'weapons', RARITY[def.weaponRarity]);
+    // Bug de auditoria (Iteração 17): esta linha sempre equipou a arma no
+    // MAIN_HAND, não importa o `slot` real do template — inofensivo pra
+    // Grokmar/Nyxara (machado/adaga, ambos MAIN_HAND mesmo), mas quebraria
+    // silenciosamente qualquer futuro Boss Especial com arma RANGED
+    // (Sylwyn usa arco): o item entraria no slot errado e
+    // `activeWeaponSlot` (default MAIN_HAND, ver Entity constructor)
+    // nunca apontaria pro arco, então `getWeaponRange()`/mecânica de
+    // munição nunca reconheceriam a arma de verdade equipada. Agora lê o
+    // `slot` do próprio template e ajusta `activeWeaponSlot` de acordo.
+    const weaponTemplate = ItemDatabase.weapons[def.weaponId];
+    const weaponSlot = (weaponTemplate && weaponTemplate.slot === SLOTS.RANGED) ? SLOTS.RANGED : SLOTS.MAIN_HAND;
+    boss.equipment[weaponSlot] = ItemFactory.createEquipment(def.weaponId, 'weapons', RARITY[def.weaponRarity]);
+    boss.activeWeaponSlot = weaponSlot;
     boss.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(def.armorId, 'armors', RARITY[def.armorRarity]);
     boss.visuals = { ...def.visuals };
 
@@ -707,6 +759,18 @@ function createArenaBoss(bossId, playerLevel) {
     boss.derivedStats.maxMp = Math.floor(boss.derivedStats.maxMp * 1.5);
     boss.currentMp = boss.derivedStats.maxMp;
     boss.baseDodgeChance = boss.derivedStats.dodgeChance; // ponto de referência do Manto de Sombras (Nyxara)
+    if (boss.moonCycle) {
+        boss.moonBaseCrit = boss.derivedStats.critChance; // ponto de referência do Ciclo Lunar (Sylwyn)
+        boss.moonBaseDamage = boss.derivedStats.physicalDamage;
+        // A luta sempre COMEÇA na fase Lua Nova (ver moonPhase acima), mas
+        // sem esta linha o modificador de -40% de crítico só seria aplicado
+        // na PRÓXIMA vez que o ciclo entrasse em Nova (bossai.js só reage a
+        // TRANSIÇÕES de fase, nunca ao estado inicial) — os 2 primeiros
+        // turnos dela ficariam com força de Lua Crescente por engano,
+        // inconsistente com toda futura passagem por Nova. Aplicado aqui
+        // pra já nascer coerente com a própria mecânica.
+        boss.derivedStats.critChance = Math.max(5, boss.moonBaseCrit * 0.6);
+    }
 
     // Item 22 da mega-diretiva ("recompensas devem considerar dificuldade")
     // — bug de balanceamento encontrado em auditoria: a fórmula original

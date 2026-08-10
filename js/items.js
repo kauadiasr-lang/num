@@ -325,7 +325,14 @@ const ItemDatabase = {
             minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
         nyxaradagger: { id: 'w_23', name: "Adaga de Nyxara", slot: SLOTS.MAIN_HAND, damage: 8, weight: 0.9, value: 320, durability: 130, stats: { agi: 4 }, critBonus: 26, arenaExclusive: true,
             description: "Forjada nas sombras do Manto que a protege — quem a vê chegar já foi atingido. Mais rápida e mais certeira que qualquer adaga comum.",
-            minRange: 0, maxRange: 1, atkSpeed: 1.6, approachSpeed: 2.7, retreatSpeed: 2.7 }
+            minRange: 0, maxRange: 1, atkSpeed: 1.6, approachSpeed: 2.7, retreatSpeed: 2.7 },
+        // Sylwyn, Arqueira da Lua Cheia (Iteração 17, ver enemy.js
+        // ARENA_BOSS_DEFS.sylwyn_lua) — troca a precisão bruta do Arco
+        // Élfico Longo por crítico ainda mais alto, coerente com o pico
+        // de crítico da própria mecânica de Ciclo Lunar dela.
+        sylwynbow: { id: 'w_24', name: "Arco da Lua Cheia", slot: SLOTS.RANGED, damage: 13, weight: 1.6, value: 320, durability: 100, stats: { agi: 3, acc: 2 }, critBonus: 20, arenaExclusive: true,
+            description: "Talhado sob o brilho da lua cheia, canta baixinho quando a mira está perfeita — dizem que nunca erra sob o céu noturno.",
+            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
