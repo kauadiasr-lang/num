@@ -753,9 +753,16 @@ class Rival extends Entity {
         // Personalidade e estilo de luta curados por rival (não aleatórios,
         // preservando a identidade narrativa de cada adversário da ladder);
         // arquétipos raros ficam reservados ao Duelo Rápido.
+        // `def.forcedRareArchetypeId` (Arena dos Campeões — ver
+        // CHAMPIONS_ARENA_STAGES mais abaixo) é a ÚNICA forma de um Rival
+        // nomeado usar um arquétipo raro (ex: lutador_desarmado); sem essa
+        // flag explícita, `allowRareArchetype: false` continua bloqueando
+        // exatamente como antes, preservando a identidade narrativa
+        // curada de todo Rival comum da Ladder.
         window.AICombat.assignProfile(this, {
             personalityId: def.personalityId, styleId: def.styleId,
-            level: this.level, allowRareArchetype: false
+            level: this.level, allowRareArchetype: false,
+            forcedRareArchetypeId: def.forcedRareArchetypeId || null
         });
 
         // Raça (ver races.js) — precisa ser resolvida ANTES de `visuals`
@@ -856,30 +863,44 @@ class Rival extends Entity {
     // requisitos, mesmo quando a liga pede uma raridade curada alta.
     equipGear(rarity) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-        const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
+        // "Lutador de Punho Nu" (ver ai.js assignProfile/
+        // opts.forcedRareArchetypeId, usado pela Arena dos Campeões) já
+        // recusa arma ali, deixando equipment[MAIN_HAND] null de propósito
+        // — bug de auditoria encontrado nesta iteração: equipGear() sempre
+        // reequipava uma arma por cima logo em seguida, desfazendo isso
+        // silenciosamente (Enemy.equipStyleWeapon já tinha essa mesma
+        // guarda, ver mais acima; Rival nunca precisou dela até agora,
+        // porque rivais nomeados nunca podiam receber arquétipos raros
+        // antes desta atualização).
+        const isUnarmed = this.aiRareArchetype && this.aiRareArchetype.id === 'lutador_desarmado';
+        if (!isUnarmed) {
+            const weaponId = window.AICombat.pickWeaponFromStyle(this.aiStyle.id);
+            // Bug de auditoria (sistema de duas armas, ver Entity.
+            // equipStyleWeaponGeneric em player.js pelo mesmo bug e explicação
+            // completa): a arma sempre era gravada em equipment[SLOTS.MAIN_HAND]
+            // aqui, mesmo pra um Rival de estilo Arqueiro cuja arma sorteada
+            // (arco/besta) já carrega slot:SLOTS.RANGED — hasDualWeapons() nunca
+            // via essa arma como a principal. activeWeaponSlot ajustado junto
+            // pra sempre acompanhar onde a arma realmente está.
+            const weapon = ItemFactory.createEquipmentWithRarityCap(this, weaponId, 'weapons', rarity);
+            this.equipment[weapon.slot] = weapon;
+            this.activeWeaponSlot = weapon.slot;
+            // Campeões carregam arma encantada com mais frequência que rivais
+            // comuns — reforça que enfrentar um Campeão é diferente (ver
+            // Enemy.maybeEnchantWeapon acima, compartilhado com o Duelo Rápido).
+            Enemy.maybeEnchantWeapon(weapon, this.isChampion ? 35 : 18);
+        }
         const armorId = window.AICombat.pickArmor();
-        // Bug de auditoria (sistema de duas armas, ver Entity.
-        // equipStyleWeaponGeneric em player.js pelo mesmo bug e explicação
-        // completa): a arma sempre era gravada em equipment[SLOTS.MAIN_HAND]
-        // aqui, mesmo pra um Rival de estilo Arqueiro cuja arma sorteada
-        // (arco/besta) já carrega slot:SLOTS.RANGED — hasDualWeapons() nunca
-        // via essa arma como a principal. activeWeaponSlot ajustado junto
-        // pra sempre acompanhar onde a arma realmente está.
-        const weapon = ItemFactory.createEquipmentWithRarityCap(this, weaponId, 'weapons', rarity);
-        this.equipment[weapon.slot] = weapon;
-        this.activeWeaponSlot = weapon.slot;
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentWithRarityCap(this, armorId, 'armors', rarity);
-        // Campeões carregam arma encantada com mais frequência que rivais
-        // comuns — reforça que enfrentar um Campeão é diferente (ver
-        // Enemy.maybeEnchantWeapon acima, compartilhado com o Duelo Rápido).
-        Enemy.maybeEnchantWeapon(weapon, this.isChampion ? 35 : 18);
 
         // Arma secundária (item 2 da auditoria de balanceamento) — mesma
         // regra do Duelo Rápido comum (ver Entity.maybeEquipSecondaryWeapon
         // em player.js): categoria oposta à principal, chance-gated. Rivais
         // Campeões têm chance bem maior de carregar uma reserva de verdade,
         // reforçando que enfrentar um Campeão é um combate mais completo.
-        if (window.AICombat && Utils.chance(this.isChampion ? 55 : 30)) {
+        // Punho Nu nunca recebe arma secundária, pelo mesmo motivo de não
+        // receber a principal.
+        if (!isUnarmed && window.AICombat && Utils.chance(this.isChampion ? 55 : 30)) {
             const secondaryId = window.AICombat.pickSecondaryWeaponFromStyle(this.aiStyle.id);
             if (secondaryId) {
                 const secondary = ItemFactory.createEquipmentWithRarityCap(this, secondaryId, 'weapons', rarity);
@@ -891,9 +912,10 @@ class Rival extends Entity {
         // Enemy/Vampire — antes só Campeões ganhavam escudo, deixando
         // rivais comuns de estilo "escudeiro" (ex: Brenna, Ágil da Prata
         // com guardiao/gladiador) sem o escudo que sua própria IA já espera
-        // (ver AI_FIGHTING_STYLES.preferShield em ai_data.js).
-        const shieldId = window.AICombat.pickShieldFromStyle(this.aiStyle.id);
-        if (this.isChampion || shieldId) {
+        // (ver AI_FIGHTING_STYLES.preferShield em ai_data.js). Punho Nu
+        // também nunca carrega escudo — mãos precisam ficar livres.
+        const shieldId = !isUnarmed ? window.AICombat.pickShieldFromStyle(this.aiStyle.id) : null;
+        if (!isUnarmed && (this.isChampion || shieldId)) {
             // Mesmo filtro regional do pickShieldFromStyle, aplicado aqui
             // também pro fallback forçado de Campeão (que ignora
             // preferShield) — sem isso um Campeão sem preferência de escudo
@@ -1329,3 +1351,51 @@ const CHAMPION_CHALLENGES = [
 ];
 CHAMPION_CHALLENGES.forEach(c => { c.league = 'desafio'; }); // nunca pertence a nenhuma liga normal da Ladder
 window.CHAMPION_CHALLENGES = CHAMPION_CHALLENGES;
+
+/**
+ * Arena dos Campeões (item 9 da mega-diretiva Arena+Estilos) — modalidade
+ * de endgame, desbloqueada só depois de derrotar os 6 Campeões de liga
+ * (ver ui.js openLadder/startChampionsArena). Reúne o conhecimento
+ * adquirido nas diferentes ligas: uma sequência fixa e curada de 5
+ * adversários, enfrentados um atrás do outro sem voltar ao Hub entre eles
+ * (ver ui.js _beginChampionsArenaStage/btn-return-hub), com variedade
+ * REAL de raça/estilo — nunca adversários genéricos/aleatórios/sem
+ * identidade (pedido explícito da diretiva):
+ *   1. Freya Tempestade — humana, especialista em alcance (arqueiro)
+ *   2. Kael, o Punho Sem Nome — especialista desarmado de verdade (usa o
+ *      arquétipo raro `lutador_desarmado` já existente, ver ai.js
+ *      assignProfile/opts.forcedRareArchetypeId — nova flag desta
+ *      iteração que permite curar esse arquétipo pra um lutador
+ *      específico, em vez de só sortear no Duelo Rápido)
+ *   3. Dagna, Martelo de Kharzum — anã, build pesada/defensiva
+ *   4. Ilwenna, Voz das Raízes — élfica, híbrida de magia auxiliar
+ *   5. Grokmar, a Fúria Desperta — Boss Especial da Arena (Fúria
+ *      Crescente), representando a categoria "boss com mecânica própria"
+ *
+ * `type: 'rival'` reaproveita defs já existentes do RivalDatabase (`id`
+ * aponta pro Rival original — instanciado de novo aqui, então ganha vida
+ * própria nesta corrida, sem interferir com o Rival "original" da Ladder);
+ * `type: 'custom'` usa uma def independente (o especialista desarmado, que
+ * não existe em nenhuma liga); `type: 'arenaBoss'` usa
+ * window.createArenaBoss. Deliberadamente NÃO inclui os bosses de Ritual
+ * (Conde Vampiro/Anjo Guardião) — battle.js despertaria a Linhagem
+ * correspondente em qualquer vitória contra `isBoss` com esse `bossId`,
+ * o que permitiria despertar uma Linhagem pela Arena dos Campeões sem
+ * nunca ter feito o Ritual de verdade (exploit real, evitado por
+ * construção ao usar só bosses que nunca aparecem em LINEAGES[x].bossId).
+ */
+const CHAMPIONS_ARENA_STAGES = [
+    { type: 'rival', sourceLeague: 'gold', sourceId: 'freya' },
+    { type: 'custom', level: 30, def: {
+        id: 'champions_arena_unarmed', name: 'Kael, o Punho Sem Nome', title: 'Punho Sem Nome',
+        level: 30, focus: { str: 0.45, agi: 0.35, def: 0.2 },
+        personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.EPIC,
+        forcedRareArchetypeId: 'lutador_desarmado',
+        intro: 'Armas quebram. Punhos, não.',
+        visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 }
+    } },
+    { type: 'rival', sourceLeague: 'anao', sourceId: 'dagna' },
+    { type: 'rival', sourceLeague: 'elfica', sourceId: 'ilwenna' },
+    { type: 'arenaBoss', sourceId: 'grokmar_furia' }
+];
+window.CHAMPIONS_ARENA_STAGES = CHAMPIONS_ARENA_STAGES;

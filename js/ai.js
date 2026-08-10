@@ -70,8 +70,17 @@ const AICombat = {
         entity.fightingStyleName = style.name;
 
         // Arquétipo raro: só para Duelo Rápido, a menos que explicitamente pedido
+        //
+        // `opts.forcedRareArchetypeId` (Arena dos Campeões, ver enemy.js
+        // CHAMPIONS_ARENA_STAGES) permite curar um Rival como um arquétipo
+        // raro ESPECÍFICO (ex: "lutador_desarmado", o especialista desarmado
+        // pedido pela mega-diretiva) em vez de sortear entre todos — sem
+        // isso não haveria forma determinística de garantir esse arquétipo
+        // pra um lutador nomeado específico.
         entity.aiRareArchetype = null;
-        if (opts.allowRareArchetype !== false && Utils.chance(opts.rareChance !== undefined ? opts.rareChance : RARE_ARCHETYPE_CHANCE)) {
+        if (opts.forcedRareArchetypeId) {
+            entity.aiRareArchetype = AI_RARE_ARCHETYPES[opts.forcedRareArchetypeId] || null;
+        } else if (opts.allowRareArchetype !== false && Utils.chance(opts.rareChance !== undefined ? opts.rareChance : RARE_ARCHETYPE_CHANCE)) {
             const rareIds = Object.keys(AI_RARE_ARCHETYPES);
             entity.aiRareArchetype = AI_RARE_ARCHETYPES[rareIds[Utils.randomInt(0, rareIds.length - 1)]];
         }

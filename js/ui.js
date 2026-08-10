@@ -462,6 +462,21 @@ class UIManager {
                 }
                 return;
             }
+            // Arena dos Campeões (item 9 da mega-diretiva) — mesmo padrão
+            // dos blocos de viagem acima: vencer avança pra próxima etapa
+            // da sequência (sem passar pelo Hub no meio), perder encerra a
+            // corrida inteira aqui mesmo. Ver player.js championsArenaRun.
+            if (p && p.championsArenaRun) {
+                if (this._lastBattleWasVictory) {
+                    this._advanceChampionsArena();
+                } else {
+                    p.championsArenaRun = null;
+                    window.SaveManager.save(window.Engine.state);
+                    if (window.MainMenu) window.MainMenu.showToast('Derrotado na Arena dos Campeões. A sequência recomeça do início.', 'error');
+                    this.showScreen('screen-hub');
+                }
+                return;
+            }
             this.showScreen('screen-hub');
         });
 
@@ -1061,6 +1076,35 @@ class UIManager {
         // tiverem sido derrotados (progressão sequencial entre e dentro das ligas)
         const allRivals = this._getAllRivals();
 
+        // Arena dos Campeões (item 9 da mega-diretiva) — o conteúdo de
+        // endgame definitivo, então fica no TOPO da tela (antes de
+        // qualquer liga), não escondida no fim de uma lista rolável.
+        // Desbloqueada só depois de derrotar os 6 Campeões de liga
+        // originais (nunca os Desafios — esses são opcionais À PARTE).
+        if (window.CHAMPIONS_ARENA_STAGES && window.CHAMPIONS_ARENA_STAGES.length > 0) {
+            const championIds = allRivals.filter(r => r.isChampion).map(r => r.id);
+            const allChampionsDefeated = championIds.every(id => p.rivalsDefeated.includes(id));
+
+            const arenaDiv = document.createElement('div');
+            arenaDiv.className = 'ladder-league';
+            arenaDiv.innerHTML = `<h3>🏆 Arena dos Campeões</h3>`;
+            const arenaGrid = document.createElement('div');
+            arenaGrid.className = 'ladder-grid';
+            const card = document.createElement('div');
+            card.className = `rival-card champion ${!allChampionsDefeated ? 'locked' : ''}`;
+            card.innerHTML = `
+                <h4>Arena dos Campeões</h4>
+                <p>${window.CHAMPIONS_ARENA_STAGES.length} adversários em sequência, sem retorno ao Hub entre eles${allChampionsDefeated ? '' : ' · Requer: derrotar todos os 6 Campeões de liga'}${p.championsArenaCompletions > 0 ? ` · Completada ${p.championsArenaCompletions}x` : ''}</p>
+                <p class="rival-status" style="color:${allChampionsDefeated ? 'var(--color-gold)' : '#666'}">${allChampionsDefeated ? 'Disponível' : 'Bloqueado'}</p>
+            `;
+            if (allChampionsDefeated) {
+                card.onclick = () => this.startChampionsArena();
+            }
+            arenaGrid.appendChild(card);
+            arenaDiv.appendChild(arenaGrid);
+            container.appendChild(arenaDiv);
+        }
+
         window.RivalDatabase.leagues.forEach(league => {
             const leagueDiv = document.createElement('div');
             leagueDiv.className = 'ladder-league';
@@ -1202,6 +1246,86 @@ class UIManager {
         }
 
         this.showScreen('screen-ladder');
+    }
+
+    // Constrói o oponente de uma etapa da Arena dos Campeões a partir do
+    // `type` da def (ver enemy.js CHAMPIONS_ARENA_STAGES) — cada tipo sabe
+    // instanciar sua própria fonte, então esta função nunca precisa saber
+    // detalhes de Rival/boss além de qual construtor chamar.
+    _buildChampionsArenaOpponent(stageDef, playerLevel) {
+        if (stageDef.type === 'rival') {
+            const league = window.RivalDatabase.leagues.find(l => l.id === stageDef.sourceLeague);
+            const rivalDef = league && league.rivals.find(r => r.id === stageDef.sourceId);
+            return rivalDef ? new Rival(rivalDef) : null;
+        }
+        if (stageDef.type === 'custom') {
+            return new Rival(stageDef.def);
+        }
+        if (stageDef.type === 'arenaBoss') {
+            return window.createArenaBoss(stageDef.sourceId, playerLevel);
+        }
+        return null;
+    }
+
+    // Inicia a Arena dos Campeões do zero — só chamado pelo card já
+    // validado como desbloqueado (ver openLadder), mas confere de novo
+    // aqui por segurança (nunca confiar só na UI).
+    startChampionsArena() {
+        const p = window.Engine.state.player;
+        const allRivals = this._getAllRivals();
+        const championIds = allRivals.filter(r => r.isChampion).map(r => r.id);
+        if (!championIds.every(id => p.rivalsDefeated.includes(id))) return;
+
+        p.championsArenaRun = { stageIndex: 0 };
+        window.SaveManager.save(window.Engine.state);
+        this._beginChampionsArenaStage(0);
+    }
+
+    // Constrói e inicia o combate da etapa `index` da corrida em andamento.
+    _beginChampionsArenaStage(index) {
+        const p = window.Engine.state.player;
+        const stageDef = window.CHAMPIONS_ARENA_STAGES[index];
+        const opponent = this._buildChampionsArenaOpponent(stageDef, p.level);
+        if (!opponent) { p.championsArenaRun = null; this.showScreen('screen-hub'); return; }
+        if (window.MainMenu) window.MainMenu.showToast(`Arena dos Campeões — Etapa ${index + 1}/${window.CHAMPIONS_ARENA_STAGES.length}`, 'info');
+        this.beginBattleWith(opponent);
+    }
+
+    // Chamado pelo botão de retorno (ver initEventListeners btn-return-hub)
+    // após uma vitória com `championsArenaRun` ativo — avança pra próxima
+    // etapa ou, se essa era a última, encerra a corrida com uma recompensa
+    // extra e o contador de conclusões atualizado.
+    //
+    // Cura parcial entre etapas (30% de HP/MP máximos, nunca cura total):
+    // representa um breve respiro entre combates da mesma sequência sem
+    // eliminar o desgaste acumulado — a Arena dos Campeões é pensada pra
+    // testar resistência ao longo de várias lutas, não só uma de cada vez.
+    _advanceChampionsArena() {
+        const p = window.Engine.state.player;
+        const run = p.championsArenaRun;
+        if (!run) { this.showScreen('screen-hub'); return; }
+
+        run.stageIndex++;
+        if (run.stageIndex >= window.CHAMPIONS_ARENA_STAGES.length) {
+            p.championsArenaRun = null;
+            p.championsArenaCompletions = (p.championsArenaCompletions || 0) + 1;
+            const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+            const bonusLoot = window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
+            const bonusGold = 300 + p.level * 15;
+            p.gold += bonusGold;
+            if (p.inventory.length < p.inventoryCapacity) {
+                p.inventory.push(bonusLoot);
+            }
+            window.SaveManager.save(window.Engine.state);
+            if (window.MainMenu) window.MainMenu.showToast(`Arena dos Campeões completa! +${bonusGold} de ouro e ${bonusLoot.name}.`, 'success');
+            this.showScreen('screen-hub');
+            return;
+        }
+
+        p.currentHp = Utils.clamp(p.currentHp + Math.floor(p.derivedStats.maxHp * 0.3), 0, p.derivedStats.maxHp);
+        p.currentMp = Utils.clamp(p.currentMp + Math.floor(p.derivedStats.maxMp * 0.3), 0, p.derivedStats.maxMp);
+        window.SaveManager.save(window.Engine.state);
+        this._beginChampionsArenaStage(run.stageIndex);
     }
 
     updateBattleBars() {

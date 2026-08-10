@@ -526,6 +526,14 @@ class Player extends Entity {
         this.losses = 0;
         this.rivalsDefeated = []; // IDs dos rivais da ladder já derrotados
         this.arenaBossesDefeated = []; // IDs dos Bosses Especiais da Arena já derrotados (ver enemy.js ARENA_BOSS_DEFS)
+        // Arena dos Campeões (item 9 da mega-diretiva) — `championsArenaRun`
+        // só existe ENQUANTO uma corrida está em andamento (null fora dela,
+        // igual ao padrão já usado por roadJourney/roadWorldJourney); nunca
+        // persiste entre sessões de propósito (uma derrota ou fechar o jogo
+        // no meio reseta a corrida, não seria coerente retomar uma
+        // sequência de lutas no meio depois de recarregar o save).
+        this.championsArenaRun = null;
+        this.championsArenaCompletions = 0; // quantas vezes já completou a sequência inteira
         this.achievements = []; // IDs das conquistas desbloqueadas
         this.achievementDates = {}; // ID da conquista -> timestamp de desbloqueio
         this.playTimeSeconds = 0; // tempo jogado acumulado, usado na tela de saves
