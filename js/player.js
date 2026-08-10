@@ -525,6 +525,7 @@ class Player extends Entity {
         this.wins = 0;
         this.losses = 0;
         this.rivalsDefeated = []; // IDs dos rivais da ladder já derrotados
+        this.arenaBossesDefeated = []; // IDs dos Bosses Especiais da Arena já derrotados (ver enemy.js ARENA_BOSS_DEFS)
         this.achievements = []; // IDs das conquistas desbloqueadas
         this.achievementDates = {}; // ID da conquista -> timestamp de desbloqueio
         this.playTimeSeconds = 0; // tempo jogado acumulado, usado na tela de saves

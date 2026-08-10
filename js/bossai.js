@@ -41,7 +41,18 @@ function registerBossSkills() {
         { id: 'anjo_barreira', name: 'Barreira Celestial', type: 'SHIELD', mpCost: 24, powerMulti: 1,
             description: 'Uma barreira de luz absorve grande parte do próximo dano.', extra: { shieldPercent: 50, duration: 2, cooldown: 4, animation: 'cast' } },
         { id: 'anjo_julgamento_final', name: 'Julgamento Final', type: 'MAGIC', mpCost: 45, powerMulti: 3.2,
-            description: 'O julgamento definitivo — luz capaz de reduzir um pecador a cinzas.', extra: { cooldown: 5, range: 10, animation: 'boss_judgment' } }
+            description: 'O julgamento definitivo — luz capaz de reduzir um pecador a cinzas.', extra: { cooldown: 5, range: 10, animation: 'boss_judgment' } },
+
+        // Grokmar, a Fúria Desperta (Boss Especial da Arena — ver enemy.js
+        // ARENA_BOSS_DEFS) — golpe de machado próprio, um atordoamento que
+        // só usa depois de encolerizado, e um golpe final desesperado que
+        // só sai com fúria no teto.
+        { id: 'grokmar_machadada_dupla', name: 'Machadada Dupla', type: 'PHYSICAL', mpCost: 16, powerMulti: 1.8,
+            description: 'Grokmar golpeia duas vezes seguidas com seu machado de guerra.', extra: { cooldown: 2, animation: 'attack' } },
+        { id: 'grokmar_investida_furiosa', name: 'Investida Furiosa', type: 'STUN', mpCost: 22, powerMulti: 1.6,
+            description: 'Um investida bruta que derruba a vítima, guiada pela fúria acumulada.', extra: { stunChance: 65, cooldown: 3, animation: 'boss_slam' } },
+        { id: 'grokmar_ultimo_fio', name: 'Último Fio de Fúria', type: 'LIFESTEAL', mpCost: 30, powerMulti: 2.0,
+            description: 'No auge da fúria, Grokmar golpeia sem qualquer defesa, drenando a força da vítima.', extra: { lifestealPercent: 60, cooldown: 3, animation: 'attack' } }
     ];
     defs.forEach(d => {
         if (!window.SkillDB[d.id]) {
@@ -165,6 +176,64 @@ const BOSS_AI = {
             }
             return { action: 'ATK', message: `${boss.name} golpeia com força celestial!` };
         }
+    },
+
+    // ==================================================================
+    // GROKMAR, A FÚRIA DESPERTA — Boss Especial da Arena Orc (ver enemy.js
+    // ARENA_BOSS_DEFS). Mecânica própria: FÚRIA CRESCENTE. Cada golpe que
+    // Grokmar RECEBE acumula fúria (ver battle.js executeAttack); ao cruzar
+    // cada limiar, ele fica permanentemente mais forte e mais imprudente
+    // pelo resto da luta — o jogador precisa decidir entre terminar rápido
+    // (arriscando enfrentar a fúria máxima) ou jogar com cautela (dando
+    // tempo pra fúria crescer sozinha a cada troca de golpes). Nenhum HP/
+    // STR/DEF extra é dado de graça — só o que a própria fúria concede.
+    grokmar_furia: {
+        decideAction(battle) {
+            const boss = battle.enemy;
+            const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
+            const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 2 };
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
+            const fury = boss.furyStacks || 0;
+
+            // Transição de limiar de fúria — aplicada UMA VEZ por limiar
+            // (guardado por boss.furyTier), nunca reaplicada a cada turno.
+            // Tier 1 (fúria >= 40): +25% de dano físico. Tier 2 (fúria >=
+            // 75): mais +30% de dano (cumulativo) e +15% de crítico —
+            // Grokmar abandona toda cautela. A mudança é sempre anunciada
+            // no log (mecânica precisa ser LEGÍVEL, pedido explícito da
+            // diretiva), igual à transição de fase dos Campeões da Ladder.
+            const targetTier = fury >= 75 ? 2 : (fury >= 40 ? 1 : 0);
+            if (targetTier > boss.furyTier) {
+                boss.furyTier = targetTier;
+                if (targetTier === 1) {
+                    boss.derivedStats.physicalDamage = Math.floor(boss.derivedStats.physicalDamage * 1.25);
+                    return { action: 'ATK', message: `${boss.name} sente o próprio sangue escorrer e ENTRA EM FÚRIA! Seus golpes ficam mais brutais!` };
+                }
+                boss.derivedStats.physicalDamage = Math.floor(boss.derivedStats.physicalDamage * 1.3);
+                boss.derivedStats.critChance = Math.min(95, (boss.derivedStats.critChance || 0) + 15);
+                return { action: 'ATK', message: `${boss.name} perde toda a cautela — FÚRIA TOTAL! Cada golpe agora é implacável!` };
+            }
+
+            if (!battle.isInRange(range)) {
+                return { action: 'APPROACH', message: `${boss.name} avança pesadamente, machado em punho!` };
+            }
+
+            const enraged = boss.furyTier >= 1;
+            const desperate = boss.furyTier >= 2;
+
+            // Na fúria máxima, arrisca o golpe final desesperado com mais
+            // frequência, mesmo com HP alto — a fúria, não o HP, o guia.
+            if (desperate && ready('grokmar_ultimo_fio') && Utils.chance(50)) {
+                return { action: 'SKILL', param: 'grokmar_ultimo_fio', message: `${boss.name} golpeia sem qualquer defesa, movido pela fúria total!` };
+            }
+            if (enraged && ready('grokmar_investida_furiosa') && Utils.chance(45)) {
+                return { action: 'SKILL', param: 'grokmar_investida_furiosa', message: `${boss.name} investe com fúria bruta!` };
+            }
+            if (ready('grokmar_machadada_dupla') && Utils.chance(enraged ? 50 : 35)) {
+                return { action: 'SKILL', param: 'grokmar_machadada_dupla', message: `${boss.name} golpeia duas vezes com o machado de guerra!` };
+            }
+            return { action: 'ATK', message: `${boss.name} ataca com força orc bruta!` };
+        }
     }
 };
 window.BossAI = {
@@ -182,5 +251,6 @@ window.BossAI = {
 // ganhavam `.aiSkills` como qualquer outro inimigo).
 window.BOSS_SKILL_IDS = {
     conde_vampiro: ['conde_garras_sombrias', 'conde_sugar_vida', 'conde_enxame_morcegos', 'conde_garra_final'],
-    anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final']
+    anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final'],
+    grokmar_furia: ['grokmar_machadada_dupla', 'grokmar_investida_furiosa', 'grokmar_ultimo_fio']
 };

@@ -377,6 +377,19 @@ class BattleSystem {
         defender.currentHp -= mitigatedDamage;
         if (defender.currentHp < 0) defender.currentHp = 0;
 
+        // Mecânica de Fúria Crescente (item 6 da mega-diretiva Arena+Estilos:
+        // bosses especiais precisam de UMA mecânica própria e legível, nunca
+        // só "+HP+STR+DEF") — só bosses com `furyPerHit` definido (ver
+        // enemy.js ARENA_BOSS_DEFS/createArenaBoss) acumulam fúria; qualquer
+        // outro combatente (jogador, inimigo comum, Rival, boss de Ritual
+        // sem essa flag) passa direto por aqui sem nenhum efeito, então essa
+        // mecânica nunca vaza pro resto do combate. Os limiares de fúria em
+        // si (buffs/mensagens) são aplicados pela IA exclusiva do boss em
+        // bossai.js — este bloco só acumula o valor bruto.
+        if (defender.isBoss && defender.furyPerHit && mitigatedDamage > 0) {
+            defender.furyStacks = Math.min((defender.furyStacks || 0) + defender.furyPerHit, defender.furyMax || 100);
+        }
+
         // 5d. Roubo de vida passivo da Linhagem (Vampirismo) — cura o
         // atacante por uma % do dano causado, com bônus extra em críticos.
         // Totalmente separado do LIFESTEAL de habilidades específicas (que
@@ -1519,6 +1532,17 @@ class BattleSystem {
                 defeatedRivalId = this.enemy.rivalId;
                 if (!this.player.rivalsDefeated.includes(defeatedRivalId)) {
                     this.player.rivalsDefeated.push(defeatedRivalId);
+                }
+            }
+
+            // Boss Especial da Arena derrotado (ver enemy.js ARENA_BOSS_DEFS/
+            // createArenaBoss) — só marca "Derrotado" na tela da Ladder
+            // (ui.js openLadder), NUNCA bloqueia reenfrentar (mesmo
+            // comportamento já usado pelos Rivais comuns/Campeões).
+            if (this.enemy.bossId && window.ARENA_BOSS_DEFS && window.ARENA_BOSS_DEFS[this.enemy.bossId]) {
+                if (!this.player.arenaBossesDefeated) this.player.arenaBossesDefeated = [];
+                if (!this.player.arenaBossesDefeated.includes(this.enemy.bossId)) {
+                    this.player.arenaBossesDefeated.push(this.enemy.bossId);
                 }
             }
 

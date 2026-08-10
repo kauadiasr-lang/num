@@ -701,6 +701,13 @@ html, body {
 }
 .hp-fill { background: linear-gradient(90deg, #6e0f0f, #d43737); box-shadow: 0 0 8px rgba(212,55,55,0.5); z-index: 2; }
 .mp-fill { background: linear-gradient(90deg, #0d3a70, #3f92e0); box-shadow: 0 0 8px rgba(63,146,224,0.5); }
+/* Barra de Fúria (item 6 da mega-diretiva Arena+Estilos: bosses especiais
+   precisam de mecânica LEGÍVEL) — só aparece pra bosses com `furyPerHit`
+   definido (ver enemy.js ARENA_BOSS_DEFS), escondida por padrão pra não
+   afetar nenhuma batalha comum. Cor âmbar/vermelha crescente reforça
+   "quanto mais cheia, mais perigoso" sem precisar de nenhum texto extra. */
+.fury-fill { background: linear-gradient(90deg, #a35a10, #ff4d1a); box-shadow: 0 0 8px rgba(255,77,26,0.5); }
+.fury-fill.maxed { animation: hpCriticalPulse 0.8s ease-in-out infinite; }
 /* Bug de auditoria (visual): "barras de vida simples" — a barra de HP só
    tinha o preenchimento atual, encolhendo direto pro novo valor; um dano
    grande e vários pequenos pareciam idênticos assim que a barra parava de

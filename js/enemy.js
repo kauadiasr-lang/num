@@ -610,6 +610,82 @@ function createBoss(bossId, playerLevel) {
 window.createBoss = createBoss;
 
 /**
+ * Bosses Especiais da Arena (item 6 da mega-diretiva Arena+Estilos) —
+ * diferente dos Campeões da Ladder (que já testam o jogador via troca de
+ * personalidade em `phases`, ver RivalDatabase) e dos Bosses de Ritual
+ * acima (BOSS_DEFS/createBoss, ligados a uma Linhagem), estes são desafios
+ * OPCIONAIS extras, desbloqueados ao derrotar o campeão de uma liga
+ * específica (ver ui.js openLadder — seção "Bosses Especiais"), cada um
+ * com IA 100% exclusiva (bossai.js) e UMA mecânica de combate própria,
+ * nunca só "+HP+STR+DEF" (pedido explícito da diretiva).
+ *
+ * `furyPerHit`/`furyMax` (lidos por battle.js executeAttack) ligam a
+ * mecânica de Fúria Crescente: cada golpe recebido acumula fúria até o
+ * teto; a IA do próprio boss (bossai.js) decide o que fazer com isso —
+ * este registry só declara QUE o boss tem a mecânica, nunca a lógica dela.
+ */
+const ARENA_BOSS_DEFS = {
+    grokmar_furia: {
+        id: 'grokmar_furia', name: 'Grokmar, a Fúria Desperta', title: 'Fúria Desperta',
+        unlocksAfterRival: 'orc_champion', // precisa ter derrotado Gorkhal primeiro
+        levelBonus: 6, statMult: 1.6,
+        weaponId: 'orcwaraxe', weaponRarity: 'LEGENDARY',
+        armorId: 'orcheavyarmor', armorRarity: 'LEGENDARY',
+        furyPerHit: 12, furyMax: 100,
+        race: 'orc',
+        visuals: { gender: 'Masculino', skinTone: '#4a6a2a', eyeColor: '#ff2a1a', eyebrowColor: '#1a1a0a',
+            hairStyle: 3, hairColor: '#1a1a0a', beardStyle: 2, beardColor: '#1a1a0a', faceShape: 4, archetype: 'barbaro', scarStyle: 4 }
+    }
+};
+window.ARENA_BOSS_DEFS = ARENA_BOSS_DEFS;
+
+// Cria a instância de combate de um Boss Especial da Arena — estrutura
+// gêmea de createBoss (acima), mas sem vínculo com Linhagem/Ritual: raça
+// própria (pro passivo racial correto) e campos de Fúria inicializados.
+function createArenaBoss(bossId, playerLevel) {
+    const def = ARENA_BOSS_DEFS[bossId];
+    if (!def) return null;
+
+    const boss = new Entity(def.name);
+    boss.title = def.title;
+    boss.personality = def.title;
+    boss.isBoss = true;
+    boss.bossId = bossId;
+    boss.race = def.race || null;
+    boss.aiSkills = (window.BOSS_SKILL_IDS && window.BOSS_SKILL_IDS[bossId]) || [];
+    boss.level = Math.max(playerLevel + def.levelBonus, 22);
+
+    boss.furyPerHit = def.furyPerHit || 0;
+    boss.furyMax = def.furyMax || 100;
+    boss.furyStacks = 0;
+    boss.furyTier = 0;
+
+    const totalPoints = Math.floor((40 + boss.level * 6) * def.statMult);
+    const keys = Object.keys(boss.baseStats);
+    for (let i = 0; i < totalPoints; i++) boss.baseStats[keys[Utils.randomInt(0, keys.length - 1)]]++;
+
+    boss.equipment[SLOTS.MAIN_HAND] = ItemFactory.createEquipment(def.weaponId, 'weapons', RARITY[def.weaponRarity]);
+    boss.equipment[SLOTS.CHEST] = ItemFactory.createEquipment(def.armorId, 'armors', RARITY[def.armorRarity]);
+    boss.visuals = { ...def.visuals };
+
+    boss.calculateDerivedStats();
+    boss.derivedStats.maxHp = Math.floor(boss.derivedStats.maxHp * 2.0);
+    boss.currentHp = boss.derivedStats.maxHp;
+    boss.derivedStats.maxMp = Math.floor(boss.derivedStats.maxMp * 1.5);
+    boss.currentMp = boss.derivedStats.maxMp;
+
+    boss.expValue = Math.floor(75 * Math.pow(1.15, boss.level));
+    boss.goldValue = Math.floor(140 + boss.level * 12);
+    boss.generateLoot = function (playerLuk) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        return window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
+    };
+
+    return boss;
+}
+window.createArenaBoss = createArenaBoss;
+
+/**
  * Ladder de Rivais: adversários nomeados e fixos, organizados em ligas
  * progressivas. Diferente do Duelo Rápido (Enemy, acima, totalmente
  * aleatório), cada Rival tem uma distribuição de atributos e equipamento

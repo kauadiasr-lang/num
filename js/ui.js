@@ -1112,6 +1112,45 @@ class UIManager {
             container.appendChild(leagueDiv);
         });
 
+        // Bosses Especiais da Arena (item 6 da mega-diretiva) — desafios
+        // opcionais ALÉM dos Campeões normais, desbloqueados ao derrotar um
+        // Rival específico (ver enemy.js ARENA_BOSS_DEFS.unlocksAfterRival).
+        // Seção própria, separada das ligas, pra deixar claro que não fazem
+        // parte da progressão sequencial normal da Ladder.
+        if (window.ARENA_BOSS_DEFS && Object.keys(window.ARENA_BOSS_DEFS).length > 0) {
+            const bossSectionDiv = document.createElement('div');
+            bossSectionDiv.className = 'ladder-league';
+            bossSectionDiv.innerHTML = `<h3>⚔ Bosses Especiais</h3>`;
+            const bossGrid = document.createElement('div');
+            bossGrid.className = 'ladder-grid';
+
+            Object.values(window.ARENA_BOSS_DEFS).forEach(bossDef => {
+                const isUnlocked = p.rivalsDefeated.includes(bossDef.unlocksAfterRival);
+                const isDefeated = (p.arenaBossesDefeated || []).includes(bossDef.id);
+                const prereqRival = allRivals.find(r => r.id === bossDef.unlocksAfterRival);
+
+                const card = document.createElement('div');
+                card.className = `rival-card champion ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
+                card.innerHTML = `
+                    <h4>${bossDef.name}</h4>
+                    <p>${bossDef.title}${isUnlocked ? '' : ` · Requer: derrotar ${prereqRival ? prereqRival.name : bossDef.unlocksAfterRival}`}</p>
+                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
+                        ${isDefeated ? 'Derrotado' : (isUnlocked ? 'Disponível' : 'Bloqueado')}
+                    </p>
+                `;
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        const boss = window.createArenaBoss(bossDef.id, p.level);
+                        this.beginBattleWith(boss);
+                    };
+                }
+                bossGrid.appendChild(card);
+            });
+
+            bossSectionDiv.appendChild(bossGrid);
+            container.appendChild(bossSectionDiv);
+        }
+
         this.showScreen('screen-ladder');
     }
 
@@ -1171,6 +1210,24 @@ class UIManager {
             .filter(cost => typeof cost === 'number');
         const enemyManaInsufficient = enemySkillCosts.length > 0 && b.enemy.currentMp < Math.min(...enemySkillCosts);
         enemyMpBar.classList.toggle('insufficient', enemyManaInsufficient);
+
+        // Barra de Fúria (item 6 da mega-diretiva: mecânica de boss precisa
+        // ser LEGÍVEL) — só aparece contra bosses com `furyPerHit` definido
+        // (ver enemy.js ARENA_BOSS_DEFS); qualquer outro combatente nunca
+        // tem esse campo, então o container continua escondido como sempre.
+        const furyContainer = document.getElementById('enemy-fury-container');
+        const furyText = document.getElementById('enemy-fury-text');
+        if (b.enemy.furyPerHit) {
+            const furyPercent = Math.min(100, ((b.enemy.furyStacks || 0) / (b.enemy.furyMax || 100)) * 100);
+            document.getElementById('enemy-fury-bar').style.width = `${furyPercent}%`;
+            document.getElementById('enemy-fury-bar').classList.toggle('maxed', furyPercent >= 100);
+            furyText.innerText = `Fúria: ${Math.floor(furyPercent)}%`;
+            furyContainer.classList.remove('hidden');
+            furyText.classList.remove('hidden');
+        } else {
+            furyContainer.classList.add('hidden');
+            furyText.classList.add('hidden');
+        }
 
         // Ícones de status ativos (sangramento/queimadura/veneno, atordoado,
         // barreira, evasão) — os estados já existiam em playerState/

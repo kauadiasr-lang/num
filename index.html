@@ -412,6 +412,12 @@
                             <div id="enemy-mp-bar" class="bar-fill mp-fill"></div>
                         </div>
                         <p class="bar-text" id="enemy-mp-text">50/50</p>
+                        <!-- Barra de Fúria: hidden por padrão, só aparece via ui.js
+                             updateBattleBars() quando o boss atual tem furyPerHit -->
+                        <div class="bar-container hidden" id="enemy-fury-container">
+                            <div id="enemy-fury-bar" class="bar-fill fury-fill"></div>
+                        </div>
+                        <p class="bar-text hidden" id="enemy-fury-text">Fúria: 0%</p>
                         <div class="gear-icons" id="enemy-gear-icons"></div>
                         <div class="status-icons" id="enemy-status-icons"></div>
                     </div>
