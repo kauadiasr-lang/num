@@ -917,6 +917,24 @@ const AICombat = {
                 }
             }
 
+            // Cautela de mana (item 11 da mega-diretiva: "IA deve saber se
+            // merece gastar mana agora, não estourar tudo cedo sem
+            // motivo" + item 35, generalizado de arqueiros pra qualquer
+            // habilidade: "INT alta gerencia melhor os próprios recursos,
+            // INT baixa desperdiça mais"). Só pesa quando o CUSTO desta
+            // habilidade específica deixaria a mana criticamente baixa
+            // depois de pagá-la — nunca um veto (skill ainda pode vencer se
+            // o gatilho de tipo acima já multiplicou muito, ex: cura em HP
+            // crítico), só um desestímulo proporcional a quanto o inimigo
+            // "se importa" em preservar o próprio recurso.
+            if (skill.mpCost > 0 && enemy.derivedStats.maxMp > 0) {
+                const mpPercentAfter = Math.max(0, enemy.currentMp - skill.mpCost) / enemy.derivedStats.maxMp;
+                if (mpPercentAfter < 0.2) {
+                    const manaCaution = Utils.clamp((intRatio - 0.5) * 0.4, 0, 0.5);
+                    s *= 1 - manaCaution;
+                }
+            }
+
             add('SKILL', skillId, s, `${enemy.name} usa ${skill.name}!`);
         });
 
@@ -936,6 +954,18 @@ const AICombat = {
             // mesmo par de condições já somado como risco extra em
             // assessRisk, agora como um motivo direto pra escolher DEF.
             if (this._isDangerousDistance(battle) && !this._isIdealRange(battle)) defScore *= 1.35;
+            // Recuperação de mana (item 11): Defender também devolve uma
+            // fração da mana máxima (ver _resolveDefend em battle.js) — a
+            // única forma de recuperação em combate que existe no jogo, já
+            // que a regeneração passiva foi removida de propósito. Um
+            // inimigo que já usa magia (aiSkills não vazio) e está com
+            // pouca mana tem um motivo concreto pra escolher Defender em
+            // vez de insistir só no ataque básico, mais forte em INT alto
+            // (planeja o próprio recurso) que em INT baixo.
+            const mpPercent = enemy.derivedStats.maxMp > 0 ? enemy.currentMp / enemy.derivedStats.maxMp : 1;
+            if (enemy.aiSkills.length > 0 && mpPercent < 0.3 && intRatio > 1.0) {
+                defScore *= 1 + Utils.clamp(intRatio - 1, 0, 1.5) * 0.3;
+            }
             add('DEF', null, defScore, `${enemy.name} assume uma postura defensiva.`);
         }
 
