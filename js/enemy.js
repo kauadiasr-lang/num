@@ -1196,3 +1196,64 @@ RivalDatabase.leagues.forEach(league => {
 });
 
 window.RivalDatabase = RivalDatabase;
+
+/**
+ * Desafios de Campeão (item 8 da mega-diretiva Arena+Estilos) — versões
+ * "hard mode" opcionais dos Campeões de liga, desbloqueadas depois de
+ * derrotá-los na Ladder normal. Pedido explícito da diretiva: NUNCA
+ * "mesmo inimigo + 10 níveis" — cada Desafio troca o ESTILO de luta
+ * principal do campeão original (não só os números), reforçado por uma
+ * fase extra de `phases` (3 em vez de 2) que representa a evolução da
+ * estratégia dele depois da derrota. Reaproveita a classe Rival e o
+ * mecanismo de fases já existente (AICombat.checkBossPhase) — nenhuma IA
+ * nova precisa ser escrita, já que o próprio sistema de fases já entrega
+ * "comportamento diferente + habilidades adicionais", exatamente o que a
+ * diretiva pede.
+ *
+ * Ids únicos e distintos dos campeões originais — battle.js já rastreia
+ * QUALQUER Rival derrotado via `rivalId` em player.rivalsDefeated
+ * genericamente, então nenhum campo novo de save é necessário aqui.
+ */
+const CHAMPION_CHALLENGES = [
+    // Karg (bronze_champion) era gladiador/protetor com escudo — o Desafio
+    // troca pra guardiao/calculista: em vez de improvisar no meio da luta
+    // (fase 2 original), ele agora começa CALCULANDO uma defesa fechada
+    // desde o primeiro golpe, só recorrendo à fúria bruta como último
+    // recurso (fase 3, nova).
+    { id: 'bronze_champion_challenge', challengeOf: 'bronze_champion',
+        name: 'Karg, o Retorno do Bronze', title: 'Desafio do Bronze', level: 10,
+        focus: { def: 0.4, str: 0.3, agi: 0.15, acc: 0.15 },
+        personalityId: 'calculista', styleId: 'guardiao', gearRarity: RARITY.RARE, isChampion: true,
+        intro: 'Da última vez, eu improvisei. Não vai se repetir.',
+        visuals: { gender: 'Masculino', archetype: 'campeao', scarStyle: 3 },
+        phases: [
+            { hpPercent: 0.7, personalityId: 'executor', unlockSkill: 'shield_bash', emotion: 'confiante',
+                message: 'Karg mantém a guarda fechada, testando cada abertura com paciência.' },
+            { hpPercent: 0.4, personalityId: 'protetor', unlockSkill: 'heavy_strike', emotion: 'determinado',
+                message: 'Karg intensifica a pressão, sem abrir mão da defesa.' },
+            { hpPercent: 0.15, personalityId: 'berserker', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.12,
+                message: 'O cálculo falha — Karg abandona tudo e ataca com fúria desesperada!' }
+        ] },
+    // Gorkhal (orc_champion) era brutamontes/fanatico, pura investida bruta
+    // — o Desafio troca pra lanceiro/tatico: ele aprendeu a controlar
+    // alcance e distância em vez de só avançar, um jogo de posicionamento
+    // completamente diferente da luta original. A fúria original só volta
+    // no fim, como último recurso (fase 3, nova) — um eco do Gorkhal que o
+    // jogador já venceu uma vez.
+    { id: 'orc_champion_challenge', challengeOf: 'orc_champion',
+        name: 'Gorkhal, o Senhor Ressurgido', title: 'Desafio Orc', level: 25, race: 'orc',
+        focus: { str: 0.3, agi: 0.3, acc: 0.25, def: 0.15 },
+        personalityId: 'tatico', styleId: 'lanceiro', gearRarity: RARITY.LEGENDARY, isChampion: true,
+        intro: 'A fúria me derrubou uma vez. Hoje eu controlo a distância.',
+        visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 4 },
+        phases: [
+            { hpPercent: 0.7, personalityId: 'calculista', unlockSkill: 'heavy_strike', emotion: 'confiante',
+                message: 'Gorkhal mede cada passo, controlando a distância com a lança.' },
+            { hpPercent: 0.4, personalityId: 'executor', unlockSkill: 'execution_blow', emotion: 'determinado',
+                message: 'Gorkhal encontra as aberturas — cada golpe agora busca terminar a luta.' },
+            { hpPercent: 0.15, personalityId: 'fanatico', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
+                message: 'O controle desmorona — a velha fúria de Gorkhal desperta pela última vez!' }
+        ] }
+];
+CHAMPION_CHALLENGES.forEach(c => { c.league = 'desafio'; }); // nunca pertence a nenhuma liga normal da Ladder
+window.CHAMPION_CHALLENGES = CHAMPION_CHALLENGES;

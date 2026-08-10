@@ -1161,6 +1161,46 @@ class UIManager {
             container.appendChild(bossSectionDiv);
         }
 
+        // Desafios de Campeão (item 8 da mega-diretiva) — versões hard mode
+        // opcionais dos Campeões de liga, desbloqueadas ao derrotar o
+        // Campeão original (ver enemy.js CHAMPION_CHALLENGES.challengeOf).
+        // Reaproveita a classe Rival normal (o próprio sistema de fases já
+        // existente entrega "comportamento diferente + habilidade extra" —
+        // nenhuma IA nova é necessária aqui).
+        if (window.CHAMPION_CHALLENGES && window.CHAMPION_CHALLENGES.length > 0) {
+            const challengeSectionDiv = document.createElement('div');
+            challengeSectionDiv.className = 'ladder-league';
+            challengeSectionDiv.innerHTML = `<h3>🔁 Desafios de Campeão</h3>`;
+            const challengeGrid = document.createElement('div');
+            challengeGrid.className = 'ladder-grid';
+
+            window.CHAMPION_CHALLENGES.forEach(challengeDef => {
+                const isUnlocked = p.rivalsDefeated.includes(challengeDef.challengeOf);
+                const isDefeated = p.rivalsDefeated.includes(challengeDef.id);
+                const originalChampion = allRivals.find(r => r.id === challengeDef.challengeOf);
+
+                const card = document.createElement('div');
+                card.className = `rival-card champion ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
+                card.innerHTML = `
+                    <h4>${challengeDef.name}</h4>
+                    <p>Nível ${challengeDef.level} · ${challengeDef.title}${isUnlocked ? '' : ` · Requer: derrotar ${originalChampion ? originalChampion.name : challengeDef.challengeOf}`}</p>
+                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
+                        ${isDefeated ? 'Derrotado' : (isUnlocked ? 'Disponível' : 'Bloqueado')}
+                    </p>
+                `;
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        const rival = new Rival(challengeDef);
+                        this.beginBattleWith(rival);
+                    };
+                }
+                challengeGrid.appendChild(card);
+            });
+
+            challengeSectionDiv.appendChild(challengeGrid);
+            container.appendChild(challengeSectionDiv);
+        }
+
         this.showScreen('screen-ladder');
     }
 
