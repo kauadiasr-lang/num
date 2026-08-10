@@ -1219,6 +1219,33 @@ class BattleSystem {
                 message = `${this.enemy.name} usou ${skill.name} mas errou o alvo!`;
                 selfEvent = { type: 'missed' };
             }
+        } else if (skill.type === 'TELEPORT_ENEMY') {
+            // Iteração 2 da mega-diretiva de IA de combate (item 3, bug
+            // confirmado na auditoria): esses 3 tipos já existiam desde
+            // skills.js/executePlayerTurn, mas nunca tinham um branch aqui —
+            // um inimigo com essas magias equipadas "conjurava" e nada
+            // acontecia (MP gasto, efeito zero). Espelha exatamente o ramo
+            // do jogador acima (TELEPORT_ENEMY): o INIMIGO se teleporta para
+            // o corpo a corpo do jogador — versão mágica da Investida.
+            this.distance = 0;
+            message = `<span style="color:#66ccff">${this.enemy.name} usou ${skill.name} e surge no seu corpo a corpo! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+            window.GFX.spawnParticles(enemyX, enemyY, "#66ccff", 20, 5, 4);
+            window.AudioManager.playMagicCast();
+        } else if (skill.type === 'TELEPORT_FAR') {
+            this.distance = 10;
+            message = `<span style="color:#66ccff">${this.enemy.name} usou ${skill.name} e desaparece para o ponto mais distante! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+            window.GFX.spawnParticles(enemyX, enemyY, "#66ccff", 20, 5, 4);
+            window.AudioManager.playMagicCast();
+        } else if (skill.type === 'AMMO_RECALL') {
+            const rangedWeapon = this.enemy.equipment[SLOTS.RANGED];
+            if (rangedWeapon && rangedWeapon.maxAmmo) {
+                rangedWeapon.ammo = rangedWeapon.maxAmmo;
+                message = `<span style="color:#66ccff">${this.enemy.name} usou ${skill.name} e recupera toda a munição de ${rangedWeapon.name}! (${rangedWeapon.ammo}/${rangedWeapon.maxAmmo})</span>`;
+            } else {
+                message = `${this.enemy.name} usou ${skill.name}, mas não possui nenhuma arma de longo alcance equipada.`;
+            }
+            window.GFX.spawnParticles(enemyX, enemyY, "#66ccff", 15, 4, 4);
+            window.AudioManager.playMagicCast();
         } else if (skill.type === 'SHIELD') {
             // Usado por bosses com habilidade defensiva própria (ex: Anjo
             // Guardião — Barreira Celestial)

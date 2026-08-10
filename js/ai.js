@@ -521,6 +521,46 @@ const AICombat = {
                     return { action: 'SWITCH_WEAPON', message: `${enemy.name} percebe que ${activeWeapon ? activeWeapon.name : 'suas mãos'} não alcança e saca ${inactiveWeapon.name}!` };
                 }
             }
+            // Investida (CHARGE) como gap-closer contextual — item 8 da
+            // mega-diretiva de IA de combate ("jogador foge + inimigo tem
+            // investida + arma adequada, considerar fechar distância").
+            // NUNCA automático: só quando o fechamento de fato coloca o
+            // alvo dentro do próprio alcance NESTE turno (senão é
+            // estritamente pior que só aproximar — perde a chance de
+            // atacar igual, mas ainda gasta munição da arma ativa se ela
+            // tiver, ver executeEnemyTurn/CHARGE em battle.js) e só quando
+            // a memória mostra que o jogador de fato mantém distância de
+            // propósito (nunca contra quem só estava longe por acaso este
+            // turno) — evita a "decisão suicida" citada no item 19 (fechar
+            // espaço sem benefício real).
+            const closeAmount = speed.approachSpeed * 2;
+            const projectedAfterCharge = Math.max(0, battle.distance - closeAmount);
+            const chargeWillConnect = projectedAfterCharge <= range.max;
+            const chargeWeapon = enemy.getActiveWeapon ? enemy.getActiveWeapon() : null;
+            const chargeHasAmmo = !(chargeWeapon && chargeWeapon.maxAmmo && chargeWeapon.ammo <= 0);
+            if (chargeWillConnect && chargeHasAmmo && this.playerKeepsDistance(mem)
+                && p.critHunger > 0.35 && Utils.chance(45 + p.pursuitDrive * 30)) {
+                return { action: 'CHARGE', message: `${enemy.name} investe com tudo para alcançar você!` };
+            }
+
+            // Lampejo de Investida (TELEPORT_ENEMY): equivalente MÁGICO da
+            // Investida acima (ver executeEnemySkill em battle.js) — fecha
+            // distância instantaneamente em vez de depender da velocidade
+            // de aproximação da arma, então cobre justamente os casos em
+            // que a Investida física NÃO fecharia o suficiente. Mesma
+            // gate de memória (perseguição só faz sentido contra quem
+            // foge de propósito) e mesma moderação por chance ligada à
+            // personalidade (pursuitDrive), nunca um botão automático.
+            if (!chargeWillConnect && this.playerKeepsDistance(mem)) {
+                const teleportStrikeId = enemy.aiSkills.find(id => {
+                    const sk = window.SkillDB[id];
+                    return sk && sk.type === 'TELEPORT_ENEMY' && this._skillUsable(battle, id);
+                });
+                if (teleportStrikeId && Utils.chance(35 + p.pursuitDrive * 25)) {
+                    return { action: 'SKILL', param: teleportStrikeId, message: `${enemy.name} lança um Lampejo de Investida, surgindo ao seu lado!` };
+                }
+            }
+
             // Perseguidores natos preferem Correr quando a distância a fechar é grande
             if (p.pursuitDrive > 0.65 && (battle.distance - range.max) > 3 && Utils.chance(50)) {
                 return { action: 'RUN', message: `${enemy.name} corre para encurtar distância!` };
@@ -726,12 +766,67 @@ const AICombat = {
         if (ctx.subRange) atkScore *= 0.6;
         add('ATK', null, atkScore, ctx.subRange ? `${enemy.name} ataca mesmo perto demais, sem espaço para o golpe completo!` : `${enemy.name} ataca!`);
 
-        // Habilidades
+        // Habilidades — pontuação CONTEXTUAL POR TIPO (Iteração 2 da
+        // mega-diretiva de IA de combate, item 2 da auditoria: antes TODA
+        // habilidade recebia a MESMA fórmula genérica, cega a tipo/HP/
+        // munição/distância — uma cura em HP cheio pontuava igual a uma
+        // cura em HP crítico, e nada aqui sabia diferenciar ataque de
+        // fuga de recarga. A fórmula base continua a mesma (viés de
+        // estilo × preferência de personalidade × emoção × sede de
+        // crítico); os tipos com gatilho contextual específico multiplicam
+        // por cima disso conforme a situação real de combate — nunca
+        // substituem a variabilidade de personalidade, só a ENQUADRAM no
+        // contexto certo (item 9: "magia deixa de ser botão de spam").
+        const range = enemy.getWeaponRange();
+        const playerRange = battle.player.getWeaponRange();
+        const hpPercent = enemy.currentHp / enemy.derivedStats.maxHp;
         enemy.aiSkills.forEach(skillId => {
             if (!this._skillUsable(battle, skillId)) return;
+            const skill = window.SkillDB[skillId];
             let s = style.actionBias.SKILL * (0.4 + p.skillUsage) * (em.SKILL || 1) * (0.6 + p.critHunger * 0.5);
             if (ctx.repeatedPattern === skillId) s *= 0.5; // evita repetir a mesma skill que já virou padrão
-            add('SKILL', skillId, s, `${enemy.name} usa ${window.SkillDB[skillId].name}!`);
+
+            if (skill.type === 'HEAL') {
+                // Item 10: nunca desperdiça cura em HP quase cheio, escala
+                // com a necessidade real — o oposto da fórmula genérica
+                // acima, que pontuava igual em HP 95% e HP 20%.
+                const need = 1 - hpPercent;
+                if (need < 0.15) return; // HP praticamente cheio: nem entra na lista de candidatos
+                s *= (0.3 + need * 2.2);
+            } else if (skill.type === 'TELEPORT_FAR') {
+                // "Lampejo de Fuga" (item 7/9): só interessa de verdade
+                // quando a distância atual é perigosa (dentro do alcance
+                // da arma do JOGADOR) — nunca some do campo de batalha só
+                // porque a magia está disponível.
+                const dangerClose = battle.distance <= playerRange.max;
+                s *= dangerClose ? (1.4 + ctx.risk) : 0.1;
+                if (!dangerClose && hpPercent > 0.7 && ctx.risk < 0.3) s *= 0.3;
+            } else if (skill.type === 'TELEPORT_ENEMY') {
+                // "Lampejo de Investida" dentro do próprio alcance já não
+                // faz sentido (o gap-closer fora de alcance é avaliado
+                // separadamente no gate de distância máxima, ver
+                // decideAction) — aqui só sobra o caso raro de alguém
+                // querer fechar espaço mesmo já podendo atacar, que quase
+                // nunca compensa.
+                s *= 0.05;
+            } else if (skill.type === 'AMMO_RECALL') {
+                // "Recolher Munição" (item 32/34): nunca recarrega à toa
+                // (munição de sobra) nem recarrega perto demais do jogador
+                // (gasta o turno inteiro sem se defender) — só prioriza
+                // quando a munição está baixa E a posição é segura.
+                const rangedWeapon = enemy.equipment[SLOTS.RANGED];
+                if (!rangedWeapon || !rangedWeapon.maxAmmo) { s = 0; }
+                else {
+                    const ammoRatio = rangedWeapon.ammo / rangedWeapon.maxAmmo;
+                    if (ammoRatio > 0.5) { s *= 0.05; }
+                    else {
+                        const safePosition = battle.distance > range.max * 0.6;
+                        s *= safePosition ? (1.6 + (1 - ammoRatio)) : 0.15;
+                    }
+                }
+            }
+
+            add('SKILL', skillId, s, `${enemy.name} usa ${skill.name}!`);
         });
 
         // DEF
@@ -797,7 +892,6 @@ const AICombat = {
         // acabarem, em vez de misturar com ataques/defesa de verdade.
         // itemCooldown (setado em executeEnemyItem, decrementado no início
         // de cada turno do inimigo) exige 2 turnos de intervalo real.
-        const hpPercent = enemy.currentHp / enemy.derivedStats.maxHp;
         if ((enemy.aiState.itemCharges || 0) > 0 && hpPercent < 0.6 && (enemy.aiState.itemCooldown || 0) <= 0) {
             let itemScore = p.itemUsage * (1 - hpPercent) * 2 * (em.ITEM || 1);
             add('ITEM', null, itemScore, `${enemy.name} usa um item de cura!`);

@@ -231,7 +231,18 @@ const AI_FIGHTING_STYLES = {
         // 'elvenlongbow' (Arco Élfico Longo) só aparece de fato pra
         // combatentes do Santuário Élfico (mesmo filtro regional acima).
         weaponPool: ['bow', 'crossbow', 'elvenlongbow'], preferShield: false,
-        skillPool: ['heavy_strike', 'bleeding_cut'],
+        // 'blink_retreat' (Lampejo de Fuga) e 'ammo_recall' (Recolher
+        // Munição) — item 7/32/33 da mega-diretiva de IA de combate ("se
+        // usa arco + tem magia de fuga equipada + jogador perigosamente
+        // perto, considere a magia de fuga antes de continuar atirando";
+        // "arqueiro deve saber gerenciar flechas+mana+distância"). Bug de
+        // auditoria confirmado na Iteração 1: essas 2 magias já existiam
+        // desde skills.js (nível 1, baratas), mas nenhum skillPool as
+        // incluía — nenhum inimigo jamais fugia ou recarregava por magia,
+        // mesmo o Arqueiro sendo o estilo pra quem essas ferramentas foram
+        // desenhadas. Ver ai.js _buildCandidates pela pontuação contextual
+        // (nunca automática) de cada uma.
+        skillPool: ['heavy_strike', 'bleeding_cut', 'blink_retreat', 'ammo_recall'],
         actionBias: { ATK: 0.9, SKILL: 0.5, DEF: 0.3, APPROACH: 0.1, RETREAT: 0.9, HOLD: 0.7 },
         statFocus: { agi: 3, acc: 3, luk: 2, str: 1, int: 1, def: 1, cha: 1 } },
 
@@ -242,13 +253,24 @@ const AI_FIGHTING_STYLES = {
         // identidade visual/mecânica marcadamente Orc/Anã em vez das armas
         // genéricas universais.
         weaponPool: ['warhammer', 'rustyaxe', 'orcwaraxe', 'dwarvenhammer'], preferShield: false,
-        skillPool: ['fury', 'heavy_strike'],
+        // 'blink_strike' (Lampejo de Investida) — item 8 da mega-diretiva
+        // ("jogador foge + inimigo tem investida/gap-closer + arma
+        // adequada, considere fechar distância"): o Brutamontes já é o
+        // perseguidor físico por excelência (actionBias.APPROACH mais alto
+        // do jogo); a versão mágica cobre os casos em que o gap é grande
+        // demais pra Investida física (CHARGE) resolver num turno só.
+        skillPool: ['fury', 'heavy_strike', 'blink_strike'],
         actionBias: { ATK: 1.0, SKILL: 0.6, DEF: 0.2, APPROACH: 0.9, RETREAT: 0.1, HOLD: 0.1 },
         statFocus: { str: 4, def: 1, agi: 1, acc: 1, int: 1, luk: 1, cha: 1 } },
 
     assassino: { id: 'assassino', name: 'Assassino', preferredRangeBand: 'melee_short',
         weaponPool: ['dagger'], preferShield: false,
-        skillPool: ['bleeding_cut', 'vampiric_strike'],
+        // 'blink_strike' fecha distância pelo ar até a próxima punhalada;
+        // 'blink_retreat' cobre o "hit-and-run" que o Assassino já tem como
+        // marca (ver `hitAndRun: true` abaixo, e o reforço de RETREAT em
+        // ai.js depois de acertar um golpe) — agora com uma ferramenta
+        // MÁGICA de fuga instantânea, além do recuo físico normal.
+        skillPool: ['bleeding_cut', 'vampiric_strike', 'blink_strike', 'blink_retreat'],
         actionBias: { ATK: 0.8, SKILL: 0.9, DEF: 0.2, APPROACH: 0.8, RETREAT: 0.7, HOLD: 0.2 },
         hitAndRun: true,
         statFocus: { agi: 3, luk: 3, acc: 2, str: 1, int: 1, def: 1, cha: 1 } },
