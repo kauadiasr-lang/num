@@ -228,12 +228,24 @@
                 </div>
             </div>
 
-            <!-- TELA: LADDER DE ADVERSÁRIOS -->
+            <!-- TELA: LADDER DE ADVERSÁRIOS — item 28 da mega-diretiva
+                 Arena+Estilos ("melhore a interface, não crie uma tela de
+                 um botão gigante só, use o espaço lateral em PC, mantenha
+                 acessível no mobile"). `#ladder-nav` é construído ao vivo
+                 por ui.js openLadder() com um item por seção (ligas,
+                 Bosses Especiais, Desafios, Arena dos Campeões) — vira
+                 barra lateral fixa em telas largas (PC) e faixa horizontal
+                 rolável em telas estreitas (mobile), ver css/style.css
+                 .ladder-layout. Clicar rola `#ladder-container` até a
+                 seção, sem duplicar nenhuma lógica de card já existente. -->
             <div id="screen-ladder" class="screen">
                 <div class="panel ladder-panel">
                     <button class="btn-close" id="btn-close-ladder">X</button>
                     <h2 class="panel-title">Adversários</h2>
-                    <div id="ladder-container" class="ladder-container"></div>
+                    <div class="ladder-layout">
+                        <nav id="ladder-nav" class="ladder-nav"></nav>
+                        <div id="ladder-container" class="ladder-container"></div>
+                    </div>
                 </div>
             </div>
 

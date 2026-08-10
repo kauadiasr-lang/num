@@ -1218,9 +1218,42 @@ html, body {
     margin: 15px 0 10px; border-bottom: 1px solid var(--color-bronze); padding-bottom: 5px;
 }
 
-/* Ladder de Adversários */
+/* Ladder de Adversários — item 28 da mega-diretiva Arena+Estilos:
+   com 4 Bosses Especiais + 6 ligas + Desafios + Arena dos Campeões, a
+   lista de seções cresceu demais pra uma coluna única sem navegação —
+   `.ladder-layout` vira duas colunas (nav lateral fixa + conteúdo
+   rolável) em telas largas, usando o espaço horizontal que o PC tem de
+   sobra, e cai pra uma faixa de chips horizontal + coluna única em
+   telas estreitas, preservando 100% da acessibilidade mobile (nada de
+   esconder conteúdo, só reorganiza como se chega até ele). */
 .ladder-panel { width: 95%; max-width: 950px; max-height: 90vh; overflow-y: auto; position: relative; }
-.ladder-container { display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 900px) {
+    .ladder-panel { max-width: 1180px; }
+}
+.ladder-layout { display: flex; flex-direction: column; gap: 14px; }
+.ladder-nav {
+    display: flex; flex-direction: row; gap: 6px; overflow-x: auto;
+    padding-bottom: 8px; border-bottom: 1px solid var(--color-bronze-dark);
+    flex-shrink: 0;
+}
+.ladder-nav-item {
+    background: rgba(43,36,29,0.75); border: 1px solid var(--color-bronze-dark); border-radius: 6px;
+    padding: 7px 12px; font-size: 0.75rem; color: var(--color-marble-dark); cursor: pointer;
+    white-space: nowrap; transition: 0.2s; font-family: var(--font-display); letter-spacing: 0.5px;
+}
+.ladder-nav-item:hover, .ladder-nav-item.active { border-color: var(--color-gold); color: var(--color-gold); }
+@media (min-width: 900px) {
+    .ladder-layout { flex-direction: row; align-items: flex-start; }
+    .ladder-nav {
+        flex: 0 0 190px; flex-direction: column; overflow-x: visible;
+        max-height: 78vh; overflow-y: auto;
+        border-bottom: none; border-right: 1px solid var(--color-bronze-dark);
+        padding-bottom: 0; padding-right: 12px;
+        position: sticky; top: 0;
+    }
+    .ladder-nav-item { width: 100%; text-align: left; }
+}
+.ladder-container { display: flex; flex-direction: column; gap: 20px; flex: 1; min-width: 0; }
 .ladder-league h3 {
     font-family: var(--font-display);
     color: var(--color-gold); text-transform: uppercase; letter-spacing: 1px;

@@ -1072,6 +1072,14 @@ class UIManager {
         const container = document.getElementById('ladder-container');
         container.innerHTML = '';
 
+        // Item 28 da mega-diretiva ("use o espaço lateral em PC, mantenha
+        // acessível no mobile") — cada seção registra seu próprio id/label
+        // aqui conforme é criada; `_renderLadderNav` (abaixo) usa essa
+        // lista pra montar a barra de navegação depois que TODAS as
+        // seções já existem no DOM (precisa vir depois pra `scrollIntoView`
+        // ter um alvo real).
+        const navSections = [];
+
         // Um rival só está disponível se todos os anteriores da ladder já
         // tiverem sido derrotados (progressão sequencial entre e dentro das ligas)
         const allRivals = this._getAllRivals();
@@ -1087,6 +1095,8 @@ class UIManager {
 
             const arenaDiv = document.createElement('div');
             arenaDiv.className = 'ladder-league';
+            arenaDiv.id = 'ladder-section-champions-arena';
+            navSections.push({ id: 'ladder-section-champions-arena', label: '🏆 Arena dos Campeões' });
             arenaDiv.innerHTML = `<h3>🏆 Arena dos Campeões</h3>`;
             const arenaGrid = document.createElement('div');
             arenaGrid.className = 'ladder-grid';
@@ -1108,6 +1118,8 @@ class UIManager {
         window.RivalDatabase.leagues.forEach(league => {
             const leagueDiv = document.createElement('div');
             leagueDiv.className = 'ladder-league';
+            leagueDiv.id = `ladder-section-league-${league.id}`;
+            navSections.push({ id: `ladder-section-league-${league.id}`, label: league.name });
             leagueDiv.innerHTML = `<h3>${league.name}</h3>`;
 
             const grid = document.createElement('div');
@@ -1164,6 +1176,8 @@ class UIManager {
         if (window.ARENA_BOSS_DEFS && Object.keys(window.ARENA_BOSS_DEFS).length > 0) {
             const bossSectionDiv = document.createElement('div');
             bossSectionDiv.className = 'ladder-league';
+            bossSectionDiv.id = 'ladder-section-special-bosses';
+            navSections.push({ id: 'ladder-section-special-bosses', label: '⚔ Bosses Especiais' });
             bossSectionDiv.innerHTML = `<h3>⚔ Bosses Especiais</h3>`;
             const bossGrid = document.createElement('div');
             bossGrid.className = 'ladder-grid';
@@ -1214,6 +1228,8 @@ class UIManager {
         if (window.CHAMPION_CHALLENGES && window.CHAMPION_CHALLENGES.length > 0) {
             const challengeSectionDiv = document.createElement('div');
             challengeSectionDiv.className = 'ladder-league';
+            challengeSectionDiv.id = 'ladder-section-challenges';
+            navSections.push({ id: 'ladder-section-challenges', label: '🔁 Desafios de Campeão' });
             challengeSectionDiv.innerHTML = `<h3>🔁 Desafios de Campeão</h3>`;
             const challengeGrid = document.createElement('div');
             challengeGrid.className = 'ladder-grid';
@@ -1245,7 +1261,34 @@ class UIManager {
             container.appendChild(challengeSectionDiv);
         }
 
+        this._renderLadderNav(navSections);
         this.showScreen('screen-ladder');
+    }
+
+    // Item 28 da mega-diretiva ("use o espaço lateral em PC, mantenha
+    // acessível no mobile") — monta a barra de navegação da Ladder a
+    // partir das seções já registradas por openLadder() acima. Cada item
+    // rola `#ladder-container` até a seção correspondente (nunca duplica
+    // nenhuma lógica de card — só navegação). `scrollIntoView` encontra
+    // sozinho o ancestral rolável certo (`.ladder-panel`, ver
+    // css/style.css), então funciona igual em desktop (barra lateral fixa)
+    // e mobile (faixa de chips horizontal), sem nenhum código condicional
+    // por tamanho de tela — só CSS decide a apresentação.
+    _renderLadderNav(navSections) {
+        const nav = document.getElementById('ladder-nav');
+        if (!nav) return;
+        nav.innerHTML = '';
+        navSections.forEach(section => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'ladder-nav-item';
+            item.textContent = section.label;
+            item.onclick = () => {
+                const target = document.getElementById(section.id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+            nav.appendChild(item);
+        });
     }
 
     // Constrói o oponente de uma etapa da Arena dos Campeões a partir do
