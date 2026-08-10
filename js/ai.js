@@ -1115,7 +1115,20 @@ const AICombat = {
             // Baixa vida + reserva de longo alcance: trocar pra brigar à
             // distância em vez de continuar corpo a corpo é uma retirada
             // tática, mais forte em personalidades cautelosas.
-            if (inactiveWeapon && inactiveWeapon.slot === SLOTS.RANGED && activeWeapon && activeWeapon.slot !== SLOTS.RANGED && hpPercent < 0.35) {
+            //
+            // Bug de auditoria anti-suicídio (item 19 da mega-diretiva de
+            // IA de combate — "não trocar pra arco com o jogador colado,
+            // deixando o inimigo vulnerável"): esta bonificação nunca
+            // checava a distância ATUAL. Sacar um arco não resolve nada se
+            // o jogador já está perto o bastante pra golpear de volta no
+            // próximo turno (ver _isDangerousDistance, Iteração 3) — a
+            // troca gasta o turno inteiro sem ganhar a distância que
+            // justificaria a "retirada tática" prometida na mensagem.
+            // Só vale a pena quando o jogador AINDA não ameaça o inimigo
+            // nesta distância; do contrário HOLD/DEF/RETREAT (já pontuados
+            // à parte) são escolhas mais seguras.
+            if (inactiveWeapon && inactiveWeapon.slot === SLOTS.RANGED && activeWeapon && activeWeapon.slot !== SLOTS.RANGED
+                && hpPercent < 0.35 && !this._isDangerousDistance(battle)) {
                 switchScore += 0.7 * (0.3 + p.caution);
                 if (!switchMsg) switchMsg = `${enemy.name}, ferido, troca para ${inactiveWeapon.name} pra brigar à distância!`;
             }
