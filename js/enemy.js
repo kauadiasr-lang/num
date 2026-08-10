@@ -678,6 +678,33 @@ const ARENA_BOSS_DEFS = {
         race: 'elfo',
         visuals: { gender: 'Feminino', skinTone: '#d8c8b8', eyeColor: '#c8d8f0', eyebrowColor: '#e0e0e8',
             hairStyle: 4, hairColor: '#e8e8f0', beardStyle: 0, beardColor: '#e8e8f0', faceShape: 1, archetype: 'guerreira', scarStyle: 0 }
+    },
+    // Brakka Fundefogo, Mestra da Forja (Iteração 18, item 6 da
+    // mega-diretiva — exemplo conceitual do próprio usuário "Dwarf
+    // Mestre da Forja", reimaginado com mecânica própria, nunca copiado
+    // literalmente). Desbloqueada depois do Campeão de Prata — DELIBERADAMENTE
+    // mais cedo que Grokmar/Sylwyn/Nyxara (todos pós-liga-final), pra dar
+    // ao jogador uma primeira Boss Especial opcional ainda no meio do
+    // jogo, não só no fim. Mecânica própria: FORJA VIVA, guiada pela
+    // PRÓPRIA ESCOLHA da boss (nem dano recebido como Grokmar, nem
+    // ausência de dano como Nyxara, nem tempo como Sylwyn) — cada vez que
+    // ela ergue o Escudo Rúnico, acumula uma carga; ao atingir o teto,
+    // descarrega tudo num único golpe (Marreta Incandescente) com dano
+    // proporcional às cargas gastas, depois volta ao normal. O jogador
+    // aprende a reconhecer o padrão "ela está defendendo → está
+    // carregando o próximo golpe forte" e decide se pressiona pra
+    // interromper o ciclo ou se guarda recursos pro golpe que vem.
+    brakka_forja: {
+        id: 'brakka_forja', name: 'Brakka Fundefogo, Mestra da Forja', title: 'Mestra da Forja',
+        unlocksAfterRival: 'silver_champion',
+        levelBonus: 5, statMult: 1.5,
+        weaponId: 'dwarvenhammer', weaponRarity: 'LEGENDARY',
+        armorId: 'platearmor', armorRarity: 'LEGENDARY',
+        trophyId: 'brakkahammer', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
+        runeForge: true,
+        race: 'anao',
+        visuals: { gender: 'Feminino', skinTone: '#c8a888', eyeColor: '#e8a020', eyebrowColor: '#4a3020',
+            hairStyle: 2, hairColor: '#8a4020', beardStyle: 3, beardColor: '#8a4020', faceShape: 3, archetype: 'veterano', scarStyle: 2 }
     }
 };
 window.ARENA_BOSS_DEFS = ARENA_BOSS_DEFS;
@@ -703,6 +730,16 @@ function createArenaBoss(bossId, playerLevel) {
     boss.furyMax = def.furyMax || 100;
     boss.furyStacks = 0;
     boss.furyTier = 0;
+
+    // Mecânica de Forja Viva (Brakka, Iteração 18) — ver bossai.js
+    // BOSS_AI.brakka_forja pra toda a lógica de acúmulo/descarga; aqui só
+    // o estado inicial, mesmo padrão de furyStacks/shadowStacks/moonPhase
+    // acima. `runeBaseDamage` capturado logo após calculateDerivedStats,
+    // mais abaixo, igual a `moonBaseCrit`/`moonBaseDamage`.
+    boss.runeForge = !!def.runeForge;
+    boss.runeCharges = 0;
+    boss.runeChargeMax = 3;
+    boss.runeBaseDamage = 0;
 
     // Mecânica de Manto de Sombras (Nyxara) — cresce enquanto o boss NÃO é
     // atingido, reseta no instante em que um golpe acerta (ver battle.js
@@ -770,6 +807,9 @@ function createArenaBoss(bossId, playerLevel) {
         // inconsistente com toda futura passagem por Nova. Aplicado aqui
         // pra já nascer coerente com a própria mecânica.
         boss.derivedStats.critChance = Math.max(5, boss.moonBaseCrit * 0.6);
+    }
+    if (boss.runeForge) {
+        boss.runeBaseDamage = boss.derivedStats.physicalDamage; // ponto de referência da Forja Viva (Brakka)
     }
 
     // Item 22 da mega-diretiva ("recompensas devem considerar dificuldade")

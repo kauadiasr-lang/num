@@ -332,7 +332,16 @@ const ItemDatabase = {
         // de crítico da própria mecânica de Ciclo Lunar dela.
         sylwynbow: { id: 'w_24', name: "Arco da Lua Cheia", slot: SLOTS.RANGED, damage: 13, weight: 1.6, value: 320, durability: 100, stats: { agi: 3, acc: 2 }, critBonus: 20, arenaExclusive: true,
             description: "Talhado sob o brilho da lua cheia, canta baixinho quando a mira está perfeita — dizem que nunca erra sob o céu noturno.",
-            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 }
+            minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 },
+        // Brakka Fundefogo, Mestra da Forja (Iteração 18, ver enemy.js
+        // ARENA_BOSS_DEFS.brakka_forja) — versão nomeada e ainda mais
+        // pesada do Martelo Rúnico Anão, com perfuração maior que a
+        // maioria das armas do jogo — coerente com a própria mecânica
+        // dela (golpes que "perfuram" mais quanto mais tempero a forja
+        // recebeu).
+        brakkahammer: { id: 'w_25', name: "Martelo da Forja Eterna", slot: SLOTS.MAIN_HAND, damage: 19, weight: 7.0, value: 320, durability: 180, stats: { str: 4, def: 2 }, armorPierce: 0.30, arenaExclusive: true,
+            description: "Forjado e reforjado tantas vezes na fornalha de Brakka que já nem parece ferro comum — cada golpe carrega o calor de mil temperagens.",
+            minRange: 0, maxRange: 2, atkSpeed: 0.6, approachSpeed: 1.2, retreatSpeed: 1.2 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },

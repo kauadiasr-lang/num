@@ -74,7 +74,19 @@ function registerBossSkills() {
         { id: 'sylwyn_chuva_de_flechas', name: 'Chuva de Flechas', type: 'PHYSICAL', mpCost: 20, powerMulti: 1.7,
             description: 'Uma saraivada de flechas cai sobre a vítima.', extra: { cooldown: 3, range: 10, animation: 'boss_bats' } },
         { id: 'sylwyn_flecha_da_lua_cheia', name: 'Flecha da Lua Cheia', type: 'PHYSICAL', mpCost: 26, powerMulti: 2.3,
-            description: 'Sob a luz plena da lua, Sylwyn solta a flecha mais precisa de sua vida.', extra: { cooldown: 4, range: 10, animation: 'boss_slam' } }
+            description: 'Sob a luz plena da lua, Sylwyn solta a flecha mais precisa de sua vida.', extra: { cooldown: 4, range: 10, animation: 'boss_slam' } },
+
+        // Brakka Fundefogo, Mestra da Forja (Boss Especial da Arena — ver
+        // enemy.js ARENA_BOSS_DEFS.brakka_forja) — golpe temperado básico,
+        // o Escudo Rúnico que acumula carga da mecânica de Forja Viva, e a
+        // Marreta Incandescente (só realmente forte com cargas
+        // acumuladas — ver bossai.js BOSS_AI.brakka_forja).
+        { id: 'brakka_golpe_temperado', name: 'Golpe Temperado', type: 'PHYSICAL', mpCost: 15, powerMulti: 1.6,
+            description: 'Brakka golpeia com a força de quem já dobrou metal em brasa.', extra: { cooldown: 2, animation: 'attack' } },
+        { id: 'brakka_escudo_runico', name: 'Escudo Rúnico', type: 'SHIELD', mpCost: 18, powerMulti: 1,
+            description: 'Brakka ergue runas de proteção, recarregando a forja interior.', extra: { shieldPercent: 35, duration: 2, cooldown: 3, animation: 'cast' } },
+        { id: 'brakka_marreta_incandescente', name: 'Marreta Incandescente', type: 'PHYSICAL', mpCost: 24, powerMulti: 1.8,
+            description: 'Toda a energia acumulada na forja é liberada num único golpe incandescente.', extra: { cooldown: 4, animation: 'boss_slam' } }
     ];
     defs.forEach(d => {
         if (!window.SkillDB[d.id]) {
@@ -382,6 +394,69 @@ const BOSS_AI = {
             }
             return { action: 'ATK', message: moonMsg || `${boss.name} atira uma flecha certeira!` };
         }
+    },
+
+    // ==================================================================
+    // BRAKKA FUNDEFOGO, MESTRA DA FORJA — Boss Especial da Arena (ver
+    // enemy.js ARENA_BOSS_DEFS.brakka_forja). Mecânica própria: FORJA
+    // VIVA. Diferente de Grokmar (dano RECEBIDO), Nyxara (ausência de
+    // dano recebido) e Sylwyn (tempo), Brakka é guiada pela PRÓPRIA
+    // ESCOLHA dela: cada vez que ergue o Escudo Rúnico acumula 1 carga
+    // (até 3); ao encher o teto, descarrega tudo na Marreta Incandescente
+    // (dano proporcional às cargas gastas, nunca cumulativo entre usos —
+    // sempre recalculado a partir de `runeBaseDamage`) e volta ao normal.
+    // O jogador aprende a ler "ela está se protegendo → está carregando
+    // o próximo golpe forte" e decide se pressiona pra interromper o
+    // ciclo ou se guarda recursos defensivos pro golpe que vem.
+    brakka_forja: {
+        decideAction(battle) {
+            const boss = battle.enemy;
+            const hpFrac = boss.currentHp / boss.derivedStats.maxHp;
+            const range = boss.getWeaponRange ? boss.getWeaponRange() : { min: 0, max: 2 };
+            const ready = id => boss.isSkillReady(id) && boss.currentMp >= window.SkillDB[id].mpCost;
+
+            if (!battle.isInRange(range)) {
+                return { action: 'APPROACH', message: `${boss.name} avança, martelo em punho!` };
+            }
+
+            const charged = boss.runeCharges >= boss.runeChargeMax;
+
+            // Marreta Incandescente: consome TODAS as cargas acumuladas
+            // num único golpe. Sempre recalculado a partir da BASE
+            // (`runeBaseDamage`), nunca cumulativo entre ativações —
+            // mesmo cuidado contra drift que o Ciclo Lunar de Sylwyn já
+            // toma com `moonBaseCrit`/`moonBaseDamage`.
+            if (charged && ready('brakka_marreta_incandescente')) {
+                boss.derivedStats.physicalDamage = Math.floor(boss.runeBaseDamage * (1 + 0.25 * boss.runeCharges));
+                const usedCharges = boss.runeCharges;
+                boss.runeCharges = 0;
+                return { action: 'SKILL', param: 'brakka_marreta_incandescente', message: `${boss.name} descarrega ${usedCharges} runas acumuladas num único golpe incandescente!` };
+            }
+
+            // Fora do momento de descarga, o dano sempre volta pra base —
+            // sem isso, o bônus da última Marreta nunca seria desfeito.
+            if (boss.derivedStats.physicalDamage !== boss.runeBaseDamage) {
+                boss.derivedStats.physicalDamage = boss.runeBaseDamage;
+            }
+
+            const desperate = hpFrac <= 0.3;
+
+            if (desperate && ready('brakka_golpe_temperado') && Utils.chance(50)) {
+                return { action: 'SKILL', param: 'brakka_golpe_temperado', message: `${boss.name} golpeia com fúria temperada pelo fogo da forja!` };
+            }
+
+            // Erguer o Escudo Rúnico acumula 1 carga (até o teto) — a
+            // forja "recarrega" enquanto ela se protege.
+            if (!charged && !battle.enemyState.shieldTurns && ready('brakka_escudo_runico') && Utils.chance(35)) {
+                boss.runeCharges = Math.min(boss.runeChargeMax, boss.runeCharges + 1);
+                return { action: 'SKILL', param: 'brakka_escudo_runico', message: `${boss.name} ergue um Escudo Rúnico, recarregando a forja interior! (${boss.runeCharges}/${boss.runeChargeMax} cargas)` };
+            }
+
+            if (ready('brakka_golpe_temperado') && Utils.chance(50)) {
+                return { action: 'SKILL', param: 'brakka_golpe_temperado', message: `${boss.name} golpeia com o martelo temperado!` };
+            }
+            return { action: 'ATK', message: `${boss.name} ataca com força da forja!` };
+        }
     }
 };
 window.BossAI = {
@@ -402,5 +477,6 @@ window.BOSS_SKILL_IDS = {
     anjo_guardiao: ['anjo_raio_sagrado', 'anjo_cura_divina', 'anjo_barreira', 'anjo_julgamento_final'],
     grokmar_furia: ['grokmar_machadada_dupla', 'grokmar_investida_furiosa', 'grokmar_ultimo_fio'],
     nyxara_sombras: ['nyxara_corte_sombrio', 'nyxara_passo_das_sombras', 'nyxara_mil_cortes'],
-    sylwyn_lua: ['sylwyn_tiro_precebido', 'sylwyn_chuva_de_flechas', 'sylwyn_flecha_da_lua_cheia']
+    sylwyn_lua: ['sylwyn_tiro_precebido', 'sylwyn_chuva_de_flechas', 'sylwyn_flecha_da_lua_cheia'],
+    brakka_forja: ['brakka_golpe_temperado', 'brakka_escudo_runico', 'brakka_marreta_incandescente']
 };
