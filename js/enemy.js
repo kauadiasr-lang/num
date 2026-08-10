@@ -706,8 +706,21 @@ function createArenaBoss(bossId, playerLevel) {
     boss.currentMp = boss.derivedStats.maxMp;
     boss.baseDodgeChance = boss.derivedStats.dodgeChance; // ponto de referência do Manto de Sombras (Nyxara)
 
-    boss.expValue = Math.floor(75 * Math.pow(1.15, boss.level));
-    boss.goldValue = Math.floor(140 + boss.level * 12);
+    // Item 22 da mega-diretiva ("recompensas devem considerar dificuldade")
+    // — bug de balanceamento encontrado em auditoria: a fórmula original
+    // aqui (`75 * 1.15^nível`) foi copiada do BOSS_DEFS de Ritual acima
+    // (conteúdo único, enfrentado uma vez na vida pra despertar uma
+    // Linhagem, nunca pensado como alvo de farm repetido). Bosses
+    // Especiais da Arena são EXATAMENTE o oposto — desafios opcionais
+    // REFARMÁVEIS, desbloqueados só depois de já ter vencido um Campeão de
+    // liga — então precisam usar a MESMA família de fórmula dos Rivais/
+    // Campeões (`base * 1.25^nível`), não a dos bosses de Ritual. No
+    // nível 30, a fórmula antiga dava só ~10% do XP de um Campeão comum
+    // pela mesma luta — o oposto do que "harder content" deveria
+    // significar. Multiplicador 2.2x (acima do 1.8x de Campeão comum)
+    // reforça que são conteúdo ainda mais especial que um Campeão normal.
+    boss.expValue = Math.floor(30 * Math.pow(1.25, boss.level) * 2.2);
+    boss.goldValue = Math.floor(Utils.randomInt(15, 35) * (boss.level * 0.6 + 1) * 2.2);
     boss.generateLoot = function (playerLuk) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         return window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
