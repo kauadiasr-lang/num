@@ -528,6 +528,24 @@ const AICombat = {
             return { action: 'APPROACH', message: `${enemy.name} avança para ficar ao alcance.` };
         }
 
+        // --- Consciência de Estilo de Combate do jogador (item 25 da
+        // mega-diretiva: "IA deve reconhecer... estilo de combate") ---
+        // Caminho do Predador (ver combatstyles.js) dá bônus de dano
+        // crescente com a distância e ferramentas pra reabrir espaço — um
+        // inimigo que aceita passivamente ficar longe dele está ajudando o
+        // próprio estilo do oponente a funcionar melhor. Só se aplica
+        // DENTRO do alcance do próprio inimigo (fora dele o gate acima já
+        // força aproximação por outro motivo) e nunca sobrepõe "nunca
+        // recua" (que já retornou mais acima) nem HOLD forçado por sub-
+        // alcance. `isStyleCompatible` garante que só reage ao estilo
+        // REALMENTE ativo (equipado com arma de longo alcance), nunca a um
+        // estilo aprendido mas temporariamente inativo.
+        if (!subRange && battle.distance >= 6 && battle.player.combatStyle === 'predador'
+            && window.CombatStyleSystem && window.CombatStyleSystem.isStyleCompatible(battle.player, 'predador')
+            && Utils.chance(40)) {
+            return { action: 'APPROACH', message: `${enemy.name} avança, recusando lutar à distância favorável ao oponente!` };
+        }
+
         // --- Arquétipo "Espelho": tenta repetir a última ação do jogador ---
         if (rare && rare.id === 'imitador' && battle.playerActionHistory.length > 0) {
             const lastPlayerAction = battle.playerActionHistory[battle.playerActionHistory.length - 1];
