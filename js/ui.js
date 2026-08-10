@@ -1309,8 +1309,13 @@ class UIManager {
         if (run.stageIndex >= window.CHAMPIONS_ARENA_STAGES.length) {
             p.championsArenaRun = null;
             p.championsArenaCompletions = (p.championsArenaCompletions || 0) + 1;
-            const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
-            const bonusLoot = window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
+            // Item 23 da mega-diretiva: a recompensa de conclusão agora é
+            // sempre a Coroa dos Campeões (item exclusivo, ver items.js
+            // `arenaExclusive`) em vez de um Lendário aleatório qualquer —
+            // um troféu com identidade própria pra quem terminou o
+            // gauntlet inteiro, não mais um item genérico igual ao de
+            // qualquer outro loot do jogo.
+            const bonusLoot = window.ItemFactory.createEquipment('crownofchampions', 'trinkets', RARITY.LEGENDARY);
             const bonusGold = 300 + p.level * 15;
             p.gold += bonusGold;
             if (p.inventory.length < p.inventoryCapacity) {

@@ -307,7 +307,25 @@ const ItemDatabase = {
         // lâminas.
         elvenwindspear: { id: 'w_21', name: "Lança dos Ventos Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 155, durability: 95, stats: { agi: 4, acc: 2 }, critBonus: 10, region: 'santuario_elfico',
             description: "Talhada em madeira viva do Santuário — tão leve que mal atrasa o golpe seguinte, com alcance que nenhuma outra lança do jogo alcança.",
-            minRange: 2, maxRange: 6, atkSpeed: 1.2, approachSpeed: 2.4, retreatSpeed: 2.6 }
+            minRange: 2, maxRange: 6, atkSpeed: 1.2, approachSpeed: 2.4, retreatSpeed: 2.6 },
+
+        // Item 23 da mega-diretiva Arena+Estilos — armas de identidade
+        // própria de Boss Especial da Arena (ver enemy.js ARENA_BOSS_DEFS/
+        // createArenaBoss), nunca sorteadas em loja/loot genérico
+        // (`arenaExclusive: true`, ver _pickRandomEquipmentId acima). Cada
+        // uma é uma versão nomeada e mais forte da arma genérica que o
+        // boss já usava, nunca um reescalonamento reto do mesmo número —
+        // Grokmar troca perfuração de armadura por dano bruto ainda maior
+        // (tema "fúria", quanto mais golpes recebe mais forte fica, então
+        // a arma reforça o lado ofensivo puro), Nyxara troca crítico bom
+        // por crítico devastador + velocidade ainda maior (tema "furtiva,
+        // pontual, decisiva").
+        grokmaraxe: { id: 'w_22', name: "Machado de Grokmar", slot: SLOTS.MAIN_HAND, damage: 22, weight: 7.5, value: 320, durability: 150, stats: { str: 7 }, armorPierce: 0.20, critBonus: 8, arenaExclusive: true,
+            description: "A arma que Grokmar ergueu quando sua fúria despertou pela primeira vez — cada golpe carrega o peso de tudo que ele já sobreviveu na Arena.",
+            minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
+        nyxaradagger: { id: 'w_23', name: "Adaga de Nyxara", slot: SLOTS.MAIN_HAND, damage: 8, weight: 0.9, value: 320, durability: 130, stats: { agi: 4 }, critBonus: 26, arenaExclusive: true,
+            description: "Forjada nas sombras do Manto que a protege — quem a vê chegar já foi atingido. Mais rápida e mais certeira que qualquer adaga comum.",
+            minRange: 0, maxRange: 1, atkSpeed: 1.6, approachSpeed: 2.7, retreatSpeed: 2.7 }
     },
     armors: {
         leatherchest: { id: 'a_01', name: "Armadura de Couro", slot: SLOTS.CHEST, defense: 5, weight: 3.0, value: 60, durability: 120, stats: { agi: 2 } },
@@ -370,7 +388,19 @@ const ItemDatabase = {
         // Mágico (tier 4) em dobro — caro em mineração, não em ouro —
         // reforçando defesa E vigor ao mesmo tempo, mais forte que
         // qualquer amuleto genérico de loja, mas só existe pra quem forja.
-        magmacoreamulet: { id: 't_09', name: "Amuleto do Núcleo de Magma", slot: SLOTS.AMULET, weight: 0.3, value: 210, durability: 999, stats: { def: 2 }, hpBonus: 30, region: 'reino_anao' }
+        magmacoreamulet: { id: 't_09', name: "Amuleto do Núcleo de Magma", slot: SLOTS.AMULET, weight: 0.3, value: 210, durability: 999, stats: { def: 2 }, hpBonus: 30, region: 'reino_anao' },
+
+        // Item 23 da mega-diretiva Arena+Estilos — troféu de identidade
+        // própria, concedido EXCLUSIVAMENTE por concluir a Arena dos
+        // Campeões inteira (5 etapas, ver enemy.js CHAMPIONS_ARENA_STAGES
+        // e ui.js _advanceChampionsArena), nunca sorteado em loja/loot
+        // genérico (`arenaExclusive: true`). Estatística combinada
+        // (força+agilidade+precisão+vida+mana) reflete o próprio desafio
+        // que testa TODOS os estilos de combate aprendidos nas ligas —
+        // não é um upgrade estritamente melhor que qualquer amuleto
+        // regional, é a prova física de ter vencido o modo endgame.
+        crownofchampions: { id: 't_10', name: "Coroa dos Campeões", slot: SLOTS.AMULET, weight: 0.4, value: 500, durability: 999, stats: { str: 2, agi: 2, acc: 2 }, hpBonus: 40, mpBonus: 30, arenaExclusive: true,
+            description: "Só quem já enfrentou o melhor de cada liga — e ainda assim seguiu andando — tem o direito de usá-la." }
     },
     consumables: {
         health_potion: { id: 'c_01', name: "Poção de Vida", type: 'HEAL_HP', power: 40, value: 25, description: "Restaura 40 de HP.", consumableCategory: 'health' },
@@ -655,9 +685,22 @@ window.ItemFactory = {
     // extraído do corpo de generateShopInventory pra ser reaproveitado
     // também por generateGuaranteedItem (ver abaixo), sem duplicar a lógica
     // de categoria/pool/filtro por cidade.
+    // Item 23 da mega-diretiva Arena+Estilos ("nem TODO item deve virar
+    // drop exclusivo de arena, mas ALGUNS devem — armas de campeão,
+    // troféus, peças de identidade própria"). `arenaExclusive: true` no
+    // template exclui o item de QUALQUER pool aleatório/genérico (loja,
+    // Mercador Viajante, loot garantido comum de Ritual/Ladder) — ele só
+    // pode ser obtido via `createEquipment` chamado diretamente pelo
+    // código-fonte do drop específico (ver enemy.js createArenaBoss
+    // boss.generateLoot e ui.js _advanceChampionsArena). Sem essa flag,
+    // qualquer item novo adicionado às categorias abaixo vazaria
+    // automaticamente pra `generateGuaranteedItem` — a MESMA função usada
+    // por loot de Boss de Ritual, Campeão da Ladder, Boss Especial da
+    // Arena E o bônus de conclusão da Arena dos Campeões — quebrando a
+    // exclusividade pretendida.
     _pickRandomEquipmentId(cityId, includeAllRegions) {
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
-        const availableInCity = (template) => includeAllRegions || !template.region || template.region === cityId;
+        const availableInCity = (template) => !template.arenaExclusive && (includeAllRegions || !template.region || template.region === cityId);
         const category = categories[Utils.randomInt(0, categories.length - 1)];
         const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
         if (pool.length === 0) return null; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)

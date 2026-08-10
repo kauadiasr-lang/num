@@ -631,6 +631,7 @@ const ARENA_BOSS_DEFS = {
         levelBonus: 6, statMult: 1.6,
         weaponId: 'orcwaraxe', weaponRarity: 'LEGENDARY',
         armorId: 'orcheavyarmor', armorRarity: 'LEGENDARY',
+        trophyId: 'grokmaraxe', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         furyPerHit: 12, furyMax: 100,
         race: 'orc',
         visuals: { gender: 'Masculino', skinTone: '#4a6a2a', eyeColor: '#ff2a1a', eyebrowColor: '#1a1a0a',
@@ -650,6 +651,7 @@ const ARENA_BOSS_DEFS = {
         levelBonus: 10, statMult: 1.75,
         weaponId: 'dagger', weaponRarity: 'LEGENDARY',
         armorId: 'leatherchest', armorRarity: 'LEGENDARY',
+        trophyId: 'nyxaradagger', trophyCategory: 'weapons', // item 23 da diretiva — arma nomeada exclusiva, ver items.js
         lineage: 'sombras',
         shadowStackMax: 4, shadowDodgeBonusPerStack: 12,
         visuals: { gender: 'Feminino', skinTone: '#3a3040', eyeColor: '#8a3ae0', eyebrowColor: '#1a1420',
@@ -721,7 +723,15 @@ function createArenaBoss(bossId, playerLevel) {
     // reforça que são conteúdo ainda mais especial que um Campeão normal.
     boss.expValue = Math.floor(30 * Math.pow(1.25, boss.level) * 2.2);
     boss.goldValue = Math.floor(Utils.randomInt(15, 35) * (boss.level * 0.6 + 1) * 2.2);
+    // Item 23 da mega-diretiva: cada Boss Especial da Arena agora dropa sua
+    // própria arma nomeada (`def.trophyId`/`trophyCategory`, ver items.js
+    // `arenaExclusive`) em vez do antigo loot genérico e aleatório
+    // (`generateGuaranteedItem`, que sorteava QUALQUER item Lendário do
+    // jogo — sem nenhuma identidade própria de quem derrotou o boss).
     boss.generateLoot = function (playerLuk) {
+        if (def.trophyId && def.trophyCategory) {
+            return window.ItemFactory.createEquipment(def.trophyId, def.trophyCategory, RARITY.LEGENDARY);
+        }
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         return window.ItemFactory.generateGuaranteedItem(cityId, RARITY.LEGENDARY);
     };
