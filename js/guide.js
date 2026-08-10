@@ -23,6 +23,7 @@ const GuideSystem = {
         { id: 'cities', label: 'Cidades', icon: '🏛️' },
         { id: 'races', label: 'Raças', icon: '👥' },
         { id: 'bosses', label: 'Bosses', icon: '👑' },
+        { id: 'arena', label: 'Arena', icon: '⚔️' },
         { id: 'synergies', label: 'Sinergias', icon: '🔗' }
     ],
 
@@ -65,6 +66,7 @@ const GuideSystem = {
             cities: () => this._renderCities(),
             races: () => this._renderRaces(),
             bosses: () => this._renderBosses(),
+            arena: () => this._renderArena(),
             synergies: () => this._renderSynergies()
         };
         content.innerHTML = (renderers[tabId] || renderers.attrs)();
@@ -441,6 +443,111 @@ const GuideSystem = {
                     </div>
                 `;
             }).join('')}
+        `;
+    },
+
+    // ==========================================================================
+    // ARENA (Ladder, Bosses Especiais, Desafios de Campeão, Arena dos
+    // Campeões — item 27 da mega-diretiva Arena+Estilos: nunca esquecer de
+    // documentar o que foi implementado). Lê tudo direto de RivalDatabase/
+    // ARENA_BOSS_DEFS/CHAMPION_CHALLENGES/CHAMPIONS_ARENA_STAGES, nunca
+    // duplica números aqui, pelo mesmo motivo do resto do arquivo.
+    // ==========================================================================
+    _renderArena() {
+        const leagues = (window.RivalDatabase && window.RivalDatabase.leagues) || [];
+        const arenaBosses = Object.values(window.ARENA_BOSS_DEFS || {});
+        const challenges = window.CHAMPION_CHALLENGES || [];
+        const stages = window.CHAMPIONS_ARENA_STAGES || [];
+
+        const leagueRows = leagues.map(l => {
+            const levels = l.rivals.map(r => r.level);
+            const champion = l.rivals.find(r => r.isChampion);
+            return `<tr><td><strong>${l.name}</strong></td><td>Nível ${Math.min(...levels)}–${Math.max(...levels)}</td><td>${l.rivals.length}</td><td>${champion ? champion.name : '—'}</td></tr>`;
+        }).join('');
+
+        const rivalryPairs = [];
+        leagues.forEach(l => l.rivals.forEach(r => { if (r.rivalOf) rivalryPairs.push(r); }));
+
+        const arenaBossBlocks = arenaBosses.map(b => {
+            const allRivals = [];
+            leagues.forEach(l => l.rivals.forEach(r => allRivals.push(r)));
+            const prereq = allRivals.find(r => r.id === b.unlocksAfterRival);
+            const lineageNote = b.lineage
+                ? `Representa a Linhagem <strong>${(window.LINEAGES[b.lineage] || {}).name || b.lineage}</strong> — jogadores que já possuem essa Linhagem não podem enfrentá-lo.`
+                : '';
+            return `
+                <div class="guide-block">
+                    <h4>${b.name} — <em style="color:var(--color-marble-dark);">${b.title}</em></h4>
+                    <p>Desbloqueado ao derrotar <strong>${prereq ? prereq.name : b.unlocksAfterRival}</strong>. ${lineageNote}</p>
+                </div>
+            `;
+        }).join('');
+
+        const challengeRows = challenges.map(c => {
+            const allRivals = [];
+            leagues.forEach(l => l.rivals.forEach(r => allRivals.push(r)));
+            const original = allRivals.find(r => r.id === c.challengeOf);
+            const originalStyleName = original ? ((window.AI_FIGHTING_STYLES[original.styleId] || {}).name || original.styleId) : '?';
+            const challengeStyleName = (window.AI_FIGHTING_STYLES[c.styleId] || {}).name || c.styleId;
+            return `<tr><td><strong>${c.name}</strong></td><td>${original ? original.name : c.challengeOf}</td><td>${originalStyleName} → ${challengeStyleName}</td><td>${c.phases.length} fases</td></tr>`;
+        }).join('');
+
+        const stageNames = stages.map((s, i) => {
+            let name = '?';
+            if (s.type === 'rival') {
+                const league = leagues.find(l => l.id === s.sourceLeague);
+                const rival = league && league.rivals.find(r => r.id === s.sourceId);
+                name = rival ? rival.name : s.sourceId;
+            } else if (s.type === 'custom') {
+                name = s.def.name;
+            } else if (s.type === 'arenaBoss') {
+                const def = (window.ARENA_BOSS_DEFS || {})[s.sourceId];
+                name = def ? def.name : s.sourceId;
+            }
+            return `<li>${i + 1}. ${name}</li>`;
+        }).join('');
+
+        return `
+            <p class="guide-section-intro">A Arena é o coração competitivo do jogo: uma sequência de Ligas cada vez mais difíceis, cada uma com lutadores nomeados e um Campeão que testa o que foi aprendido nela. Além da Ladder normal, existem três camadas de conteúdo opcional pra quem já dominou uma Liga.</p>
+
+            <div class="guide-block">
+                <h4>Ligas</h4>
+                <p>As Ligas seguem sempre a mesma ordem — Bronze, Prata, Ouro, Orc, Élfica, Anã — cada uma continuando a progressão de nível de onde a anterior parou, nunca reiniciando a dificuldade. Vencer todos os lutadores de uma Liga, na ordem, libera a próxima.</p>
+                <div class="guide-table-wrap">
+                    <table class="guide-table">
+                        <thead><tr><th>Liga</th><th>Nível</th><th>Lutadores</th><th>Campeão</th></tr></thead>
+                        <tbody>${leagueRows}</tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="guide-block">
+                <h4>Rivalidades</h4>
+                <p>Alguns lutadores reconhecem quando você já derrotou um rival específico deles antes — a batalha começa com uma linha própria de reconhecimento. Não muda a mecânica da luta, só a identidade dela. ${rivalryPairs.length} rivalidades estão registradas atualmente na Ladder.</p>
+            </div>
+
+            <div class="guide-block">
+                <h4>Bosses Especiais da Arena</h4>
+                <p>Desafios opcionais além dos Campeões normais, cada um com uma mecânica de combate própria (nunca apenas mais HP/STR/DEF). Aparecem numa seção separada na tela da Ladder, depois de cumprido o requisito de desbloqueio.</p>
+            </div>
+            ${arenaBossBlocks}
+
+            <div class="guide-block">
+                <h4>Desafios de Campeão</h4>
+                <p>Versões "hard mode" opcionais dos Campeões de Liga, desbloqueadas ao derrotá-los na Ladder normal. Nunca é "o mesmo inimigo com mais níveis": cada Desafio troca o estilo de luta principal do Campeão original e adiciona uma fase extra de escalada, representando a evolução da estratégia dele depois da derrota.</p>
+                <div class="guide-table-wrap">
+                    <table class="guide-table">
+                        <thead><tr><th>Desafio</th><th>Campeão original</th><th>Mudança de estilo</th><th>Fases</th></tr></thead>
+                        <tbody>${challengeRows}</tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="guide-block">
+                <h4>Arena dos Campeões</h4>
+                <p>Modalidade de endgame, desbloqueada só depois de derrotar os 6 Campeões de Liga. Uma sequência fixa de ${stages.length} adversários, enfrentados um atrás do outro sem retorno ao Hub entre eles — perder qualquer luta encerra a corrida inteira, que precisa recomeçar do início. Vencer cada etapa concede uma cura parcial (nunca total) antes da próxima; completar a sequência inteira dá uma recompensa garantida de alto valor.</p>
+                <ol style="padding-left: 1.2em; color: var(--color-marble-dark);">${stageNames}</ol>
+            </div>
         `;
     },
 
