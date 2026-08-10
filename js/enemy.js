@@ -1253,6 +1253,78 @@ const CHAMPION_CHALLENGES = [
                 message: 'Gorkhal encontra as aberturas — cada golpe agora busca terminar a luta.' },
             { hpPercent: 0.15, personalityId: 'fanatico', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
                 message: 'O controle desmorona — a velha fúria de Gorkhal desperta pela última vez!' }
+        ] },
+    // Draven (silver_champion) era guardiao/veterano, escudo em punho — o
+    // Desafio troca pra assassino/duelista: ele larga o escudo pela
+    // velocidade, escolhendo atacar primeiro em vez de esperar a abertura.
+    { id: 'silver_champion_challenge', challengeOf: 'silver_champion',
+        name: 'Draven, o Duelista Renascido', title: 'Desafio da Prata', level: 15,
+        focus: { agi: 0.4, luk: 0.3, acc: 0.3 },
+        personalityId: 'duelista', styleId: 'assassino', gearRarity: RARITY.EPIC, isChampion: true,
+        intro: 'O escudo me protegeu, mas nunca me fez vencer mais rápido. Hoje eu ataco primeiro.',
+        visuals: { gender: 'Masculino', archetype: 'assassino', scarStyle: 2 },
+        phases: [
+            { hpPercent: 0.7, personalityId: 'calculista', unlockSkill: 'vampiric_strike', emotion: 'confiante',
+                message: 'Draven testa cada abertura com golpes rápidos e precisos.' },
+            { hpPercent: 0.4, personalityId: 'executor', unlockSkill: 'heavy_strike', emotion: 'determinado',
+                message: 'Draven intensifica o ritmo, sem dar nenhum respiro.' },
+            { hpPercent: 0.15, personalityId: 'sadico', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.12,
+                message: 'Sem o escudo pra recuar, Draven ataca com desespero puro!' }
+        ] },
+    // Aurelion (gold_champion) era gladiador/honrado, o clássico espadachim
+    // com escudo — o Desafio troca pra mago/calculista: séculos de arena
+    // não bastavam mais, então ele canalizou magia arcana também. A maior
+    // mudança de identidade entre todos os Desafios (corpo a corpo pra
+    // conjurador), com uma 4ª fase — o mais longo dos Desafios até agora.
+    { id: 'gold_champion_challenge', challengeOf: 'gold_champion',
+        name: 'Aurelion, o Arcano Imortal', title: 'Desafio do Ouro', level: 20,
+        focus: { int: 0.4, acc: 0.3, def: 0.3 },
+        personalityId: 'calculista', styleId: 'mago', gearRarity: RARITY.LEGENDARY, isChampion: true,
+        intro: 'Séculos de lâmina não bastavam mais. Aprendi algo novo.',
+        visuals: { gender: 'Masculino', archetype: 'mercenario', scarStyle: 1 },
+        phases: [
+            { hpPercent: 0.75, personalityId: 'calculista', unlockSkill: 'quick_heal', emotion: 'confiante',
+                message: 'Aurelion testa o próprio poder arcano recém-descoberto.' },
+            { hpPercent: 0.5, personalityId: 'executor', unlockSkill: 'arcane_storm', emotion: 'determinado',
+                message: 'A magia de Aurelion se intensifica, imprevisível e poderosa.' },
+            { hpPercent: 0.25, personalityId: 'honrado', unlockSkill: 'heavy_strike', emotion: 'determinado',
+                message: 'Aurelion volta brevemente à lâmina — séculos de hábito não desaparecem.' },
+            { hpPercent: 0.1, personalityId: 'berserker', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
+                message: 'Magia e lâmina se fundem numa última fúria imortal!' }
+        ] },
+    // Sylvaneth (elfica_champion) era arqueiro/tático, especialista em
+    // manter distância — o Desafio troca pra espadachim/duelista: ela
+    // abandona o arco, escolhendo terminar cada duelo de perto.
+    { id: 'elfica_champion_challenge', challengeOf: 'elfica_champion',
+        name: 'Sylvaneth, Lâmina do Santuário', title: 'Desafio Élfico', level: 30, race: 'elfo',
+        focus: { agi: 0.4, acc: 0.35, int: 0.25 },
+        personalityId: 'duelista', styleId: 'espadachim', gearRarity: RARITY.LEGENDARY, isChampion: true,
+        intro: 'O arco cria distância. Hoje eu escolho terminar isso de perto.',
+        visuals: { gender: 'Feminino', archetype: 'guerreira', scarStyle: 0 },
+        phases: [
+            { hpPercent: 0.7, personalityId: 'calculista', unlockSkill: 'heavy_strike', emotion: 'confiante',
+                message: 'Sylvaneth avança com a lâmina, testando o alcance do duelo.' },
+            { hpPercent: 0.4, personalityId: 'executor', unlockSkill: 'vampiric_strike', emotion: 'determinado',
+                message: 'Sylvaneth não recua mais — cada troca de golpes é decisiva.' },
+            { hpPercent: 0.15, personalityId: 'cacador', unlockSkill: 'fury', emotion: 'desesperado', healPercent: 0.15,
+                message: 'O instinto de caçadora original desperta — Sylvaneth ataca sem hesitar!' }
+        ] },
+    // Thorgrim (anao_champion) era guardiao/honrado, a muralha defensiva
+    // definitiva — o Desafio troca pra brutamontes/berserker: ele decide
+    // que a melhor defesa é nunca precisar de uma.
+    { id: 'anao_champion_challenge', challengeOf: 'anao_champion',
+        name: 'Thorgrim, Punho de Kharzum', title: 'Desafio Anão', level: 35, race: 'anao',
+        focus: { str: 0.55, def: 0.3, agi: 0.15 },
+        personalityId: 'berserker', styleId: 'brutamontes', gearRarity: RARITY.LEGENDARY, isChampion: true,
+        intro: 'Escudo nenhum jamais venceu uma luta sozinho. Hoje eu ataco.',
+        visuals: { gender: 'Masculino', archetype: 'barbaro', scarStyle: 3 },
+        phases: [
+            { hpPercent: 0.7, personalityId: 'executor', unlockSkill: 'heavy_strike', emotion: 'confiante',
+                message: 'Thorgrim avança com o martelo, abandonando toda cautela.' },
+            { hpPercent: 0.4, personalityId: 'fanatico', unlockSkill: 'fury', emotion: 'determinado',
+                message: 'Thorgrim golpeia com o peso de toda a montanha atrás dele.' },
+            { hpPercent: 0.15, personalityId: 'honrado', unlockSkill: 'shield_bash', emotion: 'desesperado', healPercent: 0.15,
+                message: 'No limite, Thorgrim volta a erguer o escudo que jurou nunca mais precisar.' }
         ] }
 ];
 CHAMPION_CHALLENGES.forEach(c => { c.league = 'desafio'; }); // nunca pertence a nenhuma liga normal da Ladder
