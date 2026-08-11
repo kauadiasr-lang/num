@@ -2612,10 +2612,23 @@ class UIManager {
                 // desta mesma atualização) — só pode ser vendida por ora,
                 // igual equipamento, através do botão dedicado abaixo.
                 const isMaterial = item.category === 'material';
+                // Bug de auditoria (Iteração 9): Essência e Runa (ver
+                // items.js Essence/Rune) NUNCA tinham branch próprio aqui
+                // — igual Material, nenhuma das duas tem `.slot`, então
+                // caíam direto no branch de "equipar" (o `else` abaixo).
+                // `p.canEquip(item)` devolve `{ok:true}` pra qualquer
+                // categoria != 'equipment' (ver player.js canEquip), então
+                // o clique passava, rodava `p.equipment[item.slot] = item`
+                // com `item.slot === undefined` — a essência/runa sumia da
+                // mochila pra sempre dentro de uma chave órfã
+                // `p.equipment[undefined]`, nunca lida em lugar nenhum.
+                // Mesmo fix de Material: clique só avisa, nunca "equipa".
+                const isEssence = item.category === 'essence';
+                const isRune = item.category === 'rune';
 
                 itemSlot.innerText = this._itemIcon(item);
-                itemSlot.style.borderColor = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : item.rarity.color);
-                itemSlot.style.color = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : item.rarity.color);
+                itemSlot.style.borderColor = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : (isEssence ? '#c9a3ff' : (isRune ? '#ffb347' : item.rarity.color)));
+                itemSlot.style.color = isConsumable ? '#33cc99' : (isMaterial ? '#88ccee' : (isEssence ? '#c9a3ff' : (isRune ? '#ffb347' : item.rarity.color)));
                 // Brilho na cor do elemento (ver enchantments.js/renderEquipment)
                 itemSlot.style.boxShadow = (item.enchantmentId && window.ENCHANTMENTS[item.enchantmentId])
                     ? `0 0 8px 2px ${window.ENCHANTMENTS[item.enchantmentId].color}` : '';
@@ -2633,6 +2646,10 @@ class UIManager {
                     };
                 } else if (isMaterial) {
                     itemSlot.onclick = () => { if (window.MainMenu) window.MainMenu.showToast('Matéria-prima — leve até a Forja pra transformar em equipamento.', 'info'); };
+                } else if (isEssence) {
+                    itemSlot.onclick = () => { if (window.MainMenu) window.MainMenu.showToast('Essência — leve até o Ateliê Élfico pra criar equipamento ou runas.', 'info'); };
+                } else if (isRune) {
+                    itemSlot.onclick = () => { if (window.MainMenu) window.MainMenu.showToast('Runa — leve até o Ateliê Élfico pra gravar num equipamento.', 'info'); };
                 } else {
                     // Clique equipa o item (substituindo o atual se existir)
                     itemSlot.onclick = () => {
@@ -3123,7 +3140,114 @@ class UIManager {
             recipesContainer.appendChild(card);
         });
 
+        // Runas Élficas (Iteração 9, item 7 da diretiva) — mesma estrutura
+        // visual das receitas de equipamento acima, mas produz uma Runa
+        // (js/elfcrafting.js RUNE_RECIPES/attemptCraftRune), nunca um item
+        // de equipamento pronto.
+        const runesContainer = document.getElementById('elfcrafting-runes-container');
+        runesContainer.innerHTML = '';
+        Object.keys(ElfCraftingSystem.RUNE_RECIPES).forEach(recipeId => {
+            const recipe = ElfCraftingSystem.RUNE_RECIPES[recipeId];
+            const affordable = ElfCraftingSystem.canCraftRune(p, recipeId);
+            const essenceText = recipe.essence.map(req => `${req.amount}x ${ItemDatabase.essences[CityEngine.ESSENCE_TIER_ITEM[req.tier]].name}`).join(', ');
+            const card = document.createElement('div');
+            card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
+            card.innerHTML = `
+                <h4>${recipe.name}</h4>
+                <p style="font-size:0.8rem; color:#aaa;">${essenceText} + ${recipe.goldCost}g</p>
+                <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Criar</button>
+            `;
+            card.querySelector('button').onclick = () => {
+                const result = ElfCraftingSystem.attemptCraftRune(p, recipeId);
+                if (!result) {
+                    window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Mochila cheia ou componentes insuficientes!', 'error');
+                    return;
+                }
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                const resultEl = document.getElementById('elfcrafting-result');
+                resultEl.classList.remove('hidden');
+                resultEl.innerHTML = `
+                    <h4>${result.item.name}</h4>
+                    <p>${result.item.description}</p>
+                `;
+                this.openElfCrafting(); // Refresh (mochila/ouro/receitas mudaram)
+            };
+            runesContainer.appendChild(card);
+        });
+
+        this.renderRuneApply();
         this.showScreen('screen-elfcrafting');
+    }
+
+    // Gravar Runa em Equipamento — mesmo padrão visual/estrutural de
+    // renderEnchantments (Mercado Arcano), adaptado: aqui não há "trocar
+    // livremente" nem custo em ouro na hora — a Runa já foi PAGA e CRIADA
+    // no Ateliê (ver openElfCrafting acima); aplicar só consome a Runa da
+    // mochila e grava o bônus permanente (ver js/runes.js RuneSystem).
+    renderRuneApply() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('elfcrafting-rune-apply-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const runesInBag = [];
+        p.inventory.forEach((item, idx) => {
+            if (item.category === 'rune') runesInBag.push({ item, idx });
+        });
+        if (runesInBag.length === 0) {
+            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Nenhuma runa na mochila — crie uma acima primeiro.</p>';
+            return;
+        }
+
+        const enchantableSlots = [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.CHEST, SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET, SLOTS.OFF_HAND];
+        enchantableSlots.forEach(slot => {
+            const item = p.equipment[slot];
+            if (!item) return;
+            const validRunes = runesInBag.filter(r => window.RuneSystem.canApply(item, r.item));
+            if (validRunes.length === 0) return;
+
+            if (this._runeApplyCycle === undefined) this._runeApplyCycle = {};
+            const cycleKey = item.uuid;
+            if (this._runeApplyCycle[cycleKey] === undefined) this._runeApplyCycle[cycleKey] = 0;
+            const previewEntry = validRunes[this._runeApplyCycle[cycleKey] % validRunes.length];
+            const previewRune = previewEntry.item;
+            const applied = (item.appliedRunes || []).length;
+
+            const row = document.createElement('div');
+            row.className = 'enchant-row';
+            row.innerHTML = `
+                <span class="enchant-item-name">${item.name}<br><small style="color:#888">Runas gravadas: ${applied}/${window.RuneSystem.MAX_RUNES_PER_ITEM}</small></span>
+                <div class="enchant-preview-col">
+                    <button class="btn-small btn-rune-cycle" data-preview="${previewRune.name}">${previewRune.name} ▸</button>
+                    <small class="enchant-preview-desc" style="color:#ffb347">${previewRune.description}</small>
+                </div>
+                <button class="btn-small btn-rune-apply">Gravar</button>
+            `;
+            row.querySelector('.btn-rune-cycle').addEventListener('click', () => {
+                this._runeApplyCycle[cycleKey] = (this._runeApplyCycle[cycleKey] + 1) % validRunes.length;
+                this.renderRuneApply();
+            });
+            row.querySelector('.btn-rune-apply').addEventListener('click', () => {
+                const success = window.RuneSystem.apply(item, previewRune);
+                if (!success) {
+                    window.AudioManager.playError();
+                    return;
+                }
+                const bagIdx = p.inventory.indexOf(previewEntry.item);
+                if (bagIdx >= 0) p.inventory.splice(bagIdx, 1);
+                p.calculateDerivedStats();
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                this.renderRuneApply();
+            });
+            container.appendChild(row);
+        });
+
+        if (container.children.length === 0) {
+            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Nenhum equipamento compatível com as runas da mochila (ou já no limite de 2 por peça).</p>';
+        }
     }
 
     openForge() {
@@ -4728,6 +4852,16 @@ class UIManager {
                 if (item.blockChance) statsHtml += `<p style="color:#88ccff">+${item.blockChance}% Bloqueio</p>`;
                 if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;
                 if (item.mpBonus) statsHtml += `<p style="color:#3388ff">+${item.mpBonus} MP Máximo</p>`;
+                if (item.appliedRunes && item.appliedRunes.length > 0) {
+                    // `item.appliedRunes` guarda `rune.id` (ex: 'r_01'), não
+                    // a chave do template (ex: 'rune_ignea') — busca pelo
+                    // campo `.id` entre os valores de ItemDatabase.runes.
+                    const runeNames = item.appliedRunes.map(id => {
+                        const found = Object.values(ItemDatabase.runes).find(r => r.id === id);
+                        return found ? found.name : id;
+                    }).join(', ');
+                    statsHtml += `<p style="color:#ffb347">🔯 Runas gravadas: ${runeNames}</p>`;
+                }
                 if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.ammo}/${item.maxAmmo} disparos (recarrega no início de cada batalha)</p>`;
                 if (item.maxDurability) {
                     const broken = item.durability <= 0;
@@ -4753,6 +4887,12 @@ class UIManager {
     _itemIcon(item) {
         if (item.category === 'consumable') return this._consumableIcon(item);
         if (item.category === 'material') return '⛏️';
+        // Bug de auditoria (Iteração 9): essência e runa nunca tinham
+        // ícone próprio aqui — caíam no fallback `icons[item.slot]`, que
+        // pra elas é sempre undefined (nenhuma das duas tem `.slot`),
+        // então mostravam '❔' na mochila em vez de um ícone real.
+        if (item.category === 'essence') return '✨';
+        if (item.category === 'rune') return '🔯';
         // Bug de auditoria (visual): "ícones inconsistentes" — toda arma
         // corpo-a-corpo (adaga, machado, martelo, lança, rapieira, chicote,
         // espada) caía no MESMO ícone genérico só por compartilhar o slot

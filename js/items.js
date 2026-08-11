@@ -237,7 +237,17 @@ const ItemDatabase = {
         // fora da cidade indicada, mas continuam 100% equipáveis por
         // qualquer personagem depois de compradas (raça do dono é
         // irrelevante pro item em si, igual acontece com qualquer arma).
-        orcwaraxe: { id: 'w_11', name: "Machado de Guerra Orc", slot: SLOTS.MAIN_HAND, damage: 16, weight: 7.0, value: 140, durability: 110, stats: { str: 5 }, armorPierce: 0.20, region: 'fortaleza_orc',
+        // MEGA REWORK Econômico Iteração 9 (item 10/15 da diretiva):
+        // achado de auditoria — a Iteração 5 só corrigiu a duplicação de
+        // "arma pesada + armorPierce" (idêntica em FORMA ao Martelo/
+        // Machado anão, só números trocados) nas 2 armas orcs NOVAS
+        // (Corrente Espinhada/Machado Ósseo). Estas 2 originais ficaram
+        // pra trás com a fórmula antiga sem nenhuma imprecisão — metade
+        // do arsenal orc continuava mecanicamente idêntica em ESPÉCIE à
+        // anã. accBonus negativo (menor que as especialistas, pra
+        // continuar viável cedo no jogo) fecha a identidade em 100% das
+        // armas orcs, não só 50%.
+        orcwaraxe: { id: 'w_11', name: "Machado de Guerra Orc", slot: SLOTS.MAIN_HAND, damage: 16, weight: 7.0, value: 140, durability: 110, stats: { str: 5 }, armorPierce: 0.20, accBonus: -2, region: 'fortaleza_orc',
             minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
         // Bug de auditoria corrigido (Rework Econômico item 15): item de
         // nome/tema explicitamente anão estava com `region: 'fortaleza_orc'`
@@ -307,7 +317,7 @@ const ItemDatabase = {
         // Regional Orc (ver citydatabase.js fortaleza_orc) — identidade
         // "força bruta" da cidade também na categoria lança, não só em
         // machados/martelos.
-        orctrollspear: { id: 'w_20', name: "Lança Caça-Trolls", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 160, durability: 140, stats: { str: 5 }, armorPierce: 0.25, region: 'fortaleza_orc',
+        orctrollspear: { id: 'w_20', name: "Lança Caça-Trolls", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 160, durability: 140, stats: { str: 5 }, armorPierce: 0.25, accBonus: -2, region: 'fortaleza_orc',
             description: "Forjada pra atravessar o couro grosso de trolls das montanhas — mais curta que um pique de falange, mas capaz de perfurar quase qualquer coisa que respire.",
             minRange: 2, maxRange: 5, atkSpeed: 0.7, approachSpeed: 1.4, retreatSpeed: 1.6 },
         // MEGA REWORK Econômico Iteração 5 (item 4 da diretiva: "armas Orc
@@ -618,6 +628,26 @@ const ItemDatabase = {
         wild_essence: { id: 'e_01', name: "Essência Selvagem", tier: 1, value: 12, description: "Energia bruta da mata em volta do Santuário — a essência mais comum, ainda assim viva." },
         lunar_essence: { id: 'e_02', name: "Essência Lunar", tier: 2, value: 35, description: "Só se condensa em clareiras iluminadas pela lua cheia — fria ao toque, quase cantando." },
         ancestral_essence: { id: 'e_03', name: "Essência Ancestral", tier: 3, value: 90, description: "Extraída das raízes mais antigas do Santuário — dizem que carrega memória própria." }
+    },
+    // MEGA REWORK Econômico, Iteração 9 (item 7 da diretiva): "Elfos podem
+    // ser os principais criadores de runas... Runa Ígnea/Glacial/Vital/
+    // Precisão/Arcana... objetos de criação/personalização, NUNCA outra
+    // loja de magia". Deliberadamente NÃO reaproveita ENCHANTMENTS (ver
+    // js/enchantments.js) — um Encantamento é um efeito de PROC trocável
+    // livremente por ouro puro; uma Runa é uma gravação PERMANENTE,
+    // cumulativa (até 2 por peça, ver js/runes.js RuneSystem), consumida
+    // ao usar, só obtida por criação no Ateliê (nunca comprada pronta).
+    // Isso as torna mecanicamente DISTINTAS de Encantamentos, não uma
+    // segunda versão do mesmo sistema (item 11 da diretiva). `appliesTo`
+    // ('weapon'/'armor'/'any') e `statKey`/`amount` mutam um campo já
+    // suportado pela classe Equipment (critBonus/defense/hpBonus/
+    // accBonus/mpBonus) — nenhuma mudança em battle.js foi necessária.
+    runes: {
+        rune_ignea: { id: 'r_01', name: "Runa Ígnea", appliesTo: 'weapon', statKey: 'critBonus', amount: 4, value: 70, region: 'santuario_elfico', description: "Gravada com fogo élfico — +4% de Crítico permanente. Só aplicável em armas." },
+        rune_glacial: { id: 'r_02', name: "Runa Glacial", appliesTo: 'armor', statKey: 'defense', amount: 3, value: 70, region: 'santuario_elfico', description: "Gravada com gelo élfico — +3 de Defesa permanente. Só aplicável em armaduras." },
+        rune_vital: { id: 'r_03', name: "Runa Vital", appliesTo: 'any', statKey: 'hpBonus', amount: 15, value: 85, region: 'santuario_elfico', description: "Gravada com a força vital da floresta — +15 de HP Máximo permanente." },
+        rune_precisao: { id: 'r_04', name: "Runa de Precisão", appliesTo: 'weapon', statKey: 'accBonus', amount: 3, value: 85, region: 'santuario_elfico', description: "Gravada com precisão élfica — +3 de Precisão permanente. Só aplicável em armas." },
+        rune_arcana: { id: 'r_05', name: "Runa Arcana", appliesTo: 'any', statKey: 'mpBonus', amount: 12, value: 90, region: 'santuario_elfico', description: "Gravada com energia arcana — +12 de MP Máximo permanente." }
     }
 };
 
@@ -651,6 +681,25 @@ class Essence {
         this.id = baseTemplate.id;
         this.name = baseTemplate.name;
         this.tier = baseTemplate.tier;
+        this.value = baseTemplate.value;
+        this.description = baseTemplate.description;
+        this.rarity = RARITY.COMMON;
+    }
+}
+
+// Runas do Santuário Élfico (ver ItemDatabase.runes acima) — sem slot/tier
+// próprio (nunca equipável sozinha, sem quality de Forja); `appliesTo`/
+// `statKey`/`amount` são o que js/runes.js RuneSystem.apply() lê pra
+// gravar permanentemente num item de equipamento já existente.
+class Rune {
+    constructor(baseTemplate) {
+        this.category = 'rune';
+        this.uuid = Utils.generateUUID();
+        this.id = baseTemplate.id;
+        this.name = baseTemplate.name;
+        this.appliesTo = baseTemplate.appliesTo;
+        this.statKey = baseTemplate.statKey;
+        this.amount = baseTemplate.amount;
         this.value = baseTemplate.value;
         this.description = baseTemplate.description;
         this.rarity = RARITY.COMMON;
@@ -753,6 +802,15 @@ window.ItemFactory = {
             return null;
         }
         return new Essence(template);
+    },
+
+    createRune(templateId) {
+        const template = ItemDatabase.runes[templateId];
+        if (!template) {
+            console.error(`[ItemFactory] Runa ${templateId} não encontrada.`);
+            return null;
+        }
+        return new Rune(template);
     },
 
     // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do

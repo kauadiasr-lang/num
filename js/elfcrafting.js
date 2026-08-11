@@ -95,5 +95,48 @@ const ElfCraftingSystem = {
         player.inventory.push(item);
         return { item };
     },
+
+    // MEGA REWORK Econômico, Iteração 9 (item 7 da diretiva) — Runas
+    // Élficas. Mesma estrutura de RECIPES acima (consome essência por
+    // tier + ouro), mas produz uma Runa (ver items.js ItemDatabase.runes/
+    // class Rune) em vez de Equipment — objeto separado consumido depois
+    // pra gravar um bônus permanente num item já equipado (ver
+    // js/runes.js RuneSystem.apply, chamado pela UI, nunca aqui —
+    // craftar e aplicar são dois passos distintos, "colher/criar" depois
+    // "personalizar", reforçando a exploração antes da recompensa).
+    RUNE_RECIPES: {
+        recipe_rune_ignea: { name: 'Runa Ígnea', runeId: 'rune_ignea', goldCost: 30, essence: [{ tier: 1, amount: 2 }] },
+        recipe_rune_glacial: { name: 'Runa Glacial', runeId: 'rune_glacial', goldCost: 30, essence: [{ tier: 1, amount: 2 }] },
+        recipe_rune_vital: { name: 'Runa Vital', runeId: 'rune_vital', goldCost: 45, essence: [{ tier: 2, amount: 2 }] },
+        recipe_rune_precisao: { name: 'Runa de Precisão', runeId: 'rune_precisao', goldCost: 45, essence: [{ tier: 2, amount: 2 }] },
+        recipe_rune_arcana: { name: 'Runa Arcana', runeId: 'rune_arcana', goldCost: 60, essence: [{ tier: 3, amount: 2 }] },
+    },
+
+    canCraftRune(player, recipeId) {
+        const recipe = this.RUNE_RECIPES[recipeId];
+        if (!recipe) return false;
+        if (player.gold < recipe.goldCost) return false;
+        return recipe.essence.every(req => this._countEssence(player, req.tier) >= req.amount);
+    },
+
+    attemptCraftRune(player, recipeId) {
+        const recipe = this.RUNE_RECIPES[recipeId];
+        if (!recipe || !this.canCraftRune(player, recipeId)) return null;
+        if (player.inventory.length >= player.inventoryCapacity) return null;
+
+        player.gold -= recipe.goldCost;
+        for (const req of recipe.essence) {
+            const essenceId = CityEngine.ESSENCE_TIER_ITEM[req.tier];
+            const templateId = ItemDatabase.essences[essenceId].id;
+            for (let i = 0; i < req.amount; i++) {
+                const idx = player.inventory.findIndex(it => it.category === 'essence' && it.id === templateId);
+                if (idx >= 0) player.inventory.splice(idx, 1);
+            }
+        }
+
+        const item = ItemFactory.createRune(recipe.runeId);
+        player.inventory.push(item);
+        return { item };
+    },
 };
 window.ElfCraftingSystem = ElfCraftingSystem;
