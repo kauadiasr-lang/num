@@ -2797,6 +2797,17 @@ class CityEngine {
         ctx.translate(offset.dx, 0);
 
         this._drawPlazaGround(ctx, worldW, h, horizon);
+        // Trilhas (achado #2 da auditoria da MEGA ATUALIZAÇÃO VISUAL:
+        // nenhum sistema de caminho existia — o chão era só uma cor sólida
+        // por bioma, sem indicar visualmente nenhum percurso entre a
+        // entrada, os prédios e o portão). Desenhado ENTRE o chão e a
+        // muralha/fonte/vegetação/prédios — puramente decorativo por baixo
+        // de tudo, nunca cria colisão nova nem move nenhum ponto de
+        // interação real (ver _drawPaths abaixo: usa exatamente os mesmos
+        // pontos de porta/entrada/portão que a navegação de verdade já
+        // usa, então a trilha nunca pode "discordar" de onde o jogador
+        // realmente anda).
+        this._drawPaths(ctx, worldW, h, horizon);
         if (window.GFX && window.GFX._drawCityWall) window.GFX._drawCityWall(ctx, worldW, horizon, this._plazaBottom(h));
 
         this._drawFountain(ctx, w, h);
@@ -2861,6 +2872,76 @@ class CityEngine {
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
             }
         }
+    }
+
+    // Rede de trilhas ligando entrada → cada prédio → portão (achado #2 da
+    // auditoria: nenhuma trilha existia, o chão era só uma cor sólida).
+    // Usa OS MESMOS pontos que a navegação de verdade usa (`_doorPoint`,
+    // `GATE_XFRAC`, o ponto de spawn de `onEnterCity`) — nunca coordenadas
+    // paralelas inventadas, então a trilha desenhada sempre bate com pra
+    // onde o jogador realmente pode andar. Puramente visual: 2 traços por
+    // segmento (base larga "batida" + brilho fino por cima), sem nenhuma
+    // colisão nova — a caixa de colisão de cada prédio continua sendo só
+    // `_buildingRect`/`_obstacleRectsForCollision`, como sempre.
+    _drawPaths(ctx, w, h, horizon) {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        const colors = (cityDef && cityDef.pathColors) || ['rgba(150,136,108,0.4)', 'rgba(210,196,164,0.2)'];
+        const scale = this._cityScale(h);
+        // Mesmo ponto de spawn usado por onEnterCity (w aqui já é a Praça
+        // inteira/worldWidth, mas o spawn sempre usa a largura do CANVAS —
+        // ver onEnterCity — então recalculamos com Engine.width, não com o
+        // `w` deste método, pra bater exatamente com onde o jogador nasce).
+        const canvasW = window.Engine ? window.Engine.width : w;
+        const entrance = { x: canvasW * 0.5, y: this._plazaBottom(h) };
+        const gate = { x: w * CityEngine.GATE_XFRAC, y: horizon + 45 };
+        const fountainPt = { x: this.fountain.xFrac * w, y: horizon + this.fountain.rowOffset * scale };
+
+        const segments = [
+            // Espinha principal: entrada → portão, curvando perto da fonte
+            // (o "coração" físico de qualquer praça grega/anã/etc.).
+            { from: entrance, ctrl: { x: fountainPt.x, y: fountainPt.y + 40 * scale }, to: gate, width: 30 },
+            // Um ramo da entrada até a porta de cada prédio (aproximação —
+            // sempre um pouco à FRENTE da porta, nunca dentro do prédio).
+            ...this.buildings.map(b => {
+                const door = this._doorPoint(b);
+                const approach = { x: door.x, y: door.y + 16 * scale };
+                const ctrl = { x: (entrance.x + approach.x) / 2, y: (entrance.y + approach.y) / 2 + 12 * scale };
+                return { from: entrance, ctrl, to: approach, width: 18 };
+            }),
+        ];
+
+        // Agrupa por largura (espinha=30, ramos=18 — sempre só 2 grupos)
+        // antes de traçar: um único path por grupo/passe, em vez de um
+        // stroke() por segmento (era 20 chamadas de stroke() por frame —
+        // 2 passes × 10 segmentos — sem nenhum ganho visual, só custo).
+        const byWidth = new Map();
+        segments.forEach(s => {
+            if (!byWidth.has(s.width)) byWidth.set(s.width, []);
+            byWidth.get(s.width).push(s);
+        });
+
+        const strokeGroups = (widthMul) => {
+            byWidth.forEach((group, baseWidth) => {
+                ctx.lineWidth = Math.max(2, baseWidth * widthMul) * scale;
+                ctx.beginPath();
+                group.forEach(s => {
+                    ctx.moveTo(s.from.x, s.from.y);
+                    ctx.quadraticCurveTo(s.ctrl.x, s.ctrl.y, s.to.x, s.to.y);
+                });
+                ctx.stroke();
+            });
+        };
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        // Passo 1: base larga (trilha "batida" de todos os segmentos).
+        ctx.strokeStyle = colors[0];
+        strokeGroups(1);
+        // Passo 2: brilho fino por cima (textura de terra/pedra desgastada).
+        ctx.strokeStyle = colors[1];
+        strokeGroups(0.32);
+        ctx.restore();
     }
 
     // Cores da fonte lidas da Cidade-Hub atual (ver citydatabase.js
