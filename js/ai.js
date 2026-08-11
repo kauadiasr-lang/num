@@ -392,6 +392,32 @@ const AICombat = {
         return battle.isInRange(battle.enemy.getWeaponRange());
     },
 
+    // ==========================================================================
+    // RECURSOS DE COMBATE — conceito genérico (item 36 da mega-diretiva de
+    // IA de combate: "não crie lógica exclusiva pra flechas — construa uma
+    // arquitetura genérica que também sirva mana/cooldowns/cargas/munição/
+    // outros recursos futuros, sem precisar reescrever a IA a cada arma/
+    // habilidade nova"). Bug de auditoria confirmado: munição já era
+    // checada com a MESMA lógica (`weapon.maxAmmo && weapon.ammo <= 0` /
+    // `ammo/maxAmmo`) duplicada em 3 pontos diferentes de _buildCandidates
+    // (pontuação de ATK, de AMMO_RECALL e de SWITCH_WEAPON) — qualquer
+    // ajuste futuro na regra precisaria lembrar de mudar os 3 lugares.
+    // Agora existe um único formato { current, max, ratio, empty } e um
+    // único lugar que sabe "o que é ter munição suficiente" — mana (via
+    // enemy.currentMp/derivedStats.maxMp) e cargas de item (via
+    // enemy.aiState.itemCharges) já eram lidos de forma genérica desde o
+    // início (nunca precisaram desse helper); munição era o único recurso
+    // ainda preso a checagens ad-hoc.
+    _getResourceInfo(current, max) {
+        if (max === undefined || max === null || max <= 0) return null; // recurso ilimitado/inexistente pra esta arma/habilidade
+        return { current, max, ratio: current / max, empty: current <= 0 };
+    },
+
+    _getAmmoInfo(weapon) {
+        if (!weapon || !weapon.maxAmmo) return null;
+        return this._getResourceInfo(weapon.ammo, weapon.maxAmmo);
+    },
+
     // Retorna 0 (sem risco algum) a 1 (risco extremo) combinando HP próprio,
     // ameaça do jogador (dano/fadiga), adequação de distância, mana disponível
     // e postura — tudo isso ANTES de decidir qualquer ação (nunca aleatório puro).
@@ -567,7 +593,8 @@ const AICombat = {
             const projectedAfterCharge = Math.max(0, battle.distance - closeAmount);
             const chargeWillConnect = projectedAfterCharge <= range.max;
             const chargeWeapon = enemy.getActiveWeapon ? enemy.getActiveWeapon() : null;
-            const chargeHasAmmo = !(chargeWeapon && chargeWeapon.maxAmmo && chargeWeapon.ammo <= 0);
+            const chargeAmmoInfo = this._getAmmoInfo(chargeWeapon);
+            const chargeHasAmmo = !(chargeAmmoInfo && chargeAmmoInfo.empty);
             if (chargeWillConnect && chargeHasAmmo && this.playerKeepsDistance(mem)
                 && p.critHunger > 0.35 && Utils.chance(45 + p.pursuitDrive * 30)) {
                 return { action: 'CHARGE', message: `${enemy.name} investe com tudo para alcançar você!` };
@@ -814,7 +841,8 @@ const AICombat = {
         // partir desse caminho). Zerar aqui deixa o resto da lista de
         // candidatos (SKILL/APPROACH/SWAP/etc) assumir o turno de verdade.
         const activeWeapon = enemy.getActiveWeapon ? enemy.getActiveWeapon() : null;
-        const outOfAmmo = !!(activeWeapon && activeWeapon.maxAmmo && activeWeapon.ammo <= 0);
+        const activeAmmoInfo = this._getAmmoInfo(activeWeapon);
+        const outOfAmmo = !!(activeAmmoInfo && activeAmmoInfo.empty);
         let atkScore = outOfAmmo ? 0 : style.actionBias.ATK * (0.4 + p.aggression) * (em.ATK || 1);
         if (rare && rare.id === 'so_habilidades') atkScore *= 0.05;
         if (ctx.risk > 0.6) atkScore *= (1 - p.resilience * 0.6);
@@ -912,14 +940,13 @@ const AICombat = {
                 // (munição de sobra) nem recarrega perto demais do jogador
                 // (gasta o turno inteiro sem se defender) — só prioriza
                 // quando a munição está baixa E a posição é segura.
-                const rangedWeapon = enemy.equipment[SLOTS.RANGED];
-                if (!rangedWeapon || !rangedWeapon.maxAmmo) { s = 0; }
+                const ammoInfo = this._getAmmoInfo(enemy.equipment[SLOTS.RANGED]);
+                if (!ammoInfo) { s = 0; }
                 else {
-                    const ammoRatio = rangedWeapon.ammo / rangedWeapon.maxAmmo;
-                    if (ammoRatio > 0.5) { s *= 0.05; }
+                    if (ammoInfo.ratio > 0.5) { s *= 0.05; }
                     else {
                         const safePosition = battle.distance > range.max * 0.6;
-                        s *= safePosition ? (1.6 + (1 - ammoRatio)) : 0.15;
+                        s *= safePosition ? (1.6 + (1 - ammoInfo.ratio)) : 0.15;
                     }
                 }
             }
@@ -1098,7 +1125,8 @@ const AICombat = {
             const inactiveRange = enemy.getWeaponRangeFor(inactiveWeapon);
             let switchScore = 0;
             let switchMsg = null;
-            if (activeWeapon && activeWeapon.maxAmmo && activeWeapon.ammo <= 0) {
+            const activeSwitchAmmoInfo = this._getAmmoInfo(activeWeapon);
+            if (activeSwitchAmmoInfo && activeSwitchAmmoInfo.empty) {
                 // Munição zerada na arma de longo alcance ativa: manter
                 // atacando com ela é inútil, trocar pra a corpo a corpo é
                 // quase obrigatório.
