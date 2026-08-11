@@ -708,6 +708,28 @@
                 </div>
             </div>
 
+            <!-- TELA: ATELIÊ ÉLFICO (Santuário Élfico, ver
+                 js/elfcrafting.js/ui.js openElfCrafting) — MEGA REWORK
+                 econômico: substitui o antigo "Ateliê Élfico" (que era só
+                 openShop() com rótulo élfico) por um sistema de CRIAÇÃO —
+                 colher Essência nas nascentes físicas da praça + combinar
+                 aqui, nunca comprar pronto. -->
+            <div id="screen-elfcrafting" class="screen">
+                <div class="panel shop-panel">
+                    <button class="btn-close" id="btn-close-elfcrafting">X</button>
+                    <h2 class="panel-title">✨ Ateliê Élfico</h2>
+                    <p class="shop-merchant-greeting">"Não vendo nada pronto aqui. Traga a essência que a floresta lhe deu, e eu te mostro o que ela pode se tornar."</p>
+                    <div class="shop-header">
+                        <p>Seu Ouro: <span id="elfcrafting-player-gold" class="highlight-gold">0</span></p>
+                    </div>
+                    <h3 class="shop-section-title">Essência na Mochila</h3>
+                    <div id="elfcrafting-essence-container" class="shop-grid"></div>
+                    <h3 class="shop-section-title">Receitas</h3>
+                    <div id="elfcrafting-recipes-container" class="forge-recipes"></div>
+                    <div id="elfcrafting-result" class="forge-result hidden"></div>
+                </div>
+            </div>
+
             <!-- TELA: BANCO -->
             <!-- Mega Atualização item 14/15/16: Banco com duas abas
                  (Dinheiro / Depósito de Itens), reaproveitando o MESMO
@@ -987,6 +1009,7 @@
     <script src="js/items.js"></script>
     <script src="js/forge.js"></script>
     <script src="js/orctraining.js"></script>
+    <script src="js/elfcrafting.js"></script>
     <script src="js/enchantments.js"></script>
     <script src="js/skills.js"></script>
     <script src="js/lineages.js"></script>

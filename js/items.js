@@ -247,9 +247,17 @@ const ItemDatabase = {
         // o item da loja da própria cidade que o forja.
         dwarvenhammer: { id: 'w_12', name: "Martelo Rúnico Anão", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 170, durability: 160, stats: { str: 2, def: 1 }, armorPierce: 0.25, region: 'reino_anao',
             minRange: 0, maxRange: 2, atkSpeed: 0.65, approachSpeed: 1.3, retreatSpeed: 1.3 },
-        elvenblade: { id: 'w_13', name: "Lâmina Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.2, value: 150, durability: 100, stats: { agi: 3, acc: 1 }, critBonus: 18, region: 'santuario_elfico',
+        // craftOnly (MEGA REWORK econômico, Iteração 3 — Ateliê Élfico):
+        // estes 6 itens élficos (ver também elvenwindspear/elvencloak/
+        // livingforestring/elderwoodamulet abaixo) DEIXAM de aparecer no
+        // sorteio genérico de loja (ver items.js _pickRandomEquipmentId) e
+        // só podem ser obtidos criando-os no Ateliê (ver js/elfcrafting.js)
+        // — produtos exclusivos de verdade (item 13 do pedido: "não podem
+        // ser obtidos normalmente nas outras cidades", aqui levado a sério
+        // até DENTRO da própria cidade élfica: nem lá se compram prontos).
+        elvenblade: { id: 'w_13', name: "Lâmina Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.2, value: 150, durability: 100, stats: { agi: 3, acc: 1 }, critBonus: 18, region: 'santuario_elfico', craftOnly: true,
             minRange: 0, maxRange: 3, atkSpeed: 1.5, approachSpeed: 2.4, retreatSpeed: 2.4 },
-        elvenlongbow: { id: 'w_14', name: "Arco Élfico Longo", slot: SLOTS.RANGED, damage: 11, weight: 1.5, value: 160, durability: 90, stats: { agi: 2, acc: 3 }, region: 'santuario_elfico',
+        elvenlongbow: { id: 'w_14', name: "Arco Élfico Longo", slot: SLOTS.RANGED, damage: 11, weight: 1.5, value: 160, durability: 90, stats: { agi: 2, acc: 3 }, region: 'santuario_elfico', craftOnly: true,
             minRange: 0, maxRange: 10, atkSpeed: 1.1, approachSpeed: 1.0, retreatSpeed: 2.6, maxAmmo: 10 },
 
         // Item 12 da revisão profunda ("itens com identidade, nunca só
@@ -305,7 +313,7 @@ const ItemDatabase = {
         // Regional Élfico (ver citydatabase.js santuario_elfico) — reforça
         // "leve e preciso" também numa arma de haste, não só em arcos/
         // lâminas.
-        elvenwindspear: { id: 'w_21', name: "Lança dos Ventos Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 155, durability: 95, stats: { agi: 4, acc: 2 }, critBonus: 10, region: 'santuario_elfico',
+        elvenwindspear: { id: 'w_21', name: "Lança dos Ventos Élfica", slot: SLOTS.MAIN_HAND, damage: 9, weight: 1.8, value: 155, durability: 95, stats: { agi: 4, acc: 2 }, critBonus: 10, region: 'santuario_elfico', craftOnly: true,
             description: "Talhada em madeira viva do Santuário — tão leve que mal atrasa o golpe seguinte, com alcance que nenhuma outra lança do jogo alcança.",
             minRange: 2, maxRange: 6, atkSpeed: 1.2, approachSpeed: 2.4, retreatSpeed: 2.6 },
 
@@ -358,7 +366,7 @@ const ItemDatabase = {
 
         // --- Armaduras regionais (Cidades-Hub Regionais) ---
         orcheavyarmor: { id: 'a_12', name: "Armadura Pesada Orc", slot: SLOTS.CHEST, defense: 18, weight: 10.0, value: 190, durability: 220, stats: { str: 3 }, region: 'fortaleza_orc' },
-        elvencloak: { id: 'a_13', name: "Manto Élfico", slot: SLOTS.CHEST, defense: 6, weight: 1.2, value: 140, durability: 90, stats: { agi: 2, int: 1 }, region: 'santuario_elfico' }
+        elvencloak: { id: 'a_13', name: "Manto Élfico", slot: SLOTS.CHEST, defense: 6, weight: 1.2, value: 140, durability: 90, stats: { agi: 2, int: 1 }, region: 'santuario_elfico', craftOnly: true }
     },
     shields: {
         woodenshield: { id: 's_01', name: "Escudo de Madeira", slot: SLOTS.OFF_HAND, defense: 3, weight: 3.0, value: 45, durability: 90, blockChance: 10 },
@@ -374,7 +382,7 @@ const ItemDatabase = {
 
         // --- Amuletos/anéis regionais (Cidades-Hub Regionais) ---
         trolltusk: { id: 't_05', name: "Presa de Troll", slot: SLOTS.AMULET, weight: 0.3, value: 150, durability: 999, hpBonus: 35, region: 'fortaleza_orc' },
-        livingforestring: { id: 't_06', name: "Anel da Floresta Viva", slot: SLOTS.RING, weight: 0.1, value: 150, durability: 999, stats: { int: 2 }, mpBonus: 20, region: 'santuario_elfico' },
+        livingforestring: { id: 't_06', name: "Anel da Floresta Viva", slot: SLOTS.RING, weight: 0.1, value: 150, durability: 999, stats: { int: 2 }, mpBonus: 20, region: 'santuario_elfico', craftOnly: true },
         // Item 11 da auditoria de balanceamento ("catálogo de itens
         // exclusivo por cidade"): bug de auditoria encontrado — o Santuário
         // Élfico já tinha arma/arco/capa/anel regionais, mas NENHUM amuleto
@@ -383,7 +391,7 @@ const ItemDatabase = {
         // arcos/capas/armaduras leves, todos já cobertos). Fortaleza Orc já
         // tinha seu amuleto (Presa de Troll) desde o trabalho original das
         // Cidades-Hub Regionais — o Santuário ficou com essa lacuna.
-        elderwoodamulet: { id: 't_07', name: "Amuleto da Seiva Ancestral", slot: SLOTS.AMULET, weight: 0.2, value: 150, durability: 999, stats: { int: 1 }, hpBonus: 20, mpBonus: 25, region: 'santuario_elfico' },
+        elderwoodamulet: { id: 't_07', name: "Amuleto da Seiva Ancestral", slot: SLOTS.AMULET, weight: 0.2, value: 150, durability: 999, stats: { int: 1 }, hpBonus: 20, mpBonus: 25, region: 'santuario_elfico', craftOnly: true },
 
         // Item 12 da revisão profunda, segundo exemplo conceitual do próprio
         // usuário: "Amuleto do Acaso: +Sorte, efeito especial baseado em
@@ -570,6 +578,21 @@ const ItemDatabase = {
         steel_ingot: { id: 'm_04', name: "Lingote de Aço", tier: 3, value: 22, description: "Ferro e carvão já fundidos e trabalhados — a base de qualquer equipamento anão de verdade." },
         arcane_crystal: { id: 'm_05', name: "Cristal Mágico", tier: 4, value: 55, description: "Cristal bruto que ainda pulsa com energia própria — raro fora das cavernas mais profundas do Reino." },
         dwarven_adamant: { id: 'm_06', name: "Adamante Anão", tier: 5, value: 140, description: "O material mais denso e raro conhecido nas minas de Kharzum — lendas entre os próprios anões." }
+    },
+    // Essências do Santuário Élfico (MEGA REWORK econômico, Iteração 3 — ver
+    // citydatabase.js santuario_elfico/city.js essenceSpots) — a base do
+    // Ateliê Élfico (ver js/elfcrafting.js), mesma filosofia de
+    // "quantidade pequena, cada uma com função real" já usada pelos 6
+    // materiais anões acima. Categoria SEPARADA de `materials` (nunca a
+    // mesma classe/campo `category`) de propósito: a Forja só lê itens com
+    // `category === 'material'` da mochila (ver ui.js openForge) — se
+    // Essência usasse a mesma categoria, apareceria (inutilmente) dentro da
+    // tela de Forja do Reino Anão, misturando as duas identidades culturais
+    // que o pedido explicitamente quer distintas.
+    essences: {
+        wild_essence: { id: 'e_01', name: "Essência Selvagem", tier: 1, value: 12, description: "Energia bruta da mata em volta do Santuário — a essência mais comum, ainda assim viva." },
+        lunar_essence: { id: 'e_02', name: "Essência Lunar", tier: 2, value: 35, description: "Só se condensa em clareiras iluminadas pela lua cheia — fria ao toque, quase cantando." },
+        ancestral_essence: { id: 'e_03', name: "Essência Ancestral", tier: 3, value: 90, description: "Extraída das raízes mais antigas do Santuário — dizem que carrega memória própria." }
     }
 };
 
@@ -582,6 +605,23 @@ const ItemDatabase = {
 class Material {
     constructor(baseTemplate) {
         this.category = 'material';
+        this.uuid = Utils.generateUUID();
+        this.id = baseTemplate.id;
+        this.name = baseTemplate.name;
+        this.tier = baseTemplate.tier;
+        this.value = baseTemplate.value;
+        this.description = baseTemplate.description;
+        this.rarity = RARITY.COMMON;
+    }
+}
+
+// Essências do Santuário Élfico (ver ItemDatabase.essences acima) — MESMA
+// forma que Material (tier/value/description, sem slot/raridade própria),
+// só `category` diferente ('essence', nunca 'material') pra nunca se
+// misturar com a mochila de matéria-prima que a Forja anã lê.
+class Essence {
+    constructor(baseTemplate) {
+        this.category = 'essence';
         this.uuid = Utils.generateUUID();
         this.id = baseTemplate.id;
         this.name = baseTemplate.name;
@@ -681,6 +721,15 @@ window.ItemFactory = {
         return new Material(template);
     },
 
+    createEssence(templateId) {
+        const template = ItemDatabase.essences[templateId];
+        if (!template) {
+            console.error(`[ItemFactory] Essência ${templateId} não encontrada.`);
+            return null;
+        }
+        return new Essence(template);
+    },
+
     // Gera o estoque procedural do Ferreiro/Mercado, escalando com o nível do
     // jogador. `cityId` (ver citydatabase.js) filtra o catálogo de cada
     // categoria pra só considerar itens neutros (sem `region`, disponíveis
@@ -716,7 +765,10 @@ window.ItemFactory = {
     // exclusividade pretendida.
     _pickRandomEquipmentId(cityId, includeAllRegions) {
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
-        const availableInCity = (template) => !template.arenaExclusive && (includeAllRegions || !template.region || template.region === cityId);
+        // craftOnly (MEGA REWORK econômico, Iteração 3): produtos exclusivos
+        // do Ateliê Élfico nunca aparecem no sorteio de loja genérica — só
+        // saem criados de verdade (ver js/elfcrafting.js).
+        const availableInCity = (template) => !template.arenaExclusive && !template.craftOnly && (includeAllRegions || !template.region || template.region === cityId);
         const category = categories[Utils.randomInt(0, categories.length - 1)];
         const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
         if (pool.length === 0) return null; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)

@@ -277,9 +277,13 @@ class UIManager {
             // Fortaleza Orc (MEGA REWORK econômico): a identidade cultural
             // Orc é CONQUISTA, não COMPRA — desvia pro sistema de Mestres
             // de Treinamento (ver js/orctraining.js) em vez de abrir a
-            // mesma openShop() genérica que Anão/Elfo ainda usam. Nunca
-            // mistura os dois caminhos: só 'training' desvia.
+            // mesma openShop() genérica que o Anão ainda usa. Santuário
+            // Élfico (Iteração 3): identidade é CRIAR, não COMPRAR — desvia
+            // pro Ateliê de verdade (ver js/elfcrafting.js). Nunca mistura
+            // os três caminhos: só 'training'/'atelier' desviam, 'runes'
+            // (Reino Anão) continua abrindo a loja genérica normalmente.
             if (subShop === 'training') { this.openOrcTraining(); return; }
+            if (subShop === 'atelier') { this.openElfCrafting(); return; }
             const title = (cityDef && cityDef.magicSubShopLabel) || 'Câmara Rúnica';
             this.openShop(null, title, true, subShop);
         });
@@ -300,6 +304,7 @@ class UIManager {
         document.getElementById('btn-close-forge').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-oretrader').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-orctraining').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-elfcrafting').addEventListener('click', () => this.showScreen('screen-hub'));
         // Estimulantes Tribais (ver comentário completo em index.html) —
         // única parte do antigo "Círculo de Treinamento" que continua
         // sendo openShop() de verdade, e de propósito: o pedido permite
@@ -3048,6 +3053,76 @@ class UIManager {
         });
 
         this.showScreen('screen-orctraining');
+    }
+
+    // Ateliê Élfico (Santuário Élfico, ver js/elfcrafting.js — MEGA
+    // REWORK econômico). Mesma estrutura visual que openForge() (item 18
+    // do pedido: "as interfaces podem usar o estilo já existente quando
+    // fizer sentido"), mas lendo Essência (não minério) e sem seção de
+    // resultado com qualidade variável — cada receita produz uma raridade
+    // FIXA sempre (ver comentário em ElfCraftingSystem).
+    openElfCrafting() {
+        const p = window.Engine.state.player;
+        document.getElementById('elfcrafting-player-gold').innerText = p.gold;
+        document.getElementById('elfcrafting-result').classList.add('hidden');
+
+        const essenceContainer = document.getElementById('elfcrafting-essence-container');
+        essenceContainer.innerHTML = '';
+        const counts = {};
+        p.inventory.forEach(item => {
+            if (item.category !== 'essence') return;
+            counts[item.id] = (counts[item.id] || 0) + 1;
+        });
+        const essenceIds = Object.keys(ItemDatabase.essences);
+        if (essenceIds.every(id => !counts[ItemDatabase.essences[id].id])) {
+            essenceContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma essência na mochila — colha as nascentes espalhadas pela cidade.</p>';
+        } else {
+            essenceIds.forEach(templateKey => {
+                const template = ItemDatabase.essences[templateKey];
+                const have = counts[template.id] || 0;
+                if (have <= 0) return;
+                const card = document.createElement('div');
+                card.className = 'shop-item-card';
+                card.innerHTML = `<h4>✨ ${template.name}</h4><p style="font-size:0.8rem; color:#aaa;">Nível ${template.tier} · você tem ${have}</p>`;
+                essenceContainer.appendChild(card);
+            });
+        }
+
+        const recipesContainer = document.getElementById('elfcrafting-recipes-container');
+        recipesContainer.innerHTML = '';
+        Object.keys(ElfCraftingSystem.RECIPES).forEach(recipeId => {
+            const recipe = ElfCraftingSystem.RECIPES[recipeId];
+            const affordable = ElfCraftingSystem.canCraft(p, recipeId);
+            const essenceText = recipe.essence.map(req => `${req.amount}x ${ItemDatabase.essences[CityEngine.ESSENCE_TIER_ITEM[req.tier]].name}`).join(', ');
+            const card = document.createElement('div');
+            card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
+            card.innerHTML = `
+                <h4 style="color:${recipe.rarity.color}">${recipe.name}</h4>
+                <p style="font-size:0.8rem; color:#aaa;">${essenceText} + ${recipe.goldCost}g</p>
+                <p style="font-size:0.75rem; color:${recipe.rarity.color};">${recipe.rarity.name}</p>
+                <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Criar</button>
+            `;
+            card.querySelector('button').onclick = () => {
+                const result = ElfCraftingSystem.attemptCraft(p, recipeId);
+                if (!result) {
+                    window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Mochila cheia ou componentes insuficientes!', 'error');
+                    return;
+                }
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                const resultEl = document.getElementById('elfcrafting-result');
+                resultEl.classList.remove('hidden');
+                resultEl.innerHTML = `
+                    <h4 style="color:${result.item.rarity.color}">${result.item.name}</h4>
+                    <p>Criado com precisão élfica — ${result.item.rarity.name}</p>
+                `;
+                this.openElfCrafting(); // Refresh (mochila/ouro/receitas mudaram)
+            };
+            recipesContainer.appendChild(card);
+        });
+
+        this.showScreen('screen-elfcrafting');
     }
 
     openForge() {

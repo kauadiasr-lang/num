@@ -241,6 +241,24 @@ class CityEngine {
         this.oreVeins = [];
         this._pendingCollectOre = null;
 
+        // Nascentes de Essência (Santuário Élfico, MEGA REWORK econômico
+        // Iteração 3 — ver citydatabase.js `hasEssenceSpots`, base do
+        // Ateliê Élfico em js/elfcrafting.js) — MESMO padrão físico de
+        // coleta que os Veios de Minério acima (aproximação + clique, ver
+        // _approachAndCollectEssence/_updatePendingCollectEssence),
+        // reaproveitado em vez de duplicado. Só as posições são
+        // reaproveitadas literalmente (mesmos 3 pontos de oreVeinSpots) —
+        // seguro porque Veios de Minério só nascem no Reino Anão e
+        // Nascentes de Essência só nascem no Santuário Élfico, nunca as
+        // duas ao mesmo tempo na mesma cidade.
+        this.essenceSpots = [
+            { xFrac: 0.12, rowOffset: 145 },
+            { xFrac: 0.88, rowOffset: 145 },
+            { xFrac: 0.5, rowOffset: 205 },
+        ];
+        this.essenceNodes = [];
+        this._pendingCollectEssence = null;
+
         this._interactPromptEl = null;
         this._hintEl = null;
     }
@@ -276,6 +294,7 @@ class CityEngine {
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
         this._spawnOreVeinsIfNeeded();
+        this._spawnEssenceNodesIfNeeded();
         if (window.AudioManager) window.AudioManager.startCityAmbience();
         this._interactPromptEl = document.getElementById('city-interact-prompt');
         this._hintEl = document.getElementById('city-hint');
@@ -479,6 +498,29 @@ class CityEngine {
         if (!cityDef || !cityDef.hasOreVeins) { this.oreVeins = []; return; }
         if (this.oreVeins.length > 0) return;
         this.oreVeins = this.oreVeinSpots.map((spot, i) => ({ id: i, spot, tier: this._rollOreTier(), collected: false, respawnTimer: 0 }));
+    }
+
+    // Nascentes de Essência (ver comentário completo em this.essenceSpots
+    // no construtor) — só nasce em cidades com `hasEssenceSpots: true`
+    // (hoje só o Santuário Élfico). Mesmo padrão de ciclo de vida que
+    // _spawnOreVeinsIfNeeded (chamado nos MESMOS pontos, onEnterCity/
+    // travelToCity).
+    _spawnEssenceNodesIfNeeded() {
+        const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+        if (!cityDef || !cityDef.hasEssenceSpots) { this.essenceNodes = []; return; }
+        if (this.essenceNodes.length > 0) return;
+        this.essenceNodes = this.essenceSpots.map((spot, i) => ({ id: i, spot, tier: this._rollEssenceTier(), collected: false, respawnTimer: 0 }));
+    }
+
+    // Sorteia o tier (1-3, ver items.js ItemDatabase.essences) de uma
+    // nascente ao nascer/renascer — MESMA filosofia de gradiente
+    // decrescente de raridade que _rollOreTier usa, só com 3 tiers em vez
+    // de 5 (categoria bem menor, ver comentário de ItemDatabase.essences).
+    _rollEssenceTier() {
+        const roll = Math.random() * 100;
+        if (roll < 60) return 1;
+        if (roll < 88) return 2;
+        return 3;
     }
 
     // Sorteia o tier (1-5, ver items.js ItemDatabase.materials) de um veio
@@ -954,6 +996,15 @@ class CityEngine {
             return;
         }
 
+        // Nascente de Essência (ver _spawnEssenceNodesIfNeeded) — mesmo
+        // fluxo de aproximação física do Veio de Minério acima,
+        // reaproveitado em vez de duplicado.
+        const essenceNode = this._essenceAtPoint(x, y);
+        if (essenceNode) {
+            this._approachAndCollectEssence(essenceNode);
+            return;
+        }
+
         // Estruturas abrem na hora do clique — diferente de NPCs/Pedras de
         // Luz (que continuam exigindo aproximação física acima). Pedido
         // explícito: "Estruturas: CLICK → INTERAÇÃO IMEDIATA / NPCs: CLICK →
@@ -1279,6 +1330,106 @@ class CityEngine {
             if (vein.respawnTimer <= 0) {
                 vein.collected = false;
                 vein.tier = this._rollOreTier();
+            }
+        }
+    }
+
+    // Posição de tela de uma Nascente de Essência — mesma convenção de
+    // _oreVeinPos, reaproveitada.
+    _essencePos(node) {
+        const w = this._worldWidth(), h = window.Engine.height;
+        const scale = this._cityScale(h);
+        return { x: node.spot.xFrac * w, y: this._horizon(h) + node.spot.rowOffset * scale };
+    }
+
+    // Nascente de Essência mais próxima do clique — mesma ideia de
+    // _oreVeinAtPoint.
+    _essenceAtPoint(x, y) {
+        const radius = 30 * this._cityScale(window.Engine.height);
+        let closest = null, closestDist = radius;
+        for (const node of this.essenceNodes) {
+            if (node.collected) continue;
+            const pos = this._essencePos(node);
+            const d = Math.hypot(pos.x - x, pos.y - y);
+            if (d <= closestDist) { closest = node; closestDist = d; }
+        }
+        return closest;
+    }
+
+    // Manda o jogador andar até perto da nascente clicada — mesma ideia de
+    // _approachAndCollectOre.
+    _approachAndCollectEssence(node) {
+        if (this._pendingCollectEssence === node) return;
+        this._pendingCollectEssence = node;
+        const nodePos = this._essencePos(node);
+        const dir = (nodePos.x >= this.player.x) ? -1 : 1;
+        const pos = this._safeApproachPoint(nodePos.x, nodePos.y, dir, 34);
+        this._setPlayerDestination(pos.x, pos.y);
+    }
+
+    // Chamado a cada frame (ver update()) — mesmo padrão de
+    // _updatePendingCollectOre.
+    _updatePendingCollectEssence() {
+        if (!this._pendingCollectEssence) return;
+        const node = this._pendingCollectEssence;
+        const stillExists = this.essenceNodes.includes(node) && !node.collected;
+        if (!stillExists) { this._pendingCollectEssence = null; return; }
+
+        const arrived = this.player.targetX === null && this.player.pathQueue.length === 0;
+        if (!arrived) return;
+
+        this._pendingCollectEssence = null;
+        const pos = this._essencePos(node);
+        if (this._distanceTo(pos) > 60) return; // desviado no meio do caminho, desiste
+        this._collectEssenceNode(node);
+    }
+
+    // Coleta de verdade: 1-2 unidades da essência correspondente ao `tier`
+    // sorteado da nascente (ver items.js ItemDatabase.essences/
+    // ItemFactory.createEssence), respeitando `inventoryCapacity` — mesmo
+    // cuidado que _collectOreVein já usa.
+    _collectEssenceNode(node) {
+        const p = window.Engine.state.player;
+        if (!p) return;
+        const essenceId = CityEngine.ESSENCE_TIER_ITEM[node.tier];
+        const template = ItemDatabase.essences[essenceId];
+        const amount = Utils.randomInt(1, 2);
+        let gained = 0;
+        for (let i = 0; i < amount; i++) {
+            if (p.inventory.length >= p.inventoryCapacity) break;
+            p.inventory.push(ItemFactory.createEssence(essenceId));
+            gained++;
+        }
+        node.collected = true;
+        node.respawnTimer = Utils.randomFloat(50, 100);
+
+        const pos = this._essencePos(node);
+        const tierColors = { 1: '#8fd9a8', 2: '#a8d0ff', 3: '#d9c0ff' };
+        const glowColor = tierColors[node.tier] || tierColors[1];
+        if (window.GFX) {
+            window.GFX.spawnParticles(pos.x, pos.y - 10, glowColor, 16, 4, 3);
+            if (gained > 0) window.GFX.spawnText(pos.x, pos.y - 40, `+${gained} ${template.name}`, glowColor, false);
+        }
+        if (window.AudioManager) window.AudioManager.playLightPickup();
+        if (gained > 0) {
+            this._toast(`Você colhe ${gained}x ${template.name} da nascente.`, 'success');
+            window.SaveManager.save(window.Engine.state);
+        } else {
+            this._toast('Mochila cheia! Não há espaço pra guardar a essência.', 'error');
+        }
+    }
+
+    // Decrementa o respawn de cada nascente já colhida e a faz reaparecer
+    // na MESMA posição, com um `tier` NOVO sorteado — mesmo padrão de
+    // _updateOreVeins.
+    _updateEssenceNodes(dt) {
+        if (this.essenceNodes.length === 0) return;
+        for (const node of this.essenceNodes) {
+            if (!node.collected) continue;
+            node.respawnTimer -= dt;
+            if (node.respawnTimer <= 0) {
+                node.collected = false;
+                node.tier = this._rollEssenceTier();
             }
         }
     }
@@ -1653,6 +1804,7 @@ class CityEngine {
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
         this._spawnOreVeinsIfNeeded();
+        this._spawnEssenceNodesIfNeeded();
 
         // Troca o MOOD da trilha ambiente pra da nova cidade (ver
         // audio.js CITY_MUSIC_MOODS) — startAmbientMusic() é um no-op se já
@@ -1688,6 +1840,8 @@ class CityEngine {
         this._updateLightStones(dt);
         this._updatePendingCollectOre();
         this._updateOreVeins(dt);
+        this._updatePendingCollectEssence();
+        this._updateEssenceNodes(dt);
         const isNight = window.GFX && window.GFX.arenaTime === 'night';
         // NPCs comuns recolhem-se de noite (ver draw()) — não há por que
         // continuar simulando o passeio de alguém que ninguém vê.
@@ -1837,6 +1991,7 @@ class CityEngine {
         this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
         this._spawnOreVeinsIfNeeded();
+        this._spawnEssenceNodesIfNeeded();
 
         // Missões Secundárias (ver quests.js) — falha qualquer missão ativa
         // cujo prazo tenha vencido; o quadro da cidade também sorteia uma
@@ -2826,6 +2981,9 @@ class CityEngine {
             // Veios de Minério (ver _spawnOreVeinsIfNeeded) — mesmo
             // ordenamento por profundidade que as Pedras de Luz acima.
             ...this.oreVeins.filter(v => !v.collected).map(v => ({ y: this._oreVeinPos(v).y, draw: () => this._drawOreVein(ctx, v) })),
+            // Nascentes de Essência (ver _spawnEssenceNodesIfNeeded) — mesmo
+            // ordenamento por profundidade que Pedras de Luz/Veios acima.
+            ...this.essenceNodes.filter(n => !n.collected).map(n => ({ y: this._essencePos(n).y, draw: () => this._drawEssenceNode(ctx, n) })),
             { y: this.player.y, draw: () => this._drawPlayer(ctx) },
         ];
         drawables.sort((a, b) => a.y - b.y);
@@ -3029,6 +3187,46 @@ class CityEngine {
         ctx.moveTo(pos.x + r * 0.1, pos.y - r * 0.2);
         ctx.lineTo(pos.x + r * 0.6, pos.y - r * 0.55);
         ctx.stroke();
+        ctx.restore();
+    }
+
+    // Nascente de Essência (Santuário Élfico) — orbe flutuante com motas
+    // de luz orbitando, deliberadamente DIFERENTE do afloramento de rocha
+    // do Veio de Minério acima (identidade visual "mágica/orgânica" élfica
+    // vs "mineral/bruta" anã, mesmo princípio do pedido de identidade
+    // visual por cultura).
+    _drawEssenceNode(ctx, node) {
+        const h = window.Engine.height;
+        const pos = this._essencePos(node);
+        const scale = this._cityScale(h);
+        const t = performance.now() * 0.0025;
+        const pulse = 0.6 + Math.sin(t + node.id * 1.7) * 0.4;
+        const bob = Math.sin(t * 1.3 + node.id) * 4 * scale;
+        const r = 9 * scale;
+        const tierColors = { 1: '150,220,170', 2: '160,200,255', 3: '210,180,255' };
+        const rgb = tierColors[node.tier] || tierColors[1];
+        const cy = pos.y - r * 0.6 + bob;
+
+        ctx.save();
+        const glow = ctx.createRadialGradient(pos.x, cy, 0, pos.x, cy, r * 2.8);
+        glow.addColorStop(0, `rgba(${rgb},${0.5 * pulse})`);
+        glow.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(pos.x, cy, r * 2.8, 0, Math.PI * 2); ctx.fill();
+
+        // Orbe central.
+        ctx.fillStyle = `rgba(${rgb},${0.85})`;
+        ctx.beginPath(); ctx.arc(pos.x, cy, r * 0.55, 0, Math.PI * 2); ctx.fill();
+
+        // 3 motas de luz orbitando — sensação de energia viva, não uma
+        // pedra estática.
+        ctx.fillStyle = `rgba(${rgb},${0.9 * pulse})`;
+        for (let i = 0; i < 3; i++) {
+            const ang = t * 1.6 + (i * Math.PI * 2 / 3);
+            const mx = pos.x + Math.cos(ang) * r * 1.7;
+            const my = cy + Math.sin(ang) * r * 0.9;
+            ctx.beginPath(); ctx.arc(mx, my, r * 0.14, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -3627,6 +3825,14 @@ class CityEngine {
     // completamente inalcançável.
     static get ORE_TIER_MATERIAL() {
         return { 1: ['common_ore'], 2: ['iron_ore', 'coal'], 3: ['steel_ingot'], 4: ['arcane_crystal'], 5: ['dwarven_adamant'] };
+    }
+
+    // Mapa tier→id de essência (ver items.js ItemDatabase.essences/
+    // _collectEssenceNode acima) — mais simples que ORE_TIER_MATERIAL (1
+    // id por tier, não uma lista) porque só existem 3 tiers de essência,
+    // sem necessidade de variação dentro do mesmo tier.
+    static get ESSENCE_TIER_ITEM() {
+        return { 1: 'wild_essence', 2: 'lunar_essence', 3: 'ancestral_essence' };
     }
 
     // Falas rápidas de NPCs ambiente ao serem clicados (ver _talkToNpc) —

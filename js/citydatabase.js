@@ -215,21 +215,29 @@ const CityDatabase = {
         // `trinkets`, os itens "mágicos" do jogo), condizente com "melhor
         // qualidade média em amuletos, itens mágicos" pedido pelo usuário.
         specialization: ['trinkets'],
-        // Identidade econômica própria (Rework Econômico item 10): o
-        // prédio 'arcane' (que em toda outra cidade só abre a Árvore de
-        // Talentos genérica) vira o ATELIÊ ÉLFICO — mesmo mecanismo
-        // genérico `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel`
-        // criado na Iteração 2 pro Reino Anão (ver ui.js openSkillTree/
-        // btn-open-rune-shop), só trocando o rótulo/sub-loja/itens (nunca
-        // duplicando o botão ou a lógica de visibilidade — item 16 da
-        // diretiva: "reaproveite, expanda, especialize"). Vende
-        // componentes mágicos/artefatos élficos (ver items.js
-        // ItemDatabase.consumables subShop:'atelier'), nunca metalurgia —
-        // reforça a diferença de identidade com a Câmara Rúnica anã
-        // (magia arcana/encantamento vs. tecnologia de forja/runa).
+        // Identidade econômica própria (MEGA REWORK — Economia, Lojas,
+        // Identidade Cultural, Iteração 3): o prédio 'arcane' vira o
+        // ATELIÊ ÉLFICO de verdade. Achado da auditoria: até então era só
+        // o mesmo mecanismo genérico `hasMagicSubShop`/`magicSubShopId`/
+        // `magicSubShopLabel` (igual à antiga "loja de treino" Orc antes
+        // do rework dela) vendendo consumíveis com rótulo élfico —
+        // contradizendo o pedido de que a identidade Elfa gire em torno de
+        // CRIAR, não COMPRAR. `magicSubShopId` continua como CHAVE de
+        // despacho (ver ui.js botão `btn-open-rune-shop`): quando vale
+        // 'atelier', abre o Ateliê de verdade (ver js/elfcrafting.js
+        // ElfCraftingSystem) — coletar Essência nas nascentes físicas da
+        // praça (ver city.js essenceSpots/hasEssenceSpots abaixo) +
+        // combinar num artesão pra produzir os 6 itens élficos exclusivos
+        // (nunca aparecem em loja nenhuma, ver items.js `craftOnly`).
         hasMagicSubShop: true,
         magicSubShopId: 'atelier',
-        magicSubShopLabel: '✨ Ateliê Élfico (Artefatos)',
+        magicSubShopLabel: '✨ Ateliê Élfico (Criação)',
+        // Nascentes de Essência físicas na Praça (ver city.js
+        // essenceSpots/_spawnEssenceNodesIfNeeded) — mesmo padrão de
+        // "recurso de mundo, não de loja" que hasOreVeins já usa pro
+        // Reino Anão, aplicado aqui pra dar ao Santuário Élfico sua
+        // própria fonte de coleta física.
+        hasEssenceSpots: true,
         buildingNames: {
             arcane: 'Ateliê Élfico'
         },
