@@ -112,6 +112,16 @@ class Equipment {
         // estoque do Ferreiro/Armeiro (ver ItemFactory.generateShopInventory).
         this.region = baseTemplate.region || null;
 
+        // Rework de Renderização de Armas, Iteração 2 — bug pego pelo próprio
+        // teste automatizado desta iteração: `twoHanded` (ver items.js
+        // w_16/w_22/w_25/w_27) nunca era copiado do template pro item de
+        // verdade, então `_drawBackArm` (graphics.js) — que lê
+        // `mainHandWeapon.twoHanded` pra suprimir o escudo — nunca via o
+        // campo, e a supressão de escudo em armas de duas mãos era código
+        // morto. Puramente visual, igual `region` acima: nunca afeta
+        // equipar/dano/alcance.
+        this.twoHanded = !!baseTemplate.twoHanded;
+
         // Ajuste de nome para itens raros
         if (rarityObj.id > 1) {
             this.name = `${this.name} ${rarityObj.name}`;
@@ -293,7 +303,14 @@ const ItemDatabase = {
         // lenta que o Martelo Rúnico Anão (a outra exclusiva), trade-off
         // de dano bruto por velocidade — nunca um upgrade estritamente
         // melhor, uma escolha de estilo diferente.
-        dwarvengreataxe: { id: 'w_16', name: "Machado de Guerra de Kharzum", slot: SLOTS.MAIN_HAND, damage: 20, weight: 9.0, value: 250, durability: 190, stats: { str: 6 }, armorPierce: 0.35, region: 'reino_anao',
+        // `twoHanded` (Rework de Renderização de Armas, Iteração 2) — só um
+        // campo VISUAL: js/graphics.js _drawBackArm lê isso pra nunca
+        // desenhar um escudo simultâneo a uma arma pesada de duas mãos
+        // (bug de clipping/incoerência visual encontrado na auditoria —
+        // nada na lógica de equipar impedia as duas coisas ao mesmo
+        // tempo). Nunca toca em dano/alcance/regras de equipar — só
+        // decide "mostra ou não mostra o escudo desenhado".
+        dwarvengreataxe: { id: 'w_16', name: "Machado de Guerra de Kharzum", slot: SLOTS.MAIN_HAND, damage: 20, weight: 9.0, value: 250, durability: 190, stats: { str: 6 }, armorPierce: 0.35, region: 'reino_anao', twoHanded: true,
             minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 },
 
         // --- Mega Atualização item 1/2/19: expansão do arsenal — Lanças ---
@@ -336,7 +353,7 @@ const ItemDatabase = {
         orcwarchain: { id: 'w_26', name: "Corrente Espinhada", slot: SLOTS.MAIN_HAND, damage: 13, weight: 5.5, value: 120, durability: 90, stats: { str: 3 }, critBonus: 20, accBonus: -4, region: 'fortaleza_orc',
             description: "Elos de ferro reaproveitados de correntes de prisioneiro, com farpas amarradas na ponta — impossível controlar onde exatamente vai acertar, mas quando acerta, estraçalha. Golpe selvagem: alta chance de crítico, baixa precisão.",
             minRange: 1, maxRange: 3, atkSpeed: 0.65, approachSpeed: 1.3, retreatSpeed: 1.3 },
-        orcboneaxe: { id: 'w_27', name: "Machado Ósseo Ancestral", slot: SLOTS.MAIN_HAND, damage: 18, weight: 9.5, value: 145, durability: 100, stats: { str: 6 }, armorPierce: 0.30, accBonus: -3, region: 'fortaleza_orc',
+        orcboneaxe: { id: 'w_27', name: "Machado Ósseo Ancestral", slot: SLOTS.MAIN_HAND, damage: 18, weight: 9.5, value: 145, durability: 100, stats: { str: 6 }, armorPierce: 0.30, accBonus: -3, region: 'fortaleza_orc', twoHanded: true,
             description: "Lâmina de pedra vulcânica presa a um cabo de osso de fera — mais pesado que qualquer machado forjado em metal, sem nenhum refinamento de balanço. Bruto demais pra mirar direito, forte demais pra importar.",
             minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 },
         // Regional Élfico (ver citydatabase.js santuario_elfico) — reforça
@@ -357,7 +374,7 @@ const ItemDatabase = {
         // a arma reforça o lado ofensivo puro), Nyxara troca crítico bom
         // por crítico devastador + velocidade ainda maior (tema "furtiva,
         // pontual, decisiva").
-        grokmaraxe: { id: 'w_22', name: "Machado de Grokmar", slot: SLOTS.MAIN_HAND, damage: 22, weight: 7.5, value: 320, durability: 150, stats: { str: 7 }, armorPierce: 0.20, critBonus: 8, arenaExclusive: true,
+        grokmaraxe: { id: 'w_22', name: "Machado de Grokmar", slot: SLOTS.MAIN_HAND, damage: 22, weight: 7.5, value: 320, durability: 150, stats: { str: 7 }, armorPierce: 0.20, critBonus: 8, arenaExclusive: true, twoHanded: true,
             description: "A arma que Grokmar ergueu quando sua fúria despertou pela primeira vez — cada golpe carrega o peso de tudo que ele já sobreviveu na Arena.",
             minRange: 0, maxRange: 2, atkSpeed: 0.55, approachSpeed: 1.1, retreatSpeed: 1.1 },
         nyxaradagger: { id: 'w_23', name: "Adaga de Nyxara", slot: SLOTS.MAIN_HAND, damage: 8, weight: 0.9, value: 320, durability: 130, stats: { agi: 4 }, critBonus: 26, arenaExclusive: true,
@@ -376,7 +393,7 @@ const ItemDatabase = {
         // maioria das armas do jogo — coerente com a própria mecânica
         // dela (golpes que "perfuram" mais quanto mais tempero a forja
         // recebeu).
-        brakkahammer: { id: 'w_25', name: "Martelo da Forja Eterna", slot: SLOTS.MAIN_HAND, damage: 19, weight: 7.0, value: 320, durability: 180, stats: { str: 4, def: 2 }, armorPierce: 0.30, arenaExclusive: true,
+        brakkahammer: { id: 'w_25', name: "Martelo da Forja Eterna", slot: SLOTS.MAIN_HAND, damage: 19, weight: 7.0, value: 320, durability: 180, stats: { str: 4, def: 2 }, armorPierce: 0.30, arenaExclusive: true, twoHanded: true,
             description: "Forjado e reforjado tantas vezes na fornalha de Brakka que já nem parece ferro comum — cada golpe carrega o calor de mil temperagens.",
             minRange: 0, maxRange: 2, atkSpeed: 0.6, approachSpeed: 1.2, retreatSpeed: 1.2 }
     },

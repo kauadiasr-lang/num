@@ -443,6 +443,24 @@ class GraphicsEngine {
         return h * 0.62;
     }
 
+    // Rework de Renderização de Armas, Iteração 2 — auditoria encontrou que a
+    // Arena nunca tinha um equivalente ao `_cityScale` da Praça. O próprio
+    // city.js já documenta (ver comentário em `_drawNpc`/`_drawPlayer`) que
+    // `drawGladiator` desenha em tamanho FIXO em pixels e que é
+    // responsabilidade de quem chama escalar por fora via save/translate/
+    // scale — a Praça sempre fez isso pro jogador/NPCs, a Arena nunca fez
+    // pros lutadores em combate. Resultado: em canvases pequenos (celular)
+    // o lutador — e a arma presa a ele, que herda a escala do braço — ficava
+    // desproporcionalmente grande e podia extrapolar a área da areia/HUD.
+    // Reaproveita a MESMA fórmula de referência de `_cityScale` (800x1100)
+    // em vez de inventar uma escala paralela.
+    _arenaScale(canvasWidth, canvasHeight) {
+        const horizon = this._horizonY(canvasHeight);
+        const heightScale = Utils.clamp(horizon / 496, 0.55, 1);
+        const widthScale = Utils.clamp(canvasWidth / 1100, 0.45, 1);
+        return Math.min(heightScale, widthScale);
+    }
+
     // Toca uma animação num dos dois combatentes (chamado a partir do battle.js
     // em pontos específicos, sem alterar em nada a lógica/matemática do combate).
     // A duração respeita a configuração de "Velocidade das animações" (padrão 1x).
@@ -732,8 +750,27 @@ class GraphicsEngine {
             ctx.scale(zoom, zoom);
             ctx.translate(-canvasWidth / 2, -groundY);
 
-            this.drawGladiator(ctx, this.getEntityX(true, canvasWidth) - walkIn, groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
-            this.drawGladiator(ctx, this.getEntityX(false, canvasWidth) + walkIn, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            // Escala por lutador, com pivô no próprio pé (mesma técnica de
+            // city.js _drawNpc/_drawPlayer) — encolhe/aumenta o corpo (e a
+            // arma junto, herdada via _armLen/_raceBodyScale) sem tocar na
+            // posição/distância tática entre os dois, que `getEntityX` já
+            // calcula de forma responsiva por conta própria.
+            const arenaScale = this._arenaScale(canvasWidth, canvasHeight);
+            const px = this.getEntityX(true, canvasWidth) - walkIn;
+            ctx.save();
+            ctx.translate(px, groundY);
+            ctx.scale(arenaScale, arenaScale);
+            ctx.translate(-px, -groundY);
+            this.drawGladiator(ctx, px, groundY, window.BattleEngine.player, true, this.playerAnim, window.BattleEngine.playerState);
+            ctx.restore();
+
+            const ex = this.getEntityX(false, canvasWidth) + walkIn;
+            ctx.save();
+            ctx.translate(ex, groundY);
+            ctx.scale(arenaScale, arenaScale);
+            ctx.translate(-ex, -groundY);
+            this.drawGladiator(ctx, ex, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            ctx.restore();
             ctx.restore();
         } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
             // Mesma arena cinematográfica, sem gladiadores — pano de fundo do
@@ -3644,7 +3681,16 @@ class GraphicsEngine {
         const gloveColor = gloves ? (gloves.rarity ? gloves.rarity.color : '#5a4632') : null;
         const armColor = gloves ? '#3a2f22' : skin;
         const m = this._bodyMetrics(entity);
-        const shield = entity.equipment && entity.equipment[SLOTS.OFF_HAND];
+        // Rework de Renderização de Armas, Iteração 2 — achado da auditoria:
+        // nada aqui verificava a arma da mão principal antes de desenhar o
+        // escudo, então uma arma de duas mãos (ver items.js `twoHanded`,
+        // ex: Machado de Guerra de Kharzum) podia aparecer simultânea a um
+        // escudo no braço de trás — clipping visual incoerente, já que a
+        // própria lógica de equipar nunca impede as duas coisas ao mesmo
+        // tempo. Suprime só o DESENHO do escudo (nunca a regra de
+        // equipar/combate) quando a arma ativa da mão principal é 2H.
+        const mainHandWeapon = entity.equipment && entity.equipment[SLOTS.MAIN_HAND];
+        const shield = (mainHandWeapon && mainHandWeapon.twoHanded) ? null : (entity.equipment && entity.equipment[SLOTS.OFF_HAND]);
         const angle = pose.guard ? -110 : -75;
         const backArmLen = this._armLen(entity) * 0.7;
 
@@ -3693,6 +3739,12 @@ class GraphicsEngine {
         const m = this._bodyMetrics(entity);
         const armLen = this._armLen(entity);
         const activeWeapon = entity.getActiveWeapon ? entity.getActiveWeapon() : (entity.equipment && entity.equipment[SLOTS.MAIN_HAND]);
+        // Escala da arma acompanha o porte racial do lutador (ver comentário
+        // em _drawWeapon acima) — média de altura/largura pra um efeito
+        // proporcional sem exagero (um Orc não fica com uma adaga do
+        // dobro do tamanho, só visivelmente mais robusta).
+        const bs = this._raceBodyScale(entity);
+        const weaponScale = (bs.height + bs.width) / 2;
 
         const armSpritePlain = this._bakeArmLimbSprite(armLen, m, armColor, gloveColor, false, 0, 0);
         const armSpriteWithGlove = this._bakeArmLimbSprite(armLen, m, armColor, gloveColor, true, armLen * 0.72, armLen * 0.22);
@@ -3708,7 +3760,7 @@ class GraphicsEngine {
                 ctx.rotate((pose.weaponAngle - back) * Math.PI / 180);
                 window.RenderManager.blit(ctx, armSpritePlain.canvas, 0, 0, armSpritePlain.anchorX, armSpritePlain.anchorY);
                 ctx.translate(0, armLen);
-                this._drawWeapon(ctx, activeWeapon);
+                this._drawWeapon(ctx, activeWeapon, weaponScale);
                 ctx.restore();
             });
             ctx.globalAlpha = 1;
@@ -3729,7 +3781,7 @@ class GraphicsEngine {
         // Usa a arma ATIVA (mainHand ou ranged, conforme activeWeaponSlot),
         // não sempre a mainHand — senão trocar de arma em combate mudava o
         // dano/alcance mas o sprite continuava mostrando a arma antiga.
-        this._drawWeapon(ctx, activeWeapon);
+        this._drawWeapon(ctx, activeWeapon, weaponScale);
         ctx.restore();
     }
 
@@ -3760,8 +3812,19 @@ class GraphicsEngine {
         ctx.stroke();
     }
 
-    _drawWeapon(ctx, weapon) {
+    // `scale` (Rework de Renderização de Armas, Iteração 2) — achado da
+    // auditoria: toda geometria em WEAPON_RENDERERS usa números fixos,
+    // nunca multiplicados pelo `_raceBodyScale` do lutador (que já escala
+    // corpo/braço/cabeça) — um Orc largo e um Elfo esguio empunhavam a
+    // MESMA adaga do MESMO tamanho absoluto. Em vez de editar cada uma das
+    // ~26 funções do registry, escala o ctx ANTES de despachar — mesma
+    // técnica já usada pro brilho da lâmina (bladeShine) logo abaixo,
+    // nunca uma correção arma-por-arma.
+    _drawWeapon(ctx, weapon, scale = 1) {
         if (!weapon) return;
+
+        ctx.save();
+        ctx.scale(scale, scale);
 
         ctx.fillStyle = '#3a2f22';
         ctx.fillRect(0, -4, 12, 8);
@@ -3781,6 +3844,20 @@ class GraphicsEngine {
         bladeShine.addColorStop(1, '#7d838a');
         ctx.fillStyle = bladeShine;
 
+        // Brilho por raridade (Rework de Renderização de Armas, Iteração 2)
+        // — achado da auditoria: luvas/botas/escudo/amuleto/elmo já usam
+        // `item.rarity.color` pra se destacar visualmente (ver
+        // _drawBackArm/_drawTorso/_drawHead), mas a ARMA em si — o
+        // equipamento mais visível de todos em combate — nunca lia esse
+        // campo. Sombra colorida ANTES do despacho (mesma técnica do
+        // bladeShine acima) dá o brilho pra qualquer arma registrada, sem
+        // precisar editar cada função. Comum (id 1) fica sem brilho —
+        // "comum" deve parecer comum.
+        if (weapon.rarity && weapon.rarity.id > 1) {
+            ctx.shadowColor = weapon.rarity.color;
+            ctx.shadowBlur = 4 + weapon.rarity.id * 2.5;
+        }
+
         // Registry orientado a dados (id -> função de desenho), em vez de um
         // switch grande: uma arma nova só precisa registrar sua própria
         // entrada aqui (ver WEAPON_RENDERERS), sem tocar em nenhum outro
@@ -3789,6 +3866,8 @@ class GraphicsEngine {
         // ainda não desenhada especificamente.
         const draw = WEAPON_RENDERERS[weapon.id] || WEAPON_RENDERERS.default;
         draw(ctx);
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
 
         // Brilho elemental do Encantamento (ver enchantments.js) — a arma
         // nunca mostrava visualmente estar encantada, só o VFX passageiro
@@ -3808,6 +3887,7 @@ class GraphicsEngine {
                 ctx.restore();
             }
         }
+        ctx.restore();
     }
 }
 
@@ -3995,6 +4075,73 @@ const WEAPON_RENDERERS = {
         ctx.fillStyle = 'rgba(74,138,58,0.55)'; // verde-floresta élfico, ecoa w_13/w_14
         ctx.beginPath();
         ctx.arc(66, 0, 3, 0, Math.PI * 2); ctx.fill();
+    },
+
+    // Rework de Renderização de Armas, Iteração 2 — auditoria encontrou w_22-
+    // w_27 (armas exclusivas da Arena + Corrente Espinhada/Machado Ósseo de
+    // fortaleza_orc) sem entrada própria aqui: todas caíam no `default`
+    // (espada curta genérica), o pior caso sendo w_24 (Arco da Lua Cheia, uma
+    // arma RANGED) renderizando como espada de perto em vez de arco. Cada
+    // entrada segue o mesmo padrão das demais: reaproveita a técnica-base do
+    // arquétipo equivalente, com silhueta/acento próprios pra ficar
+    // reconhecível e distinta das outras armas do mesmo tipo.
+    w_22(ctx) { // Machado de Grokmar: lâmina curva única, borda dourada (exclusiva da Arena)
+        ctx.beginPath();
+        ctx.moveTo(12, -2); ctx.quadraticCurveTo(30, -24, 42, -6); ctx.lineTo(36, 0); ctx.quadraticCurveTo(30, 14, 12, 4);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1.5; // dourado, acento comum às armas exclusivas da Arena
+        ctx.beginPath();
+        ctx.moveTo(16, -4); ctx.quadraticCurveTo(30, -20, 40, -7);
+        ctx.stroke();
+    },
+    w_23(ctx) { // Adaga de Nyxara: lâmina dupla serrilhada, acento roxo sombrio
+        ctx.beginPath();
+        ctx.moveTo(12, -2.5); ctx.lineTo(24, -7); ctx.lineTo(30, 0); ctx.lineTo(24, 7); ctx.lineTo(12, 2.5);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(120,40,160,0.7)'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(14, -3); ctx.lineTo(26, 0); ctx.moveTo(14, 3); ctx.lineTo(26, 0);
+        ctx.stroke();
+    },
+    w_24(ctx) { // Arco da Lua Cheia: RANGED — arco recurvo prateado com disco lunar no grip
+        ctx.strokeStyle = '#c9d6e8'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(6, 0, 26, -Math.PI * 0.44, Math.PI * 0.44);
+        ctx.stroke();
+        ctx.strokeStyle = '#f0f4ff'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(24, -22); ctx.lineTo(24, 22);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(230,235,255,0.55)'; // disco lunar sutil no ponto de empunhadura
+        ctx.beginPath(); ctx.arc(6, 0, 4, 0, Math.PI * 2); ctx.fill();
+    },
+    w_25(ctx) { // Martelo da Forja Eterna: cabeça maciça de duas mãos, brasa viva na base
+        ctx.fillRect(12, -14, 34, 28);
+        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -14, 34, 28);
+        ctx.fillStyle = 'rgba(255,120,30,0.6)'; // brasa da forja eterna, distingue do martelo anão (w_12)
+        ctx.fillRect(12, -14, 4, 28);
+    },
+    w_26(ctx) { // Corrente Espinhada: corrente ondulada com espinhos salientes (fortaleza_orc)
+        ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.quadraticCurveTo(26, -16, 40, 0);
+        ctx.quadraticCurveTo(54, 16, 44, 26);
+        ctx.stroke();
+        ctx.fillStyle = '#3a5a1a'; // oliva orc, ecoa w_11/w_20
+        [[26, -11], [40, 4], [50, 20]].forEach(([x, y]) => {
+            ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 3); ctx.closePath(); ctx.fill();
+        });
+    },
+    w_27(ctx) { // Machado Ósseo Ancestral: cabeça de osso talhado, silhueta maior — duas mãos (fortaleza_orc)
+        ctx.fillStyle = '#e8dfc8'; // osso pálido, distinto do metal das outras cabeças de machado
+        ctx.beginPath();
+        ctx.moveTo(12, -6); ctx.lineTo(36, -24); ctx.lineTo(44, 0); ctx.lineTo(36, 24); ctx.lineTo(12, 6);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#a89572'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(20, -13); ctx.lineTo(20, 13);
+        ctx.stroke();
     }
 };
 
