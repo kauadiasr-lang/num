@@ -49,6 +49,15 @@ class BattleSystem {
         // continuam livres de usar sem "quebrar" o requisito.
         this.usedOffensiveMagic = false;
 
+        // Rastreiam dano causado pelo jogador e se ele usou QUALQUER
+        // habilidade (mágica ou não) nesta luta — usados pelos Mestres de
+        // Treinamento Orc (ver js/orctraining.js, MEGA REWORK econômico).
+        // `playerDamageDealt` é acumulado via o MESMO `enemyHpBefore` já
+        // capturado pra IA em executePlayerTurn (window.AICombat.
+        // recordPlayerAction) — nunca um contador de dano paralelo.
+        this.playerDamageDealt = 0;
+        this.playerUsedAnySkill = false;
+
         // Renascimento (nó capstone da árvore da Luz) só pode disparar uma
         // vez por batalha — ver checkWinCondition().
         this.autoReviveUsed = false;
@@ -849,6 +858,10 @@ class BattleSystem {
                 this.player.currentMp -= skill.mpCost;
                 if (skill.cooldown && this.player.setSkillCooldown) this.player.setSkillCooldown(skillId, skill.cooldown);
                 if (window.GFX) window.GFX.playAnim(true, skill.animation || 'attack', 700);
+                // Rastreado pro Mestre de Armas Orc ("vença sem usar
+                // nenhuma habilidade") — conta a partir daqui (habilidade
+                // validamente invocada), não só em caso de acerto.
+                this.playerUsedAnySkill = true;
 
                 if (skill.type === 'HEAL') {
                     // Cura base = Inteligência * 2.5 * powerMulti, com bônus de
@@ -1076,6 +1089,13 @@ class BattleSystem {
 
         window.UI.appendBattleLog(resultMsg);
         window.UI.updateBattleBars();
+
+        // Rastreado pros Mestres de Treinamento Orc (ver js/orctraining.js)
+        // — reaproveita o MESMO `enemyHpBefore` já capturado pra IA logo
+        // abaixo, nunca um contador de dano paralelo. Cobre QUALQUER fonte
+        // de dano nesta ação (ATK, toda variante de SKILL, contra-ataque),
+        // sem precisar instrumentar cada branch individualmente.
+        this.playerDamageDealt += Math.max(0, enemyHpBefore - this.enemy.currentHp);
 
         if (window.AICombat) window.AICombat.recordPlayerAction(this, actionCode, param, { enemyHpBefore, playerHpAtDecision });
 
@@ -1603,6 +1623,24 @@ class BattleSystem {
             // requisito de 5 vitórias "puras" — mesmo antes de a Linhagem
             // Luz existir, o progresso já vai sendo acumulado silenciosamente.
             if (window.RitualSystem) window.RitualSystem.onBattleWon(this.player, this.usedOffensiveMagic);
+
+            // Mestres de Treinamento Orc (ver js/orctraining.js, MEGA
+            // REWORK econômico) — mesmo ponto de integração que QuestSystem/
+            // ReputationSystem acima, só dispara se houver um desafio ativo
+            // (ver OrcTrainingSystem.onBattleVictory). `usedMagic` reaproveita
+            // `this.usedOffensiveMagic` (já existia pro Ritual da Luz, linha
+            // acima) — nunca um segundo rastreador do mesmo dado.
+            if (window.OrcTrainingSystem) {
+                const trainingResult = window.OrcTrainingSystem.onBattleVictory(this.player, this.enemy, {
+                    damageDealt: this.playerDamageDealt,
+                    usedMagic: this.usedOffensiveMagic,
+                    usedAnySkill: this.playerUsedAnySkill,
+                    turnsSurvived: this.turnCount,
+                });
+                if (trainingResult && trainingResult.success) {
+                    window.UI.appendBattleLog(`<span style="color:#ffb340">⚔️ Desafio de ${trainingResult.master.name} concluído! +${trainingResult.master.reward} pontos de atributo.</span>`);
+                }
+            }
 
             // Boss de Ritual derrotado: desperta a Linhagem PERMANENTEMENTE e
             // dispara a cinemática "NOVA LINHAGEM DESPERTA" antes da tela de

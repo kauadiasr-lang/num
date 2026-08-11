@@ -274,6 +274,12 @@ class UIManager {
         document.getElementById('btn-open-rune-shop').addEventListener('click', () => {
             const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
             const subShop = (cityDef && cityDef.magicSubShopId) || 'runes';
+            // Fortaleza Orc (MEGA REWORK econômico): a identidade cultural
+            // Orc é CONQUISTA, não COMPRA — desvia pro sistema de Mestres
+            // de Treinamento (ver js/orctraining.js) em vez de abrir a
+            // mesma openShop() genérica que Anão/Elfo ainda usam. Nunca
+            // mistura os dois caminhos: só 'training' desvia.
+            if (subShop === 'training') { this.openOrcTraining(); return; }
             const title = (cityDef && cityDef.magicSubShopLabel) || 'Câmara Rúnica';
             this.openShop(null, title, true, subShop);
         });
@@ -293,6 +299,13 @@ class UIManager {
         document.getElementById('btn-close-caravan').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-forge').addEventListener('click', () => this.showScreen('screen-hub'));
         document.getElementById('btn-close-oretrader').addEventListener('click', () => this.showScreen('screen-hub'));
+        document.getElementById('btn-close-orctraining').addEventListener('click', () => this.showScreen('screen-hub'));
+        // Estimulantes Tribais (ver comentário completo em index.html) —
+        // única parte do antigo "Círculo de Treinamento" que continua
+        // sendo openShop() de verdade, e de propósito: o pedido permite
+        // preparados temporários como identidade Orc legítima, só não como
+        // a mecânica PRINCIPAL da cidade (essa agora são os Mestres).
+        document.getElementById('btn-open-orc-stimulants').addEventListener('click', () => this.openShop(null, 'Estimulantes Tribais', true, 'training'));
         document.getElementById('btn-close-road').addEventListener('click', () => this.abandonRoad());
         document.getElementById('btn-road-advance').addEventListener('click', () => this.advanceRoad());
         document.getElementById('btn-road-abandon').addEventListener('click', () => this.abandonRoad());
@@ -2983,6 +2996,60 @@ class UIManager {
     // novo toda vez que a Forja é reaberta (mesmo padrão de openShop), com
     // `.onclick =` em vez de addEventListener nos botões dinâmicos pra
     // nunca acumular listeners duplicados entre reaberturas.
+    // Mestres de Treinamento (Fortaleza Orc, ver js/orctraining.js — MEGA
+    // REWORK econômico). Substitui o antigo botão de "sub-loja mágica"
+    // Orc: em vez de navegar uma lista e pagar ouro, o jogador ACEITA um
+    // desafio de um Mestre (fica marcado como ativo) e precisa cumprir a
+    // condição na PRÓXIMA luta — battle.js endBattle() confere e concede
+    // a recompensa automaticamente (ver OrcTrainingSystem.onBattleVictory),
+    // esta tela só mostra estado/permite escolher, nunca resolve o desafio
+    // em si (isso só acontece de verdade em combate).
+    openOrcTraining() {
+        const p = window.Engine.state.player;
+        const active = window.OrcTrainingSystem.getActiveChallenge(p);
+        const bannerEl = document.getElementById('orctraining-active-banner');
+        if (active) {
+            bannerEl.classList.remove('hidden');
+            bannerEl.innerHTML = `<p style="color:#ffb340">⚔️ Desafio ativo: <strong>${active.name}</strong> — ${active.description}<br>Vença sua próxima luta cumprindo essa condição.</p>`;
+        } else {
+            bannerEl.classList.add('hidden');
+        }
+
+        const container = document.getElementById('orctraining-masters-container');
+        container.innerHTML = '';
+        window.OrcTrainingSystem.MASTERS.forEach(master => {
+            const completed = window.OrcTrainingSystem.isCompleted(p, master.id);
+            const unlocked = window.OrcTrainingSystem.isUnlocked(p, master);
+            const isActive = active && active.id === master.id;
+            const card = document.createElement('div');
+            let stateLabel = '';
+            if (completed) stateLabel = '<span style="color:#4caf50">✓ Concluído</span>';
+            else if (isActive) stateLabel = '<span style="color:#ffb340">Desafio ativo</span>';
+            else if (!unlocked) stateLabel = '<span style="color:#888">🔒 Requer todos os outros Mestres</span>';
+
+            card.className = 'forge-recipe-card' + (!unlocked && !completed ? ' forge-recipe-locked' : '');
+            card.innerHTML = `
+                <h4>${master.icon} ${master.name}</h4>
+                <p style="font-size:0.85rem; color:#ccc;">${master.description}</p>
+                <p style="font-size:0.8rem; color:#aaa;">Recompensa: +${master.reward} pontos de atributo</p>
+                <p>${stateLabel}</p>
+                <button class="btn btn-small" ${(completed || isActive || !unlocked) ? 'disabled' : ''}>Aceitar Desafio</button>
+            `;
+            const btn = card.querySelector('button');
+            if (!completed && !isActive && unlocked) {
+                btn.onclick = () => {
+                    window.OrcTrainingSystem.startChallenge(p, master.id);
+                    if (window.AudioManager) window.AudioManager.playConfirm();
+                    window.SaveManager.save(window.Engine.state);
+                    this.openOrcTraining(); // Refresh (mostra o banner de desafio ativo)
+                };
+            }
+            container.appendChild(card);
+        });
+
+        this.showScreen('screen-orctraining');
+    }
+
     openForge() {
         const p = window.Engine.state.player;
         document.getElementById('forge-player-gold').innerText = p.gold;

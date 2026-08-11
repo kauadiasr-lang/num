@@ -682,6 +682,32 @@
                 </div>
             </div>
 
+            <!-- TELA: MESTRES DE TREINAMENTO (Fortaleza Orc, ver
+                 js/orctraining.js/ui.js openOrcTraining) — MEGA REWORK
+                 econômico: substitui o antigo "Círculo de Treinamento" (que
+                 era só openShop() com rótulo Orc, ver auditoria da
+                 Iteração 1) por um sistema de CONQUISTA — cada Mestre exige
+                 cumprir uma condição real na próxima luta, nunca comprar
+                 com ouro. -->
+            <div id="screen-orctraining" class="screen">
+                <div class="panel shop-panel">
+                    <button class="btn-close" id="btn-close-orctraining">X</button>
+                    <h2 class="panel-title">⚔️ Mestres de Treinamento</h2>
+                    <p class="shop-merchant-greeting">"Ouro não ensina ninguém a lutar. Prove seu valor na arena, e eu te ensino algo de verdade."</p>
+                    <div id="orctraining-active-banner" class="hidden" style="margin-bottom:12px;"></div>
+                    <div id="orctraining-masters-container" class="forge-recipes"></div>
+                    <!-- Estimulantes Tribais (item 3 do pedido: preparados
+                         naturais temporários são uma identidade Orc
+                         LEGÍTIMA, separada dos Mestres de Treinamento —
+                         continua usando openShop()/subShop:'training',
+                         mas agora explicitamente como "loja pequena de
+                         apoio", nunca a mecânica principal da cidade. -->
+                    <h3 class="shop-section-title">Estimulantes Tribais</h3>
+                    <p style="font-size:0.85rem; color:#aaa; margin-bottom:8px;">Preparados naturais dos xamãs de Gorkhal — efeitos temporários, comprados com ouro (isso aqui SIM é uma loja pequena, os Mestres acima não são).</p>
+                    <button id="btn-open-orc-stimulants" class="btn btn-small">🌿 Ver Estimulantes</button>
+                </div>
+            </div>
+
             <!-- TELA: BANCO -->
             <!-- Mega Atualização item 14/15/16: Banco com duas abas
                  (Dinheiro / Depósito de Itens), reaproveitando o MESMO
@@ -960,6 +986,7 @@
     <script src="js/settings.js"></script>
     <script src="js/items.js"></script>
     <script src="js/forge.js"></script>
+    <script src="js/orctraining.js"></script>
     <script src="js/enchantments.js"></script>
     <script src="js/skills.js"></script>
     <script src="js/lineages.js"></script>

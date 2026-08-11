@@ -107,19 +107,28 @@ const CityDatabase = {
         // aqui se encontra uma arma boa — só que a probabilidade aqui é
         // maior que nas outras cidades.
         specialization: ['weapons'],
-        // Identidade econômica própria (Rework Econômico item 11): o
-        // prédio 'arcane' vira o CÍRCULO DE TREINAMENTO — mesmo mecanismo
-        // genérico `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel`
-        // criado nas Iterações 2/3 (Câmara Rúnica anã, Ateliê Élfico), só
-        // trocando rótulo/subShop/itens (item 16: nunca duplicar sistema).
-        // Vende treinos seguros (Força/Resistência/Combate) + um
-        // estimulante de USO PESADO com risco real de fadiga (ver
-        // items.js ItemDatabase.consumables subShop:'training') — reforça
-        // a identidade "físico/treino" bem distinta de forja anã ou magia
-        // élfica.
+        // Identidade econômica própria (MEGA REWORK — Economia, Lojas,
+        // Identidade Cultural): o prédio 'arcane' vira o CÍRCULO DE
+        // TREINAMENTO. Achado da auditoria dessa reforma: até então isso
+        // era só o mesmo mecanismo genérico `hasMagicSubShop`/
+        // `magicSubShopId`/`magicSubShopLabel` (Câmara Rúnica anã, Ateliê
+        // Élfico) trocando rótulo/itens — uma LOJA disfarçada de
+        // identidade cultural, contradizendo o pedido explícito de que a
+        // cultura Orc gire em torno de CONQUISTA, não COMPRA. `magicSubShopId`
+        // continua existindo só como CHAVE de despacho (ver ui.js botão
+        // `btn-open-rune-shop`): quando vale 'training', abre os Mestres de
+        // Treinamento (ver js/orctraining.js OrcTrainingSystem) — 6 NPCs
+        // em cadeia que exigem cumprir uma condição real de combate, nunca
+        // pagar ouro. Os consumíveis "de treino" que existiam aqui viraram
+        // parte da Taverna Orc (ver items.js subShop:'tavern',
+        // orc_training_*) — continuam existindo como preparados tribais
+        // temporários (item 3 do pedido: "estimulantes", não "loja de
+        // poções"), só que agora reunidos com o resto da identidade
+        // culinária/tribal da cidade, em vez de espalhados numa segunda
+        // loja com rótulo mágico.
         hasMagicSubShop: true,
         magicSubShopId: 'training',
-        magicSubShopLabel: '💪 Círculo de Treinamento',
+        magicSubShopLabel: '⚔️ Mestres de Treinamento',
         buildingNames: {
             arcane: 'Círculo de Treinamento'
         },
