@@ -307,20 +307,46 @@ const GuideSystem = {
             veneno: 'Sem dano extra no impacto, mas aplica veneno (dano contínuo por 3 turnos que ignora armadura, escala com a Agilidade do atacante).',
             sangramento: 'Sem dano extra no impacto, mas abre um corte que sangra por 2 turnos e ACUMULA com golpes repetidos (escala com a Força do atacante).',
             sagrado: '+30% de dano contra alvos de Linhagem Vampirismo/Sombras (+10% contra qualquer outro alvo), cura 8% do dano causado. Em armadura: +6% de Defesa.',
-            profano: '+30% de dano contra alvos de Linhagem Luz (+10% contra qualquer outro alvo), rouba 10% do dano como HP. Em armadura: +4% de esquiva.'
+            profano: '+30% de dano contra alvos de Linhagem Luz (+10% contra qualquer outro alvo), rouba 10% do dano como HP. Em armadura: +4% de esquiva.',
+            // MEGA REWORK Econômico Iteração 8: os 7 encantamentos abaixo
+            // (region-travados) já existiam, mas nunca tinham `detail`
+            // próprio — caíam no fallback `e.description` genérico. Item 7
+            // da diretiva pede runas élficas com identidade PRÓPRIA
+            // (Ígnea/Glacial/Vital/Precisão/Arcana) como "objetos de
+            // criação/personalização, nunca outra loja de magia" — em vez
+            // de duplicar um sistema de runas do zero (item 11: nunca
+            // duplicar), os 3 encantamentos exclusivos do Santuário Élfico
+            // JÁ SÃO essa identidade (aplicados fisicamente no item,
+            // trocáveis livremente, cada um com efeito próprio e distinto)
+            // — só faltava o Guia deixar essa conexão explícita.
+            arcano: 'Dano extra baseado em Inteligência a cada acerto. Em armadura: +5% de esquiva (barreira arcana).',
+            soprodamata: 'A cada acerto, restaura Mana proporcional à Inteligência — único encantamento do jogo que devolve MP em vez de HP.',
+            fendaelfica: 'Dano extra proporcional à própria Defesa do ALVO (quanto mais couraçado, mais a lâmina rouba) — nunca reduz a Defesa em si, só converte parte dela em dano bônus.',
+            impactoorc: 'Chance de atordoar escala com o PESO da arma — machados e martelos atordoam bem mais que adagas.',
+            sanguedebatalha: 'Dano extra que cresce quanto mais ferido o próprio usuário estiver (abaixo de 50% de HP) — força que aumenta sob pressão, não diminui.',
+            pesobrutal: 'Dano extra proporcional à diferença de Força entre atacante e alvo — inútil contra quem é mais forte, brutal contra quem é mais fraco.',
+            vinculodoferreiro: '40% de chance de a peça NÃO perder durabilidade a cada luta — o único encantamento que interage com desgaste de equipamento.'
         };
         const list = Object.values(window.ENCHANTMENTS || {});
+        const universal = list.filter(e => !e.region);
+        const regional = list.filter(e => e.region);
+        const cardHtml = (e) => {
+            const cityName = e.region && window.CityDatabase && window.CityDatabase[e.region] ? window.CityDatabase[e.region].name : null;
+            return `
+                <div class="guide-card" style="--guide-accent:${e.color}">
+                    <div class="guide-card-tag">Aplica-se a: ${e.appliesTo.map(a => a === 'weapon' ? 'Arma' : 'Armadura').join(' e ')} · Custo: ${e.cost}g${cityName ? ` · Exclusivo de: ${cityName}` : ''}</div>
+                    <h4>${e.name}</h4>
+                    <p>${detail[e.id] || e.description}</p>
+                </div>
+            `;
+        };
         return `
-            <p class="guide-section-intro">Sistema separado das Linhagens: um encantamento só afeta o item em que é aplicado (arma ou armadura), nunca o corpo do gladiador, e pode ser trocado livremente a qualquer momento na Loja, por ouro.</p>
-            <div class="guide-grid">
-                ${list.map(e => `
-                    <div class="guide-card" style="--guide-accent:${e.color}">
-                        <div class="guide-card-tag">Aplica-se a: ${e.appliesTo.map(a => a === 'weapon' ? 'Arma' : 'Armadura').join(' e ')} · Custo: ${e.cost}g</div>
-                        <h4>${e.name}</h4>
-                        <p>${detail[e.id] || e.description}</p>
-                    </div>
-                `).join('')}
-            </div>
+            <p class="guide-section-intro">Sistema separado das Linhagens: um encantamento só afeta o item em que é aplicado (arma ou armadura), nunca o corpo do gladiador, e pode ser trocado livremente a qualquer momento pelo ouro indicado — os universais em qualquer cidade, os exclusivos SÓ enquanto você estiver fisicamente na cidade de origem.</p>
+            <h4 style="margin-top:4px;">Universais</h4>
+            <div class="guide-grid">${universal.map(cardHtml).join('')}</div>
+            <h4 style="margin-top:20px;">Exclusivos por cultura</h4>
+            <p class="guide-section-intro">No Santuário Élfico, estes três encantamentos SÃO a identidade de "runas élficas" pedida pelo item 7 do rework econômico — objetos de personalização de item, não uma segunda loja de magia. Nas outras cidades, cada trio reforça a identidade de combate própria (Orc: força bruta condicional; Anão: durabilidade de forja).</p>
+            <div class="guide-grid">${regional.map(cardHtml).join('')}</div>
         `;
     },
 
