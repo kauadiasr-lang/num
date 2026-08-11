@@ -18,6 +18,7 @@ const GuideSystem = {
         { id: 'consumables', label: 'Consumíveis', icon: '🧺' },
         { id: 'skills', label: 'Magias', icon: '🔮' },
         { id: 'styles', label: 'Estilos de Combate', icon: '🥊' },
+        { id: 'ai_behavior', label: 'Comportamento Inimigo', icon: '🧠' },
         { id: 'enchant', label: 'Encantamentos', icon: '✨' },
         { id: 'lineages', label: 'Linhagens', icon: '🩸' },
         { id: 'cities', label: 'Cidades', icon: '🏛️' },
@@ -61,6 +62,7 @@ const GuideSystem = {
             consumables: () => this._renderConsumables(),
             skills: () => this._renderSkills(),
             styles: () => this._renderCombatStyles(),
+            ai_behavior: () => this._renderCombatAI(),
             enchant: () => this._renderEnchant(),
             lineages: () => this._renderLineages(),
             cities: () => this._renderCities(),
@@ -258,6 +260,39 @@ const GuideSystem = {
                     </div>
                 `;
             }).join('')}
+        `;
+    },
+
+    // ==========================================================================
+    // COMPORTAMENTO INIMIGO (item 27 da mega-diretiva de rework da IA de
+    // combate — explica QUE existe variedade de comportamento e COMO
+    // percebê-la em jogo, sem revelar fórmulas/pontuações internas do
+    // motor de decisão (ver ai.js AICombat), que estragariam a graça de
+    // aprender lendo o próprio inimigo em combate.)
+    // ==========================================================================
+    _renderCombatAI() {
+        return `
+            <p class="guide-section-intro">Nenhum adversário decide no escuro. Cada inimigo (Duelo Rápido, Rival da Ladder ou Campeão) nasce com atributos, uma personalidade, um estilo de luta e um nível de inteligência próprios — e toma decisões de combate coerentes com essa combinação, turno a turno, lendo a distância e o que você está fazendo. Aprender a reconhecer esses padrões é parte da estratégia: um inimigo não é só "mais um adversário", é um perfil específico que você pode explorar.</p>
+            <div class="guide-block">
+                <h4>Atributos moldam comportamento, não só dano</h4>
+                <p>Um inimigo de <strong>Força</strong> alta insiste mais no ataque básico e em golpes pesados — prefere resolver o combate no corpo a corpo. <strong>Agilidade</strong> alta significa mais disposição a se reposicionar (avançar ou recuar) em vez de ficar parado trocando golpes. <strong>Inteligência</strong> alta favorece magias em vez do ataque comum, e também torna o inimigo mais cuidadoso com a própria mana — não espere vê-lo esvaziá-la sem motivo. <strong>Defesa</strong> alta aumenta a chance de vê-lo Defender. <strong>Precisão</strong> alta transmite confiança no ataque direto, principalmente com armas de longo alcance. <strong>Sorte</strong> alta faz o inimigo pressionar mais quando percebe você já fraco — reconhece uma abertura e a explora.</p>
+            </div>
+            <div class="guide-block">
+                <h4>Distância importa pra ele tanto quanto pra você</h4>
+                <p>Arqueiros tentam manter distância de propósito, recuando quando você se aproxima; se você usa uma arma de longo alcance, é comum um inimigo corpo a corpo tentar fechar o espaço mais depressa, justamente pra anular sua vantagem. Alguns inimigos com armas duplas trocam de arma em pleno combate quando a distância muda — um golpe corpo a corpo pode virar um tiro de arco (e vice-versa) se a situação pedir.</p>
+            </div>
+            <div class="guide-block">
+                <h4>Personalidade e estilo se combinam em identidades reconhecíveis</h4>
+                <p>Um estilo de luta define o que o inimigo PODE fazer (arma preferida, habilidades disponíveis); a personalidade define COMO ele usa isso — cauteloso, agressivo, oportunista, propenso a blefar, disposto a perseguir quem foge... A mesma combinação de estilo e atributos praticamente nunca se comporta de forma idêntica duas vezes, mas alguns padrões ficam claros com a experiência: um Guardião de Defesa alta bloqueia muito; um Berserker raramente recua; um Arqueiro de Precisão alta atira com confiança de longe.</p>
+            </div>
+            <div class="guide-block">
+                <h4>Inimigos fortes decidem melhor, não só batem mais forte</h4>
+                <p>Nível e Inteligência também afetam a QUALIDADE das decisões do inimigo, além dos números. Um adversário fraco e pouco experiente comete erros reais com alguma frequência — pode hesitar, desperdiçar uma oportunidade ou escolher algo abaixo do ideal. Um adversário forte e experiente erra bem menos e reconhece situações com mais consistência. Nenhum dos dois joga de forma perfeita ou puramente aleatória — a diferença é de julgamento, não só de estatística.</p>
+            </div>
+            <div class="guide-block">
+                <h4>Alguns inimigos fogem da regra</h4>
+                <p>Raramente, um Duelo Rápido nasce com um comportamento fora do padrão do próprio estilo/personalidade — algo perceptível já nos primeiros turnos contra ele. Reconhecer esse desvio rápido evita se surpreender no meio da luta.</p>
+            </div>
         `;
     },
 
