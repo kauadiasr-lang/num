@@ -3838,7 +3838,14 @@ class GraphicsEngine {
         // preenchimento sólido por um gradiente metálico dá brilho de lâmina
         // de verdade pra TODAS as armas registradas de uma vez, sem precisar
         // editar cada uma das ~15 funções individualmente.
-        const bladeShine = ctx.createLinearGradient(0, -7, 0, 7);
+        // Rework de Renderização de Armas, Iteração 3 — faixa alargada de -7/7
+        // pra -22/22: com as cabeças de machado/martelo maiores desta
+        // iteração ultrapassando bastante os -7..7 originais, o gradiente
+        // "vazava" pro tom sólido de cada ponta (canvas estende a cor da
+        // última parada além do 0-1), dando um efeito bicolor duro em vez de
+        // um brilho metálico suave. Faixa maior cobre as peças grandes sem
+        // prejudicar as finas (que continuam amostrando perto do centro).
+        const bladeShine = ctx.createLinearGradient(0, -22, 0, 22);
         bladeShine.addColorStop(0, '#f2f5f7');
         bladeShine.addColorStop(0.35, '#c7ccd1');
         bladeShine.addColorStop(1, '#7d838a');
@@ -3894,46 +3901,68 @@ class GraphicsEngine {
 // Cada função recebe o contexto já posicionado/rotacionado na mão do
 // lutador (ver _drawWeapon acima) e desenha só a "lâmina"/cabeça da arma —
 // o cabo comum já foi desenhado antes de chamar o registry.
+// Rework de Renderização de Armas, Iteração 3 — feedback direto do usuário:
+// "as armas me parecem iguais... gostaria que todas tivessem tamanhos e
+// variações geométricas". A Iteração 2 corrigiu armas que caíam no
+// `default`, mas boa parte do resto ainda eram retângulos quase idênticos
+// (só o comprimento mudava alguns pixels — imperceptível na escala do
+// personagem). Esta iteração reconstrói CADA silhueta com uma geometria
+// própria (curva côncava, lâmina afunilada, cabeça esférica vs
+// retangular vs dupla, ondulação de kris etc — não só "esticar um
+// retângulo") e alarga deliberadamente as diferenças de tamanho DENTRO de
+// cada arquétipo, pra virarem reconhecíveis à distância, não só no
+// tooltip.
 const WEAPON_RENDERERS = {
-    w_02(ctx) { // Machado
+    w_02(ctx) { // Machado: crescente côncavo — arquétipo padrão de machado de uma mão
         ctx.beginPath();
-        ctx.moveTo(12, -4); ctx.lineTo(34, -17); ctx.lineTo(39, 0); ctx.lineTo(34, 17); ctx.lineTo(12, 4);
+        ctx.moveTo(12, -3);
+        ctx.quadraticCurveTo(22, -20, 38, -15);
+        ctx.lineTo(30, 0);
+        ctx.lineTo(38, 15);
+        ctx.quadraticCurveTo(22, 20, 12, 3);
         ctx.closePath(); ctx.fill();
     },
-    w_03(ctx) { // Adaga
+    w_03(ctx) { // Adaga: lâmina curta em forma de folha + guarda cruzada pequena — a mais curta do jogo
         ctx.beginPath();
-        ctx.moveTo(12, -3); ctx.lineTo(27, 0); ctx.lineTo(12, 3);
+        ctx.moveTo(13, -3); ctx.lineTo(24, -1.5); ctx.lineTo(29, 0); ctx.lineTo(24, 1.5); ctx.lineTo(13, 3);
         ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#5a5f66';
+        ctx.fillRect(10, -5, 3, 10);
     },
-    w_04(ctx) { // Martelo de Guerra
-        ctx.fillRect(12, -11, 27, 22);
-        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -11, 27, 22);
+    w_04(ctx) { // Martelo de Guerra: bloco chanfrado nos cantos — arquétipo padrão de martelo
+        ctx.beginPath();
+        ctx.moveTo(12, -11); ctx.lineTo(34, -11); ctx.lineTo(39, -4); ctx.lineTo(39, 4); ctx.lineTo(34, 11); ctx.lineTo(12, 11);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.stroke();
     },
-    w_05(ctx) { // Lança
+    w_05(ctx) { // Lança: haste reta + ponta triangular — arquétipo padrão de lança
         ctx.fillRect(12, -2, 52, 4);
         ctx.beginPath();
         ctx.moveTo(64, -6); ctx.lineTo(76, 0); ctx.lineTo(64, 6);
         ctx.closePath(); ctx.fill();
     },
-    w_06(ctx) { // Rapieira
-        ctx.fillRect(12, -1.5, 46, 3);
+    w_06(ctx) { // Rapieira: a lâmina mais longa e fina entre as espadas de uma mão, guarda em taça
+        ctx.fillRect(14, -1, 58, 2);
         ctx.strokeStyle = '#c7ccd1'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(10, 0, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(11, 0, 7, Math.PI * 0.15, Math.PI * 1.85); ctx.stroke();
     },
-    w_07(ctx) { // Espada Longa: lâmina mais comprida e larga que a curta
-        ctx.fillRect(12, -3.5, 54, 7);
+    w_07(ctx) { // Espada Longa: lâmina reta afunilada (larga na base, estreita na ponta) + guarda cruzada
+        ctx.beginPath();
+        ctx.moveTo(14, -5); ctx.lineTo(58, -2); ctx.lineTo(64, 0); ctx.lineTo(58, 2); ctx.lineTo(14, 5);
+        ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(10, -9, 4, 18);
+        ctx.fillRect(11, -9, 4, 18);
     },
-    w_08(ctx) { // Chicote: tira fina e ondulada saindo do cabo
-        ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 3;
+    w_08(ctx) { // Chicote: tira de couro fina e sinuosa (3 curvas), sem guarda nem rigidez
+        ctx.strokeStyle = '#4a3826'; ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.moveTo(12, 0);
-        ctx.quadraticCurveTo(30, -14, 46, 2);
-        ctx.quadraticCurveTo(58, 12, 50, 22);
+        ctx.quadraticCurveTo(28, -20, 46, -2);
+        ctx.quadraticCurveTo(62, 14, 52, 30);
+        ctx.quadraticCurveTo(46, 40, 56, 46);
         ctx.stroke();
     },
-    w_09(ctx) { // Arco Curto: arco recurvo com corda, empunhado verticalmente
+    w_09(ctx) { // Arco Curto: arco recurvo com corda, empunhado verticalmente — arquétipo padrão de arco
         ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(6, 0, 22, -Math.PI * 0.42, Math.PI * 0.42);
@@ -3943,7 +3972,7 @@ const WEAPON_RENDERERS = {
         ctx.moveTo(20, -18.5); ctx.lineTo(20, 18.5);
         ctx.stroke();
     },
-    w_10(ctx) { // Besta de Aço: estrutura (trilho) + arco curto horizontal
+    w_10(ctx) { // Besta de Aço: estrutura (trilho) + arco curto horizontal — única arma com essa silhueta mecânica
         ctx.fillRect(8, -2.5, 34, 5);
         ctx.strokeStyle = '#8891a0'; ctx.lineWidth = 3;
         ctx.beginPath();
@@ -3954,44 +3983,52 @@ const WEAPON_RENDERERS = {
         ctx.moveTo(24, -14); ctx.lineTo(24, 14);
         ctx.stroke();
     },
-    default(ctx) { // w_01 e qualquer arma futura não mapeada: espada genérica
-        ctx.fillRect(12, -3, 40, 6);
+    default(ctx) { // w_01 e qualquer arma futura não mapeada: espada curta reta e sem adornos
+        ctx.fillRect(12, -3, 34, 6);
         ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(10, -8, 4, 16);
+        ctx.fillRect(10, -7, 4, 14);
     },
     // Armas regionais (Cidades-Hub Regionais, ver items.js w_11-w_14) — antes
     // caíam todas no `default` (espada curta genérica) por falta de entrada
     // aqui, então Machado de Guerra Orc, Martelo Rúnico Anão, Lâmina Élfica e
     // Arco Élfico Longo apareciam visualmente como uma espada comum em
     // combate, apesar de já terem dano/alcance/velocidade completamente
-    // diferentes (ver items.js). Cada uma reaproveita a MESMA técnica de
-    // desenho do arquétipo genérico equivalente (w_02 Machado, w_04 Martelo,
-    // w_06 Rapieira, w_09 Arco Curto), só com proporção/detalhe próprio.
-    w_11(ctx) { // Machado de Guerra Orc: cabeça maior e mais brutal que w_02
+    // diferentes (ver items.js). Reworkadas na Iteração 3 com geometria
+    // própria (não só reescalar o arquétipo genérico).
+    w_11(ctx) { // Machado de Guerra Orc: cabeça maior e mais brutal, com espigão na nuca — mais agressivo que o Machado comum
         ctx.beginPath();
-        ctx.moveTo(12, -6); ctx.lineTo(40, -22); ctx.lineTo(47, 0); ctx.lineTo(40, 22); ctx.lineTo(12, 6);
+        ctx.moveTo(12, -5);
+        ctx.quadraticCurveTo(26, -26, 45, -19);
+        ctx.lineTo(36, 0);
+        ctx.lineTo(45, 19);
+        ctx.quadraticCurveTo(26, 26, 12, 5);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(14, -4); ctx.lineTo(6, -8); ctx.lineTo(12, -1);
         ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#3a5a1a'; // acento verde-oliva orc no cabo, ecoa RACES.orc.accent
         ctx.fillRect(10, -2, 4, 4);
     },
-    w_12(ctx) { // Martelo Rúnico Anão: cabeça de martelo + glifo rúnico gravado
-        ctx.fillRect(12, -12, 30, 24);
-        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -12, 30, 24);
+    w_12(ctx) { // Martelo Rúnico Anão: cabeça ESFÉRICA (maça), geometria diferente do Martelo de Guerra retangular
+        ctx.beginPath(); ctx.arc(24, 0, 13, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#8a3a1a'; ctx.lineWidth = 1.5; // cobre/ferrugem, RACES.anao.accent
         ctx.beginPath();
-        ctx.moveTo(20, -6); ctx.lineTo(27, 6); ctx.moveTo(27, -6); ctx.lineTo(20, 6);
+        ctx.moveTo(24, -9); ctx.lineTo(24, 9); ctx.moveTo(16, 0); ctx.lineTo(32, 0);
         ctx.stroke();
     },
-    w_13(ctx) { // Lâmina Élfica: lâmina fina e longa, mais elegante que a adaga/curta
-        ctx.fillRect(12, -2, 50, 4);
-        ctx.fillStyle = '#3a2f22';
-        ctx.fillRect(10, -6, 4, 12);
-        ctx.fillStyle = 'rgba(74,138,58,0.55)'; // brilho verde-floresta sutil, RACES.elfo.accent
+    w_13(ctx) { // Lâmina Élfica: lâmina CURVA (sabre), fina — geometria diferente das espadas retas humanas
         ctx.beginPath();
-        ctx.moveTo(58, -2); ctx.lineTo(66, 0); ctx.lineTo(58, 2);
+        ctx.moveTo(12, -2);
+        ctx.quadraticCurveTo(38, -10, 60, -1);
+        ctx.lineTo(58, 2);
+        ctx.quadraticCurveTo(36, -3, 12, 2.5);
         ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#3a2f22';
+        ctx.fillRect(10, -5, 3, 10);
+        ctx.fillStyle = 'rgba(74,138,58,0.55)'; // brilho verde-floresta sutil, RACES.elfo.accent
+        ctx.beginPath(); ctx.arc(59, 0.5, 3, 0, Math.PI * 2); ctx.fill();
     },
-    w_14(ctx) { // Arco Élfico Longo: arco mais alto e esguio que o Arco Curto (w_09)
+    w_14(ctx) { // Arco Élfico Longo: arco mais alto e esguio que o Arco Curto (w_09) — o mais alto do jogo
         ctx.strokeStyle = '#4a8a3a'; ctx.lineWidth = 3; // verde floresta vívido, RACES.elfo.accent
         ctx.beginPath();
         ctx.arc(6, 0, 34, -Math.PI * 0.46, Math.PI * 0.46);
@@ -4004,12 +4041,9 @@ const WEAPON_RENDERERS = {
 
     // Bug de auditoria (Mega Atualização item 1, achado durante a auditoria
     // de arsenal): w_15/w_16 (Arco do Olho Partido, Machado de Guerra de
-    // Kharzum — ambos de trabalho anterior desta sessão) nunca tiveram
-    // entrada própria aqui, então caíam no `default` (espada genérica) em
-    // combate — um ARCO aparecia com silhueta de espada. Corrigido junto
-    // com as entradas novas desta iteração, reaproveitando a mesma técnica
-    // do arquétipo equivalente (w_09 Arco Curto / w_02 Machado), igual o
-    // padrão já usado por w_11-w_14 acima.
+    // Kharzum) nunca tiveram entrada própria aqui, então caíam no `default`
+    // (espada genérica) em combate. Reworkadas na Iteração 3 com geometria
+    // própria.
     w_15(ctx) { // Arco do Olho Partido: arco recurvo com uma rachadura visível na haste
         ctx.strokeStyle = '#6a5a4a'; ctx.lineWidth = 3;
         ctx.beginPath();
@@ -4023,91 +4057,96 @@ const WEAPON_RENDERERS = {
         ctx.beginPath();
         ctx.arc(6, -10, 2, 0, Math.PI * 2); ctx.fill();
     },
-    w_16(ctx) { // Machado de Guerra de Kharzum: cabeça dupla, maior que qualquer outro machado do jogo
+    w_16(ctx) { // Machado de Guerra de Kharzum: cabeça DUPLA (labrys), simétrica acima E abaixo do cabo — a maior cabeça de machado do jogo, duas mãos
         ctx.beginPath();
-        ctx.moveTo(12, -8); ctx.lineTo(38, -26); ctx.lineTo(46, 0); ctx.lineTo(38, 26); ctx.lineTo(12, 8);
+        ctx.moveTo(12, 0);
+        ctx.quadraticCurveTo(24, -30, 44, -22); ctx.lineTo(34, -3);
+        ctx.lineTo(34, 3); ctx.lineTo(44, 22); ctx.quadraticCurveTo(24, 30, 12, 0);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = '#8a3a1a'; ctx.lineWidth = 1.5; // cobre/ferrugem anão, ecoa w_12
-        ctx.beginPath();
-        ctx.moveTo(20, -14); ctx.lineTo(20, 14);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(20, -16); ctx.lineTo(20, 16); ctx.stroke();
     },
 
-    // --- Mega Atualização item 1/2/19: Lanças novas (ver items.js w_17-
-    // w_21) — a MESMA técnica-base de w_05 (haste retangular + ponta
-    // triangular), variando comprimento/espessura/detalhe pra refletir a
-    // identidade mecânica real de cada uma (alcance/velocidade/perfuração
-    // já diferentes em items.js, ver comentário lá).
-    w_17(ctx) { // Lança de Caça: haste curta e fina — a mais leve de todas as lanças
-        ctx.fillRect(12, -1.5, 38, 3);
+    // --- Mega Atualização item 1/2/19: Lanças (ver items.js w_17-w_21) —
+    // Iteração 3 amplia os deltas de comprimento entre elas (antes a
+    // diferença era só alguns pixels de haste, quase imperceptível na
+    // escala do personagem) pra ficarem claramente ordenáveis por alcance
+    // visual: Caça < Lança < Caça-Trolls < Ventos Élfica < Falange.
+    w_17(ctx) { // Lança de Caça: a mais curta e fina entre todas as lanças
+        ctx.fillRect(12, -1, 26, 2);
         ctx.beginPath();
-        ctx.moveTo(50, -4); ctx.lineTo(58, 0); ctx.lineTo(50, 4);
+        ctx.moveTo(38, -3); ctx.lineTo(45, 0); ctx.lineTo(38, 3);
         ctx.closePath(); ctx.fill();
     },
-    w_18(ctx) { // Pique de Falange: a haste mais longa do jogo, ponta estreita de perfuração
-        ctx.fillRect(12, -2.5, 66, 5);
+    w_18(ctx) { // Pique de Falange: a haste mais longa de todo o jogo, ponta estreita de perfuração
+        ctx.fillRect(12, -2, 82, 4);
         ctx.beginPath();
-        ctx.moveTo(78, -5); ctx.lineTo(90, 0); ctx.lineTo(78, 5);
+        ctx.moveTo(94, -4); ctx.lineTo(104, 0); ctx.lineTo(94, 4);
         ctx.closePath(); ctx.fill();
     },
-    w_19(ctx) { // Tridente das Marés: três pontas em vez de uma
-        ctx.fillRect(12, -2, 50, 4);
-        ctx.beginPath();
-        ctx.moveTo(62, -9); ctx.lineTo(70, -9); ctx.lineTo(66, 0); ctx.lineTo(70, 9); ctx.lineTo(62, 9); ctx.lineTo(66, 0);
-        ctx.closePath(); ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(62, -2); ctx.lineTo(74, 0); ctx.lineTo(62, 2);
-        ctx.closePath(); ctx.fill();
+    w_19(ctx) { // Tridente das Marés: três pontas CURVAS em vez de uma só
+        ctx.fillRect(12, -2, 48, 4);
+        [-11, 0, 11].forEach(yOff => {
+            ctx.beginPath();
+            ctx.moveTo(60, yOff - 3); ctx.quadraticCurveTo(72, yOff, 60, yOff + 3);
+            ctx.closePath(); ctx.fill();
+        });
     },
-    w_20(ctx) { // Lança Caça-Trolls: haste grossa, cabeça larga de perfuração (Orc, mais bruta que a élfica)
-        ctx.fillRect(12, -3, 50, 6);
+    w_20(ctx) { // Lança Caça-Trolls: haste grossa, cabeça larga — a mais robusta entre as lanças (Orc)
+        ctx.fillRect(12, -4, 50, 8);
         ctx.beginPath();
-        ctx.moveTo(62, -9); ctx.lineTo(76, 0); ctx.lineTo(62, 9);
+        ctx.moveTo(62, -12); ctx.lineTo(78, 0); ctx.lineTo(62, 12);
         ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#3a5a1a'; // oliva orc, ecoa w_11
-        ctx.fillRect(10, -3, 4, 6);
+        ctx.fillRect(10, -4, 4, 8);
     },
-    w_21(ctx) { // Lança dos Ventos Élfica: haste fina, ponta longa e esguia — a de maior alcance do jogo
-        ctx.fillRect(12, -1.5, 58, 3);
+    w_21(ctx) { // Lança dos Ventos Élfica: haste fina e longa, ponta esguia — a de maior alcance entre as lanças de uma mão
+        ctx.fillRect(12, -1, 62, 2);
         ctx.beginPath();
-        ctx.moveTo(70, -5); ctx.lineTo(82, 0); ctx.lineTo(70, 5);
+        ctx.moveTo(74, -5); ctx.lineTo(88, 0); ctx.lineTo(74, 5);
         ctx.closePath(); ctx.fill();
         ctx.fillStyle = 'rgba(74,138,58,0.55)'; // verde-floresta élfico, ecoa w_13/w_14
         ctx.beginPath();
-        ctx.arc(66, 0, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.arc(70, 0, 3, 0, Math.PI * 2); ctx.fill();
     },
 
-    // Rework de Renderização de Armas, Iteração 2 — auditoria encontrou w_22-
-    // w_27 (armas exclusivas da Arena + Corrente Espinhada/Machado Ósseo de
-    // fortaleza_orc) sem entrada própria aqui: todas caíam no `default`
-    // (espada curta genérica), o pior caso sendo w_24 (Arco da Lua Cheia, uma
-    // arma RANGED) renderizando como espada de perto em vez de arco. Cada
-    // entrada segue o mesmo padrão das demais: reaproveita a técnica-base do
-    // arquétipo equivalente, com silhueta/acento próprios pra ficar
-    // reconhecível e distinta das outras armas do mesmo tipo.
-    w_22(ctx) { // Machado de Grokmar: lâmina curva única, borda dourada (exclusiva da Arena)
+    // Rework de Renderização de Armas, Iteração 2/3 — auditoria encontrou
+    // w_22-w_27 (armas exclusivas da Arena + Corrente Espinhada/Machado
+    // Ósseo de fortaleza_orc) sem entrada própria aqui: todas caíam no
+    // `default` (espada curta genérica), o pior caso sendo w_24 (Arco da
+    // Lua Cheia, uma arma RANGED) renderizando como espada de perto em vez
+    // de arco. A Iteração 3 aprofunda a geometria própria de cada uma
+    // (flare de ponta no arco, elos visíveis na corrente, cabeça de
+    // martelo em duas faces) em vez de só variar palette/comprimento.
+    w_22(ctx) { // Machado de Grokmar: lâmina curva única e alongada, borda dourada (exclusiva da Arena)
         ctx.beginPath();
-        ctx.moveTo(12, -2); ctx.quadraticCurveTo(30, -24, 42, -6); ctx.lineTo(36, 0); ctx.quadraticCurveTo(30, 14, 12, 4);
+        ctx.moveTo(12, -2); ctx.quadraticCurveTo(32, -28, 46, -6); ctx.lineTo(38, 0); ctx.quadraticCurveTo(32, 16, 12, 5);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1.5; // dourado, acento comum às armas exclusivas da Arena
         ctx.beginPath();
-        ctx.moveTo(16, -4); ctx.quadraticCurveTo(30, -20, 40, -7);
+        ctx.moveTo(16, -4); ctx.quadraticCurveTo(32, -24, 44, -7);
         ctx.stroke();
     },
-    w_23(ctx) { // Adaga de Nyxara: lâmina dupla serrilhada, acento roxo sombrio
+    w_23(ctx) { // Adaga de Nyxara: lâmina ondulada (kris), curta — geometria serpenteante, distinta da adaga comum (w_03)
         ctx.beginPath();
-        ctx.moveTo(12, -2.5); ctx.lineTo(24, -7); ctx.lineTo(30, 0); ctx.lineTo(24, 7); ctx.lineTo(12, 2.5);
+        ctx.moveTo(12, -2);
+        ctx.quadraticCurveTo(18, -8, 22, -2);
+        ctx.quadraticCurveTo(26, 4, 30, -1);
+        ctx.lineTo(30, 1);
+        ctx.quadraticCurveTo(26, 6, 22, 1);
+        ctx.quadraticCurveTo(18, -6, 12, 2);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = 'rgba(120,40,160,0.7)'; ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(14, -3); ctx.lineTo(26, 0); ctx.moveTo(14, 3); ctx.lineTo(26, 0);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(28, 0); ctx.stroke();
     },
-    w_24(ctx) { // Arco da Lua Cheia: RANGED — arco recurvo prateado com disco lunar no grip
+    w_24(ctx) { // Arco da Lua Cheia: RANGED — arco recurvo com pontas em flare de meia-lua, disco lunar no grip
         ctx.strokeStyle = '#c9d6e8'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(6, 0, 26, -Math.PI * 0.44, Math.PI * 0.44);
         ctx.stroke();
+        ctx.strokeStyle = '#c9d6e8'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(24, -21, 5, Math.PI * 0.9, Math.PI * 1.9); ctx.stroke(); // flare da ponta superior
+        ctx.beginPath(); ctx.arc(24, 21, 5, Math.PI * 0.1, Math.PI * 1.1); ctx.stroke(); // flare da ponta inferior
         ctx.strokeStyle = '#f0f4ff'; ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(24, -22); ctx.lineTo(24, 22);
@@ -4115,32 +4154,39 @@ const WEAPON_RENDERERS = {
         ctx.fillStyle = 'rgba(230,235,255,0.55)'; // disco lunar sutil no ponto de empunhadura
         ctx.beginPath(); ctx.arc(6, 0, 4, 0, Math.PI * 2); ctx.fill();
     },
-    w_25(ctx) { // Martelo da Forja Eterna: cabeça maciça de duas mãos, brasa viva na base
-        ctx.fillRect(12, -14, 34, 28);
-        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1; ctx.strokeRect(12, -14, 34, 28);
-        ctx.fillStyle = 'rgba(255,120,30,0.6)'; // brasa da forja eterna, distingue do martelo anão (w_12)
-        ctx.fillRect(12, -14, 4, 28);
+    w_25(ctx) { // Martelo da Forja Eterna: cabeça de DUAS FACES (marreta), a maior de todos os martelos — duas mãos
+        ctx.fillRect(12, -6, 12, 12); // pescoço
+        ctx.fillRect(22, -17, 10, 34); // face traseira
+        ctx.fillRect(40, -17, 10, 34); // face dianteira
+        ctx.strokeStyle = '#5a5f66'; ctx.lineWidth = 1;
+        ctx.strokeRect(22, -17, 10, 34); ctx.strokeRect(40, -17, 10, 34);
+        ctx.fillStyle = 'rgba(255,120,30,0.6)'; // brasa da forja eterna entre as duas faces, distingue do martelo anão (w_12)
+        ctx.fillRect(31, -17, 8, 34);
     },
-    w_26(ctx) { // Corrente Espinhada: corrente ondulada com espinhos salientes (fortaleza_orc)
+    w_26(ctx) { // Corrente Espinhada: elos VISÍVEIS de corrente (não uma tira lisa como o chicote) com espinhos salientes (fortaleza_orc)
         ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(12, 0);
-        ctx.quadraticCurveTo(26, -16, 40, 0);
-        ctx.quadraticCurveTo(54, 16, 44, 26);
+        ctx.quadraticCurveTo(26, -18, 42, 0);
+        ctx.quadraticCurveTo(58, 18, 46, 30);
         ctx.stroke();
+        ctx.fillStyle = '#2a2a2a';
+        [[18, -6], [30, -13], [42, 0], [52, 14], [46, 26]].forEach(([x, y]) => {
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        });
         ctx.fillStyle = '#3a5a1a'; // oliva orc, ecoa w_11/w_20
-        [[26, -11], [40, 4], [50, 20]].forEach(([x, y]) => {
+        [[26, -14], [42, 4], [52, 20]].forEach(([x, y]) => {
             ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 3); ctx.closePath(); ctx.fill();
         });
     },
-    w_27(ctx) { // Machado Ósseo Ancestral: cabeça de osso talhado, silhueta maior — duas mãos (fortaleza_orc)
+    w_27(ctx) { // Machado Ósseo Ancestral: cabeça de osso talhado, irregular e denteada — a maior cabeça de machado de uma lâmina só, duas mãos (fortaleza_orc)
         ctx.fillStyle = '#e8dfc8'; // osso pálido, distinto do metal das outras cabeças de machado
         ctx.beginPath();
-        ctx.moveTo(12, -6); ctx.lineTo(36, -24); ctx.lineTo(44, 0); ctx.lineTo(36, 24); ctx.lineTo(12, 6);
+        ctx.moveTo(12, -6); ctx.lineTo(30, -28); ctx.lineTo(38, -18); ctx.lineTo(48, -2); ctx.lineTo(38, 18); ctx.lineTo(30, 28); ctx.lineTo(12, 6);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = '#a89572'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(20, -13); ctx.lineTo(20, 13);
+        ctx.moveTo(22, -15); ctx.lineTo(22, 15);
         ctx.stroke();
     }
 };
