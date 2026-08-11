@@ -2874,6 +2874,67 @@ class CityEngine {
         }
     }
 
+    // Hash determinístico texto→float [0,1) — NUNCA usa Math.random() aqui
+    // (a trilha desenhar diferente a cada frame/visita quebraria a ilusão
+    // de um caminho que já existe há anos, batido pelo uso). Mesma técnica
+    // clássica "seed textual → inteiro → pseudo-aleatório estável via
+    // seno" usada em geração procedural — dado o MESMO texto, sempre o
+    // mesmo resultado, então a curva de uma trilha nunca "pisca" entre
+    // desenhos consecutivos do mesmo frame nem entre visitas à cidade.
+    _pathSeed(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0;
+        const x = Math.sin(hash) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    // Gera waypoints intermediários entre `from` e `to`, cada um deslocado
+    // perpendicularmente à linha reta por uma quantidade pseudo-aleatória
+    // (mas ESTÁVEL, ver _pathSeed) — sem isso, toda trilha seria uma curva
+    // única e simétrica (parece estrada de mapa, não caminho de terra
+    // batida por gente andando). `wiggleAmount` já vem em pixels de TELA
+    // (multiplicado por escala fora daqui).
+    _naturalPathPoints(from, to, seed, wiggleAmount) {
+        const dx = to.x - from.x, dy = to.y - from.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const nx = -dy / dist, ny = dx / dist; // perpendicular unitário
+        const STEPS = 3;
+        const pts = [from];
+        for (let i = 1; i <= STEPS; i++) {
+            const t = i / (STEPS + 1);
+            const baseX = from.x + dx * t, baseY = from.y + dy * t;
+            // Amplitude MENOR perto das pontas (0 exatamente na entrada/
+            // porta) e maior no meio — senão a trilha "arranca" torta bem
+            // na porta do prédio, o que pareceria um bug de alinhamento,
+            // não uma curva natural.
+            const taper = Math.sin(t * Math.PI);
+            const wig = (this._pathSeed(`${seed}_${i}`) * 2 - 1) * wiggleAmount * taper;
+            pts.push({ x: baseX + nx * wig, y: baseY + ny * wig });
+        }
+        pts.push(to);
+        return pts;
+    }
+
+    // Desenha uma curva suave passando por TODOS os pontos de `pts`
+    // (Catmull-Rom simplificado: uma quadraticCurveTo por par de pontos,
+    // sempre mirando no PONTO MÉDIO entre eles em vez do próprio ponto —
+    // técnica clássica e barata pra suavizar uma polilinha sem precisar de
+    // splines de verdade). `ctx.beginPath()`/`moveTo` inicial ficam por
+    // conta de quem chama, pra permitir agrupar vários caminhos no mesmo
+    // path (ver _drawPaths).
+    _traceSmoothPath(ctx, pts) {
+        if (pts.length < 2) return;
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length === 2) { ctx.lineTo(pts[1].x, pts[1].y); return; }
+        for (let i = 1; i < pts.length - 1; i++) {
+            const midX = (pts[i].x + pts[i + 1].x) / 2;
+            const midY = (pts[i].y + pts[i + 1].y) / 2;
+            ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+        }
+        const last = pts[pts.length - 1], prev = pts[pts.length - 2];
+        ctx.quadraticCurveTo(prev.x, prev.y, last.x, last.y);
+    }
+
     // Rede de trilhas ligando entrada → cada prédio → portão (achado #2 da
     // auditoria: nenhuma trilha existia, o chão era só uma cor sólida).
     // Usa OS MESMOS pontos que a navegação de verdade usa (`_doorPoint`,
@@ -2883,7 +2944,16 @@ class CityEngine {
     // segmento (base larga "batida" + brilho fino por cima), sem nenhuma
     // colisão nova — a caixa de colisão de cada prédio continua sendo só
     // `_buildingRect`/`_obstacleRectsForCollision`, como sempre.
+    //
+    // Correção de feedback (as trilhas pareciam "linhas retas" — uma única
+    // curva quadrática com 1 ponto de controle mal disfarça uma reta em
+    // distâncias curtas): agora cada trilha ganha 3 waypoints
+    // intermediários com um desvio perpendicular pseudo-aleatório mas
+    // ESTÁVEL (ver _pathSeed/_naturalPathPoints), traçados como uma curva
+    // suave (_traceSmoothPath) — o resultado sinuoso lembra uma estrada de
+    // terra batida por uso repetido, não uma linha de régua.
     _drawPaths(ctx, w, h, horizon) {
+        const cityId = (window.getCurrentCityId ? window.getCurrentCityId() : 'default');
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const colors = (cityDef && cityDef.pathColors) || ['rgba(150,136,108,0.4)', 'rgba(210,196,164,0.2)'];
         const scale = this._cityScale(h);
@@ -2892,27 +2962,45 @@ class CityEngine {
         // ver onEnterCity — então recalculamos com Engine.width, não com o
         // `w` deste método, pra bater exatamente com onde o jogador nasce).
         const canvasW = window.Engine ? window.Engine.width : w;
-        const entrance = { x: canvasW * 0.5, y: this._plazaBottom(h) };
         const gate = { x: w * CityEngine.GATE_XFRAC, y: horizon + 45 };
         const fountainPt = { x: this.fountain.xFrac * w, y: horizon + this.fountain.rowOffset * scale };
 
         const segments = [
-            // Espinha principal: entrada → portão, curvando perto da fonte
-            // (o "coração" físico de qualquer praça grega/anã/etc.).
-            { from: entrance, ctrl: { x: fountainPt.x, y: fountainPt.y + 40 * scale }, to: gate, width: 30 },
+            // Espinha principal: entrada → portão, passando perto da fonte
+            // (o "coração" físico de qualquer praça grega/anã/etc.) — pra
+            // dar sinuosidade real, o waypoint central usa a fonte como
+            // ÂNCORA em vez de deixar o desvio pseudo-aleatório sozinho.
+            (() => {
+                const entrance = { x: canvasW * 0.5, y: this._plazaBottom(h) };
+                const pts = this._naturalPathPoints(entrance, gate, `${cityId}_spine`, 22 * scale);
+                // Puxa o waypoint do meio (índice 2 de 5: entrada + 3
+                // intermediários + portão) em direção à fonte, sem
+                // substituir o desvio orgânico por completo.
+                const mid = pts[2];
+                mid.x = mid.x * 0.5 + fountainPt.x * 0.5;
+                mid.y = mid.y * 0.5 + (fountainPt.y + 40 * scale) * 0.5;
+                return { points: pts, width: 30 };
+            })(),
             // Um ramo da entrada até a porta de cada prédio (aproximação —
             // sempre um pouco à FRENTE da porta, nunca dentro do prédio).
+            // Cada prédio nasce a partir de um ponto ligeiramente diferente
+            // perto da entrada (não literalmente o mesmo pixel pra TODOS)
+            // — evita o efeito "teia de aranha" de linhas convergindo
+            // exatamente no mesmo ponto, mais parecido com ruas que se
+            // espalham por uma pequena praça de chegada.
             ...this.buildings.map(b => {
                 const door = this._doorPoint(b);
                 const approach = { x: door.x, y: door.y + 16 * scale };
-                const ctrl = { x: (entrance.x + approach.x) / 2, y: (entrance.y + approach.y) / 2 + 12 * scale };
-                return { from: entrance, ctrl, to: approach, width: 18 };
+                const spread = (this._pathSeed(`${cityId}_${b.id}_spread`) * 2 - 1) * 40 * scale;
+                const start = { x: canvasW * 0.5 + spread, y: this._plazaBottom(h) };
+                const pts = this._naturalPathPoints(start, approach, `${cityId}_${b.id}`, 16 * scale);
+                return { points: pts, width: 18 };
             }),
         ];
 
         // Agrupa por largura (espinha=30, ramos=18 — sempre só 2 grupos)
         // antes de traçar: um único path por grupo/passe, em vez de um
-        // stroke() por segmento (era 20 chamadas de stroke() por frame —
+        // stroke() por segmento (eram 20 chamadas de stroke() por frame —
         // 2 passes × 10 segmentos — sem nenhum ganho visual, só custo).
         const byWidth = new Map();
         segments.forEach(s => {
@@ -2924,10 +3012,7 @@ class CityEngine {
             byWidth.forEach((group, baseWidth) => {
                 ctx.lineWidth = Math.max(2, baseWidth * widthMul) * scale;
                 ctx.beginPath();
-                group.forEach(s => {
-                    ctx.moveTo(s.from.x, s.from.y);
-                    ctx.quadraticCurveTo(s.ctrl.x, s.ctrl.y, s.to.x, s.to.y);
-                });
+                group.forEach(s => this._traceSmoothPath(ctx, s.points));
                 ctx.stroke();
             });
         };
