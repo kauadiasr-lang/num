@@ -235,6 +235,12 @@ class UIManager {
         document.getElementById('btn-hub-mutations').addEventListener('click', () => this.openMutations());
         document.getElementById('btn-close-mutations').addEventListener('click', () => this.showScreen('screen-hub'));
 
+        // Modo Debug/Criativo (ver js/debugmode.js) — botão só fica
+        // visível pro personagem "MarlenioDeTeste" (toggle em
+        // updateHubStats), nunca aparece pra um jogador normal.
+        document.getElementById('btn-hub-debug').addEventListener('click', () => this.openDebugPanel());
+        document.getElementById('btn-close-debug').addEventListener('click', () => this.showScreen('screen-hub'));
+
         // --- Guia do Jogo — referência estática, sem depender de save/personagem,
         //     acessível tanto do Hub quanto do Menu Principal (ver mainmenu.js) ---
         document.getElementById('btn-hub-guide').addEventListener('click', () => window.GuideSystem.open('hub'));
@@ -895,6 +901,16 @@ class UIManager {
         const name = document.getElementById('char-name').value.trim();
         window.Engine.state.player = new Player(name);
 
+        // Modo Debug/Criativo (ver js/debugmode.js) — ativado só quando o
+        // nome é EXATAMENTE "MarlenioDeTeste". Roda ANTES do resto do
+        // fluxo normal de criação (que continua intocado logo abaixo:
+        // raça/visual/cidade natal/arma inicial/save) — só liga a flag
+        // `isDebugMode` e dá o primeiro estoque de ouro, nunca substitui
+        // nenhum passo da criação normal.
+        if (window.DebugMode && window.DebugMode.isDebugName(name)) {
+            window.DebugMode.setup(window.Engine.state.player);
+        }
+
         // Passa os atributos, raça e visual customizados
         window.Engine.state.player.baseStats = { ...this.creationData.stats };
         window.Engine.state.player.race = this.creationData.race || 'humano';
@@ -924,6 +940,17 @@ class UIManager {
     // --- HUB DA CIDADE ---
     updateHubStats() {
         const p = window.Engine.state.player;
+        // Modo Debug/Criativo (ver js/debugmode.js) — "ouro infinito" sem
+        // interceptar toda compra do jogo: sempre que o Hub atualiza (todo
+        // retorno de loja/forja/batalha/etc), o ouro volta pro teto se
+        // caiu abaixo dele. Nunca roda pra um jogador normal (isDebugMode
+        // só existe no personagem "MarlenioDeTeste"). O badge "🧪 MODO
+        // CRIATIVO" (ver index.html hud-top) só aparece no mesmo caso.
+        window.DebugMode && window.DebugMode.ensureInfiniteGold(p);
+        const debugBadge = document.getElementById('hud-debug-badge');
+        if (debugBadge) debugBadge.classList.toggle('hidden', !p.isDebugMode);
+        const debugBtn = document.getElementById('btn-hub-debug');
+        if (debugBtn) debugBtn.classList.toggle('hidden', !p.isDebugMode);
         document.getElementById('hub-player-name').innerText = p.name;
         document.getElementById('hub-player-level').innerText = p.level;
         document.getElementById('hub-player-gold').innerText = p.gold;
@@ -948,6 +975,263 @@ class UIManager {
         if (window.getCurrentCityDef) {
             document.getElementById('hub-city-name').innerText = window.getCurrentCityDef().name;
         }
+    }
+
+    // --- MODO DEBUG/CRIATIVO (ver js/debugmode.js) ---
+    // Só alcançável pelo personagem "MarlenioDeTeste" (botão do Hub fica
+    // oculto pra qualquer outro, ver updateHubStats). Re-renderiza a tela
+    // inteira a cada ação (mesmo padrão de refresh já usado por
+    // openForge/openElfCrafting/etc), sempre lendo o estado ATUAL do
+    // player, nunca cacheando nada entre aberturas.
+    openDebugPanel() {
+        const p = window.Engine.state.player;
+        const container = document.getElementById('debug-container');
+        if (!p || !container) return;
+
+        const section = (title, bodyHtml) => `
+            <div class="guide-block">
+                <h4>${title}</h4>
+                ${bodyHtml}
+            </div>
+        `;
+
+        // --- Atributos ---
+        const statKeys = ['str', 'agi', 'int', 'def', 'acc', 'luk', 'cha'];
+        const statInputs = statKeys.map(k =>
+            `<label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">${k.toUpperCase()}
+                <input type="number" id="debug-stat-${k}" value="${p.baseStats[k]}" style="width:60px;">
+            </label>`
+        ).join('');
+        const attrsHtml = `
+            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px;">${statInputs}</div>
+            <button class="btn btn-small" id="debug-apply-stats">Aplicar Atributos</button>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 10px;">
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Nível
+                    <input type="number" id="debug-level" value="${p.level}" style="width:70px;"></label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">EXP
+                    <input type="number" id="debug-exp" value="${p.exp}" style="width:70px;"></label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Pontos de Atributo
+                    <input type="number" id="debug-statpoints" value="${p.statPoints}" style="width:70px;"></label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Pontos de Habilidade
+                    <input type="number" id="debug-skillpoints" value="${p.skillPoints}" style="width:70px;"></label>
+            </div>
+            <button class="btn btn-small" id="debug-apply-progression">Aplicar Nível/EXP/Pontos</button>
+        `;
+
+        // --- Linhagens ---
+        const lineages = window.LineageSystem ? window.LineageSystem.getAvailable() : [];
+        const lineageBtns = lineages.map(l =>
+            `<button class="btn btn-small debug-set-lineage" data-lineage="${l.id}" ${p.lineage === l.id ? 'disabled' : ''}>${l.icon} ${l.name}${p.lineage === l.id ? ' (ativa)' : ''}</button>`
+        ).join(' ');
+        const lineageHtml = `
+            <p style="font-size:0.8rem; color:#aaa;">Linhagem atual: <strong>${p.lineage ? (window.LineageSystem.get(p.lineage) || {}).name : 'Nenhuma'}</strong></p>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">${lineageBtns}</div>
+            <button class="btn btn-small" id="debug-clear-lineage">Remover Linhagem</button>
+            <hr style="border-color:rgba(255,255,255,0.1); margin:12px 0;">
+            <p style="font-size:0.8rem; color:#aaa;">Linhagem secundária (Natureza): <strong>${p.secondaryLineage ? 'Ativa' : 'Nenhuma'}</strong></p>
+            <button class="btn btn-small" id="debug-set-nature">Ativar Natureza</button>
+            <button class="btn btn-small" id="debug-clear-nature">Remover Natureza</button>
+        `;
+
+        // --- Árvores de Habilidade ---
+        const treeIds = window.SKILL_TREES ? Object.keys(window.SKILL_TREES) : [];
+        const treeBtns = treeIds.map(id =>
+            `<button class="btn btn-small debug-unlock-tree" data-tree="${id}">Desbloquear tudo: ${id}</button>`
+        ).join(' ');
+        const treesHtml = `<div style="display:flex; flex-wrap:wrap; gap:8px;">${treeBtns}</div>
+            <p style="font-size:0.75rem; color:#888; margin-top:6px;">Exige a linhagem correspondente ativa (principal ou secundária) — ative acima primeiro se precisar.</p>`;
+
+        // --- Itens ---
+        const equipCategories = ['weapons', 'armors', 'shields', 'trinkets'];
+        const itemsHtml = `
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Tipo
+                    <select id="debug-item-kind">
+                        <option value="equipment">Equipamento</option>
+                        <option value="consumable">Consumível</option>
+                        <option value="material">Material</option>
+                        <option value="essence">Essência</option>
+                        <option value="rune">Runa</option>
+                    </select>
+                </label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;" id="debug-item-category-wrap">Categoria
+                    <select id="debug-item-category">${equipCategories.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+                </label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Item
+                    <select id="debug-item-template"></select>
+                </label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;" id="debug-item-rarity-wrap">Raridade
+                    <select id="debug-item-rarity">${RARITY_ORDER.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}</select>
+                </label>
+                <button class="btn btn-small" id="debug-add-item">Adicionar</button>
+            </div>
+            <button class="btn btn-small" id="debug-clear-inventory" style="margin-top:10px; background:#7a2a2a;">Limpar Mochila (${p.inventory.length} itens)</button>
+        `;
+
+        // --- Aparência/Raça ---
+        const raceOptions = window.RACES ? Object.keys(window.RACES).map(id => `<option value="${id}" ${p.race === id ? 'selected' : ''}>${window.RACES[id].name}</option>`).join('') : '';
+        const visuals = p.visuals || {};
+        const appearanceHtml = `
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Raça
+                    <select id="debug-race">${raceOptions}</select>
+                </label>
+                <button class="btn btn-small" id="debug-apply-race">Aplicar Raça</button>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:10px;">
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Pele
+                    <input type="color" id="debug-visual-skin" value="${visuals.skinTone || '#ffcc99'}"></label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Olhos
+                    <input type="color" id="debug-visual-eye" value="${visuals.eyeColor || '#1a1a1a'}"></label>
+                <label style="display:flex; flex-direction:column; font-size:0.7rem; color:#aaa;">Cabelo
+                    <input type="color" id="debug-visual-hair" value="${visuals.hairColor || '#2a1a0a'}"></label>
+                <button class="btn btn-small" id="debug-apply-visuals">Aplicar Aparência</button>
+            </div>
+        `;
+
+        // --- Progressão de Mundo (reputação/missões/bosses) ---
+        const activeQuestCount = Object.keys(p.activeQuests || {}).length;
+        const worldHtml = `
+            <button class="btn btn-small" id="debug-max-rep">Maximizar Reputação</button>
+            <button class="btn btn-small" id="debug-min-rep">Minimizar Reputação</button>
+            <button class="btn btn-small" id="debug-complete-quests">Completar Missões Ativas (${activeQuestCount})</button>
+            <br><br>
+            <button class="btn btn-small" id="debug-fight-vampire">⚔️ Lutar: Conde Vampiro</button>
+            <button class="btn btn-small" id="debug-fight-angel">⚔️ Lutar: Anjo Guardião</button>
+        `;
+
+        container.innerHTML =
+            section('💰 Ouro', `<p style="font-size:0.8rem; color:#aaa;">Ouro atual: <strong>${p.gold}</strong> (mantido no teto automaticamente — nunca precisa de botão de recarregar).</p>`) +
+            section('💪 Atributos e Progressão', attrsHtml) +
+            section('🩸 Linhagens', lineageHtml) +
+            section('🌳 Árvores de Habilidade', treesHtml) +
+            section('🎒 Itens', itemsHtml) +
+            section('🧑 Aparência/Raça', appearanceHtml) +
+            section('🌍 Progressão de Mundo', worldHtml);
+
+        // --- Wiring ---
+        document.getElementById('debug-apply-stats').onclick = () => {
+            const patch = {};
+            statKeys.forEach(k => { patch[k] = Number(document.getElementById(`debug-stat-${k}`).value) || 0; });
+            window.DebugMode.setBaseStats(p, patch);
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-apply-progression').onclick = () => {
+            window.DebugMode.setLevel(p, Number(document.getElementById('debug-level').value));
+            window.DebugMode.setProgression(p, {
+                exp: Number(document.getElementById('debug-exp').value),
+                statPoints: Number(document.getElementById('debug-statpoints').value),
+                skillPoints: Number(document.getElementById('debug-skillpoints').value),
+            });
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        container.querySelectorAll('.debug-set-lineage').forEach(btn => {
+            btn.onclick = () => {
+                window.DebugMode.setLineage(p, btn.dataset.lineage);
+                window.SaveManager.save(window.Engine.state);
+                this.openDebugPanel();
+            };
+        });
+        document.getElementById('debug-clear-lineage').onclick = () => {
+            window.DebugMode.clearLineage(p);
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-set-nature').onclick = () => {
+            window.DebugMode.setSecondaryLineage(p, 'natureza');
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-clear-nature').onclick = () => {
+            window.DebugMode.clearSecondaryLineage(p);
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        container.querySelectorAll('.debug-unlock-tree').forEach(btn => {
+            btn.onclick = () => {
+                const count = window.DebugMode.unlockAllNodes(p, btn.dataset.tree);
+                window.SaveManager.save(window.Engine.state);
+                if (window.MainMenu) window.MainMenu.showToast(`${count} nós desbloqueados em ${btn.dataset.tree}.`, count > 0 ? 'success' : 'info');
+                this.openDebugPanel();
+            };
+        });
+
+        // Itens: repopula o select de template sempre que tipo/categoria mudam.
+        const kindSelect = document.getElementById('debug-item-kind');
+        const categorySelect = document.getElementById('debug-item-category');
+        const categoryWrap = document.getElementById('debug-item-category-wrap');
+        const rarityWrap = document.getElementById('debug-item-rarity-wrap');
+        const templateSelect = document.getElementById('debug-item-template');
+        const refreshTemplateOptions = () => {
+            const kind = kindSelect.value;
+            const isEquipment = kind === 'equipment';
+            categoryWrap.style.display = isEquipment ? '' : 'none';
+            rarityWrap.style.display = isEquipment ? '' : 'none';
+            const dbKey = isEquipment ? categorySelect.value : (kind === 'consumable' ? 'consumables' : (kind === 'material' ? 'materials' : (kind === 'essence' ? 'essences' : 'runes')));
+            const templates = ItemDatabase[dbKey] || {};
+            templateSelect.innerHTML = Object.keys(templates).map(key => `<option value="${key}">${templates[key].name}</option>`).join('');
+        };
+        kindSelect.onchange = refreshTemplateOptions;
+        categorySelect.onchange = refreshTemplateOptions;
+        refreshTemplateOptions();
+
+        document.getElementById('debug-add-item').onclick = () => {
+            const kind = kindSelect.value;
+            const category = categorySelect.value;
+            const templateId = templateSelect.value;
+            const rarityId = document.getElementById('debug-item-rarity').value;
+            const item = window.DebugMode.giveItem(p, kind, category, templateId, rarityId);
+            if (!item) {
+                window.AudioManager.playError();
+                if (window.MainMenu) window.MainMenu.showToast('Mochila cheia ou item inválido!', 'error');
+                return;
+            }
+            window.SaveManager.save(window.Engine.state);
+            if (window.AudioManager) window.AudioManager.playConfirm();
+            if (window.MainMenu) window.MainMenu.showToast(`Adicionado: ${item.name}`, 'success');
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-clear-inventory').onclick = () => {
+            window.DebugMode.clearInventory(p);
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+
+        document.getElementById('debug-apply-race').onclick = () => {
+            window.DebugMode.setRace(p, document.getElementById('debug-race').value);
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-apply-visuals').onclick = () => {
+            window.DebugMode.setVisuals(p, {
+                skinTone: document.getElementById('debug-visual-skin').value,
+                eyeColor: document.getElementById('debug-visual-eye').value,
+                hairColor: document.getElementById('debug-visual-hair').value,
+            });
+            window.SaveManager.save(window.Engine.state);
+            this.openDebugPanel();
+        };
+
+        document.getElementById('debug-max-rep').onclick = () => { window.DebugMode.maxReputation(p); window.SaveManager.save(window.Engine.state); this.openDebugPanel(); };
+        document.getElementById('debug-min-rep').onclick = () => { window.DebugMode.minReputation(p); window.SaveManager.save(window.Engine.state); this.openDebugPanel(); };
+        document.getElementById('debug-complete-quests').onclick = () => {
+            const count = window.DebugMode.completeAllQuests(p);
+            window.SaveManager.save(window.Engine.state);
+            if (window.MainMenu) window.MainMenu.showToast(`${count} missões completadas.`, 'success');
+            this.openDebugPanel();
+        };
+        document.getElementById('debug-fight-vampire').onclick = () => {
+            const boss = window.createBoss('conde_vampiro', p.level);
+            if (boss) this.beginBattleWith(boss);
+        };
+        document.getElementById('debug-fight-angel').onclick = () => {
+            const boss = window.createBoss('anjo_guardiao', p.level);
+            if (boss) this.beginBattleWith(boss);
+        };
+
+        this.showScreen('screen-debug');
     }
 
     // --- BATALHA ---

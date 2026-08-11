@@ -191,11 +191,17 @@
                 <button id="btn-hub-inventory" class="btn-hub-menu btn-hub-inventory" title="Inventário &amp; Status">🎒</button>
                 <button id="btn-hub-mutations" class="btn-hub-menu btn-hub-mutations" title="Mutações">🩸</button>
                 <button id="btn-hub-guide" class="btn-hub-menu btn-hub-guide" title="Guia do Jogo">📖</button>
+                <!-- Modo Debug/Criativo (ver js/debugmode.js) — só visível pro
+                     personagem "MarlenioDeTeste" (toggle em ui.js updateHubStats,
+                     começa hidden aqui pra nunca aparecer pra um jogador normal
+                     antes do primeiro refresh do HUD). -->
+                <button id="btn-hub-debug" class="btn-hub-menu hidden" title="Modo Debug/Criativo">🛠️</button>
                 <div class="hud-top">
                     <div class="player-info">
                         <h3 id="hub-player-name" class="highlight-gold">Gladiador</h3>
                         <p>Nível <span id="hub-player-level">1</span></p>
                         <p class="city-location">📍 <span id="hub-city-name">Porto Helênico</span></p>
+                        <p id="hud-debug-badge" class="hidden" style="color:#ff6ec7; font-weight:bold;">🧪 MODO CRIATIVO/DEBUG</p>
                     </div>
                     <div class="player-resources">
                         <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
@@ -278,6 +284,20 @@
                     </div>
                     <div id="healer-message" class="healer-message"></div>
                     <button id="btn-open-tavern-shop" class="btn" style="margin-top:16px;">🍷 Poções e Bandagens</button>
+                </div>
+            </div>
+
+            <!-- TELA: MODO DEBUG/CRIATIVO (ver js/debugmode.js/ui.js
+                 openDebugPanel) — só alcançável pelo personagem
+                 "MarlenioDeTeste". Testar qualquer sistema/conteúdo do jogo
+                 sem precisar progredir de verdade, sem afetar as regras
+                 normais nem os saves normais. -->
+            <div id="screen-debug" class="screen">
+                <div class="panel">
+                    <button class="btn-close" id="btn-close-debug">X</button>
+                    <h2 class="panel-title">🛠️ Modo Debug/Criativo</h2>
+                    <p class="shop-merchant-greeting">Personagem de teste "MarlenioDeTeste" — ouro infinito, tudo editável, sem afetar saves normais.</p>
+                    <div id="debug-container"></div>
                 </div>
             </div>
 
@@ -1049,6 +1069,7 @@
     <script src="js/city.js"></script>
     <script src="js/road.js"></script>
     <script src="js/guide.js"></script>
+    <script src="js/debugmode.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/mainmenu.js"></script>
     <script src="js/main.js"></script>
