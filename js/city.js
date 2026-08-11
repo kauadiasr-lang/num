@@ -160,10 +160,17 @@ class CityEngine {
         // mutando os objetos em cima uns dos outros — assim viajar de volta
         // a uma cidade sem override (ex: Porto Helênico) sempre restaura os
         // valores de sempre, em vez de herdar sobras da cidade anterior.
-        // Posição/tamanho/id (xFrac, rowOffset, w, h, row) NUNCA mudam por
-        // cidade — só a pele (nome/ícone/cor) é reskinável; a colisão e o
-        // layout físico da Praça continuam sendo os mesmos 9 prédios em
-        // todo lugar, exatamente como documentado em citydatabase.js.
+        // Tamanho/id (w, h) NUNCA mudam por cidade — a pele (nome/ícone/
+        // cor) é reskinável E, desde a MEGA ATUALIZAÇÃO VISUAL (Iteração
+        // 2), a POSIÇÃO (xFrac/rowOffset) também pode ser sobreposta por
+        // cidade via `citydatabase.js` `buildingPositions` (ver
+        // _syncBuildingsToCity abaixo) — cada cidade pode ter uma planta
+        // baixa genuinamente diferente (não só prédios repintados no MESMO
+        // lugar), sem NUNCA tocar no tamanho de colisão de cada prédio
+        // (`w`/`h`, o que garantiria a mesma "área ocupada" que qualquer
+        // layout novo precisa reservar). Cidades sem override (ex: Porto
+        // Helênico) continuam usando exatamente os valores originais deste
+        // array — nenhuma regressão pra quem já jogava antes desta mudança.
         this._defaultBuildings = this.buildings.map(b => ({ ...b }));
 
         // Decorações puramente visuais (sem colisão, exceto a fonte central).
@@ -276,17 +283,20 @@ class CityEngine {
 
     // Deriva `this.buildings` a partir de `_defaultBuildings` (imutável) +
     // do override opcional da cidade atual (ver citydatabase.js
-    // `buildingNames`/`buildingIcons`/`buildingColors`) — só troca a PELE
-    // (nome/ícone/cor da parede/telhado) de cada prédio, nunca a posição/
-    // tamanho/colisão (`xFrac`/`rowOffset`/`w`/`h`/`row` sempre vêm do
-    // default, intocados). Chamado em toda entrada na Cidade (onEnterCity)
-    // e ao concluir uma viagem (travelToCity) — os dois únicos pontos em
-    // que "qual é a cidade atual" pode ter mudado.
+    // `buildingNames`/`buildingIcons`/`buildingColors`/`buildingPositions`)
+    // — troca a PELE (nome/ícone/cor da parede/telhado) e, desde a MEGA
+    // ATUALIZAÇÃO VISUAL (Iteração 2), também a POSIÇÃO (`xFrac`/
+    // `rowOffset`) de cada prédio, nunca `w`/`h`/`id` (esses sempre vêm do
+    // default, intocados — trocar o tamanho de colisão exigiria revalidar
+    // toda a planta baixa da cidade). Chamado em toda entrada na Cidade
+    // (onEnterCity) e ao concluir uma viagem (travelToCity) — os dois
+    // únicos pontos em que "qual é a cidade atual" pode ter mudado.
     _syncBuildingsToCity() {
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
         const names = (cityDef && cityDef.buildingNames) || {};
         const icons = (cityDef && cityDef.buildingIcons) || {};
         const colors = (cityDef && cityDef.buildingColors) || {};
+        const positions = (cityDef && cityDef.buildingPositions) || {};
         this.buildings = this._defaultBuildings.map(def => {
             const b = { ...def };
             if (names[b.id]) b.name = names[b.id];
@@ -295,6 +305,20 @@ class CityEngine {
             if (c) {
                 if (c.wall) b.wall = c.wall;
                 if (c.roof) b.roof = c.roof;
+            }
+            // Planta baixa própria por cidade (item #1 da auditoria da MEGA
+            // ATUALIZAÇÃO VISUAL: as 4 cidades tinham EXATAMENTE a mesma
+            // posição pros 9 prédios, só repintados — violação direta do
+            // pedido "cada cidade deve possuir composição diferente").
+            // Cada layout novo foi validado (script de checagem de
+            // colisão/alcance real, não só matemática de retângulos) pra
+            // garantir que os 9 prédios continuam navegáveis — nunca só
+            // "parece bonito no mapa".
+            const pos = positions[b.id];
+            if (pos) {
+                if (typeof pos.xFrac === 'number') b.xFrac = pos.xFrac;
+                if (typeof pos.rowOffset === 'number') b.rowOffset = pos.rowOffset;
+                if (pos.row) b.row = pos.row;
             }
             return b;
         });
@@ -349,7 +373,7 @@ class CityEngine {
         // Usa exatamente os mesmos bounds de _updateMovement (o clamp que
         // já roda todo frame durante o jogo normal), nunca um cálculo
         // paralelo — assim os dois nunca podem voltar a divergir.
-        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(newH) + 20, maxY: this._plazaBottom(newH) + 30 };
+        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(newH) + 20 * this._cityScale(newH), maxY: this._plazaBottom(newH) + 30 };
         const clampToBounds = (entity) => {
             entity.x = Utils.clamp(entity.x, bounds.minX, bounds.maxX);
             entity.y = Utils.clamp(entity.y, bounds.minY, bounds.maxY);
@@ -1929,7 +1953,19 @@ class CityEngine {
 
     _updateMovement(dt) {
         const h = window.Engine.height;
-        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(h) + 20, maxY: this._plazaBottom(h) + 30 };
+        // Bug de auditoria visual (jogador travado tentando alcançar a
+        // Arena em telas estreitas/retrato, ex: 390×844): esta folga era um
+        // valor CRU (+20px), nunca escalado por _cityScale — mas o
+        // rowOffset de todo prédio (inclusive a Arena, rowOffset 40, a mais
+        // próxima do horizonte) É escalado (ver _doorPoint). Em telas
+        // largas widthScale satura em 1 e os dois nunca colidem; em telas
+        // estreitas widthScale cai até 0.34, encolhendo o rowOffset da
+        // Arena bem mais rápido que essa folga fixa — o ponto de porta da
+        // Arena acabava ficando ACIMA do próprio limite minY (fora da área
+        // andável), tornando-a estruturalmente inalcançável. Escalar a
+        // folga junto (mesmo fator que tudo mais nesta cena usa) resolve
+        // sem precisar reduzir o valor de referência pra telas grandes.
+        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(h) + 20 * this._cityScale(h), maxY: this._plazaBottom(h) + 30 };
         const p = this.player;
         let targetVx = 0, targetVy = 0;
         const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
@@ -2028,7 +2064,12 @@ class CityEngine {
     // PlayerController.findPath (ver js/playercontroller.js).
     _setPlayerDestination(x, y) {
         const h = window.Engine.height;
-        const bounds = { minX: 32, maxX: this._worldWidth() - 32, minY: this._horizon(h) + 24, maxY: this._plazaBottom(h) + 26 };
+        // Mesmo fix de escala que _updateMovement (ver comentário completo
+        // lá) — precisa usar o MESMO fator aqui, senão o caminho calculado
+        // por findPath usaria um minY diferente do que o clamp de
+        // movimento real aplica todo frame, podendo gerar um destino que o
+        // próprio _updateMovement rejeitaria depois.
+        const bounds = { minX: 32, maxX: this._worldWidth() - 32, minY: this._horizon(h) + 24 * this._cityScale(h), maxY: this._plazaBottom(h) + 26 };
         const path = PlayerController.findPath(this.player.x, this.player.y, x, y, this._obstacleRectsForCollision(), bounds);
         this.player.pathQueue = path.slice(1);
         const first = path[0];

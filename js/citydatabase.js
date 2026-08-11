@@ -123,6 +123,30 @@ const CityDatabase = {
         buildingNames: {
             arcane: 'Círculo de Treinamento'
         },
+        // Planta baixa própria (MEGA ATUALIZAÇÃO VISUAL, item #1 da
+        // auditoria: as 4 cidades tinham a MESMA posição pros 9 prédios,
+        // só repintados). Fortaleza Orc: irregular/agressiva — nada
+        // alinhado em fileiras retas, profundidades escalonadas (um prédio
+        // bem à frente do vizinho, não lado a lado), Arena puxada pra
+        // direita do centro em vez de centralizada. Sobrepõe só
+        // `xFrac`/`rowOffset` de `city.js` `_defaultBuildings` (ver
+        // `_syncBuildingsToCity`) — nunca `w`/`h`/`id`, então a caixa de
+        // colisão/clique de cada prédio continua a mesma de sempre.
+        // Validado com teste real de navegação (spawn → aproximar → testar
+        // proximidade de interação) em telas de 1280×800 até 2560×1080,
+        // não só matemática de retângulos — todos os 9 prédios continuam
+        // alcançáveis.
+        buildingPositions: {
+            arena: { xFrac: 0.56, rowOffset: 38 },
+            blacksmith: { xFrac: 0.10, rowOffset: 130 },
+            armorer: { xFrac: 0.28, rowOffset: 68 },
+            tavern: { xFrac: 0.80, rowOffset: 100 },
+            arcane: { xFrac: 0.42, rowOffset: 78 },
+            bank: { xFrac: 0.16, rowOffset: 190 },
+            halloffame: { xFrac: 0.62, rowOffset: 168 },
+            house: { xFrac: 0.90, rowOffset: 175 },
+            questboard: { xFrac: 0.34, rowOffset: 155 },
+        },
         arenaBiomes: ['vulcanica', 'montanhas', 'ruinas', 'castelo'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
         // porto_helenico.officialArenaBiome acima) — rocha vulcânica já é a
@@ -199,6 +223,23 @@ const CityDatabase = {
         magicSubShopLabel: '✨ Ateliê Élfico (Artefatos)',
         buildingNames: {
             arcane: 'Ateliê Élfico'
+        },
+        // Planta baixa própria (ver comentário completo em
+        // fortaleza_orc.buildingPositions acima). Santuário Élfico:
+        // integrada à natureza — curva orgânica mais solta, com vãos
+        // maiores entre alguns prédios (como se tivessem crescido ao
+        // redor de árvores em vez de planejados em grade), Arena um pouco
+        // à esquerda do centro.
+        buildingPositions: {
+            arena: { xFrac: 0.46, rowOffset: 38 },
+            blacksmith: { xFrac: 0.13, rowOffset: 90 },
+            armorer: { xFrac: 0.315, rowOffset: 62 },
+            tavern: { xFrac: 0.635, rowOffset: 100 },
+            arcane: { xFrac: 0.87, rowOffset: 90 },
+            bank: { xFrac: 0.235, rowOffset: 168 },
+            halloffame: { xFrac: 0.46, rowOffset: 192 },
+            house: { xFrac: 0.755, rowOffset: 172 },
+            questboard: { xFrac: 0.575, rowOffset: 150 },
         },
         arenaBiomes: ['floresta', 'templo', 'montanhas', 'congelada'],
         // Cenário oficial e fixo desta arena (ver comentário completo em
@@ -388,6 +429,22 @@ const CityDatabase = {
             arena: 'Fosso do Martelo', blacksmith: 'Ferreiro', armorer: 'Negociante de Minérios',
             arcane: 'Câmara Rúnica', tavern: 'Salão da Cervejaria', bank: 'Tesouraria da Montanha',
             house: 'Sua Câmara', halloffame: 'Salão dos Campeões', questboard: 'Quadro de Contratos'
+        },
+        // Planta baixa própria (ver comentário completo em
+        // fortaleza_orc.buildingPositions acima). Reino Anão: compacta/de
+        // pedra — tudo puxado mais pro centro (salão escavado numa
+        // caverna, não uma praça aberta), Arena mais atrás/mais alta
+        // (lida como "mais fundo na montanha").
+        buildingPositions: {
+            arena: { xFrac: 0.5, rowOffset: 38 },
+            blacksmith: { xFrac: 0.16, rowOffset: 100 },
+            armorer: { xFrac: 0.34, rowOffset: 72 },
+            tavern: { xFrac: 0.66, rowOffset: 72 },
+            arcane: { xFrac: 0.84, rowOffset: 100 },
+            bank: { xFrac: 0.26, rowOffset: 165 },
+            halloffame: { xFrac: 0.5, rowOffset: 182 },
+            house: { xFrac: 0.74, rowOffset: 165 },
+            questboard: { xFrac: 0.40, rowOffset: 150 },
         },
         buildingIcons: {
             arena: '⚒️', armorer: '⛏️', tavern: '🍖'

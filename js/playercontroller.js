@@ -119,7 +119,23 @@ window.PlayerController = {
         if (this._lineClear(sx, sy, tx, ty, rects)) return [{ x: tx, y: ty }];
 
         const clampPt = (x, y) => ({ x: Utils.clamp(x, bounds.minX, bounds.maxX), y: Utils.clamp(y, bounds.minY, bounds.maxY) });
-        const insideAnyRect = (x, y) => rects.some(r => x > r.left && x < r.right && y > r.top && y < r.bottom);
+        // Bug de auditoria visual (mundo travado): esta checagem usava o
+        // retângulo CRU (sem nenhuma margem), então uma quina gerada pra
+        // contornar o obstáculo A podia ficar "livre" aqui mas ainda cair
+        // dentro da margem de verdade que collides() aplica em tempo real
+        // (16px horizontal / 16*0.6 vertical, ver assinatura acima) perto
+        // de um obstáculo B vizinho — o waypoint parecia válido pro
+        // planejamento, mas o jogador nunca conseguia se aproximar dele o
+        // suficiente pra avançar pro próximo trecho (dist nunca cai abaixo
+        // de 4), travando pra sempre bem no meio da rota. Reproduzido em
+        // telas estreitas/retrato (ex: 390×844), onde _cityScale encolhe
+        // building.w/h mas os prédios continuam próximos o bastante pra
+        // essa folga de 16px decidir se a quina é alcançável de verdade.
+        // Mesma margem de collides(), aplicada aqui contra QUALQUER
+        // obstáculo (não só o que gerou a quina) — nunca mais gera um
+        // waypoint que a colisão real do próximo frame vá rejeitar.
+        const CM = 16;
+        const insideAnyRect = (x, y) => rects.some(r => x > r.left - CM && x < r.right + CM && y > r.top && y < r.bottom + CM * 0.6);
 
         const nodes = [{ x: sx, y: sy }];
         // Bug corrigido: `pad` precisa ser MAIOR que a margem padrão usada
