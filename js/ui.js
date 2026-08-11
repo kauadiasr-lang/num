@@ -267,21 +267,22 @@ class UIManager {
         // Botão genérico de "sub-loja mágica" (ver openSkillTree, que
         // alterna visibilidade/rótulo a cada abertura conforme
         // citydatabase.js hasMagicSubShop/magicSubShopId/magicSubShopLabel)
-        // — Reino Anão usa pra runas consumíveis, Santuário Élfico usa pro
-        // Ateliê Élfico (Iteração 3). Lê a config da cidade ATUAL no
-        // momento do clique (não no bind, que só roda uma vez no início do
-        // jogo) pra funcionar certo depois de qualquer viagem entre cidades.
+        // — desvia pro sistema exclusivo de cada cultura que ainda usa a
+        // flag: Fortaleza Orc → Mestres de Treinamento (js/orctraining.js,
+        // Iteração 2, identidade é CONQUISTA, não COMPRA); Santuário Élfico
+        // → Ateliê Élfico (js/elfcrafting.js, Iteração 3, identidade é
+        // CRIAR, não COMPRAR). Reino Anão NÃO usa mais este botão desde a
+        // Iteração 4 (a antiga "Câmara Rúnica" foi transformada em receitas
+        // da Forja, ver js/forge.js RUNE_RECIPES) — `hasMagicSubShop` fica
+        // false lá, então o botão nem aparece (ver openSkillTree abaixo). O
+        // caminho `openShop(..., subShop)` genérico permanece só como
+        // fallback pra uma futura cidade que precise de sub-loja mágica de
+        // lista de verdade, nenhuma cidade atual o usa. Lê a config da
+        // cidade ATUAL no momento do clique (não no bind, que só roda uma
+        // vez no início do jogo) pra funcionar certo após qualquer viagem.
         document.getElementById('btn-open-rune-shop').addEventListener('click', () => {
             const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
             const subShop = (cityDef && cityDef.magicSubShopId) || 'runes';
-            // Fortaleza Orc (MEGA REWORK econômico): a identidade cultural
-            // Orc é CONQUISTA, não COMPRA — desvia pro sistema de Mestres
-            // de Treinamento (ver js/orctraining.js) em vez de abrir a
-            // mesma openShop() genérica que o Anão ainda usa. Santuário
-            // Élfico (Iteração 3): identidade é CRIAR, não COMPRAR — desvia
-            // pro Ateliê de verdade (ver js/elfcrafting.js). Nunca mistura
-            // os três caminhos: só 'training'/'atelier' desviam, 'runes'
-            // (Reino Anão) continua abrindo a loja genérica normalmente.
             if (subShop === 'training') { this.openOrcTraining(); return; }
             if (subShop === 'atelier') { this.openElfCrafting(); return; }
             const title = (cityDef && cityDef.magicSubShopLabel) || 'Câmara Rúnica';
@@ -3190,6 +3191,45 @@ class UIManager {
                 this.openForge(); // Refresh (mochila/ouro/receitas mudaram)
             };
             recipesContainer.appendChild(card);
+        });
+
+        // Runas Gravadas (Rework Econômico Iteração 4) — mesma estrutura
+        // visual das receitas de equipamento acima, mas gastando
+        // ForgeSystem.RUNE_RECIPES/attemptForgeRune (produz Consumable, não
+        // Equipment — nunca sorteia qualidade). Substitui a antiga "Câmara
+        // Rúnica" (loja de lista só por ouro, ver citydatabase.js
+        // reino_anao).
+        const runesContainer = document.getElementById('forge-runes-container');
+        runesContainer.innerHTML = '';
+        Object.keys(ForgeSystem.RUNE_RECIPES).forEach(recipeId => {
+            const recipe = ForgeSystem.RUNE_RECIPES[recipeId];
+            const affordable = ForgeSystem.canAffordRune(p, recipeId);
+            const materialsText = recipe.materials.map(req => `${req.amount}x ${ItemDatabase.materials[req.materialId].name}`).join(', ');
+            const card = document.createElement('div');
+            card.className = 'forge-recipe-card' + (affordable ? '' : ' forge-recipe-locked');
+            card.innerHTML = `
+                <h4>${recipe.name}</h4>
+                <p style="font-size:0.8rem; color:#aaa;">${materialsText} + ${recipe.goldCost}g</p>
+                <button class="btn btn-small" ${affordable ? '' : 'disabled'}>Gravar</button>
+            `;
+            card.querySelector('button').onclick = () => {
+                const result = ForgeSystem.attemptForgeRune(p, recipeId);
+                if (!result) {
+                    window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Mochila cheia ou recursos insuficientes!', 'error');
+                    return;
+                }
+                window.SaveManager.save(window.Engine.state);
+                if (window.AudioManager) window.AudioManager.playConfirm();
+                const resultEl = document.getElementById('forge-result');
+                resultEl.classList.remove('hidden');
+                resultEl.innerHTML = `
+                    <h4>${result.item.name}</h4>
+                    <p>${result.item.description}</p>
+                `;
+                this.openForge(); // Refresh (mochila/ouro/receitas mudaram)
+            };
+            runesContainer.appendChild(card);
         });
 
         this.showScreen('screen-forge');

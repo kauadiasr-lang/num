@@ -356,23 +356,22 @@ const CityDatabase = {
         // usuário: "a cidade dos anões NÃO deve possuir lojas iguais às
         // outras".
         hasOreTrader: true,
-        // Prédio 'arcane' (Câmara Rúnica, ver buildingNames abaixo) continua
-        // abrindo a MESMA Árvore de Talentos de qualquer cidade (Rework
-        // Econômico item 8: "não remova mecânica importante sem substituir
-        // por algo melhor" — Mutação não tem equivalente em runas ainda) —
-        // mas agora com um botão extra dentro da própria tela (ver
-        // ui.js openSkillTree/index.html #btn-open-rune-shop) que abre a
-        // sub-loja de runas consumíveis de efeito fixo (ver items.js
-        // ItemDatabase.consumables subShop:'runes'). Mecanismo genérico
-        // `hasMagicSubShop`/`magicSubShopId`/`magicSubShopLabel` (ver
-        // também santuario_elfico.hasMagicSubShop, Iteração 3) — o MESMO
-        // botão/lógica de visibilidade serve qualquer cidade com sub-loja
-        // mágica própria, só trocando rótulo/subShop/itens (item 16 da
-        // diretiva: nunca duplicar sistema). Nas outras cidades sem essa
-        // flag, a Câmara Arcana continua exatamente como sempre foi.
-        hasMagicSubShop: true,
-        magicSubShopId: 'runes',
-        magicSubShopLabel: '🔮 Câmara Rúnica (Runas)',
+        // MEGA REWORK Econômico, Iteração 4 — achado da auditoria: a
+        // "Câmara Rúnica" (`hasMagicSubShop`/`magicSubShopId: 'runes'`)
+        // era uma loja de LISTA vendendo Runa de Proteção/Runa de Força só
+        // por ouro — mecanicamente idêntica à Taverna (escolher da lista,
+        // pagar, recebe buff temporário), só com rótulo diferente. Duas
+        // "lojas" fazendo a mesma coisa embaixo de nomes diferentes (item
+        // 15 da diretiva) — e pior, contradizia a identidade anã (item 9:
+        // "evitar poções genéricas"). TRANSFORMADA (não removida — os itens
+        // continuam existindo, ver items.js rune_protection/rune_strength):
+        // as duas runas viraram receitas DA FORJA (ver js/forge.js
+        // ForgeSystem.RUNE_RECIPES), exigindo minério real, não só ouro —
+        // reforça "não dá pra só comprar, precisa minerar e forjar" (item
+        // 16). O prédio 'arcane' voltou a abrir só a Árvore de Talentos
+        // padrão (Mutações), sem nenhum botão de sub-loja — igual a
+        // qualquer cidade sem `hasMagicSubShop` (Fortaleza Orc, que também
+        // nunca teve isso, ver Iteração 2).
         // Bandidos anões (ver city.js _eventDwarfBandit/_makeBandit) —
         // "a cidade não deve ser segura" pedido explicitamente pelo
         // usuário. Entra no MESMO sorteio ponderado de eventos ambientes

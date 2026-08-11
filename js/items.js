@@ -480,8 +480,14 @@ const ItemDatabase = {
         mead_strong: { id: 'c_05', name: "Hidromel Forte", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 8, durationBattles: 2, foodSlot: 'drink', value: 45, description: "Bebida forte de Kharzum. +8% de resistência por 2 batalhas.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'drink' },
         dwarven_feast: { id: 'c_06', name: "Banquete Anão", type: 'TEMP_BUFF', statKey: 'defenseRatingFlat', buffAmount: 6, durationBattles: 3, foodSlot: 'food', value: 70, description: "Um banquete de verdade, não uma refeição rápida. +6 de defesa por 3 batalhas.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
         smoked_meat: { id: 'c_07', name: "Carne Defumada", type: 'CURE_FATIGUE', power: 1, value: 35, description: "Prato robusto anão de viagem. Cura 1 nível de fadiga.", region: 'reino_anao', subShop: 'tavern', consumableCategory: 'food' },
-        rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao', subShop: 'runes' },
-        rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao', subShop: 'runes' },
+        // MEGA REWORK Econômico Iteração 4: essas duas runas NÃO têm mais
+        // `subShop` — não são mais vendidas em loja nenhuma (a antiga
+        // "Câmara Rúnica" foi transformada, ver citydatabase.js
+        // reino_anao). Agora só existem via ForgeSystem.RUNE_RECIPES
+        // (js/forge.js) — gravadas na Forja com minério, nunca compradas
+        // de uma lista.
+        rune_protection: { id: 'c_08', name: "Runa de Proteção", type: 'TEMP_BUFF', statKey: 'defenseBonusPercent', buffAmount: 15, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +15% de resistência por 1 dia.", region: 'reino_anao' },
+        rune_strength: { id: 'c_09', name: "Runa de Força", type: 'TEMP_BUFF', statKey: 'physicalDamageFlat', buffAmount: 5, durationDays: 1, value: 95, description: "Runa anã de efeito fixo, gravada por artesãos — não depende de Inteligência. +5 de dano físico por 1 dia.", region: 'reino_anao' },
 
         // --- Identidade do Santuário Élfico (Rework Econômico item 10) ---
         // Mesmo mecanismo `region`+`subShop` da Iteração 2 (ver

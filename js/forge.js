@@ -80,6 +80,55 @@ const ForgeSystem = {
             materials: [{ materialId: 'arcane_crystal', amount: 2 }] }
     },
 
+    // MEGA REWORK Econômico, Iteração 4 — achado da auditoria: a antiga
+    // "Câmara Rúnica" (citydatabase.js reino_anao) vendia Runa de Proteção/
+    // Runa de Força numa loja de LISTA, só por ouro — mecanicamente
+    // idêntica à Taverna (item 15 da diretiva: duas "lojas" fazendo a
+    // mesma coisa com nomes diferentes), e contradizia a identidade anã
+    // (item 9: "evitar poções genéricas"). Transformadas em receitas DA
+    // FORJA: exigem minério de verdade, não só ouro, reforçando "não dá
+    // pra só comprar, precisa minerar e forjar" (item 16). Deliberadamente
+    // um objeto separado de RECIPES (produz Consumable via
+    // ItemFactory.createConsumable, nunca Equipment — sem qualidade/
+    // raridade sorteada, o efeito da runa é sempre fixo) — nunca duplica
+    // ElfCraftingSystem (que produz Equipment com raridade fixa): aqui é
+    // consumível de efeito fixo, lá é equipamento permanente.
+    RUNE_RECIPES: {
+        recipe_rune_protection: { name: 'Runa de Proteção', consumableId: 'rune_protection', goldCost: 40,
+            materials: [{ materialId: 'iron_ore', amount: 1 }, { materialId: 'arcane_crystal', amount: 1 }] },
+        recipe_rune_strength: { name: 'Runa de Força', consumableId: 'rune_strength', goldCost: 40,
+            materials: [{ materialId: 'coal', amount: 1 }, { materialId: 'arcane_crystal', amount: 1 }] },
+    },
+
+    canAffordRune(player, recipeId) {
+        const recipe = this.RUNE_RECIPES[recipeId];
+        if (!recipe) return false;
+        if (player.gold < recipe.goldCost) return false;
+        return recipe.materials.every(req => this._countMaterial(player, req.materialId) >= req.amount);
+    },
+
+    // Grava a runa de verdade — consome minério/ouro, sempre produz o
+    // consumível (nunca sorteia qualidade, ao contrário de attemptForge
+    // acima: o efeito da runa é fixo por definição, ver items.js).
+    attemptForgeRune(player, recipeId) {
+        const recipe = this.RUNE_RECIPES[recipeId];
+        if (!recipe || !this.canAffordRune(player, recipeId)) return null;
+        if (player.inventory.length >= player.inventoryCapacity) return null;
+
+        player.gold -= recipe.goldCost;
+        for (const req of recipe.materials) {
+            const templateId = ItemDatabase.materials[req.materialId].id;
+            for (let i = 0; i < req.amount; i++) {
+                const idx = player.inventory.findIndex(it => it.category === 'material' && it.id === templateId);
+                if (idx >= 0) player.inventory.splice(idx, 1);
+            }
+        }
+
+        const item = ItemFactory.createConsumable(recipe.consumableId);
+        player.inventory.push(item);
+        return { item };
+    },
+
     // Confere se o jogador consegue pagar a receita SEM consumir nada
     // ainda — usado pela UI pra desabilitar botões de receitas
     // inacessíveis (ver ui.js openForge).
