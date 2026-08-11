@@ -441,9 +441,19 @@ const CityDatabase = {
         // Tesouraria escavada na rocha, Taverna vira Salão da Cervejaria
         // etc) — a ARENA e o comércio de verdade (Forja/matéria-prima)
         // ficam pra iterações seguintes deste /loop (ver TaskCreate #187/#188).
+        // Bug de UX encontrado na auditoria da Iteração 7 (item 18 da
+        // diretiva): este campo ainda chamava o prédio 'arcane' de
+        // "Câmara Rúnica" — nome sobrevivente de ANTES da Iteração 4, que
+        // removeu a sub-loja de runas daqui e moveu as runas pra dentro da
+        // própria Forja (Runas Gravadas, ver js/forge.js RUNE_RECIPES). O
+        // prédio nunca parou de existir (continua abrindo a Árvore de
+        // Talentos/Mutações padrão, igual porto_helenico), só o NOME
+        // ficou prometendo runas que não estão mais lá — jogador clicava
+        // esperando forjar/comprar runa e caía direto nas Mutações. Nome
+        // trocado pra não prometer nada que o prédio não entrega.
         buildingNames: {
             arena: 'Fosso do Martelo', blacksmith: 'Ferreiro', armorer: 'Negociante de Minérios',
-            arcane: 'Câmara Rúnica', tavern: 'Salão da Cervejaria', bank: 'Tesouraria da Montanha',
+            arcane: 'Câmara dos Enigmas', tavern: 'Salão da Cervejaria', bank: 'Tesouraria da Montanha',
             house: 'Sua Câmara', halloffame: 'Salão dos Campeões', questboard: 'Quadro de Contratos'
         },
         // Planta baixa própria (ver comentário completo em

@@ -3483,9 +3483,12 @@ class UIManager {
 
         // Botão genérico de sub-loja mágica (ver citydatabase.js
         // hasMagicSubShop/magicSubShopLabel) — cada cidade com a flag
-        // mostra seu PRÓPRIO rótulo (Reino Anão: Câmara Rúnica; Santuário
-        // Élfico: Ateliê Élfico, Iteração 3); sem a flag, some por
-        // completo. A Árvore de Talentos em si continua idêntica em toda
+        // mostra seu PRÓPRIO rótulo (Fortaleza Orc: Mestres de
+        // Treinamento, Iteração 2; Santuário Élfico: Ateliê Élfico,
+        // Iteração 3); sem a flag, some por completo — desde a Iteração 4
+        // o Reino Anão não tem mais essa flag (a antiga Câmara Rúnica virou
+        // Runas Gravadas dentro da própria Forja), então este botão nunca
+        // aparece lá. A Árvore de Talentos em si continua idêntica em toda
         // cidade (Rework Econômico item 8: preservar mecânica sem
         // substituto melhor), o botão só ADICIONA uma sub-loja, nunca
         // remove nada.
