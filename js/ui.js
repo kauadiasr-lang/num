@@ -4714,7 +4714,13 @@ class UIManager {
                         : `<p style="color:#ff6666">${val} ${stat.toUpperCase()}</p>`;
                 }
                 if (item.critBonus) statsHtml += `<p style="color:#ffcc00">+${item.critBonus}% Crítico</p>`;
-                if (item.accBonus) statsHtml += `<p style="color:#ffcc00">+${item.accBonus} Precisão</p>`;
+                // MEGA REWORK Econômico Iteração 5: primeiras armas com
+                // `accBonus` NEGATIVO do jogo (ver items.js orcwarchain/
+                // orcboneaxe) — mesmo bug de sinal duplicado já corrigido
+                // acima pra statBonuses ("+-4 Precisão"), mesmo fix aqui.
+                if (item.accBonus) statsHtml += item.accBonus >= 0
+                    ? `<p style="color:#ffcc00">+${item.accBonus} Precisão</p>`
+                    : `<p style="color:#ff6666">${item.accBonus} Precisão</p>`;
                 if (item.armorPierce) statsHtml += `<p style="color:#ff8000">Perfura ${Math.floor(item.armorPierce * 100)}% da armadura</p>`;
                 if (item.blockChance) statsHtml += `<p style="color:#88ccff">+${item.blockChance}% Bloqueio</p>`;
                 if (item.hpBonus) statsHtml += `<p style="color:#ff4444">+${item.hpBonus} HP Máximo</p>`;

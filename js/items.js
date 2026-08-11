@@ -310,6 +310,25 @@ const ItemDatabase = {
         orctrollspear: { id: 'w_20', name: "Lança Caça-Trolls", slot: SLOTS.MAIN_HAND, damage: 15, weight: 6.0, value: 160, durability: 140, stats: { str: 5 }, armorPierce: 0.25, region: 'fortaleza_orc',
             description: "Forjada pra atravessar o couro grosso de trolls das montanhas — mais curta que um pique de falange, mas capaz de perfurar quase qualquer coisa que respire.",
             minRange: 2, maxRange: 5, atkSpeed: 0.7, approachSpeed: 1.4, retreatSpeed: 1.6 },
+        // MEGA REWORK Econômico Iteração 5 (item 4 da diretiva: "armas Orc
+        // devem parecer... assimétricas... improvisadas... com correntes...
+        // com ossos"). Achado da auditoria: até aqui a Fortaleza Orc só
+        // tinha 2 armas próprias (machado/lança), ambas usando a MESMA
+        // fórmula "peso alto + armorPierce alto" do Martelo Rúnico Anão —
+        // pesadas, sim, mas mecanicamente indistinguíveis de uma arma anã
+        // com número trocado. As duas abaixo introduzem uma combinação que
+        // NENHUMA outra cultura usa: `accBonus` NEGATIVO (precisão nunca
+        // é o ponto — golpe selvagem, cru, improvisado — ver battle.js
+        // executeAttack, que já clampa hitChance em 20%-100%, então nunca
+        // trava o combate, só torna a arma genuinamente mais difícil de
+        // acertar). Isso é o oposto do Anão (armorPierce = perícia técnica
+        // de metalurgia) — aqui é FORÇA BRUTA sem refinamento nenhum.
+        orcwarchain: { id: 'w_26', name: "Corrente Espinhada", slot: SLOTS.MAIN_HAND, damage: 13, weight: 5.5, value: 120, durability: 90, stats: { str: 3 }, critBonus: 20, accBonus: -4, region: 'fortaleza_orc',
+            description: "Elos de ferro reaproveitados de correntes de prisioneiro, com farpas amarradas na ponta — impossível controlar onde exatamente vai acertar, mas quando acerta, estraçalha. Golpe selvagem: alta chance de crítico, baixa precisão.",
+            minRange: 1, maxRange: 3, atkSpeed: 0.65, approachSpeed: 1.3, retreatSpeed: 1.3 },
+        orcboneaxe: { id: 'w_27', name: "Machado Ósseo Ancestral", slot: SLOTS.MAIN_HAND, damage: 18, weight: 9.5, value: 145, durability: 100, stats: { str: 6 }, armorPierce: 0.30, accBonus: -3, region: 'fortaleza_orc',
+            description: "Lâmina de pedra vulcânica presa a um cabo de osso de fera — mais pesado que qualquer machado forjado em metal, sem nenhum refinamento de balanço. Bruto demais pra mirar direito, forte demais pra importar.",
+            minRange: 0, maxRange: 2, atkSpeed: 0.5, approachSpeed: 1.0, retreatSpeed: 1.0 },
         // Regional Élfico (ver citydatabase.js santuario_elfico) — reforça
         // "leve e preciso" também numa arma de haste, não só em arcos/
         // lâminas.
