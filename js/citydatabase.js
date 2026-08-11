@@ -70,12 +70,6 @@ const CityDatabase = {
         // Cores da fonte central da praça (ver city.js _drawFountain) —
         // Porto Helênico preserva a fonte de água azul original.
         fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' },
-        // Cores da trilha (ver city.js _drawPaths, MEGA ATUALIZAÇÃO VISUAL
-        // Iteração 3 — achado #2 da auditoria: nenhum caminho visível
-        // conectava entrada/prédios/portão) — [base larga "batida", brilho
-        // fino por cima]. Porto Helênico: mármore desgastado claro,
-        // condizente com a praça de mármore da cidade.
-        pathColors: ['rgba(150,136,108,0.4)', 'rgba(224,212,182,0.22)'],
         // Cores da muralha/torres (ver graphics.js _drawCityWall) — Porto
         // Helênico preserva a pedra cinza original de antes deste campo existir.
         wallColors: { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' },
@@ -179,11 +173,6 @@ const CityDatabase = {
         // fonte de água azul serena — mesmo motivo do campo acima (ver
         // city.js _drawFountain).
         fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' },
-        // Cores da trilha (ver porto_helenico.pathColors acima pra
-        // explicação completa do campo). Fortaleza Orc: terra batida
-        // escura/cinza com um brilho de brasa alaranjado por cima, não o
-        // mármore claro humano.
-        pathColors: ['rgba(58,46,38,0.5)', 'rgba(210,110,50,0.16)'],
         // Muralha de rocha vulcânica escura, mais bruta que a pedra cinza
         // padrão — mesmo motivo do campo acima (ver graphics.js _drawCityWall).
         wallColors: { base: 'rgba(58,46,40,0.92)', tower: 'rgba(48,38,32,0.95)' },
@@ -275,12 +264,6 @@ const CityDatabase = {
         // pedra/água azul comum — mesmo motivo do campo acima (ver city.js
         // _drawFountain).
         fountainColors: { rim: '#4a5a3a', basin: '#2a5a52', jet: 'rgba(180,255,210,0.65)', spout: '#3a2a18' },
-        // Cores da trilha (ver porto_helenico.pathColors acima pra
-        // explicação completa do campo). Santuário Élfico: terra macia
-        // coberta de musgo, com um brilho verde-claro suave por cima —
-        // parece mais "crescida" que "construída", coerente com uma
-        // cidade integrada à natureza.
-        pathColors: ['rgba(62,74,46,0.4)', 'rgba(170,215,150,0.18)'],
         // Muralha viva de madeira/raiz entrelaçada com musgo, não pedra
         // cinza comum — mesmo motivo do campo acima (ver graphics.js
         // _drawCityWall).
@@ -421,12 +404,6 @@ const CityDatabase = {
         // mesmo slot como brasas; aqui é metal líquido de forja, não fogo
         // de guerra).
         fountainColors: { rim: '#2a2622', basin: '#7a2e10', jet: 'rgba(255,150,60,0.8)', spout: '#1a1613' },
-        // Cores da trilha (ver porto_helenico.pathColors acima pra
-        // explicação completa do campo). Reino Anão: rocha lavrada/cinza
-        // escura, com um brilho quente de forja por cima em vez de
-        // qualquer coisa clara — sem sol nenhum aqui embaixo, a única luz
-        // que "desgasta" o chão é a das forjas.
-        pathColors: ['rgba(42,40,46,0.55)', 'rgba(255,150,60,0.14)'],
         // Muralha/torres de pedra de montanha escura, mais fria e maciça
         // que a pedra vulcânica orc — mesmo motivo do campo acima.
         wallColors: { base: 'rgba(40,38,44,0.94)', tower: 'rgba(30,28,34,0.96)' },
