@@ -391,6 +391,80 @@ const GuideSystem = {
     // ==========================================================================
     // CIDADES
     // ==========================================================================
+    // Cada cidade ensina uma forma DIFERENTE de progredir (MEGA REWORK
+    // Econômico, regra central: Humano=COMPRAR, Orc=TREINAR, Elfo=CRIAR,
+    // Anão=FORJAR) — texto lido diretamente dos registries reais
+    // (TRAINING_MASTERS/ElfCraftingSystem/ForgeSystem), nunca hardcoded
+    // separado, pra nunca ficar desatualizado conforme essas listas
+    // crescem. Só a prosa da filosofia em si (o "porquê") é fixa aqui,
+    // porque isso não existe em nenhum registry de dados.
+    CITY_PHILOSOPHY: {
+        porto_helenico: { verb: 'COMPRAR', tagline: 'O que devo fazer aqui? Junte ouro lutando na Arena, compre equipamento melhor nas lojas tradicionais, equipe, volte pra lutar de novo. Sem segredo: é o ciclo econômico de referência que ensina o resto do jogo.' },
+        fortaleza_orc: { verb: 'TREINAR', tagline: 'O que devo fazer aqui? Ouro sozinho não compra nada de importante — os Mestres de Treinamento exigem que você VENÇA combates com condições específicas (só força física, sem magia, sobrevivendo N turnos). Cada desafio concluído dá pontos de atributo reais, não um item pra comprar.' },
+        santuario_elfico: { verb: 'CRIAR', tagline: 'O que devo fazer aqui? Colete Essência nas nascentes espalhadas pela praça (nunca à venda), leve ao Ateliê e combine com uma receita fixa pra criar equipamento que não existe em loja NENHUMA, em cidade nenhuma.' },
+        reino_anao: { verb: 'FORJAR', tagline: 'O que devo fazer aqui? Minere os Veios de Minério da praça, leve à Forja e produza equipamento — a qualidade do resultado varia (sorteio real, nunca garantido), então a mesma receita pode sair Comum ou Lendária dependendo da sorte e do seu nível.' }
+    },
+
+    _renderCityExclusiveSystem(cityId) {
+        if (cityId === 'fortaleza_orc' && window.TRAINING_MASTERS) {
+            const rows = window.TRAINING_MASTERS.map(m => `<tr><td>${m.icon} ${m.name}</td><td>${m.description}</td><td>+${m.reward} pontos de atributo${m.requiresAllPrevious ? ' (exige todos os outros Mestres concluídos)' : ''}</td></tr>`).join('');
+            return `
+                <div class="guide-block">
+                    <h4>Mestres de Treinamento (Círculo de Treinamento)</h4>
+                    <p>Cada Mestre propõe UM desafio de combate real — não uma compra. Complete a condição numa luta de verdade pra receber a recompensa; falhar não bane a tentativa, só deixa o desafio aberto pra próxima luta.</p>
+                    <div class="guide-table-wrap">
+                        <table class="guide-table">
+                            <thead><tr><th>Mestre</th><th>Desafio</th><th>Recompensa</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <p><strong>Preparados Tribais:</strong> um botão dedicado dentro da mesma tela vende tônicos/extratos de efeito TEMPORÁRIO (Tônico de Fúria, Estimulante Selvagem etc) — reforço físico rápido, nunca um substituto pros Mestres.</p>
+                </div>
+            `;
+        }
+        if (cityId === 'santuario_elfico' && window.ElfCraftingSystem) {
+            const rows = Object.values(window.ElfCraftingSystem.RECIPES).map(r => {
+                const essenceText = r.essence.map(req => `${req.amount}x Essência Tier ${req.tier}`).join(', ');
+                return `<tr><td style="color:${r.rarity.color}">${r.name}</td><td>${essenceText} + ${r.goldCost}g</td><td style="color:${r.rarity.color}">${r.rarity.name}</td></tr>`;
+            }).join('');
+            return `
+                <div class="guide-block">
+                    <h4>Ateliê Élfico</h4>
+                    <p>A Essência não é vendida em loja nenhuma — colha nas 3 nascentes brilhantes espalhadas pela praça (aproxime e clique). Cada receita do Ateliê consome Essência POR TIER + ouro e produz SEMPRE a mesma raridade fixa, nunca um sorteio — ao contrário da Forja anã, aqui o resultado é 100% previsível, o que varia é se você tem os materiais certos.</p>
+                    <div class="guide-table-wrap">
+                        <table class="guide-table">
+                            <thead><tr><th>Receita</th><th>Ingredientes</th><th>Raridade</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                    <p>Todo item criado aqui é exclusivo — nunca aparece à venda em nenhum Ferreiro/Armeiro, de nenhuma cidade.</p>
+                </div>
+            `;
+        }
+        if (cityId === 'reino_anao' && window.ForgeSystem) {
+            const recipeCount = Object.keys(window.ForgeSystem.RECIPES).length;
+            const runeRows = Object.values(window.ForgeSystem.RUNE_RECIPES || {}).map(r => {
+                const matText = r.materials.map(req => `${req.amount}x ${ItemDatabase.materials[req.materialId].name}`).join(', ');
+                return `<tr><td>${r.name}</td><td>${matText} + ${r.goldCost}g</td></tr>`;
+            }).join('');
+            return `
+                <div class="guide-block">
+                    <h4>Forja dos Anões</h4>
+                    <p>Minere os Veios de Minério da praça (aproxime e clique) e leve à Forja. ${recipeCount} receitas cobrindo praticamente todo slot de equipamento. Cada tentativa sorteia uma QUALIDADE (0-100, "Forja Ruim" a "Forja Perfeita") que desloca a chance de cada raridade pra cima — nunca garante Lendário, mas melhora as chances. A mesma receita com os mesmos materiais nunca produz o mesmo resultado duas vezes: essa é a identidade anã, "metalurgia imprevisível", o oposto da precisão fixa do Ateliê Élfico.</p>
+                    <h4 style="margin-top:12px;">Runas Gravadas</h4>
+                    <p>Runas de buff temporário (Proteção, Força) também são forjadas, não compradas — exigem minério real além do ouro, gravadas na própria tela da Forja.</p>
+                    <div class="guide-table-wrap">
+                        <table class="guide-table">
+                            <thead><tr><th>Runa</th><th>Custo</th></tr></thead>
+                            <tbody>${runeRows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        return '';
+    },
+
     _renderCities() {
         const cities = Object.values(window.CityDatabase || {});
         const weapons = (typeof ItemDatabase !== 'undefined' && ItemDatabase.weapons) || {};
@@ -399,19 +473,24 @@ const GuideSystem = {
         const trinkets = (typeof ItemDatabase !== 'undefined' && ItemDatabase.trinkets) || {};
         const allItems = { ...weapons, ...armors, ...shields, ...trinkets };
         return `
-            <p class="guide-section-intro">Três cidades-hub, cada uma com sua própria demografia, clima e itens exclusivos de Ferreiro/Armeiro. A infraestrutura civil (Ferreiro, Armeiro, Taverna, Banco, Hall da Fama, Casa, Mercado Arcano, Viajante do Portão) existe igual em toda cidade — o Viajante do Portão, parado no vão da muralha, cobra uma passagem em ouro para viajar entre elas.</p>
+            <p class="guide-section-intro">Quatro cidades-hub — cada uma ensina uma forma DIFERENTE de progredir, não só uma versão reskinada da mesma loja. A infraestrutura civil básica (Taverna, Banco, Hall da Fama, Casa, Viajante do Portão) existe em toda cidade, mas o prédio Arcano (antiga "Câmara/Mercado Arcano") muda de função por cultura: em Porto Helênico é a Árvore de Talentos comum; na Fortaleza Orc vira os Mestres de Treinamento; no Santuário Élfico vira o Ateliê de Criação; no Reino Anão volta a ser só a Árvore de Talentos (a identidade anã mora na Forja, não no prédio arcano). O Viajante do Portão, parado no vão da muralha, cobra uma passagem em ouro para viajar entre elas.</p>
             ${cities.map(c => {
-                const regionalItems = Object.entries(allItems).filter(([, def]) => def.region === c.id).map(([, def]) => def.name);
+                const regionalItems = Object.entries(allItems).filter(([, def]) => def.region === c.id && !def.craftOnly).map(([, def]) => def.name);
+                const craftOnlyItems = Object.entries(allItems).filter(([, def]) => def.region === c.id && def.craftOnly).map(([, def]) => def.name);
                 const demo = Object.entries(c.raceDemographics).sort((a, b) => b[1] - a[1]).map(([race, pct]) => `${(window.RACES[race] && window.RACES[race].name) || race} ${pct}%`).join(', ');
+                const phil = this.CITY_PHILOSOPHY[c.id];
                 return `
                     <div class="guide-card" style="--guide-accent:${c.accentColor}; margin-bottom:14px;">
-                        <div class="guide-card-tag">Nível mínimo: ${c.unlockLevel} · Passagem: ${c.travelCost === 0 ? 'grátis (cidade natal)' : c.travelCost + 'g'}</div>
+                        <div class="guide-card-tag">Nível mínimo: ${c.unlockLevel} · Passagem: ${c.travelCost === 0 ? 'grátis (cidade natal)' : c.travelCost + 'g'}${phil ? ' · Filosofia: ' + phil.verb : ''}</div>
                         <h4>${c.name}</h4>
                         <p class="guide-card-flavor">${c.description}</p>
+                        ${phil ? `<p><strong>${phil.tagline}</strong></p>` : ''}
                         <p><strong>Demografia da Arena:</strong> ${demo}</p>
                         <p><strong>Clima:</strong> ${c.weather.rainChance}% de chance de chuva, ${c.weather.stormChance}% de chance de tempestade em qualquer dia.</p>
-                        ${regionalItems.length ? `<p><strong>Itens exclusivos do Ferreiro/Armeiro local:</strong> ${regionalItems.join(', ')}.</p>` : ''}
+                        ${regionalItems.length ? `<p><strong>Itens exclusivos do Ferreiro/Armeiro local (à venda):</strong> ${regionalItems.join(', ')}.</p>` : ''}
+                        ${craftOnlyItems.length ? `<p><strong>Itens exclusivos de criação (nunca à venda em loja nenhuma):</strong> ${craftOnlyItems.join(', ')}.</p>` : ''}
                     </div>
+                    ${this._renderCityExclusiveSystem(c.id)}
                 `;
             }).join('')}
             <div class="guide-block">
