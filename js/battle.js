@@ -250,7 +250,17 @@ class BattleSystem {
             // e visivelmente mais "pesado" — reforça a identidade de cada
             // arma além dos números de dano/alcance já existentes.
             const atkSpeed = (attacker.getWeaponSpeed ? attacker.getWeaponSpeed().atkSpeed : 1) || 1;
-            window.GFX.playAnim(isPlayer, 'attack', Utils.clamp(650 / atkSpeed, 420, 1150));
+            // Rework de Renderização de Armas, Iteração 4 — achado da
+            // auditoria: ataques à distância chamavam a MESMA animação
+            // 'attack' do corpo a corpo (um golpe de espada), então um
+            // arqueiro visualmente "golpeava com o arco" em vez de puxar a
+            // corda e disparar. `attack_ranged` (ver computePose em
+            // graphics.js) é um gesto de puxar/soltar em vez de um swing —
+            // só entra quando a arma ATIVA de quem ataca é a de longo
+            // alcance (nunca quando um arqueiro está sem munição e recorre
+            // à arma corpo a corpo secundária, ver hasDualWeapons).
+            const isRangedAttack = attacker.activeWeaponSlot === SLOTS.RANGED;
+            window.GFX.playAnim(isPlayer, isRangedAttack ? 'attack_ranged' : 'attack', Utils.clamp(650 / atkSpeed, 420, 1150));
         }
 
         if (!Utils.chance(hitChance)) {

@@ -2322,6 +2322,38 @@ class GraphicsEngine {
                 pose.offsetX = t < 0.6 ? Utils.lerp(0, 8, Math.min(1, t / 0.55)) : Utils.lerp(8, 0, (t - 0.6) / 0.4);
                 break;
             }
+            // Rework de Renderização de Armas, Iteração 4 — antes um ataque à
+            // distância (arco/besta) reusava o `attack` acima verbatim: um
+            // gesto de GOLPE (o braço gira num arco de espada), errado pra
+            // uma arma que não é empunhada assim. `attack_ranged` é puxar +
+            // soltar, não um swing: 0-0.55 ergue e recua o braço (puxando a
+            // corda, `weaponAngle` sobe gradual até -48 em vez do braço
+            // girar), 0.55-0.62 segura no pico (a mira, uma pausa breve —
+            // uma besta/arco parado no ápice do puxão), 0.62-1 solta com um
+            // recuo curto e rápido de volta ao neutro (o "chicote" da corda
+            // liberando a flecha). `stringPull` (0-1, pico em ~0.55-0.62) é
+            // consumido por `_drawWeapon`/WEAPON_RENDERERS pra desenhar a
+            // corda do arco puxada pra trás durante o gesto, em vez de ficar
+            // sempre esticada reta.
+            case 'attack_ranged': {
+                let angle, pull;
+                if (t < 0.55) {
+                    const k = t / 0.55;
+                    angle = Utils.lerp(0, -48, k);
+                    pull = k;
+                } else if (t < 0.62) {
+                    angle = -48;
+                    pull = 1;
+                } else {
+                    const k = (t - 0.62) / 0.38;
+                    angle = Utils.lerp(-48, 0, Math.min(1, k * 1.6)); // solta mais rápido do que puxou
+                    pull = Utils.lerp(1, 0, Math.min(1, k * 2));
+                }
+                pose.weaponAngle += angle;
+                pose.torsoLean -= angle * 0.08; // leve inclinação pra trás ao puxar, oposto do lean pra frente do swing
+                pose.stringPull = pull;
+                break;
+            }
             case 'hurt': {
                 const k = Math.sin(Math.min(t, 1) * Math.PI);
                 const critMult = anim.crit ? 1.7 : 1;
@@ -2526,11 +2558,33 @@ class GraphicsEngine {
         } else {
             this._drawLegs(ctx, entity, pose);
         }
+
+        // Rework de Renderização de Armas, Iteração 4 — achado da auditoria:
+        // `pose.torsoLean` (usado por carga/investida, dano crítico, slam de
+        // chefe etc) só era aplicado DENTRO de `_drawTorso`, isolado pelo seu
+        // próprio save/restore. Braço/arma (`_drawFrontArm`/`_drawBackArm`) e
+        // cabeça (`_drawHead`) usam um ponto de ancoragem FIXO
+        // (`-legLen-torsoH+10`) que nunca lia esse ângulo — durante um lean
+        // forte, o torso inclinava sozinho enquanto ombro/braço/arma e cabeça
+        // ficavam parados, como se o torso escorregasse por baixo do resto do
+        // corpo. Gira ombro+braço+arma+cabeça em torno do MESMO pivô do
+        // quadril (translate/rotate/translate-back — rotação pura, sem
+        // deslocar a origem local que os métodos abaixo já esperam), pra
+        // tudo acima do quadril se mover como uma unidade rígida só. Pernas
+        // ficam de fora de propósito (pés continuam plantados no chão).
+        const legLen = this._legLen(entity);
+        ctx.save();
+        ctx.translate(0, -legLen);
+        ctx.rotate(pose.torsoLean * Math.PI / 180 * 0.3);
+        ctx.translate(0, legLen);
+
         this._drawTorso(ctx, entity, pose);
         this._drawBackArm(ctx, entity, pose);
         this._drawTorsoDetail(ctx, entity);
         this._drawHead(ctx, entity, pose);
         this._drawFrontArm(ctx, entity, pose, anim);
+
+        ctx.restore();
 
         ctx.restore();
         ctx.globalAlpha = 1;
@@ -3001,9 +3055,11 @@ class GraphicsEngine {
             }
         }
 
+        // torsoLean não gira mais aqui — o pivô agora é compartilhado com
+        // ombro/braço/arma/cabeça em drawGladiator (ver comentário lá), pra
+        // essa rotação parar de ficar isolada só no torso.
         ctx.save();
         ctx.translate(0, -legLen);
-        ctx.rotate(pose.torsoLean * Math.PI / 180 * 0.3);
         ctx.scale(1, pose.torsoScaleY);
 
         const sprite = this._bakeTorsoSprite(entity, m, torsoH, torsoColor, metallic);
@@ -3781,7 +3837,10 @@ class GraphicsEngine {
         // Usa a arma ATIVA (mainHand ou ranged, conforme activeWeaponSlot),
         // não sempre a mainHand — senão trocar de arma em combate mudava o
         // dano/alcance mas o sprite continuava mostrando a arma antiga.
-        this._drawWeapon(ctx, activeWeapon, weaponScale);
+        // `pose.stringPull` (só != 0 durante 'attack_ranged', ver
+        // computePose) deixa a corda do arco visualmente puxada pra trás
+        // durante o gesto de mirar, em vez de sempre esticada reta.
+        this._drawWeapon(ctx, activeWeapon, weaponScale, pose.stringPull || 0);
         ctx.restore();
     }
 
@@ -3820,7 +3879,7 @@ class GraphicsEngine {
     // ~26 funções do registry, escala o ctx ANTES de despachar — mesma
     // técnica já usada pro brilho da lâmina (bladeShine) logo abaixo,
     // nunca uma correção arma-por-arma.
-    _drawWeapon(ctx, weapon, scale = 1) {
+    _drawWeapon(ctx, weapon, scale = 1, stringPull = 0) {
         if (!weapon) return;
 
         ctx.save();
@@ -3872,7 +3931,7 @@ class GraphicsEngine {
         // `default` (espada genérica) — nunca quebra pra uma arma futura
         // ainda não desenhada especificamente.
         const draw = WEAPON_RENDERERS[weapon.id] || WEAPON_RENDERERS.default;
-        draw(ctx);
+        draw(ctx, stringPull);
         ctx.shadowBlur = 0;
         ctx.shadowColor = 'transparent';
 
@@ -3962,17 +4021,22 @@ const WEAPON_RENDERERS = {
         ctx.quadraticCurveTo(46, 40, 56, 46);
         ctx.stroke();
     },
-    w_09(ctx) { // Arco Curto: arco recurvo com corda, empunhado verticalmente — arquétipo padrão de arco
+    // `stringPull` (0-1, ver computePose 'attack_ranged' + _drawWeapon) —
+    // todo arco/besta abaixo desenhava a corda sempre esticada reta, mesmo
+    // durante o próprio gesto de puxar/mirar/disparar. Dobra a corda pra
+    // trás (em direção ao arqueiro) proporcionalmente ao puxão em vez de um
+    // segmento reto fixo — mesma técnica em todos os 5 arcos/bestas do jogo.
+    w_09(ctx, stringPull = 0) { // Arco Curto: arco recurvo com corda, empunhado verticalmente — arquétipo padrão de arco
         ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(6, 0, 22, -Math.PI * 0.42, Math.PI * 0.42);
         ctx.stroke();
         ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(20, -18.5); ctx.lineTo(20, 18.5);
+        ctx.moveTo(20, -18.5); ctx.lineTo(20 - stringPull * 12, 0); ctx.lineTo(20, 18.5);
         ctx.stroke();
     },
-    w_10(ctx) { // Besta de Aço: estrutura (trilho) + arco curto horizontal — única arma com essa silhueta mecânica
+    w_10(ctx, stringPull = 0) { // Besta de Aço: estrutura (trilho) + arco curto horizontal — única arma com essa silhueta mecânica
         ctx.fillRect(8, -2.5, 34, 5);
         ctx.strokeStyle = '#8891a0'; ctx.lineWidth = 3;
         ctx.beginPath();
@@ -3980,7 +4044,7 @@ const WEAPON_RENDERERS = {
         ctx.stroke();
         ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(24, -14); ctx.lineTo(24, 14);
+        ctx.moveTo(24, -14); ctx.lineTo(24 - stringPull * 8, 0); ctx.lineTo(24, 14);
         ctx.stroke();
     },
     default(ctx) { // w_01 e qualquer arma futura não mapeada: espada curta reta e sem adornos
@@ -4028,14 +4092,14 @@ const WEAPON_RENDERERS = {
         ctx.fillStyle = 'rgba(74,138,58,0.55)'; // brilho verde-floresta sutil, RACES.elfo.accent
         ctx.beginPath(); ctx.arc(59, 0.5, 3, 0, Math.PI * 2); ctx.fill();
     },
-    w_14(ctx) { // Arco Élfico Longo: arco mais alto e esguio que o Arco Curto (w_09) — o mais alto do jogo
+    w_14(ctx, stringPull = 0) { // Arco Élfico Longo: arco mais alto e esguio que o Arco Curto (w_09) — o mais alto do jogo
         ctx.strokeStyle = '#4a8a3a'; ctx.lineWidth = 3; // verde floresta vívido, RACES.elfo.accent
         ctx.beginPath();
         ctx.arc(6, 0, 34, -Math.PI * 0.46, Math.PI * 0.46);
         ctx.stroke();
         ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(31, -28); ctx.lineTo(31, 28);
+        ctx.moveTo(31, -28); ctx.lineTo(31 - stringPull * 14, 0); ctx.lineTo(31, 28);
         ctx.stroke();
     },
 
@@ -4044,14 +4108,14 @@ const WEAPON_RENDERERS = {
     // Kharzum) nunca tiveram entrada própria aqui, então caíam no `default`
     // (espada genérica) em combate. Reworkadas na Iteração 3 com geometria
     // própria.
-    w_15(ctx) { // Arco do Olho Partido: arco recurvo com uma rachadura visível na haste
+    w_15(ctx, stringPull = 0) { // Arco do Olho Partido: arco recurvo com uma rachadura visível na haste
         ctx.strokeStyle = '#6a5a4a'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(6, 0, 24, -Math.PI * 0.4, Math.PI * 0.4);
         ctx.stroke();
         ctx.strokeStyle = '#e8e0c8'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(22, -19); ctx.lineTo(22, 19);
+        ctx.moveTo(22, -19); ctx.lineTo(22 - stringPull * 12, 0); ctx.lineTo(22, 19);
         ctx.stroke();
         ctx.fillStyle = '#c0392b'; // rachadura vermelha na haste, ecoa o próprio nome "Olho Partido"
         ctx.beginPath();
@@ -4139,7 +4203,7 @@ const WEAPON_RENDERERS = {
         ctx.strokeStyle = 'rgba(120,40,160,0.7)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(28, 0); ctx.stroke();
     },
-    w_24(ctx) { // Arco da Lua Cheia: RANGED — arco recurvo com pontas em flare de meia-lua, disco lunar no grip
+    w_24(ctx, stringPull = 0) { // Arco da Lua Cheia: RANGED — arco recurvo com pontas em flare de meia-lua, disco lunar no grip
         ctx.strokeStyle = '#c9d6e8'; ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(6, 0, 26, -Math.PI * 0.44, Math.PI * 0.44);
@@ -4149,7 +4213,7 @@ const WEAPON_RENDERERS = {
         ctx.beginPath(); ctx.arc(24, 21, 5, Math.PI * 0.1, Math.PI * 1.1); ctx.stroke(); // flare da ponta inferior
         ctx.strokeStyle = '#f0f4ff'; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(24, -22); ctx.lineTo(24, 22);
+        ctx.moveTo(24, -22); ctx.lineTo(24 - stringPull * 13, 0); ctx.lineTo(24, 22);
         ctx.stroke();
         ctx.fillStyle = 'rgba(230,235,255,0.55)'; // disco lunar sutil no ponto de empunhadura
         ctx.beginPath(); ctx.arc(6, 0, 4, 0, Math.PI * 2); ctx.fill();
