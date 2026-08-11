@@ -208,6 +208,24 @@ class BattleSystem {
         return msg;
     }
 
+    // Rework de Renderização de Armas, Iteração 6 — achado da auditoria:
+    // `skill.animation` (ver Skill constructor em skills.js) cai em
+    // `'attack'` pra QUALQUER habilidade física (PHYSICAL/BLEED/STUN/
+    // LIFESTEAL) — e o comentário lá mesmo confirma que essas habilidades
+    // "usam o alcance da arma equipada", ou seja, um arqueiro conjura
+    // normalmente com o arco ativo. Mas os dois pontos que disparam
+    // `skill.animation` (executePlayerTurn/executeEnemySkill abaixo) nunca
+    // passavam pelo mesmo branch ranged-vs-melee que `executeAttack` ganhou
+    // na Iteração 4 — um arqueiro usando uma habilidade física sempre
+    // golpeava com o gesto de espada, nunca puxava a corda. Habilidades com
+    // animação PRÓPRIA (cast/boss_bats/boss_slam/boss_judgment) nunca
+    // passam por aqui — só o fallback genérico 'attack' é reavaliado.
+    _skillAnimType(entity, skill) {
+        const anim = skill.animation || 'attack';
+        if (anim === 'attack' && entity.activeWeaponSlot === SLOTS.RANGED) return 'attack_ranged';
+        return anim;
+    }
+
     // Precisão (ACC) do ATACANTE melhora a chance bruta de um efeito
     // negativo (atordoar/lentidão) realmente grudar no alvo — item 11 da
     // revisão profunda ("habilidades que exigem precisão"). Simétrico ao
@@ -867,7 +885,7 @@ class BattleSystem {
 
                 this.player.currentMp -= skill.mpCost;
                 if (skill.cooldown && this.player.setSkillCooldown) this.player.setSkillCooldown(skillId, skill.cooldown);
-                if (window.GFX) window.GFX.playAnim(true, skill.animation || 'attack', 700);
+                if (window.GFX) window.GFX.playAnim(true, this._skillAnimType(this.player, skill), 700);
                 // Rastreado pro Mestre de Armas Orc ("vença sem usar
                 // nenhuma habilidade") — conta a partir daqui (habilidade
                 // validamente invocada), não só em caso de acerto.
@@ -1130,7 +1148,7 @@ class BattleSystem {
 
         this.enemy.currentMp -= skill.mpCost;
         if (skill.cooldown && this.enemy.setSkillCooldown) this.enemy.setSkillCooldown(skillId, skill.cooldown);
-        if (window.GFX) window.GFX.playAnim(false, skill.animation || 'attack', 700);
+        if (window.GFX) window.GFX.playAnim(false, this._skillAnimType(this.enemy, skill), 700);
 
         let message = '', selfEvent = null;
 
