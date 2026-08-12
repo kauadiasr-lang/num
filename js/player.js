@@ -83,8 +83,24 @@ class Entity {
         this.activeWeaponSlot = SLOTS.MAIN_HAND;
 
         this.derivedStats = {};
-        this.currentHp = 0;
-        this.currentMp = 0;
+        // Auditoria de Combate e Escalonamento (Iteração 5) — bug real
+        // encontrado testando batalhas automatizadas: `0` era usado como
+        // sentinela de "entidade recém-criada, nunca teve HP/MP calculado"
+        // em calculateDerivedStats() abaixo, mas `0` TAMBÉM é o valor
+        // LEGÍTIMO de uma entidade recém-derrotada (ver battle.js linha
+        // ~415, `defender.currentHp = 0` no golpe fatal). Qualquer
+        // recálculo de stats entre o golpe fatal e o tratamento de
+        // derrota (ex: endBattle() chama calculateDerivedStats() pra
+        // durabilidade de equipamento ANTES de aplicar a penalidade de
+        // derrota) reanimava a entidade pro HP máximo por um instante —
+        // inofensivo hoje só porque o fluxo de derrota sempre sobrescreve
+        // currentHp de novo logo em seguida (ver battle.js endBattle,
+        // "Penalidade por morte"), mas um valor-sentinela que colide com
+        // um estado real do jogo é uma armadilha esperando um chamador
+        // futuro que confie em currentHp nesse meio-tempo. `-1` nunca é
+        // um HP/MP real, elimina a colisão de vez.
+        this.currentHp = -1;
+        this.currentMp = -1;
 
         // Recargas de habilidade: em Entity (não só em Player) para que
         // inimigos também possam usar habilidades com cooldown via IA de combate.
@@ -358,11 +374,14 @@ class Entity {
         this.derivedStats.critChanceLowHpBonus = (mutation ? mutation.critChanceLowHpBonus : 0) + sec('critChanceLowHpBonus') + raceBonus('critChanceLowHpBonus');
         this.derivedStats.mutationSpecials = [...(mutation ? mutation.specials : []), ...(secondaryMutation ? secondaryMutation.specials : [])];
 
-        // Se HP/MP atual for 0 (nova entidade) ou maior que o novo máximo, ajusta.
-        if (this.currentHp === 0 || this.currentHp > this.derivedStats.maxHp) {
+        // Se HP/MP nunca foi calculado (entidade nova, ver sentinela -1 no
+        // construtor acima) ou ficou maior que o novo máximo, ajusta.
+        // NUNCA usa `=== 0` aqui — 0 é um estado real (entidade derrotada/
+        // sem mana), não "recém-criada" (ver comentário do construtor).
+        if (this.currentHp === -1 || this.currentHp > this.derivedStats.maxHp) {
             this.currentHp = this.derivedStats.maxHp;
         }
-        if (this.currentMp === 0 || this.currentMp > this.derivedStats.maxMp) {
+        if (this.currentMp === -1 || this.currentMp > this.derivedStats.maxMp) {
             this.currentMp = this.derivedStats.maxMp;
         }
     }
