@@ -1235,23 +1235,39 @@ class UIManager {
     }
 
     // --- BATALHA ---
-    startBattle() {
+    // Auditoria de Combate e Escalonamento (Iteração 4) — Seção 4: esta é
+    // a ÚNICA rota de geração de inimigo que continua ligada ao nível do
+    // jogador, porque é o botão "Duelo Rápido" da Arena (ver
+    // #btn-city-arena-quick em ui.js initEventListeners, chamado SEM
+    // argumento — exceção explícita da diretiva). Passa a aceitar um
+    // `regionLevel` opcional só pra permitir que OUTROS chamadores (eventos
+    // da praça, emboscadas da Estrada — ver city.js _eventDuelist/
+    // _eventHunters, ui.js onRoadWorldEncounter/advanceRoad) reaproveitem a
+    // mesma função de batalha genérica com um nível vindo da REGIÃO (ver
+    // enemy.js getRegionEnemyLevel) em vez do jogador — sem argumento,
+    // comportamento 100% idêntico a antes.
+    startBattle(regionLevel) {
         const p = window.Engine.state.player;
-        // Gera inimigo baseado no nível do jogador
-        const enemy = new Enemy(p.level);
+        const level = (regionLevel !== undefined && regionLevel !== null) ? regionLevel : p.level;
+        const enemy = new Enemy(level);
         this.beginBattleWith(enemy);
     }
 
     // Chefe opcional da Estrada (ver roads.js `elite`, item pedido na
-    // auditoria de mundo vivo: "chefes opcionais" durante a exploração) —
-    // nível efetivo bem mais alto que o Duelo Rápido comum (Enemy já sorteia
-    // ±1 nível e uma chance própria de Elite em cima do nível recebido,
-    // então +3 aqui garante uma luta perceptivelmente mais dura sem precisar
-    // duplicar/alterar a lógica de geração do Enemy). expValue/goldValue já
-    // escalam com o nível, então a recompensa maior é automática.
+    // auditoria de mundo vivo: "chefes opcionais" durante a exploração).
+    // Auditoria de Combate e Escalonamento (Iteração 4) — Seção 3: antes
+    // era sempre `p.level + 3` (escalava com o JOGADOR); agora usa a
+    // metade superior da faixa de nível da REGIÃO de destino da viagem
+    // (ver enemy.js getRegionEnemyLevel, biasHigh=true — "chefe opcional"
+    // continua mais forte que um bandido comum da MESMA região, só que
+    // agora relativo ao mundo, não ao jogador). Sem viagem ativa (chamado
+    // fora de contexto de Estrada), cai pra cidade atual.
     startEliteRoadBattle() {
         const p = window.Engine.state.player;
-        const enemy = new Enemy(p.level + 3);
+        const journey = p.roadWorldJourney || p.roadJourney;
+        const toId = (journey && journey.toId) || (window.getCurrentCityId ? window.getCurrentCityId() : null);
+        const level = window.getRegionEnemyLevel ? window.getRegionEnemyLevel(toId, true) : p.level + 3;
+        const enemy = new Enemy(level);
         this.beginBattleWith(enemy);
     }
 
@@ -1259,10 +1275,13 @@ class UIManager {
     // inimigo procedural de uma emboscada comum da Estrada, só que força o
     // cenário `floresta_ancestral` (ver graphics.js ARENA_BIOMES: névoa
     // verde, vaga-lumes) em vez do bioma normal da cidade atual — a mata
-    // sagrada é neutra, nunca pertence a nenhuma Cidade-Hub.
+    // sagrada é neutra, nunca pertence a nenhuma Cidade-Hub. Auditoria de
+    // Combate e Escalonamento (Iteração 4) — Seção 3: por isso NUNCA
+    // consulta CityDatabase/getRegionEnemyLevel (não haveria cidade pra
+    // consultar) — usa uma faixa fixa própria, independente do nível do
+    // jogador, coerente com o resto da mudança.
     startNatureDiscoveryBattle() {
-        const p = window.Engine.state.player;
-        const enemy = new Enemy(p.level);
+        const enemy = new Enemy(Utils.randomInt(15, 30));
         this.beginBattleWith(enemy, 'floresta_ancestral');
     }
 
@@ -4683,7 +4702,17 @@ class UIManager {
     onRoadWorldEncounter(dangerous = false) {
         window.SaveManager.save(window.Engine.state);
         if (dangerous) this.startEliteRoadBattle();
-        else this.startBattle();
+        else {
+            // Auditoria de Combate e Escalonamento (Iteração 4) — Seção 3:
+            // bandido comum da Estrada NÃO é o Duelo Rápido — antes caía no
+            // `startBattle()` sem argumento (escalava com o jogador, mesmo
+            // comportamento do botão da Arena por acidente de reaproveitar
+            // a função errada). Agora passa o nível da REGIÃO de destino.
+            const p = window.Engine.state.player;
+            const journey = p.roadWorldJourney;
+            const toId = (journey && journey.toId) || (window.getCurrentCityId ? window.getCurrentCityId() : null);
+            this.startBattle(window.getRegionEnemyLevel ? window.getRegionEnemyLevel(toId) : undefined);
+        }
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão — a partir da Fase
@@ -4822,7 +4851,14 @@ class UIManager {
                 if (window.Engine.state.player !== p || !p.roadJourney) return;
                 if (result.natureDiscovery) this.startNatureDiscoveryBattle();
                 else if (result.elite) this.startEliteRoadBattle();
-                else this.startBattle();
+                else {
+                    // Auditoria de Combate e Escalonamento (Iteração 4) —
+                    // Seção 3: mesmo ajuste de onRoadWorldEncounter acima —
+                    // bandido comum da Estrada (menu antigo) usa a região de
+                    // destino, nunca o nível do jogador.
+                    const toId = (p.roadJourney && p.roadJourney.toId) || (window.getCurrentCityId ? window.getCurrentCityId() : null);
+                    this.startBattle(window.getRegionEnemyLevel ? window.getRegionEnemyLevel(toId) : undefined);
+                }
             }, 1400);
             return;
         }

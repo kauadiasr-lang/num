@@ -25,6 +25,19 @@ const CityDatabase = {
         description: 'A cidade natal de todo gladiador que começa sua jornada na Arena — praças de mármore, oliveiras centenárias e o Coliseu Imperial erguido no centro de tudo.',
         unlockLevel: 1, // sempre disponível — cidade inicial de qualquer personagem novo
         travelCost: 0,  // "voltar pra casa" nunca cobra passagem
+        // Auditoria de Combate e Escalonamento (Iteração 4) — Seção 3:
+        // faixa de nível dos inimigos NORMAIS desta região (bandidos da
+        // Estrada, duelistas/caçadores da praça — ver enemy.js
+        // getRegionEnemyLevel, ui.js startBattle/startEliteRoadBattle,
+        // city.js _makeBanditEnemy/_eventDuelist/_eventHunters). NUNCA usada
+        // pelo Duelo Rápido (Seção 4 — continua `new Enemy(p.level)`, ver
+        // ui.js startBattle() sem argumento). Ordem crescente segue
+        // `unlockLevel` acima (progressão de dificuldade já estabelecida
+        // pelas Cidades-Hub Regionais), só que reescalada pra cobrir a
+        // faixa de nível real do jogo (1-60+), não só o gate de acesso
+        // inicial — valores de primeira calibração, ajustáveis por
+        // playtesting (a diretiva não exige valores exatos).
+        normalEnemyLevelRange: [1, 12],
         // Família de bioma da Estrada (ver js/road.js ZONE_FAMILY_STAGES) —
         // usada só pra nomear/colorir as zonas da travessia MANUAL entre
         // cidades (WASD/clique), nunca pela viagem rápida. Nunca usada
@@ -91,6 +104,9 @@ const CityDatabase = {
         description: 'Muralhas de pedra bruta e ferro enferrujado erguidas sobre rocha vulcânica — aqui só prospera quem prova força de verdade, todos os dias.',
         unlockLevel: 3,
         travelCost: 120,
+        // Ver porto_helenico.normalEnemyLevelRange acima para a explicação
+        // completa do campo.
+        normalEnemyLevelRange: [10, 24],
         // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
         // para a explicação completa do campo).
         roadFamily: 'orc',
@@ -202,6 +218,9 @@ const CityDatabase = {
         description: 'Uma cidade erguida entre raízes ancestrais e cascatas silenciosas, onde a fronteira entre floresta e civilização praticamente não existe.',
         unlockLevel: 6,
         travelCost: 220,
+        // Ver porto_helenico.normalEnemyLevelRange acima para a explicação
+        // completa do campo.
+        normalEnemyLevelRange: [20, 38],
         // Família de bioma da Estrada (ver porto_helenico.roadFamily acima
         // para a explicação completa do campo).
         roadFamily: 'elfico',
@@ -315,6 +334,9 @@ const CityDatabase = {
         description: 'Escavado nas profundezas de uma cordilheira inteira — túneis, pontes de corrente, minas ativas e forjas que nunca esfriam. Nenhuma muralha aqui protege quem não sabe se defender: o próprio Reino cobra esse preço todos os dias.',
         unlockLevel: 10,
         travelCost: 380,
+        // Ver porto_helenico.normalEnemyLevelRange acima para a explicação
+        // completa do campo.
+        normalEnemyLevelRange: [32, 55],
         // Família de bioma da Estrada (ver porto_helenico.roadFamily acima e
         // road.js ZONE_FAMILY_STAGES.anao) — "Trilhas de Pedra" → "Portal da
         // Montanha", a travessia terrestre até a entrada da mina.

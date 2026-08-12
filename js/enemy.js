@@ -144,6 +144,30 @@ function totalStatPointsForLevel(level) {
 }
 window.totalStatPointsForLevel = totalStatPointsForLevel;
 
+// Auditoria de Combate e Escalonamento (Iteração 4) — Seção 3: fora do
+// Duelo Rápido (ver ui.js startBattle() SEM argumento, Seção 4 — exceção
+// explícita, nunca usa esta função), inimigo nenhum deve mais escalar com
+// o nível do jogador. O mundo passa a ter progressão própria por região
+// (ver CityDatabase[cityId].normalEnemyLevelRange em citydatabase.js) —
+// bandidos da Estrada, duelistas/caçadores da praça, todos usam a faixa
+// da cidade de ORIGEM/DESTINO em vez de `p.level + X`. `biasHigh` empurra
+// o sorteio pra metade superior da faixa (chefe opcional da Estrada, ver
+// ui.js startEliteRoadBattle — antes `p.level + 3`, sempre um degrau
+// acima do jogador; agora sempre um degrau acima da REGIÃO). Cidade sem
+// `normalEnemyLevelRange` cadastrado (id desconhecido, ex.: contexto
+// neutro) cai pra 1-10 — nunca quebra, só fica conservador.
+function getRegionEnemyLevel(cityId, biasHigh = false) {
+    const def = window.CityDatabase && window.CityDatabase[cityId];
+    const range = (def && def.normalEnemyLevelRange) || [1, 10];
+    const [min, max] = range;
+    if (biasHigh) {
+        const mid = min + Math.floor((max - min) / 2);
+        return Utils.randomInt(mid, max);
+    }
+    return Utils.randomInt(min, max);
+}
+window.getRegionEnemyLevel = getRegionEnemyLevel;
+
 class Enemy extends Entity {
     constructor(playerLevel) {
         // Raça sorteada ANTES do nome (ver RACE_ENEMY_NAMES acima) pra que o
@@ -383,15 +407,39 @@ class Enemy extends Entity {
  * (AICombat) que qualquer inimigo — não é um boss, é só um adversário
  * temático; só o boss do ritual (Conde Vampiro) tem IA exclusiva (ver bossai.js).
  */
-const VAMPIRE_NAMES = ['Vampiro Renascido', 'Nobre da Noite Eterna', 'Servo do Conde', 'Sanguessuga Ancestral', 'Filho das Trevas'];
+// Auditoria de Combate e Escalonamento (Iteração 4) — Seção 5: vampiro
+// noturno NÃO deve mais escalar com o nível do jogador — ganha uma
+// patente própria, com nível fixo por patente, independente do jogador.
+// Patentes inferiores são bem mais comuns que a nobre (ver
+// VAMPIRE_RANK_WEIGHTS), então a maioria dos encontros ainda é um desafio
+// comum — a raridade da patente nobre é o que a torna memorável. Nomes
+// existentes de VAMPIRE_NAMES (removida) foram distribuídos por patente
+// em vez de sorteados soltos — "Nobre da Noite Eterna" pertence à patente
+// nobre, "Servo do Conde"/"Filho das Trevas" às inferiores, fazendo o
+// próprio nome já sinalizar o perigo antes da luta começar. O Conde
+// Vampiro DE VERDADE continua sendo o boss único de bossai.js/BOSS_DEFS
+// (nível próprio dele, não mexido aqui) — este Vampiro AMBIENTE (perigo
+// noturno da cidade) nunca usa o título "Conde", só as 3 patentes abaixo.
+const VAMPIRE_RANKS = {
+    inferior: { names: ['Servo do Conde', 'Filho das Trevas'], levelRange: [5, 8] },
+    guerreiro: { names: ['Vampiro Renascido', 'Sanguessuga Ancestral'], levelRange: [8, 11] },
+    nobre: { names: ['Nobre da Noite Eterna'], levelRange: [11, 14] }
+};
+const VAMPIRE_RANK_WEIGHTS = { inferior: 55, guerreiro: 30, nobre: 15 };
 class Vampire extends Entity {
+    // `playerLevel` não decide mais o nível (ver Seção 5 acima) — parâmetro
+    // mantido só pra não quebrar os chamadores existentes (city.js
+    // _eventVampireEncounter/_eventNightDanger), que continuam passando
+    // `p.level` sem saber que agora é ignorado.
     constructor(playerLevel) {
-        super(VAMPIRE_NAMES[Utils.randomInt(0, VAMPIRE_NAMES.length - 1)]);
+        const rankId = (Utils.weightedPick && Utils.weightedPick(VAMPIRE_RANK_WEIGHTS)) || 'inferior';
+        const rank = VAMPIRE_RANKS[rankId];
+        super(rank.names[Utils.randomInt(0, rank.names.length - 1)]);
         this.isVampireEnemy = true; // flag que battle.js usa pra sortear a Essência ao derrotá-lo
         this.lineage = 'vampirismo'; // usado por LineageSystem.getWeaknessMultiplier em battle.js (jogadores da Linhagem Luz causam +25% de dano nele)
 
-        this.level = playerLevel + Utils.randomInt(0, 2); // vampiros são um desafio um degrau acima do normal
-        if (this.level < 5) this.level = 5; // pedido do usuário: vampiro nunca abaixo do nível 5, mesmo contra jogador iniciante
+        this.vampireRank = rankId; // lido por IA/depuração — não afeta cálculo nenhum
+        this.level = Utils.randomInt(rank.levelRange[0], rank.levelRange[1]);
 
         // Estilo sorteado ANTES dos atributos, pelo mesmo motivo do Enemy
         // comum: permite que generateStats enviese os pontos pelo statFocus
@@ -416,10 +464,10 @@ class Vampire extends Entity {
     }
 
     generateStats() {
-        // Mesma fórmula compartilhada do Enemy comum (ver auditoria de
-        // balanceamento acima) — Vampiro já é mais difícil por ter piso de
-        // nível 5 e um nível efetivo mais alto (playerLevel + 0~2), não
-        // precisa de mais +5 pontos soltos por cima disso.
+        // Mesma fórmula compartilhada do Enemy comum (ver
+        // totalStatPointsForLevel acima) — a dificuldade do Vampiro vem
+        // inteira do nível fixo da patente sorteada (ver VAMPIRE_RANKS no
+        // construtor), nunca de pontos extras soltos por cima disso.
         this.generateStatsFromStyle(totalStatPointsForLevel(this.level));
     }
 

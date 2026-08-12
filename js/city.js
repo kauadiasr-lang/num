@@ -2642,8 +2642,14 @@ class CityEngine {
     // `isBandit` é só uma tag NOVA e inofensiva (não influencia stats/
     // visual nenhum) lida por reputation.js `_opponentWeight` — derrotar
     // conta como "importante" mesmo quando o sorteio de Elite não bate.
+    // Auditoria de Combate e Escalonamento (Iteração 4) — Seção 3: era
+    // `p.level + 1` (escalava com o jogador); agora usa a faixa de nível
+    // da cidade ATUAL (ver enemy.js getRegionEnemyLevel) — o Bandido Anão
+    // é um encontro fixo desta região, não um espelho do jogador.
     _makeBanditEnemy(p) {
-        const enemy = new Enemy(p.level + 1);
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const level = window.getRegionEnemyLevel ? window.getRegionEnemyLevel(cityId) : p.level + 1;
+        const enemy = new Enemy(level);
         enemy.isBandit = true;
         return enemy;
     }
@@ -2738,7 +2744,13 @@ class CityEngine {
                 // botões desse menu escondiam ele antes, não startBattle()).
                 const arenaMenu = document.getElementById('city-arena-menu');
                 if (arenaMenu) arenaMenu.classList.add('hidden');
-                window.UI.startBattle();
+                // Auditoria de Combate e Escalonamento (Iteração 4) —
+                // Seção 3: este evento NÃO é o Duelo Rápido — antes de
+                // startBattle() aceitar `regionLevel`, os dois caíam no
+                // mesmo `new Enemy(p.level)` por acidente de reaproveitar a
+                // função errada. Agora usa a faixa de nível da cidade atual.
+                const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+                window.UI.startBattle(window.getRegionEnemyLevel ? window.getRegionEnemyLevel(cityId) : undefined);
             }
         }, 1800);
     }
@@ -2831,7 +2843,13 @@ class CityEngine {
             if (this._isActive() && window.UI && window.UI.startBattle) {
                 const arenaMenu = document.getElementById('city-arena-menu');
                 if (arenaMenu) arenaMenu.classList.add('hidden');
-                window.UI.startBattle();
+                // Auditoria de Combate e Escalonamento (Iteração 4) —
+                // Seção 3: este evento NÃO é o Duelo Rápido — antes de
+                // startBattle() aceitar `regionLevel`, os dois caíam no
+                // mesmo `new Enemy(p.level)` por acidente de reaproveitar a
+                // função errada. Agora usa a faixa de nível da cidade atual.
+                const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+                window.UI.startBattle(window.getRegionEnemyLevel ? window.getRegionEnemyLevel(cityId) : undefined);
             }
         }, 1800);
     }
