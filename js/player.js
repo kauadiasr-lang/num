@@ -7,6 +7,54 @@
 const UNARMED_RANGE = { min: 0, max: 1 };
 const UNARMED_SPEED = { atkSpeed: 1, approachSpeed: 2, retreatSpeed: 2 };
 
+// Auditoria de Combate e Escalonamento (Iteração 3) — Seção 2: nível
+// precisa pesar MUITO mais no mid/end game. ANTES de somar qualquer bônus
+// novo, a auditoria (ver /tmp/pw/test_level_scaling_audit.js) mediu o
+// crescimento REAL já existente: maxHp só tinha o termo direto `level*3`;
+// a maior parte do crescimento observado (~14 HP/nível em média pra um
+// inimigo procedural) vinha INDIRETAMENTE do pool de atributos, que
+// cresce só 5 pontos por nível dividido entre 5 atributos (~1 STR/nível
+// → ~11 HP/nível). defenseRating não tinha NENHUM termo direto de nível,
+// só `def*2` — mesma diluição, ~1.6-2 de defesa por nível em média. Isso
+// confirma a causa raiz apontada na Seção 15: nível quase não pesa nada
+// no HP/defesa reais, então uma diferença de 10+ níveis vira quase
+// irrelevante nesses dois atributos.
+//
+// Arquitetura escolhida: o bônus de atributo (STR/DEF, ver
+// calculateDerivedStats abaixo) continua exatamente igual — é o que dá
+// peso real a build/investimento de pontos (Seção 12: "atributos, builds,
+// equipamentos, habilidades e estratégia continuam importantes"). O ÚNICO
+// ponto de mudança é o termo de NÍVEL, que passa a ser em DEGRAUS em vez
+// de linear: 1-10 fica IDÊNTICO ao valor antigo (o rebalanceamento
+// recente que deixou batalhas iniciais mais rápidas — ver comentário
+// "batalhas contra inimigos comuns demoravam demais" logo abaixo —
+// continua intacto), 11-25 acelera moderadamente, 26+ acelera bem mais
+// forte, exatamente onde a diretiva pede "mid/end game com perigo real".
+// Nunca chega ao +80/nível LINEAR pedido literalmente na diretiva: uma
+// primeira tentativa bem mais agressiva (11-25: +12/nível, 26+: +24/nível
+// de HP) foi testada em /tmp/pw/test_level_scaling_battles.js simulando
+// turnos-pra-matar em combate ESPELHADO (mesmo nível dos dois lados) —
+// nível 60 foi de 27 pra 104 turnos (~4x), porque o dano (STR) não cresce
+// no mesmo ritmo que HP/defesa por nível. Reduzido em duas rodadas de
+// ajuste até nível 60 ficar em ~43 turnos (~1.5x o valor antigo) — mais
+// perigoso no mid/end game sem virar maratona em batalhas do MESMO nível.
+// Compartilhado por TODAS as subclasses de Entity (Player/Enemy/Vampire/
+// Ghost/Rival, já que vem do mesmo calculateDerivedStats único) — nunca
+// duplicado por tipo.
+function levelHpBonus(level) {
+    if (level <= 10) return level * 3;
+    if (level <= 25) return 30 + (level - 10) * 5;
+    return 105 + (level - 25) * 8;
+}
+window.levelHpBonus = levelHpBonus;
+
+function levelDefenseBonus(level) {
+    if (level <= 10) return 0;
+    if (level <= 25) return (level - 10);
+    return 15 + (level - 25);
+}
+window.levelDefenseBonus = levelDefenseBonus;
+
 class Entity {
     constructor(name) {
         this.name = name;
@@ -130,14 +178,14 @@ class Entity {
         // não investe em Força sente uma queda grande de vida (batalhas mais
         // rápidas no caso comum), quem investe pesado continua com bastante
         // vida (o ponto de Força vale mais agora, não menos).
-        let maxHp = 15 + (str * 11) + (this.level * 3);
+        let maxHp = 15 + (str * 11) + levelHpBonus(this.level);
         let maxMp = 20 + (int * 8) + (this.level * 3);
 
         // Fórmulas de combate
         let physicalDamage = Math.floor(str * 1.5);
         let dodgeChance = Utils.clamp((agi * 0.5) + (luk * 0.1), 0, 45); // Max 45% esquiva natural
         let critChance = Utils.clamp((agi * 0.2) + (luk * 0.5), 1, 50);
-        let defenseRating = def * 2;
+        let defenseRating = def * 2 + levelDefenseBonus(this.level);
         let blockChance = 0;
 
         // Soma bônus diretos de equipamentos: dano/defesa das peças, HP/MP de
