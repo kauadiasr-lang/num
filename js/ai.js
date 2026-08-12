@@ -1124,9 +1124,24 @@ const AICombat = {
         // a ação de maior pontuação turno após turno até as cargas
         // acabarem, em vez de misturar com ataques/defesa de verdade.
         // itemCooldown (setado em executeEnemyItem, decrementado no início
-        // de cada turno do inimigo) exige 2 turnos de intervalo real.
+        // de cada turno do inimigo) exige 2 turnos de intervalo real — essa
+        // parte continua intacta e resolve REPETIÇÃO.
+        //
+        // Auditoria de Combate e Escalonamento (Iteração 10) — bug
+        // DIFERENTE encontrado ao testar o gatilho isoladamente
+        // (window.AICombat.decideAction chamado 30x sob HP=35%/cargas
+        // prontas/cooldown zerado): ITEM era escolhido em ~0.6% das
+        // decisões mesmo nessa condição favorável — o multiplicador `*2`
+        // deixava itemScore (~0.4-0.8 pra itemUsage típico) sistematicamente
+        // dominado por atkScore/skillScore (tipicamente ~0.5-2+, ver acima),
+        // então o inimigo praticamente NUNCA se curava de verdade, ao
+        // contrário do que a Seção 10 da diretiva pede ("ele deve saber
+        // quando curar"). Aumentado pra `*4` — deixa a cura genuinamente
+        // competitiva quando o HP está criticamente baixo (perto de 0%),
+        // sem tocar no gate de HP<60%/cargas/cooldown já existente, então
+        // continua irrelevante pra quem só está levemente ferido.
         if ((enemy.aiState.itemCharges || 0) > 0 && hpPercent < 0.6 && (enemy.aiState.itemCooldown || 0) <= 0) {
-            let itemScore = p.itemUsage * (1 - hpPercent) * 2 * (em.ITEM || 1);
+            let itemScore = p.itemUsage * (1 - hpPercent) * 4 * (em.ITEM || 1);
             add('ITEM', null, itemScore, `${enemy.name} usa um item de cura!`);
         }
 
