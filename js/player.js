@@ -501,6 +501,87 @@ class Entity {
             if (ringId) this.equipment[SLOTS.RING] = ItemFactory.createEquipmentForEntity(this, ringId, 'trinkets', rarityChancePercent);
         }
     }
+
+    // Auditoria de Combate e Escalonamento (Iteração 2) — mesmo achado do
+    // amuleto/anel acima, pros 4 slots de armadura que sobravam vazios pra
+    // TODO inimigo do jogo: HEAD/HANDS/LEGS/FEET (só CHEST era equipado, ver
+    // Enemy/Vampire.equipArmor). Cada slot rola `equipChancePercent`
+    // independentemente (mesmo espírito de "tendência, nunca garantia" do
+    // maybeEquipTrinkets) — um inimigo pode nascer com armadura completa,
+    // só um capacete, ou nada além do peitoral que o chamador já equipou.
+    maybeEquipFullArmorSet(equipChancePercent, rarityChancePercent) {
+        if (!window.AICombat) return;
+        [SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET].forEach(slot => {
+            if (!Utils.chance(equipChancePercent)) return;
+            const pieceId = window.AICombat.pickArmor(slot);
+            if (pieceId) this.equipment[slot] = ItemFactory.createEquipmentForEntity(this, pieceId, 'armors', rarityChancePercent);
+        });
+    }
+
+    // Auditoria de Combate e Escalonamento (Iteração 2) — RuneSystem
+    // (ver runes.js) NUNCA era chamado por nenhum inimigo: item 9 da
+    // diretiva pede "aplicar runas" como passo explícito da criação do
+    // inimigo, não só do jogador. Runa é uma GRAVAÇÃO PERMANENTE no
+    // próprio item (item[statKey] += amount, ver RuneSystem.apply), então
+    // basta chamar depois que a peça já está equipada — cada peça rola
+    // `chancePercent` independentemente, e só recebe UMA runa aplicável
+    // por chamada (RuneSystem.canApply já filtra weapon/armor/any e
+    // impede duplicar a mesma runa). Gravado direto no objeto do item —
+    // nunca precisa passar pela mochila, ao contrário do fluxo do
+    // jogador no Ateliê. Restrito ao Santuário Élfico (`region:
+    // 'santuario_elfico'` em TODA runa cadastrada, ver items.js) — mesmo
+    // filtro regional já aplicado a arma/armadura/trinket em ai.js, runa
+    // é identidade cultural daquela cidade, não um sistema universal.
+    maybeApplyRunes(chancePercent) {
+        // `ItemDatabase` (items.js) nunca é exposto em `window` (é um
+        // `const` de topo, não `window.ItemDatabase = ...`, ao contrário de
+        // `RuneSystem`/`getCurrentCityId` logo abaixo) — bug pego em teste
+        // real: `window.ItemDatabase` sempre `undefined`, então esta função
+        // retornava cedo demais SEMPRE, nenhuma runa era aplicada nunca.
+        // Mesmo padrão de referência direta (sem `window.`) já usado por
+        // `ItemFactory`/`SLOTS`/`RARITY` no resto deste arquivo.
+        if (!window.RuneSystem || !ItemDatabase || !ItemDatabase.runes) return;
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        if (cityId !== 'santuario_elfico') return;
+        const runeDefs = Object.values(ItemDatabase.runes);
+        [SLOTS.MAIN_HAND, SLOTS.RANGED, SLOTS.OFF_HAND, SLOTS.CHEST, SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET].forEach(slot => {
+            const item = this.equipment[slot];
+            if (!item || !Utils.chance(chancePercent)) return;
+            const applicable = runeDefs.filter(r => window.RuneSystem.canApply(item, r));
+            if (applicable.length === 0) return;
+            window.RuneSystem.apply(item, applicable[Utils.randomInt(0, applicable.length - 1)]);
+        });
+    }
+
+    // Auditoria de Combate e Escalonamento (Iteração 2) — comida/bebida
+    // (`activeBuffs`, ver calculateDerivedStats acima) nunca era aplicada a
+    // NENHUM inimigo — só o jogador passava por `useConsumable`. Reaproveita
+    // o MESMO formato de entrada que `useConsumable` já grava
+    // (statKey/amount/foodSlot), então `calculateDerivedStats` lê os dois
+    // exatamente igual, sem nenhum caso especial pra inimigo. Sem prazo de
+    // validade (`expiresAtDay`/`expiresAfterBattles`) de propósito — um
+    // Enemy/Vampire/Rival é um objeto EFÊMERO (existe só durante a própria
+    // luta, nunca persiste entre dias/batalhas como o jogador), então a
+    // ausência dos dois campos já deixa o buff sempre ativo pelo tempo de
+    // vida do próprio objeto (ver o filtro `activeBuffs` em
+    // calculateDerivedStats: ambos undefined = nunca expira). Só considera
+    // itens com `foodSlot` (comida/bebida de verdade) — nunca runas/treinos
+    // de "efeito de dia inteiro", que pressupõem uma narrativa de preparo
+    // prévio que não faz sentido pra um inimigo gerado na hora.
+    maybeApplyFoodBuff(chancePercent) {
+        if (!Utils.chance(chancePercent)) return;
+        if (!ItemDatabase || !ItemDatabase.consumables) return;
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const candidates = Object.values(ItemDatabase.consumables).filter(c =>
+            c.type === 'TEMP_BUFF' && c.foodSlot && (!c.region || c.region === cityId)
+        );
+        if (candidates.length === 0) return;
+        const food = candidates[Utils.randomInt(0, candidates.length - 1)];
+        if (!this.activeBuffs) this.activeBuffs = [];
+        this.activeBuffs.push({ statKey: food.statKey, amount: food.buffAmount, foodSlot: food.foodSlot });
+        if (food.secondaryStatKey) this.activeBuffs.push({ statKey: food.secondaryStatKey, amount: food.secondaryAmount, foodSlot: food.foodSlot });
+        this.lastFoodBuffName = food.name; // só pra IA/depuração — não afeta cálculo nenhum
+    }
 }
 
 class Player extends Entity {

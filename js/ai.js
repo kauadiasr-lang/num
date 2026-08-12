@@ -215,11 +215,17 @@ const AICombat = {
     // genericamente pra colorir o torso — sem essa função, todo oponente
     // comum da arena sempre desenhava um torso "civil" sem nenhuma
     // armadura visível, apesar do sistema já suportar isso.
-    pickArmor() {
+    // Auditoria de Combate e Escalonamento (Iteração 2) — `slot` agora é
+    // parâmetro (default CHEST, preserva os 3 chamadores existentes sem
+    // mudar nenhum deles): `ItemDatabase.armors` já mistura cabeça/mãos/
+    // pernas/pés/peito na mesma categoria (ver comentário original abaixo),
+    // então a MESMA função filtrando por slot resolve HEAD/HANDS/LEGS/FEET
+    // também, sem duplicar a lógica de sorteio/filtro regional 4 vezes.
+    pickArmor(slot = SLOTS.CHEST) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         const armorKeys = Object.keys(ItemDatabase.armors).filter(id => {
             const t = ItemDatabase.armors[id];
-            return t.slot === SLOTS.CHEST && (!t.region || t.region === cityId);
+            return t.slot === slot && (!t.region || t.region === cityId);
         });
         return armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
     },

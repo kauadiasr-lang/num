@@ -317,6 +317,16 @@ class Enemy extends Entity {
         // raridade acima.
         const trinketChance = this.isElite ? 60 : Utils.clamp(15 + this.level * 2, 15, 55);
         this.maybeEquipTrinkets(trinketChance, rarityChance);
+        // Auditoria de Combate e Escalonamento (Iteração 2) — resto do
+        // conjunto de armadura (ver Entity.maybeEquipFullArmorSet em
+        // player.js), mesma chance da arma/trinket já calculada acima.
+        this.maybeEquipFullArmorSet(trinketChance, rarityChance);
+        // Runas (ver Entity.maybeApplyRunes) — só entra em vigor no
+        // Santuário Élfico, identidade regional das runas (ver runes.js).
+        this.maybeApplyRunes(trinketChance);
+        // Comida/buff (ver Entity.maybeApplyFoodBuff) — mesma chance dos
+        // trinkets/armadura; inimigo "bem preparado" carrega provisão.
+        this.maybeApplyFoodBuff(trinketChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -441,8 +451,13 @@ class Vampire extends Entity {
         const armorId = window.AICombat.pickArmor();
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentForEntity(this, armorId, 'armors', rarityChance);
         // Auditoria de Combate e Escalonamento — ver comentário completo em
-        // Enemy.equipArmor acima; Vampiro nunca tinha amuleto/anel também.
-        this.maybeEquipTrinkets(Utils.clamp(15 + this.level * 2, 15, 55), rarityChance);
+        // Enemy.equipArmor acima; Vampiro nunca tinha amuleto/anel/resto da
+        // armadura também.
+        const trinketChance = Utils.clamp(15 + this.level * 2, 15, 55);
+        this.maybeEquipTrinkets(trinketChance, rarityChance);
+        this.maybeEquipFullArmorSet(trinketChance, rarityChance);
+        this.maybeApplyRunes(trinketChance);
+        this.maybeApplyFoodBuff(trinketChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -1096,6 +1111,24 @@ class Rival extends Entity {
             const ringId = window.AICombat.pickTrinket(SLOTS.RING);
             if (ringId) this.equipment[SLOTS.RING] = ItemFactory.createEquipmentWithRarityCap(this, ringId, 'trinkets', rarity);
         }
+
+        // Auditoria de Combate e Escalonamento (Iteração 2) — resto do
+        // conjunto de armadura (HEAD/HANDS/LEGS/FEET, ver
+        // Entity.maybeEquipFullArmorSet em player.js), mesma técnica
+        // createEquipmentWithRarityCap do amuleto/anel acima (rarity já é
+        // objeto RARITY curado, não um strengthScore).
+        [SLOTS.HEAD, SLOTS.HANDS, SLOTS.LEGS, SLOTS.FEET].forEach(slot => {
+            if (!Utils.chance(trinketChance)) return;
+            const pieceId = window.AICombat.pickArmor(slot);
+            if (pieceId) this.equipment[slot] = ItemFactory.createEquipmentWithRarityCap(this, pieceId, 'armors', rarity);
+        });
+
+        // Runas (ver Entity.maybeApplyRunes) — mesmo gate regional do
+        // Santuário Élfico das outras chamadas acima.
+        this.maybeApplyRunes(trinketChance);
+        // Comida/buff (ver Entity.maybeApplyFoodBuff) — Rivals da Ladder
+        // também podem carregar provisão, mesma chance dos trinkets acima.
+        this.maybeApplyFoodBuff(trinketChance);
     }
 
     // Campeões sempre deixam loot de alta raridade; rivais comuns têm chance normal
