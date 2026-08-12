@@ -89,8 +89,19 @@ window.RoadEngine = {
     // nenhuma vegetação cobrindo — exatamente o visual "sujo" relatado.
     GRASS_MAX_HALF_HEIGHT: 420,
     INTERACT_RADIUS: 60, // distância pra mostrar o aviso de interação (eventos pacíficos)
-    BANDIT_DETECT_RADIUS: 75, // distância pra disparar a emboscada automaticamente
-    BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem
+    BANDIT_DETECT_RADIUS: 75, // distância de CAPTURA — dispara o combate quando o bandido alcança o jogador (nome mantido por compat, ver BANDIT_ALERT_RADIUS pra percepção)
+    BANDIT_PATROL_RANGE: 150, // quanto o bandido anda de cada lado do seu ponto de origem, enquanto patrulhando
+    // Expansão de Exploração e Mundo — item 3 ("inimigos que perseguem o
+    // jogador"): bandidos deixam de ser uma emboscada instantânea por
+    // proximidade e ganham um estado real de perseguição — o jogador tem
+    // uma chance de fugir (correr/montaria) entre ser avistado e ser
+    // alcançado, em vez de o combate disparar no mesmo instante em que
+    // BANDIT_DETECT_RADIUS é cruzado. ALERT (percepção) > DETECT (captura),
+    // sempre — perceber de longe e só pegar de perto é o que torna a fuga
+    // possível de verdade.
+    BANDIT_ALERT_RADIUS: 200, // distância pra perceber o jogador e começar a perseguição
+    BANDIT_GIVE_UP_RADIUS: 340, // distância pra desistir e voltar a patrulhar
+    BANDIT_CHASE_SPEED: 230, // um pouco mais rápido que andar (210, ver _speed) mas mais lento que correr (336) — ameaça real a pé, escapável correndo/montado
     // Raio de acerto pra clicar direto numa estrutura física (mercador/
     // baú/esconderijo/fogueira/carroça/viajante/ruína/altar/caverna/ponte
     // etc.) e resolver a interação na hora (pedido do usuário: "clicar em
@@ -1042,7 +1053,7 @@ window.RoadEngine = {
             this._updateZoneLabel(zoneIdx);
         }
 
-        this._updateBandits();
+        this._updateBandits(dt);
         this._updateRivalGladiatorGreetings();
         this._updateInteractPrompt();
         this._updateProgressLabel();
@@ -1286,19 +1297,57 @@ window.RoadEngine = {
 
     // Bandidos (e o Espírito da Natureza, ver _generateForestEncounter)
     // patrulham um pequeno trecho (vai e volta) ao redor do ponto onde
-    // nasceram — puramente visual até o jogador chegar perto o bastante
-    // (ver BANDIT_DETECT_RADIUS), quando a emboscada dispara sozinha (mesmo
-    // espírito de "o jogador vê o inimigo andando pelo mapa" pedido no
-    // design, sem nenhuma mensagem de texto substituindo a cena). Ficar
-    // fora do raio (ou correr direto) é como se contorna/ignora — nenhum
-    // código extra precisa disso, só não entrar no raio. `corruption` NÃO
-    // entra aqui — é uma escolha narrativa, nunca uma emboscada (ver
-    // _updateInteractPrompt/_resolveEvent).
-    _updateBandits() {
+    // nasceram — puramente visual até o jogador chegar perto o bastante.
+    // `corruption` NÃO entra aqui — é uma escolha narrativa, nunca uma
+    // emboscada (ver _updateInteractPrompt/_resolveEvent). O Espírito da
+    // Natureza também não persegue — é uma descoberta, não uma ameaça
+    // (dispara `onRoadWorldNatureDiscovery` só por contato, igual sempre).
+    //
+    // Expansão de Exploração e Mundo — item 3 ("inimigos que perseguem o
+    // jogador"): só o BANDIDO ganhou um estado real de perseguição.
+    // Patrulha (vai-e-volta) até o jogador cruzar BANDIT_ALERT_RADIUS →
+    // `ev._chasing = true`, um toast avisa (mesmo princípio de "o jogador
+    // precisa perceber que está sendo perseguido", nunca silencioso) e o
+    // bandido passa a andar DE VERDADE em direção ao jogador (2D, x e y —
+    // antes só x, num vaivém senoidal fixo em y) a BANDIT_CHASE_SPEED.
+    // Alcançar o jogador (BANDIT_DETECT_RADIUS, agora o raio de CAPTURA)
+    // ainda dispara o combate exatamente como antes. Se o jogador escapa
+    // além de BANDIT_GIVE_UP_RADIUS, o bandido desiste e volta a patrulhar
+    // a partir de onde parou (`ev.spawnX = ev.x`, nunca teleporta de volta
+    // pro spawn original — igual ao princípio já usado alhures no arquivo
+    // de "nunca reposicionar de forma abrupta e visível").
+    _updateBandits(dt) {
         const p = this._player;
         for (const ev of this._events) {
             if (ev.consumed || (ev.type !== 'bandit' && ev.type !== 'nature_spirit')) continue;
-            ev.x = ev.spawnX + Math.sin(performance.now() / 1000 * 0.6 + ev.spawnX) * this.BANDIT_PATROL_RANGE;
+
+            if (ev.type === 'nature_spirit') {
+                ev.x = ev.spawnX + Math.sin(performance.now() / 1000 * 0.6 + ev.spawnX) * this.BANDIT_PATROL_RANGE;
+            } else if (ev._chasing) {
+                const distToPlayer = Math.hypot(p.x - ev.x, p.y - ev.y);
+                if (distToPlayer > this.BANDIT_GIVE_UP_RADIUS) {
+                    ev._chasing = false;
+                    ev.spawnX = ev.x; // patrulha retomada de onde a perseguição parou, sem teleporte
+                } else {
+                    const dx = p.x - ev.x, dy = p.y - ev.y;
+                    const len = Math.hypot(dx, dy) || 1;
+                    ev.x += (dx / len) * this.BANDIT_CHASE_SPEED * dt;
+                    ev.y += (dy / len) * this.BANDIT_CHASE_SPEED * dt;
+                }
+            } else {
+                ev.x = ev.spawnX + Math.sin(performance.now() / 1000 * 0.6 + ev.spawnX) * this.BANDIT_PATROL_RANGE;
+                if (!ev._chaseAlertShown && Math.hypot(p.x - ev.x, p.y - ev.y) < this.BANDIT_ALERT_RADIUS) {
+                    ev._chasing = true;
+                    ev._chaseAlertShown = true;
+                    // As entidades visuais de bandido/viajante/comerciante (ver
+                    // _makeRegionalEntity) nunca tiveram campo `name` — são só
+                    // aparência pro GFX.drawGladiator, não personagens nomeados —
+                    // então a mensagem é sempre genérica, igual ao resto do texto
+                    // de bandido no arquivo (nunca finge um nome que não existe).
+                    if (window.MainMenu) window.MainMenu.showToast('Um bandido te avistou e vem atrás de você!', 'error');
+                }
+            }
+
             const dist = Math.hypot(p.x - ev.x, p.y - ev.y);
             if (dist < this.BANDIT_DETECT_RADIUS) {
                 ev.consumed = true;
@@ -4681,6 +4730,30 @@ window.RoadEngine = {
         ctx.scale(this.PLAYER_SCALE, this.PLAYER_SCALE);
         window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
         ctx.restore();
+        // Indicador de perseguição (item 3 da Expansão de Exploração e
+        // Mundo — "o jogador precisa perceber que aquele bandido está vindo
+        // atrás dele"): sinal de alerta desenhado à mão acima da cabeça,
+        // fora do save/scale acima (não deforma com PLAYER_SCALE, sempre o
+        // mesmo tamanho na tela). Nunca um ícone de fonte/emoji — mesma
+        // regra do resto deste arquivo (ver comentário de WOUNDED_GLADIATOR_ENTITY).
+        if (ev._chasing) {
+            const bob = Math.sin(performance.now() / 150) * 3;
+            const ix = ev.x, iy = ev.y - 92 + bob;
+            ctx.save();
+            ctx.fillStyle = 'rgba(198, 40, 40, 0.92)';
+            ctx.beginPath();
+            ctx.moveTo(ix, iy - 14);
+            ctx.lineTo(ix + 8, iy + 4);
+            ctx.lineTo(ix - 8, iy + 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#fff3e0';
+            ctx.fillRect(ix - 1.6, iy - 9, 3.2, 7);
+            ctx.beginPath();
+            ctx.arc(ix, iy, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
     },
 
     // Ícones de objetos físicos (bug corrigido: chest/bridge/shrine/etc.
