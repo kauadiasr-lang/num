@@ -471,6 +471,78 @@ class CityEngine {
             this._gateTravelerSpawned = true;
             this.npcs.push(this._makeCaravanTraveler());
         }
+
+        // Guardas da Cidade (Expansão de Exploração e Mundo, item 7) — só
+        // na cidade natal por enquanto (escopo explícito do pedido: "cidade
+        // inicial", não todas as Cidades-Hub). Flanqueiam o Portão (mesmo
+        // GATE_XFRAC do Viajante/_makeCaravanTraveler) em vez de vagar pela
+        // praça — "permanecer em áreas estratégicas" — e usam o mesmo
+        // padrão de flag-de-spawn-único + reset em travelToCity/dawn já
+        // estabelecido por _arenaNpcsSpawned/_gateTravelerSpawned.
+        if (!this._guardsSpawned && window.getCurrentCityId && window.getCurrentCityId() === window.DEFAULT_CITY_ID) {
+            this._guardsSpawned = true;
+            const w = this._worldWidth(), h = window.Engine.height;
+            const gateX = w * CityEngine.GATE_XFRAC;
+            const gateY = this._horizon(h) + 45;
+            this.npcs.push(this._makeGuardEntity(gateX - 70, gateY + 20));
+            this.npcs.push(this._makeGuardEntity(gateX + 70, gateY + 20));
+        }
+    }
+
+    // Entidade visual de um Guarda da Cidade — mesmo "molde" de NPC pinado
+    // já usado por espectadores da Arena/Viajante do Portão (x/targetX/pin/
+    // entity/anim, reaproveita _updateNpcs/_drawNpc sem duplicar nada), com
+    // identidade clara: armadura de bronze escuro (nenhuma outra roupa de
+    // NPC usa essa cor, ver tunicColors em _makeNpc) + escudo e lança de
+    // verdade equipados (não `equipment: {}` vazio como o resto da
+    // população civil) — "aparência/identificação clara" pedido pelo
+    // usuário. `isGuard` marca pra _talkToNpc tratar como interação
+    // especial em vez de fala genérica de profissão.
+    _makeGuardEntity(x, y) {
+        const hairColors = ['#1a1a1a', '#2a1c10', '#3a2a1a'];
+        const spear = window.ItemFactory ? window.ItemFactory.createEquipment('spear', 'weapons', RARITY.COMMON) : null;
+        const shield = window.ItemFactory ? window.ItemFactory.createEquipment('ironshield', 'shields', RARITY.COMMON) : null;
+        const equipment = {};
+        if (spear) equipment[SLOTS.MAIN_HAND] = spear;
+        if (shield) equipment[SLOTS.OFF_HAND] = shield;
+        return {
+            x, y, targetX: x, targetY: y,
+            pin: { x, y, radius: 14 },
+            waitTimer: Utils.randomFloat(1, 4),
+            facing: -1, // de costas pro portão, olhando pra dentro da praça — mesma pose do Viajante
+            isGuard: true,
+            entity: {
+                visuals: {
+                    gender: Utils.chance(50) ? 'Masculino' : 'Feminino',
+                    skinTone: '#c9a876', hairStyle: Utils.randomInt(1, 15),
+                    hairColor: hairColors[Utils.randomInt(0, hairColors.length - 1)],
+                    beardStyle: Utils.chance(60) ? Utils.randomInt(1, 4) : 0, eyeColor: '#1a1a1a', faceShape: 1
+                },
+                equipment,
+                __teamColor: '#5a2a1a', // bronze/couro escurecido, cor exclusiva da guarda — nunca sorteada pra NPC civil
+                race: 'humano'
+            },
+            anim: { type: 'idle', start: performance.now(), duration: 0 }
+        };
+    }
+
+    // Inimigo real por trás de um Guarda provocado (ver _talkToNpc
+    // npc.isGuard) — mesmo padrão de _makeBanditEnemy (new Enemy(level) +
+    // flag), mas com nível independente do jogador: o pedido é "muito mais
+    // forte que o jogador inicial", não escalar com ele.
+    // Enemy(x) NUNCA usa x como o nível final — o construtor sempre soma
+    // +0~2 por cima (mais +2 se sortear Elite, ver enemy.js Enemy
+    // constructor "this.level = playerLevel + Utils.randomInt(0, 2)"),
+    // porque em todo resto do jogo esse parâmetro É o nível do jogador, não
+    // o nível desejado do inimigo. 15-18 aqui compensa esse jitter pra
+    // pousar o nível final normal em 15-20 (o "aproximadamente 15-20"
+    // pedido); um Guarda Elite raro pode sair um pouco acima disso —
+    // aceitável, seguindo a mesma filosofia de "tendência, nunca garantia"
+    // já usada no resto do sistema de equipamento/nível.
+    _makeGuardEnemy() {
+        const enemy = new Enemy(Utils.randomInt(15, 18));
+        enemy.isCityGuard = true;
+        return enemy;
     }
 
     // Recria as pedras de luz (todas não coletadas) só se o jogador ainda
@@ -1473,6 +1545,35 @@ class CityEngine {
             }, 1200);
             return;
         }
+        // Guarda da Cidade (ver _makeGuardEntity/_makeGuardEnemy, Expansão
+        // de Exploração e Mundo item 7) — primeiro clique é sempre um
+        // aviso respeitoso (nunca combate automático: são muito fortes
+        // demais pra um encontro acidental fazer sentido). Um SEGUNDO
+        // clique dentro de uma janela curta (_provokeWindow) é lido como
+        // "o jogador quer mesmo provocar a guarda" e puxa o combate de
+        // verdade — mesma ideia do menu Pagar/Lutar/Recusar do bandido
+        // (uma decisão real do jogador), só que sem precisar de um menu
+        // novo, já que aqui só existem 2 desfechos (conversar ou lutar).
+        if (npc.isGuard) {
+            const now = performance.now();
+            if (npc._provokeWindow && now < npc._provokeWindow) {
+                npc._provokeWindow = 0;
+                this._toast('Você provoca a Guarda! Ela avança, séria, com a lança em punho.', 'error');
+                if (window.AudioManager) window.AudioManager.playError();
+                setTimeout(() => {
+                    if (this._isActive() && window.UI && window.UI.beginBattleWith) {
+                        const arenaMenu = document.getElementById('city-arena-menu');
+                        if (arenaMenu) arenaMenu.classList.add('hidden');
+                        window.UI.beginBattleWith(this._makeGuardEnemy());
+                    }
+                }, 1200);
+            } else {
+                npc._provokeWindow = now + 4000;
+                this._toast('Guarda: "Mantenha a paz, gladiador. Já vi tolos desafiarem a guarda da cidade — poucos se levantaram depois."', 'info');
+                if (window.AudioManager) window.AudioManager.playConfirm();
+            }
+            return;
+        }
         // Mercador Viajante (ver _eventRareMerchant/_makeTravelingMerchant):
         // clicar nele abre a loja especial em vez de puxar uma fala
         // genérica — reaproveita window.UI.openShop tal como Ferreiro/
@@ -1778,6 +1879,7 @@ class CityEngine {
         this.nightWanderers = [];
         this._arenaNpcsSpawned = false;
         this._gateTravelerSpawned = false;
+        this._guardsSpawned = false;
         this.travelingMerchant = null;
         // Bandido Anão (ver _makeBandit acima no construtor) — mesma
         // razão do Mercador Viajante acima: não faz sentido "atravessar"
@@ -1966,6 +2068,7 @@ class CityEngine {
         this.npcs = [];
         this._arenaNpcsSpawned = false;
         this._gateTravelerSpawned = false;
+        this._guardsSpawned = false;
 
         // Mercador Viajante e promoção de loja não "sobrevivem" a um dia
         // inteiro passado — um novo dia pode trazer (ou não) um mercador/
