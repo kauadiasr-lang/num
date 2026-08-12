@@ -479,6 +479,28 @@ class Entity {
         if (secondary.slot === this.activeWeaponSlot) return; // nunca a mesma categoria da principal
         this.equipment[secondary.slot] = secondary;
     }
+
+    // Auditoria de Combate e Escalonamento — achado da investigação: NENHUM
+    // inimigo do jogo (Enemy/Vampire/Rival) jamais equipava AMULET ou RING
+    // (ver AICombat.pickTrinket em ai.js) — só arma + peitoral. "Amuletos...
+    // parecem não ter impacto perceptível" era literal: eles nunca existiam
+    // no equipamento do inimigo pra começo de conversa. `equipChancePercent`
+    // é rolado DUAS VEZES, independentemente, uma pra cada slot — um
+    // inimigo pode nascer sem nenhum, com só um, ou com os dois (item 8 da
+    // diretiva: tendência, nunca garantia). `rarityChancePercent` reaproveita
+    // a MESMA curva de raridade já calculada pra arma/armadura do chamador,
+    // nunca uma fórmula paralela.
+    maybeEquipTrinkets(equipChancePercent, rarityChancePercent) {
+        if (!window.AICombat) return;
+        if (Utils.chance(equipChancePercent)) {
+            const amuletId = window.AICombat.pickTrinket(SLOTS.AMULET);
+            if (amuletId) this.equipment[SLOTS.AMULET] = ItemFactory.createEquipmentForEntity(this, amuletId, 'trinkets', rarityChancePercent);
+        }
+        if (Utils.chance(equipChancePercent)) {
+            const ringId = window.AICombat.pickTrinket(SLOTS.RING);
+            if (ringId) this.equipment[SLOTS.RING] = ItemFactory.createEquipmentForEntity(this, ringId, 'trinkets', rarityChancePercent);
+        }
+    }
 }
 
 class Player extends Entity {

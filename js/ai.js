@@ -147,9 +147,15 @@ const AICombat = {
     pickWeaponFromStyle(styleId) {
         const style = AI_FIGHTING_STYLES[styleId] || AI_FIGHTING_STYLES.espadachim;
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        // `!t.arenaExclusive` (Auditoria de Combate e Escalonamento, mesmo
+        // bug pego em pickTrinket acima): só afeta o sorteio "qualquer
+        // arma" de 10% abaixo — os `weaponPool` curados de ai_data.js nunca
+        // listam armas exclusivas da Arena (w_22-w_25), então essa era a
+        // ÚNICA porta aberta pra um Duelo Rápido comum nascer empunhando um
+        // troféu que deveria ser exclusivo.
         const availableInCity = (id) => {
             const t = ItemDatabase.weapons[id];
-            return !t.region || t.region === cityId;
+            return !t.arenaExclusive && (!t.region || t.region === cityId);
         };
         const allWeapons = Object.keys(ItemDatabase.weapons).filter(availableInCity);
         if (Utils.chance(10)) return allWeapons[Utils.randomInt(0, allWeapons.length - 1)];
@@ -216,6 +222,32 @@ const AICombat = {
             return t.slot === SLOTS.CHEST && (!t.region || t.region === cityId);
         });
         return armorKeys[Utils.randomInt(0, armorKeys.length - 1)];
+    },
+
+    // Auditoria de Combate e Escalonamento — achado da investigação:
+    // Enemy/Vampire/Rival só equipavam ARMA + PEITORAL, os únicos 2 dos 10
+    // slots de equipamento (ver SLOTS em items.js) já usados por qualquer
+    // inimigo do jogo. AMULET e RING (ItemDatabase.trinkets) nunca eram
+    // sorteados pra nenhum inimigo — "amuletos... parecem não ter impacto
+    // perceptível" era literal: eles nunca chegavam a existir no
+    // equipamento do inimigo, não é questão do bônus ser pequeno. Mesmo
+    // filtro regional/de slot das outras funções de sorteio acima —
+    // `!t.arenaExclusive` a mais (bug pego em teste real: um Duelo Rápido
+    // comum sorteou a "Coroa dos Campeões", ver items.js t_10, um troféu
+    // que items.js já trata como exclusivo em TODO outro lugar que sorteia
+    // equipamento aleatório — ver `_pickRandomEquipmentId`/
+    // `generateShopInventory`). `craftOnly` fica de fora do filtro de
+    // propósito: segue o mesmo precedente já estabelecido pelas armas
+    // (elvenblade/elvenlongbow já aparecem nos weaponPool curados de
+    // ai_data.js) — craftOnly só bloqueia COMPRA na loja, nunca geração
+    // procedural de inimigo.
+    pickTrinket(slot) {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const trinketKeys = Object.keys(ItemDatabase.trinkets).filter(id => {
+            const t = ItemDatabase.trinkets[id];
+            return t.slot === slot && !t.arenaExclusive && (!t.region || t.region === cityId);
+        });
+        return trinketKeys[Utils.randomInt(0, trinketKeys.length - 1)];
     },
 
     // ==========================================================================

@@ -309,6 +309,14 @@ class Enemy extends Entity {
             : Utils.clamp((this.level - 2) * 5, 0, 40);
         const armorId = window.AICombat.pickArmor();
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentForEntity(this, armorId, 'armors', rarityChance);
+        // Auditoria de Combate e Escalonamento — amuleto/anel (ver
+        // Entity.maybeEquipTrinkets em player.js), nunca equipados antes
+        // por nenhum inimigo do jogo. Chance de equipar cresce com o nível
+        // (nunca garantida), Elite sempre bem mais provável de carregar os
+        // dois — mesmo espírito de "tendência, não garantia" já usado pela
+        // raridade acima.
+        const trinketChance = this.isElite ? 60 : Utils.clamp(15 + this.level * 2, 15, 55);
+        this.maybeEquipTrinkets(trinketChance, rarityChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -432,6 +440,9 @@ class Vampire extends Entity {
         const rarityChance = Utils.clamp((this.level - 2) * 5, 0, 40);
         const armorId = window.AICombat.pickArmor();
         this.equipment[SLOTS.CHEST] = ItemFactory.createEquipmentForEntity(this, armorId, 'armors', rarityChance);
+        // Auditoria de Combate e Escalonamento — ver comentário completo em
+        // Enemy.equipArmor acima; Vampiro nunca tinha amuleto/anel também.
+        this.maybeEquipTrinkets(Utils.clamp(15 + this.level * 2, 15, 55), rarityChance);
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
@@ -1066,6 +1077,24 @@ class Rival extends Entity {
             });
             const finalShieldId = shieldId || shieldKeys[Utils.randomInt(0, shieldKeys.length - 1)];
             this.equipment[SLOTS.OFF_HAND] = ItemFactory.createEquipmentWithRarityCap(this, finalShieldId, 'shields', rarity);
+        }
+
+        // Auditoria de Combate e Escalonamento — ver comentário completo em
+        // Entity.maybeEquipTrinkets (player.js): nenhum Rival da Ladder
+        // jamais equipava amuleto/anel. `rarity` aqui já é um objeto RARITY
+        // curado (não um percentual 0-100, ver `def.gearRarity`), então usa
+        // createEquipmentWithRarityCap diretamente em vez do helper
+        // genérico (que espera um strengthScore) — mesma técnica já usada
+        // pra arma/escudo acima. Campeões têm chance bem maior, reforçando
+        // que enfrentar um deles é um combate mais completo.
+        const trinketChance = this.isChampion ? 65 : 30;
+        if (Utils.chance(trinketChance)) {
+            const amuletId = window.AICombat.pickTrinket(SLOTS.AMULET);
+            if (amuletId) this.equipment[SLOTS.AMULET] = ItemFactory.createEquipmentWithRarityCap(this, amuletId, 'trinkets', rarity);
+        }
+        if (Utils.chance(trinketChance)) {
+            const ringId = window.AICombat.pickTrinket(SLOTS.RING);
+            if (ringId) this.equipment[SLOTS.RING] = ItemFactory.createEquipmentWithRarityCap(this, ringId, 'trinkets', rarity);
         }
     }
 
