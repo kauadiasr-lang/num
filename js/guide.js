@@ -80,10 +80,10 @@ const GuideSystem = {
     // ==========================================================================
     _renderAttrs() {
         const rows = [
-            ['Força (STR)', 'Dano físico (arma + punhos), vida máxima e capacidade de carga.', 'Dano físico = STR × 1.5 (+ dano da arma ativa). Vida máxima = 15 + STR×11 + Nível×3. Carga suportada = 15 + STR×3 (sobrecarga reduz esquiva).'],
+            ['Força (STR)', 'Dano físico (arma + punhos), vida máxima e capacidade de carga.', 'Dano físico = STR × 1.5 (+ dano da arma ativa). Vida máxima = 15 + STR×11 + bônus de Nível. Carga suportada = 15 + STR×3 (sobrecarga reduz esquiva).'],
             ['Agilidade (AGI)', 'Esquiva e chance de crítico.', 'Esquiva = (AGI×0.5 + Sorte×0.1), até 45%. Crítico = (AGI×0.2 + Sorte×0.5), até 50% (65% com bônus de equipamento/mutação).'],
             ['Inteligência (INT)', 'Dano de magias, cura e Mana máxima.', 'Dano mágico = INT×3×poder da magia (mitigado pela INT do alvo×0.5, ignora armadura). Cura = INT×2.5×poder da magia. Mana máxima = 20 + INT×8 + Nível×3.'],
-            ['Defesa (DEF)', 'Redução de dano físico recebido.', 'Defesa = DEF×2 (+ defesa de armaduras/escudo). Redução = Defesa / (Defesa + 50). Defender no turno dobra a Defesa efetiva.'],
+            ['Defesa (DEF)', 'Redução de dano físico recebido.', 'Defesa = DEF×2 + bônus de Nível (+ defesa de armaduras/escudo). Redução = Defesa / (Defesa + 50). Defender no turno dobra a Defesa efetiva.'],
             ['Precisão (ACC)', 'Chance de acerto, ignorando esquiva do alvo.', 'Chance de acerto = 90 + ACC×2 + bônus da arma − esquiva efetiva do alvo (mínimo de 20%, máximo de 100%).'],
             ['Sorte (LUK)', 'Taxa de itens que inimigos derrotados deixam cair e críticos extremos.', 'Contribui para esquiva e crítico (ver acima). Também soma à taxa de drop de loot dos inimigos (varia por tipo de inimigo).'],
             ['Carisma (CHA)', 'Preços na loja e eventos sociais na cidade.', 'Desconto na loja de até 12% (mais desconto por vitórias, teto total 35%). Reduz chance de assalto/roubo em eventos noturnos da cidade. Também afeta a moral de inimigos em combate.']
@@ -97,6 +97,10 @@ const GuideSystem = {
                         ${rows.map(r => `<tr><td><strong>${r[0]}</strong></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}
                     </tbody>
                 </table>
+            </div>
+            <div class="guide-block">
+                <h4>Nível também dá vida e defesa por conta própria</h4>
+                <p>Além do que Força/Defesa já concedem, cada nível soma um bônus fixo de Vida máxima e Defesa que cresce mais forte a partir do nível 11 e ainda mais a partir do 26 — sobreviver no mid/end game depende cada vez mais do seu nível, não só da distribuição de atributos. Nos primeiros 10 níveis esse bônus é pequeno de propósito, pra manter as lutas iniciais rápidas.</p>
             </div>
             <div class="guide-block">
                 <h4>Outras regras de combate</h4>
@@ -508,6 +512,7 @@ const GuideSystem = {
                 return `
                     <div class="guide-card" style="--guide-accent:${c.accentColor}; margin-bottom:14px;">
                         <div class="guide-card-tag">Nível mínimo: ${c.unlockLevel} · Passagem: ${c.travelCost === 0 ? 'grátis (cidade natal)' : c.travelCost + 'g'}${phil ? ' · Filosofia: ' + phil.verb : ''}</div>
+                        ${c.normalEnemyLevelRange ? `<p><strong>Perigo da região:</strong> bandidos, duelistas e emboscadas por aqui giram entre nível ${c.normalEnemyLevelRange[0]} e ${c.normalEnemyLevelRange[1]} — independente do SEU nível. Uma região mais funda no mapa é mais perigosa de verdade, não um espelho da sua própria força.</p>` : ''}
                         <h4>${c.name}</h4>
                         <p class="guide-card-flavor">${c.description}</p>
                         ${phil ? `<p><strong>${phil.tagline}</strong></p>` : ''}
@@ -520,8 +525,13 @@ const GuideSystem = {
                 `;
             }).join('')}
             <div class="guide-block">
+                <h4>Nível dos inimigos: mundo próprio, não um espelho seu</h4>
+                <p>Fora do <strong>Duelo Rápido</strong> (na Arena) — que continua sempre no seu nível, pra treino rápido e previsível — todo inimigo "normal" que você encontra explorando (bandidos, duelistas que te desafiam na praça, emboscadas na Estrada) tem um nível FIXO, definido pela região onde você está, nunca pelo seu próprio nível. Viajar pra uma cidade mais funda no mapa significa entrar numa região genuinamente mais perigosa — o jogo não "acompanha" você pra manter tudo fácil.</p>
+            </div>
+
+            <div class="guide-block">
                 <h4>Perigo noturno</h4>
-                <p>Em qualquer cidade, à noite os NPCs comuns somem das ruas, Vampiros passam a vagar pela praça, e há chance real de emboscada (ataque de Vampiro/Fantasma) ou eventos de risco (assalto, monstro). Só o Viajante do Portão nunca some — a viagem entre cidades nunca é bloqueada pela noite. Três noites seguidas sem dormir aumenta a fadiga do personagem; o Banco rende juros durante a noite.</p>
+                <p>Em qualquer cidade, à noite os NPCs comuns somem das ruas, Vampiros passam a vagar pela praça, e há chance real de emboscada (ataque de Vampiro/Fantasma) ou eventos de risco (assalto, monstro). Vampiros têm patente própria (do recém-renascido ao nobre da noite eterna) — não escalam com o seu nível, então um encontro noturno pode ser leve ou genuinamente perigoso, sem aviso prévio. Só o Viajante do Portão nunca some — a viagem entre cidades nunca é bloqueada pela noite. Três noites seguidas sem dormir aumenta a fadiga do personagem; o Banco rende juros durante a noite.</p>
             </div>
         `;
     },
