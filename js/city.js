@@ -196,6 +196,42 @@ class CityEngine {
             { slot: 'center', xFrac: 0.56, rowOffset: 148 },
         ];
 
+        // Casas residenciais de fundo (Expansão de Exploração e Mundo, item
+        // 5 — "aumentar a densidade da cidade inicial... estruturas próximas
+        // às bordas"). Puramente decorativas (sem colisão/interação, mesmo
+        // princípio de `vegetation`/`statues` acima) — preenchem a margem
+        // que já existe desde a Fundação Câmera/PlayerController (Praça
+        // alargada pra 1.4x a largura do canvas especificamente "pra dar
+        // espaço real da câmera panorâmica", ver `_worldWidth()`), que até
+        // agora ficava vazia fora do vão caminhável dos prédios interativos
+        // (xFrac ~0.11 a ~0.89). Generalizar o ARRAY de prédios INTERATIVOS
+        // em si (permitir contagem variável, múltiplas lojas do mesmo tipo)
+        // é uma mudança estrutural maior, já documentada como pendência em
+        // CLAUDE.md "Limitações conhecidas" — fora do escopo desta sessão
+        // (ver a regra "não é necessário criar sistemas completamente novos
+        // pra cada construção" do pedido: aqui a solução é ambientação, não
+        // comércio funcional novo). `variant` escolhe a silhueta (0-3, ver
+        // _paintHouseSilhouette) e `roofColor`/`wallColor` variam a pintura —
+        // nunca a mesma casa repetida (pedido explícito do usuário).
+        const houseWallColors = ['#8a7a5a', '#7a6a52', '#9a8a6a', '#6b5a42'];
+        const houseRoofColors = ['#7a3a2a', '#8a5a2a', '#6a4a2a', '#7a2a2a'];
+        this.residentialHouses = [];
+        const edgeSpans = [{ from: 0.0, to: 0.085 }, { from: 0.915, to: 1.0 }];
+        edgeSpans.forEach((span, sideIdx) => {
+            const count = 6;
+            for (let i = 0; i < count; i++) {
+                const t = count === 1 ? 0.5 : i / (count - 1);
+                this.residentialHouses.push({
+                    xFrac: span.from + (span.to - span.from) * t,
+                    rowOffset: 60 + (i % 3) * 34,
+                    scale: 0.6 + ((i + sideIdx) % 3) * 0.12,
+                    variant: (i + sideIdx * 2) % 4,
+                    wallColor: houseWallColors[(i + sideIdx) % houseWallColors.length],
+                    roofColor: houseRoofColors[(i + sideIdx * 3) % houseRoofColors.length],
+                });
+            }
+        });
+
         // Pedras de Luz (item 13 da auditoria de balanceamento): recurso do
         // Ritual da Luz (Fragmentos Sagrados, ver rituals.js) que antes só
         // existia como um evento aleatório TOTALMENTE INVISÍVEL (_eventSacredFragment,
@@ -3078,6 +3114,16 @@ class CityEngine {
         this._drawFountain(ctx, w, h);
         this.statues.forEach(s => this._drawStatue(ctx, w, h, s));
         this.vegetation.forEach(v => this._drawVegetation(ctx, w, h, v));
+        // Culling (Camera.isVisible) — as casas residenciais vivem nas
+        // bordas do mundo alargado, quase sempre fora da tela em algum
+        // momento da navegação; desenhar as ~12 sem checar visibilidade
+        // seria o tipo de trabalho descartável que CLAUDE.md pede pra evitar
+        // ao preparar a base pra cidades maiores.
+        this.residentialHouses.forEach(house => {
+            const x = house.xFrac * this._worldWidth();
+            const y = horizon + house.rowOffset * this._cityScale(h);
+            if (window.Camera.isVisible(x, y, w, h, 120)) this._drawResidentialHouse(ctx, w, h, house);
+        });
 
         // Ordena tudo que fica "no chão" (prédios, NPCs, jogador) por Y, pra
         // quem está mais embaixo na tela ser desenhado por cima (profundidade).
@@ -3368,6 +3414,69 @@ class CityEngine {
     // reusa (ver js/spritesystem.js SpriteCache). bbox generoso e único pra
     // todos os tipos (em vez de um por tipo) porque são poucas combinações
     // reais em cache (6 tipos x poucas escalas distintas por resize).
+    // Casas residenciais de fundo (ver this.residentialHouses no
+    // construtor) — mesmo padrão de bake-once-reuse de _bakeVegetationSprite
+    // logo abaixo (geometria 100% desenhada à mão, nunca ícone de fonte,
+    // mesma convenção do resto do arquivo). 4 variantes de silhueta
+    // (telhado a duas águas em ângulos/proporções diferentes + detalhes
+    // como chaminé/janela) combinadas com paletas de parede/telhado
+    // variadas evitam a "mesma casa copiada" que o pedido explicitamente
+    // rejeitou.
+    _bakeHouseSprite(scale, variant, wallColor, roofColor) {
+        const pad = 4;
+        const anchorX = 26 * scale + pad, anchorY = 46 * scale + pad;
+        const w = anchorX * 2, h = anchorY + pad;
+        const key = `house:${variant}:${wallColor}:${roofColor}:${Math.round(scale * 100)}`;
+        return {
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => this._paintHouseSilhouette(bctx, anchorX, anchorY, scale, variant, wallColor, roofColor)),
+            anchorX, anchorY
+        };
+    }
+
+    _paintHouseSilhouette(ctx, x, y, scale, variant, wallColor, roofColor) {
+        const bodyW = (20 + (variant % 2) * 4) * scale, bodyH = 26 * scale;
+        const bx = x - bodyW / 2, by = y - bodyH;
+        ctx.fillStyle = wallColor;
+        ctx.fillRect(bx, by, bodyW, bodyH);
+
+        // Telhado a duas águas — inclinação varia por variante (mais
+        // íngreme nas ímpares) pra silhuetas visivelmente diferentes mesmo
+        // de longe, sem depender só da cor.
+        const roofOverhang = 3 * scale;
+        const roofRise = (variant % 2 === 0 ? 14 : 20) * scale;
+        ctx.fillStyle = roofColor;
+        ctx.beginPath();
+        ctx.moveTo(bx - roofOverhang, by);
+        ctx.lineTo(x, by - roofRise);
+        ctx.lineTo(bx + bodyW + roofOverhang, by);
+        ctx.closePath();
+        ctx.fill();
+
+        // Porta simples, sempre centralizada.
+        const doorW = 5 * scale, doorH = 10 * scale;
+        ctx.fillStyle = '#3a2a1a';
+        ctx.fillRect(x - doorW / 2, y - doorH, doorW, doorH);
+
+        // Janela (variantes 1 e 3) e chaminé (variantes 2 e 3) — detalhes
+        // opcionais que quebram a repetição sem multiplicar o número de
+        // formas base.
+        if (variant % 2 === 1) {
+            ctx.fillStyle = '#c9a876';
+            ctx.fillRect(bx + bodyW * 0.18, by + bodyH * 0.25, 4 * scale, 4 * scale);
+        }
+        if (variant >= 2) {
+            ctx.fillStyle = wallColor;
+            ctx.fillRect(bx + bodyW * 0.68, by - roofRise * 0.55, 4 * scale, roofRise * 0.55 + 4 * scale);
+        }
+    }
+
+    _drawResidentialHouse(ctx, w, h, house) {
+        const scale = this._cityScale(h) * (house.scale || 0.7);
+        const x = house.xFrac * this._worldWidth(), y = this._horizon(h) + house.rowOffset * this._cityScale(h);
+        const sprite = this._bakeHouseSprite(scale, house.variant || 0, house.wallColor, house.roofColor);
+        window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
+    }
+
     _bakeVegetationSprite(scale, type) {
         const pad = 4;
         const anchorX = 30 * scale + pad, anchorY = 85 * scale + pad;
