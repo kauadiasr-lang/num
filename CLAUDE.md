@@ -210,6 +210,54 @@ dessa cadeia, não só no fim.
   persistir; não há uma camada de serialização separada para esquecer de
   atualizar.
 
+## Expansão de Exploração e Mundo (sistemas adicionados após a auditoria acima)
+
+Conjunto de features pequenas/médias implementadas depois da auditoria
+profissional acima, todas em `road.js`/`city.js`/`ui.js`, reaproveitando a
+arquitetura existente (nenhum sistema paralelo novo):
+
+- **Perseguição de bandidos na Estrada** (`road.js` `_updateBandits`) —
+  máquina de estados real por evento `type: 'bandit'`: patrulha (oscilação
+  senoidal em torno de `spawnX`) → alerta (`BANDIT_ALERT_RADIUS: 200`) →
+  perseguição (`BANDIT_CHASE_SPEED: 230`, movimento 2D real em direção ao
+  jogador) → captura (`BANDIT_DETECT_RADIUS: 75`, dispara
+  `UI.onRoadWorldEncounter`) ou desistência
+  (`BANDIT_GIVE_UP_RADIUS: 340`/`BANDIT_PATROL_RANGE: 150`). Indicador visual
+  de perseguição desenhado à mão, fatorado em `_drawChaseIndicator` pra ser
+  reusado por qualquer criatura perseguidora (bandido ou lobo).
+- **Guardas de cidade** (`city.js` `_makeGuardEntity`/`_makeGuardEnemy`) —
+  spawn por cidade (`_guardsSpawned`, resetado em `travelToCity` e no
+  amanhecer), interação de duas etapas (diálogo → provocar → combate) via
+  `isGuard` em `_talkToNpc`. Nível/equipamento escala com o jogador
+  (mesma semântica de jitter de `Enemy(x)` documentada nas Regras acima).
+- **Casas residenciais decorativas** (`city.js` `residentialHouses`) —
+  12 silhuetas desenhadas à mão, cacheadas via `SpriteCache`/`RenderManager`
+  (bake-once-reuse), preenchendo a margem da Praça já alargada; cortadas do
+  desenho via `Camera.isVisible`. Puramente decorativas, sem colisão nem
+  interação.
+- **Toca dos Lobos** (`road.js` + `roads.js` `WOLF_DEN_ID` + `ui.js`
+  `onEnterWolfDen`/`onWolfEncounter`/`_grantWolfDenReward`) — primeiro
+  "local explorável" do jogo: uma entrada física (`wolf_den_entrance`,
+  ícone próprio) nasce garantida em qualquer travessia que toque a cidade
+  natal (`DEFAULT_CITY_ID`). Entrar troca o Mundo da Estrada por um mundo
+  curto e temático (**generaliza o padrão de "destino virtual" já usado
+  pela Expedição à Floresta Ancestral**, ver `RoadEngine.start`:
+  `WORLD_LENGTH` e `_zones` mudam quando `toId` não existe em
+  `CityDatabase`, sempre restaurando ao valor default na próxima travessia
+  normal via `_defaultWorldLength`). Dentro: 3 lobos comuns + 1 Lobo Alfa,
+  ambos reaproveitando 100% de `_updateBandits` (`type: 'bandit'` por
+  dentro, só com `isWolf`/`isAlphaWolf` pra desenho/flavor/recompensa —
+  zero lógica de perseguição duplicada). Vencer o Alfa concede recompensa
+  única na primeira vez (`p.wolfDenAlphaDefeated`, flag simples persistida
+  pelo save genérico — sem duplicação salvando/recarregando).
+- **Padrão "destino virtual" generalizado**: qualquer local explorável
+  futuro que não seja uma cidade-hub de verdade (mina, ruína, submapa) pode
+  seguir o mesmo molde — um id que nunca existe em `CityDatabase`,
+  reconhecido em `RoadEngine.start` pra montar um mundo à parte, com
+  `onRoadWorldArrival` devolvendo o jogador à cidade natal em vez de tentar
+  `City.travelToCity` com um id inexistente. Não crie um sistema de
+  submapa paralelo — estenda esse mesmo mecanismo.
+
 ## Procedimento de testes (regressão mínima antes de considerar uma mudança pronta)
 
 Via Playwright headless (`/tmp/pw/*.js`, ver seção "Como rodar e testar"),
