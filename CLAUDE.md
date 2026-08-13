@@ -257,6 +257,22 @@ arquitetura existente (nenhum sistema paralelo novo):
   `onRoadWorldArrival` devolvendo o jogador à cidade natal em vez de tentar
   `City.travelToCity` com um id inexistente. Não crie um sistema de
   submapa paralelo — estenda esse mesmo mecanismo.
+- **`onEnterWolfDen` sempre chama `showScreen('screen-roadworld')`
+  explicitamente, mesmo sabendo que o único ponto de chamada de hoje
+  (`_resolveEvent`) já roda com essa tela ativa** — mesmo padrão defensivo
+  de `startForestExpedition`/`startRoadJourney`. Faltava isso numa versão
+  anterior e só não quebrava nada porque não existia atalho direto pra
+  Toca; ao adicionar QUALQUER atalho novo (um botão no Portão, por
+  exemplo), esse é o tipo de omissão que resulta numa tela travada.
+- **Cobertura de pontos de interesse menores (item 7 da Expansão de
+  Exploração e Mundo)**: antes de adicionar um tipo de evento novo,
+  verifique `EVENT_TYPES` (interativo, clicável) E os marcos decorativos
+  passivos (`_drawGiantTrees`/`_drawWatchtowers`/`_drawTravelCamps`) — nem
+  todo "ponto de interesse" pedido precisa virar um evento clicável;
+  "acampamento" já existe como cenário passivo rico (tendas, brasas, halo
+  noturno, variação de layout), só "cabana abandonada" (`abandoned_cabin`)
+  estava genuinamente faltando e foi adicionada como evento puro-flavor
+  (sem recompensa, mesmo espírito de `cart`/`bridge`).
 
 ## Procedimento de testes (regressão mínima antes de considerar uma mudança pronta)
 
