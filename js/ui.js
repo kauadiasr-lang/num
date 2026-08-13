@@ -4805,6 +4805,12 @@ class UIManager {
         document.getElementById('screen-roadworld').style.setProperty('--road-accent', '#8a3a2a');
         if (window.AudioManager) window.AudioManager.playConfirm();
         if (window.MainMenu) window.MainMenu.showToast('Você entra na Toca dos Lobos. O ar cheira a mato pisado e algo mais...', 'info');
+        // Único ponto de chamada hoje (_resolveEvent do road.js) já roda com
+        // screen-roadworld ativa, mas chama showScreen mesmo assim — mesmo
+        // padrão defensivo de startForestExpedition/startRoadJourney logo
+        // abaixo, pra qualquer futuro atalho direto (ex: um botão no Portão,
+        // como a Floresta Ancestral já tem) não cair numa tela errada.
+        this.showScreen('screen-roadworld');
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão — a partir da Fase
