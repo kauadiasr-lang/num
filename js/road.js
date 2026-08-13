@@ -266,6 +266,13 @@ window.RoadEngine = {
         campfire: { icon: '🔥', label: 'Descansar na fogueira' },
         cart: { icon: '🛒', label: 'Examinar a carroça quebrada' },
         traveler: { icon: '🧳', label: 'Conversar com o viajante' },
+        // "Cabana abandonada" — item explícito da lista de pontos de
+        // interesse menores/ambientação (item 7 da Expansão de Exploração e
+        // Mundo). Puro flavor, sem recompensa nenhuma (mesmo espírito de
+        // cart/bridge acima) — "acampamento" da mesma lista JÁ existe como
+        // marco decorativo passivo (ver _drawTravelCamps), não precisava de
+        // outro; só a cabana faltava de verdade.
+        abandoned_cabin: { icon: '🏚️', label: 'Investigar a cabana abandonada' },
         // Marcos físicos explicitamente pedidos pelo usuário ("ruínas,
         // cavernas, pontes, pequenos templos") — mesma arquitetura de
         // evento pacífico (aviso de interação, nunca pop-up), só com
@@ -389,6 +396,14 @@ window.RoadEngine = {
         'Dentro do tronco oco, você encontra {gift}g escondidos entre as raízes ressecadas.',
         'Um esquilo foge assustado quando você enfia a mão no oco da árvore e encontra {gift}g esquecidos ali dentro.',
         'O interior apodrecido da árvore guarda uma bolsinha de couro com {gift}g, intacta apesar dos anos.'
+    ],
+    // "Cabana abandonada" (item 7 da Expansão de Exploração e Mundo) — puro
+    // flavor, mesmo princípio de CART_LINES/BRIDGE_LINES acima (sem
+    // recompensa, sem {gift}), variedade já desde o início.
+    ABANDONED_CABIN_LINES: [
+        'A porta da cabana range ao vento, pendurada num único dobradiça enferrujada — ninguém mora aqui há anos.',
+        'Dentro da cabana abandonada só restam móveis apodrecidos e um cheiro forte de mofo.',
+        'O telhado da cabana desabou num canto, deixando entrar sol e chuva por igual — quem vivia aqui foi embora há muito tempo.'
     ],
     // Ciclo 34 — mesma lacuna do Ciclo 27, só que em 'cave'/'shrine':
     // 'cave' sempre mostrava o MESMO toast (com {gift} variável, mas o
@@ -1594,6 +1609,11 @@ window.RoadEngine = {
             // ponto físico de exploração) — mesmo espírito do 'cart' acima,
             // sem recompensa, só ambientação de travessia segura.
             toast(this._pickFlavor(this.BRIDGE_LINES, ev.x, 9700), 'info');
+        } else if (ev.type === 'abandoned_cabin') {
+            // "Cabana abandonada" (item 7 da Expansão de Exploração e Mundo)
+            // — mesmo espírito puramente cênico de cart/bridge acima, sem
+            // recompensa nenhuma.
+            toast(this._pickFlavor(this.ABANDONED_CABIN_LINES, ev.x, 10500), 'info');
         } else if (ev.type === 'cave') {
             // Recompensa em ouro, faixa maior que 'secret' — risco maior
             // percebido ("caverna escura") justifica um prêmio melhor.
@@ -5041,6 +5061,21 @@ window.RoadEngine = {
             ctx.restore();
             ctx.fillStyle = '#2a1c10';
             ctx.beginPath(); ctx.arc(-12, 10, 6, 0, Math.PI * 2); ctx.fill();
+        } else if (t === 'abandoned_cabin') {
+            // Cabana pequena e caindo aos pedaços (item 7 da Expansão de
+            // Exploração e Mundo) — mesma linguagem de silhueta desenhada à
+            // mão das casas residenciais da Praça (ver city.js
+            // _paintHouseSilhouette), mas deliberadamente torta/quebrada:
+            // telhado desabado de um lado, sem porta de verdade (só um vão
+            // escuro), pra ler como abandonada à distância, não habitada.
+            ctx.fillStyle = '#4a3a28';
+            ctx.fillRect(-16, -4, 32, 20); // paredes
+            ctx.fillStyle = '#3a2e20';
+            ctx.beginPath();
+            ctx.moveTo(-20, -4); ctx.lineTo(0, -22); ctx.lineTo(20, -4); ctx.lineTo(14, -6); ctx.lineTo(-2, -18); ctx.lineTo(-20, 2);
+            ctx.closePath(); ctx.fill(); // telhado torto, desabado no canto direito
+            ctx.fillStyle = '#0c0906';
+            ctx.fillRect(-5, 4, 10, 12); // vão escuro no lugar da porta
         } else if (t === 'ruins') {
             ctx.fillStyle = corrupted ? '#4a4038' : '#a89a82';
             ctx.fillRect(-14, -10, 6, 20);
