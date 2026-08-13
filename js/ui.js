@@ -474,11 +474,18 @@ class UIManager {
                     if (this._pendingNatureDiscovery) {
                         this._pendingNatureDiscovery = false;
                         this._resolveNatureDiscoveryVictory(p, () => this.showScreen('screen-roadworld'));
+                    } else if (this._pendingWolfDenAlpha) {
+                        // Lobo Alfa da Toca (ver onWolfEncounter) — só concede a
+                        // recompensa quando é ELE quem cai, nunca um lobo comum.
+                        this._pendingWolfDenAlpha = false;
+                        this._grantWolfDenReward(p);
+                        this.showScreen('screen-roadworld');
                     } else {
                         this.showScreen('screen-roadworld');
                     }
                 } else {
                     this._pendingNatureDiscovery = false;
+                    this._pendingWolfDenAlpha = false;
                     p.roadWorldJourney = null;
                     if (window.RoadEngine) window.RoadEngine.abandon();
                     window.SaveManager.save(window.Engine.state);
@@ -4652,6 +4659,18 @@ class UIManager {
             return;
         }
 
+        // Toca dos Lobos (Expansão de Exploração e Mundo, item 8) — mesmo
+        // princípio da Floresta Ancestral acima: toId virtual, nunca existe
+        // em CityDatabase, "chegar ao fundo da toca" só devolve o jogador
+        // pra Porto Helênico (sempre a cidade natal, ver onEnterWolfDen).
+        if (toId === window.WOLF_DEN_ID) {
+            window.AudioManager.playConfirm();
+            if (window.MainMenu) window.MainMenu.showToast('Você retorna da Toca dos Lobos.', 'info');
+            this.updateHubStats();
+            this.showScreen('screen-hub');
+            return;
+        }
+
         const success = window.City.travelToCity(toId, true); // skipCost=true: passagem já resolvida (a cavalo cobrado no início; a pé sempre grátis)
         if (success) {
             window.AudioManager.playConfirm();
@@ -4713,6 +4732,79 @@ class UIManager {
             const toId = (journey && journey.toId) || (window.getCurrentCityId ? window.getCurrentCityId() : null);
             this.startBattle(window.getRegionEnemyLevel ? window.getRegionEnemyLevel(toId) : undefined);
         }
+    }
+
+    // Encontro de lobo dentro da Toca dos Lobos (Expansão de Exploração e
+    // Mundo, item 8 — ver js/road.js _generateWolfPack/_updateBandits
+    // isWolf). Faixa de nível FIXA (independente de região/cidade, mesmo
+    // motivo de startNatureDiscoveryBattle — a Toca não pertence a nenhuma
+    // Cidade-Hub) — lobos comuns são uma ameaça real mas superável cedo no
+    // jogo; o Alfa é um degrau acima de verdade ("desafio superior ao
+    // exterior", pedido explícito), marcando a flag que o botão de retorno
+    // da tela de resultados (ver btn-return-hub) usa pra conceder a
+    // recompensa da Toca só quando é ELE quem foi derrotado, nunca um
+    // lobo comum qualquer.
+    onWolfEncounter(isAlpha) {
+        window.SaveManager.save(window.Engine.state);
+        if (isAlpha) {
+            this._pendingWolfDenAlpha = true;
+            this.beginBattleWith(new Enemy(Utils.randomInt(9, 13)));
+        } else {
+            this.beginBattleWith(new Enemy(Utils.randomInt(3, 6)));
+        }
+    }
+
+    // Recompensa da Toca dos Lobos — chamada só depois de vencer o Lobo
+    // Alfa (ver onWolfEncounter/_pendingWolfDenAlpha). Ouro/XP sempre
+    // concedidos (explorar de novo continua valendo a pena); o equipamento
+    // único só na PRIMEIRA vez (`p.wolfDenAlphaDefeated`, persistido pelo
+    // SaveManager genérico igual qualquer campo novo do Player) — "recompensa
+    // significativa mas equilibrada", nunca duplicável salvando/carregando
+    // repetidamente contra o mesmo Alfa.
+    _grantWolfDenReward(p) {
+        const gold = Utils.randomInt(180, 260);
+        p.gold += gold;
+        p.gainExp(120);
+        let msg = `Você derrota o Lobo Alfa! +${gold}g, +120 XP.`;
+        if (!p.wolfDenAlphaDefeated) {
+            p.wolfDenAlphaDefeated = true;
+            const weaponIds = Object.keys(ItemDatabase.weapons);
+            const pickId = weaponIds[Utils.randomInt(0, weaponIds.length - 1)];
+            const item = window.ItemFactory ? window.ItemFactory.createEquipment(pickId, 'weapons', RARITY.UNCOMMON) : null;
+            if (item) {
+                p.inventory.push(item);
+                msg = `Você derrota o Lobo Alfa! +${gold}g, +120 XP, e encontra ${item.name} entre os ossos do covil.`;
+            }
+        }
+        if (window.MainMenu) window.MainMenu.showToast(msg, 'success');
+        window.SaveManager.save(window.Engine.state);
+    }
+
+    // Entrada física da Toca dos Lobos (ver js/road.js EVENT_TYPES.wolf_den_entrance,
+    // _resolveEvent) — walk-up-and-click num objeto físico da Estrada,
+    // nunca um pop-up nem um botão de menu. Sempre reinicia o Mundo da
+    // Estrada num mundo curto e temático (ver RoadEngine.start
+    // toId===WOLF_DEN_ID) com origem/destino fixos na cidade natal —
+    // "localizada em uma área florestal próxima da cidade inicial",
+    // voltar sempre é pra lá (ver onRoadWorldArrival), nunca pra travessia
+    // real que o jogador estava fazendo quando encontrou a entrada (mesmo
+    // princípio já aceito pela Expedição à Floresta Ancestral: entrar
+    // num destino virtual sempre abandona a travessia em andamento).
+    onEnterWolfDen() {
+        if (!window.RoadEngine) return;
+        const p = window.Engine.state.player;
+        const homeId = window.DEFAULT_CITY_ID;
+        p.roadWorldJourney = { fromId: homeId, toId: window.WOLF_DEN_ID, mode: 'walk' };
+        window.RoadEngine.start(homeId, window.WOLF_DEN_ID, 'walk', p);
+        window.SaveManager.save(window.Engine.state);
+        document.getElementById('roadworld-title').innerText = `${window.CityDatabase[homeId].name} → Toca dos Lobos`;
+        document.getElementById('roadworld-mode').innerText = 'A pé';
+        // Cor de identidade da Toca — vermelho-escuro, nunca a verde padrão
+        // de floresta nem a mística da Floresta Ancestral (#4a8a5a) — precisa
+        // ser reconhecível como um lugar mais perigoso já pela cor do HUD.
+        document.getElementById('screen-roadworld').style.setProperty('--road-accent', '#8a3a2a');
+        if (window.AudioManager) window.AudioManager.playConfirm();
+        if (window.MainMenu) window.MainMenu.showToast('Você entra na Toca dos Lobos. O ar cheira a mato pisado e algo mais...', 'info');
     }
 
     // Expedição direta à Floresta Ancestral pelo Portão — a partir da Fase

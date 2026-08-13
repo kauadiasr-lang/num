@@ -24,6 +24,17 @@ const ROAD_HORSE_COST_PERCENT = 0.4;
 const FOREST_EXPEDITION_ID = 'floresta_ancestral';
 const FOREST_EXPEDITION_STEPS = 5;
 
+// Toca dos Lobos (Expansão de Exploração e Mundo, item 8 — "primeiro local
+// explorável", prova de conceito do sistema de submapas/locais de
+// aventura). Mesmo princípio de destino VIRTUAL da Floresta Ancestral
+// acima: nunca existe em CityDatabase, RoadEngine.start reconhece o id e
+// monta um mundo curto e temático em vez da travessia normal entre
+// cidades (ver js/road.js `toId === window.WOLF_DEN_ID`). A entrada física
+// (ícone próprio 🐺, ver EVENT_TYPES.wolf_den_entrance) nasce garantida em
+// qualquer travessia que toque Porto Helênico — "localizada em uma área
+// florestal próxima da cidade inicial", pedido explícito do usuário.
+const WOLF_DEN_ID = 'toca_dos_lobos';
+
 // Pontos de interesse "de passagem" — flavor de progresso mostrado na
 // trilha da tela (ver ui.js openRoad) a cada etapa avançada.
 const ROAD_WAYPOINT_LABELS = [
@@ -250,3 +261,4 @@ const RoadSystem = {
 window.RoadSystem = RoadSystem;
 window.ROAD_WAYPOINT_LABELS = ROAD_WAYPOINT_LABELS;
 window.FOREST_EXPEDITION_ID = FOREST_EXPEDITION_ID;
+window.WOLF_DEN_ID = WOLF_DEN_ID;

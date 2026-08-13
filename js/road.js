@@ -317,7 +317,13 @@ window.RoadEngine = {
         // logo acima) — só existe fisicamente perto do Reino Anão, gerado
         // por _generateOreVeins, nunca espalhado uniformemente pelo mapa
         // inteiro como comerciante/baú/etc.
-        ore_vein: { icon: '⛏️', label: 'Vasculhar o veio de minério' }
+        ore_vein: { icon: '⛏️', label: 'Vasculhar o veio de minério' },
+        // Entrada da Toca dos Lobos (Expansão de Exploração e Mundo, item
+        // 8) — fica de fora do sorteio geral de `types` em _generateEvents,
+        // mesmo motivo do clearing_treasure/ore_vein acima: nasce GARANTIDA
+        // (não sorteada) só nas travessias que tocam a cidade natal (ver
+        // `_generateWolfDenEntrance`), nunca espalhada uniformemente.
+        wolf_den_entrance: { icon: '🐺', label: 'Entrar na Toca dos Lobos' }
     },
     // Tipos de missão oferecidos pelo viajante — ESCORT (Proteção de
     // Comboio), HUNT (Contrato de Caça) e RECOVERY (Item Perdido) cobrem o
@@ -477,6 +483,16 @@ window.RoadEngine = {
     // cobrado por quem chama, ver ui.js startRoadJourney — igual ao
     // RoadSystem antigo). `player` é o Player real (pra fadiga/gold).
     start(fromId, toId, mode, player) {
+        // Toca dos Lobos (ver roads.js WOLF_DEN_ID): mundo bem mais curto
+        // que uma travessia real entre cidades — "não precisa ser uma
+        // dungeon enorme", pedido explícito. `_defaultWorldLength` guarda o
+        // valor original (63000) na PRIMEIRA vez que start() roda, pra
+        // sempre restaurar depois de sair da Toca — sem isso, uma viagem
+        // normal logo depois da Toca herdaria o mundo curto e chegaria em
+        // segundos, quebrando silenciosamente todo o resto da Estrada.
+        if (this._defaultWorldLength === undefined) this._defaultWorldLength = this.WORLD_LENGTH;
+        this.WORLD_LENGTH = (toId === window.WOLF_DEN_ID) ? 7000 : this._defaultWorldLength;
+
         this.fromId = fromId;
         this.toId = toId;
         this.mode = mode === 'horse' ? 'horse' : 'walk';
@@ -525,12 +541,23 @@ window.RoadEngine = {
 
         const fromDef = window.CityDatabase[fromId];
         const toDef = window.CityDatabase[toId];
-        // A Expedição à Floresta Ancestral (ver roads.js FOREST_EXPEDITION_ID)
-        // é um destino VIRTUAL — nunca existe em CityDatabase — então nome
-        // de zona/marco de chegada precisam de um nome próprio em vez de
-        // `toDef.name` (que seria undefined).
-        this._destLabel = toDef ? toDef.name : (toId === window.FOREST_EXPEDITION_ID ? 'Floresta Ancestral' : 'Chegada');
-        if (toDef) {
+        // A Expedição à Floresta Ancestral e a Toca dos Lobos (ver
+        // roads.js FOREST_EXPEDITION_ID/WOLF_DEN_ID) são destinos VIRTUAIS
+        // — nunca existem em CityDatabase — então nome de zona/marco de
+        // chegada precisam de um nome próprio em vez de `toDef.name` (que
+        // seria undefined).
+        this._destLabel = toDef ? toDef.name
+            : (toId === window.FOREST_EXPEDITION_ID ? 'Floresta Ancestral'
+            : (toId === window.WOLF_DEN_ID ? 'Toca dos Lobos' : 'Chegada'));
+        if (toId === window.WOLF_DEN_ID) {
+            // Ambiente DIFERENTE da floresta comum (pedido explícito) — só 2
+            // zonas curtas, paleta de caverna (terra/pedra escura), nunca a
+            // paleta verde padrão do resto da Estrada.
+            this._zones = [
+                { name: 'Entrada da Toca', vegDensity: 0.3, vegColor: 'rgba(74,58,42,0.55)' },
+                { name: 'Covil dos Lobos', vegDensity: 0.15, vegColor: 'rgba(42,34,26,0.65)' }
+            ];
+        } else if (toDef) {
             // Travessia real entre cidades — mistura a família de ORIGEM
             // (primeira metade) com a de DESTINO (segunda metade), ver
             // comentário completo em ZONE_FAMILY_STAGES acima. Fallback pra
@@ -567,9 +594,26 @@ window.RoadEngine = {
         if (fromDef && fromDef.hasOreVeins) this._miningZones = { shallowIdx: 0, deepIdx: 1 };
         else if (toDef && toDef.hasOreVeins) this._miningZones = { shallowIdx: 3, deepIdx: 2 };
         this._updateZoneLabel(0);
-        this._generateEvents(fromId, toId);
-        this._generateClearingTreasures();
-        this._generateOreVeins();
+        if (toId === window.WOLF_DEN_ID) {
+            // Dentro da própria Toca: só lobos, nunca o pool normal de
+            // comerciante/baú/veio de minério/etc — "vários lobos" pedido
+            // explícito, foco total no encontro, nada de ruído.
+            this._events = [];
+            this._generateWolfPack(player);
+        } else {
+            this._generateEvents(fromId, toId);
+            this._generateClearingTreasures();
+            this._generateOreVeins();
+            // Entrada física da Toca dos Lobos (ver EVENT_TYPES.wolf_den_entrance)
+            // garantida (nunca sorteada) em qualquer travessia que toque a
+            // cidade natal — "localizada em uma área florestal próxima da
+            // cidade inicial", pedido explícito. Nunca dentro da própria Toca
+            // (branch acima cobre isso) nem na Expedição à Floresta Ancestral
+            // (mata sagrada separada, sem relação com a Toca).
+            if ((fromId === window.DEFAULT_CITY_ID || toId === window.DEFAULT_CITY_ID) && toId !== window.FOREST_EXPEDITION_ID) {
+                this._generateWolfDenEntrance();
+            }
+        }
         // Espírito da Natureza / Corrupção (Fase 5, ver
         // docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md)
         // só existem fisicamente na Expedição à Floresta Ancestral — a mesma
@@ -596,6 +640,41 @@ window.RoadEngine = {
         } else if (window.NatureSystem && window.NatureSystem.isDiscoveryAvailable(player)) {
             this._events.push({ type: 'nature_spirit', x, y: 0, spawnX: x, consumed: false });
         }
+    },
+
+    // Entrada física da Toca dos Lobos (ver EVENT_TYPES.wolf_den_entrance,
+    // WOLF_DEN_ID) — posição determinística (mesmo hash de sempre, nunca
+    // Math.random puro) numa zona intermediária da travessia, nunca bem no
+    // início/fim (onde ficaria colada na muralha da cidade).
+    _generateWolfDenEntrance() {
+        const x = Utils.clamp(this.WORLD_LENGTH * 0.45 + (this._hash(7700) % 600) - 300, 800, this.WORLD_LENGTH - 800);
+        this._events.push({ type: 'wolf_den_entrance', x, y: -70, spawnX: x, consumed: false });
+    },
+
+    // Alcateia da Toca dos Lobos (Expansão de Exploração e Mundo, item 8) —
+    // "vários lobos" + "um lobo alfa/chefe" no fim do covil. Reaproveita
+    // 100% da infraestrutura de perseguição já construída pra bandidos
+    // (ver _updateBandits) — os eventos aqui são `type: 'bandit'` por
+    // dentro (herdam patrulha/alerta/perseguição/captura sem duplicar
+    // NENHUMA lógica), só marcados com `isWolf`/`isAlphaWolf` pra desenho
+    // (_drawWolfCreature, nunca GFX.drawGladiator — lobo é quadrúpede, não
+    // dá pra usar o rig humanoide) e flavor de texto próprios. `entity:
+    // null` — lobo não usa entidade visual humanoide nenhuma.
+    _generateWolfPack(player) {
+        const count = 3;
+        for (let i = 0; i < count; i++) {
+            const x = (this.WORLD_LENGTH / (count + 1)) * (i + 1) + (this._hash(i * 13 + 500) % 300) - 150;
+            const side = (i % 2 === 0) ? -1 : 1;
+            this._events.push({ type: 'bandit', isWolf: true, x, y: side * 60, spawnX: x, consumed: false, entity: null });
+        }
+        // Lobo Alfa — guardião do fundo do covil, sempre perto do fim do
+        // mundo curto (pra ser o "chefe" que fecha a experiência, nunca um
+        // encontro qualquer no meio do caminho). `dangerous: true` reaproveita
+        // o MESMO mecanismo de escalonamento já usado pelos bandidos da
+        // zona funda de mineração (ver onRoadWorldEncounter/_updateBandits)
+        // — nenhuma fórmula de combate nova.
+        const alphaX = this.WORLD_LENGTH - 900;
+        this._events.push({ type: 'bandit', isWolf: true, isAlphaWolf: true, dangerous: true, x: alphaX, y: 0, spawnX: alphaX, consumed: false, entity: null });
     },
 
     // Posições determinísticas (sem Math.random) espalhadas ao longo da
@@ -1344,7 +1423,12 @@ window.RoadEngine = {
                     // aparência pro GFX.drawGladiator, não personagens nomeados —
                     // então a mensagem é sempre genérica, igual ao resto do texto
                     // de bandido no arquivo (nunca finge um nome que não existe).
-                    if (window.MainMenu) window.MainMenu.showToast('Um bandido te avistou e vem atrás de você!', 'error');
+                    // Toca dos Lobos (ver isWolf/isAlphaWolf, _generateWolfPack):
+                    // aviso próprio, nunca "bandido" pra quem está caçando lobos.
+                    let msg = 'Um bandido te avistou e vem atrás de você!';
+                    if (ev.isAlphaWolf) msg = 'O Lobo Alfa rosna e avança — este é o guardião do covil!';
+                    else if (ev.isWolf) msg = 'Um lobo te avistou e vem atrás de você!';
+                    if (window.MainMenu) window.MainMenu.showToast(msg, 'error');
                 }
             }
 
@@ -1352,7 +1436,11 @@ window.RoadEngine = {
             if (dist < this.BANDIT_DETECT_RADIUS) {
                 ev.consumed = true;
                 if (ev.type === 'bandit') {
-                    if (window.UI && window.UI.onRoadWorldEncounter) window.UI.onRoadWorldEncounter(!!ev.dangerous);
+                    if (ev.isWolf) {
+                        if (window.UI && window.UI.onWolfEncounter) window.UI.onWolfEncounter(!!ev.isAlphaWolf);
+                    } else if (window.UI && window.UI.onRoadWorldEncounter) {
+                        window.UI.onRoadWorldEncounter(!!ev.dangerous);
+                    }
                 } else if (window.UI && window.UI.onRoadWorldNatureDiscovery) {
                     window.UI.onRoadWorldNatureDiscovery();
                 }
@@ -1453,6 +1541,15 @@ window.RoadEngine = {
         // showCorruptionChoice, chamada via onRoadWorldCorruptionEvent).
         if (ev.type === 'corruption') {
             if (window.UI && window.UI.onRoadWorldCorruptionEvent) window.UI.onRoadWorldCorruptionEvent();
+            return;
+        }
+
+        // Entrada da Toca dos Lobos (Expansão de Exploração e Mundo, item
+        // 8) — nunca um pop-up nem um combate automático: entrar de
+        // verdade troca o mundo da Estrada pelo covil curto (ver
+        // js/ui.js onEnterWolfDen/RoadEngine.start toId===WOLF_DEN_ID).
+        if (ev.type === 'wolf_den_entrance') {
+            if (window.UI && window.UI.onEnterWolfDen) window.UI.onEnterWolfDen();
             return;
         }
 
@@ -4730,30 +4827,85 @@ window.RoadEngine = {
         ctx.scale(this.PLAYER_SCALE, this.PLAYER_SCALE);
         window.GFX.drawGladiator(ctx, 0, 0, entity, true, anim, null);
         ctx.restore();
-        // Indicador de perseguição (item 3 da Expansão de Exploração e
-        // Mundo — "o jogador precisa perceber que aquele bandido está vindo
-        // atrás dele"): sinal de alerta desenhado à mão acima da cabeça,
-        // fora do save/scale acima (não deforma com PLAYER_SCALE, sempre o
-        // mesmo tamanho na tela). Nunca um ícone de fonte/emoji — mesma
-        // regra do resto deste arquivo (ver comentário de WOUNDED_GLADIATOR_ENTITY).
-        if (ev._chasing) {
-            const bob = Math.sin(performance.now() / 150) * 3;
-            const ix = ev.x, iy = ev.y - 92 + bob;
-            ctx.save();
-            ctx.fillStyle = 'rgba(198, 40, 40, 0.92)';
-            ctx.beginPath();
-            ctx.moveTo(ix, iy - 14);
-            ctx.lineTo(ix + 8, iy + 4);
-            ctx.lineTo(ix - 8, iy + 4);
-            ctx.closePath();
-            ctx.fill();
-            ctx.fillStyle = '#fff3e0';
-            ctx.fillRect(ix - 1.6, iy - 9, 3.2, 7);
-            ctx.beginPath();
-            ctx.arc(ix, iy, 1.8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+        this._drawChaseIndicator(ctx, ev, 92);
+    },
+
+    // Indicador de perseguição (item 3 da Expansão de Exploração e Mundo —
+    // "o jogador precisa perceber que aquele bandido/lobo está vindo atrás
+    // dele"): sinal de alerta desenhado à mão acima da cabeça, sempre em
+    // coordenadas de MUNDO puras (nunca dentro de um save/scale, pra não
+    // deformar com PLAYER_SCALE nem com a escala menor do lobo). Nunca um
+    // ícone de fonte/emoji — mesma regra do resto deste arquivo. Fatorado
+    // de _drawCreature (bandidos/humanoides) pra ser reaproveitado por
+    // _drawWolfCreature (lobos, geometria de quadrúpede) sem duplicar nada.
+    // `headOffset` é a altura da "cabeça" acima de ev.y — bandido humanoide
+    // (92) e lobo (bem mais baixo, corpo de quadrúpede) precisam de valores
+    // bem diferentes pro sinal não flutuar longe demais do dono.
+    _drawChaseIndicator(ctx, ev, headOffset) {
+        if (!ev._chasing) return;
+        const bob = Math.sin(performance.now() / 150) * 3;
+        const ix = ev.x, iy = ev.y - headOffset + bob;
+        ctx.save();
+        ctx.fillStyle = 'rgba(198, 40, 40, 0.92)';
+        ctx.beginPath();
+        ctx.moveTo(ix, iy - 14);
+        ctx.lineTo(ix + 8, iy + 4);
+        ctx.lineTo(ix - 8, iy + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#fff3e0';
+        ctx.fillRect(ix - 1.6, iy - 9, 3.2, 7);
+        ctx.beginPath();
+        ctx.arc(ix, iy, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    },
+
+    // Lobo/Lobo Alfa da Toca dos Lobos (ver isWolf/isAlphaWolf,
+    // _generateWolfPack) — geometria de quadrúpede desenhada à mão (mesmo
+    // princípio já usado pelo cervo de 'rare_animal' logo abaixo em
+    // _drawEventIcon, nunca GFX.drawGladiator — lobo não é humanoide, o rig
+    // não serve). Pelagem cinza-escura comum; o Alfa é maior, mais escuro e
+    // ganha um brilho vermelho sutil ao redor — precisa ser reconhecível
+    // como "o chefe" à distância, mesmo padrão de diferenciação visual já
+    // usado pelo animal raro dourado vs. o comum.
+    _drawWolfCreature(ctx, ev) {
+        const scale = ev.isAlphaWolf ? 1.5 : 1;
+        const bodyColor = ev.isAlphaWolf ? '#3a3238' : '#5a5258';
+        const darkColor = ev.isAlphaWolf ? '#221e22' : '#3a3438';
+        ctx.save();
+        ctx.translate(ev.x, ev.y);
+        ctx.scale(scale, scale);
+
+        if (ev.isAlphaWolf) {
+            const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 450);
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 34);
+            glow.addColorStop(0, `rgba(198,40,40,${0.22 * pulse})`);
+            glow.addColorStop(1, 'rgba(198,40,40,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
         }
+
+        // Corpo (elipse alongada, mais baixo que o cervo — postura de
+        // predador rasteiro) + cabeça + focinho + orelhas triangulares + cauda.
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath(); ctx.ellipse(0, 2, 15, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(13, -2, 6, 5, 0, 0, Math.PI * 2); ctx.fill(); // cabeça
+        ctx.beginPath(); ctx.moveTo(18, -3); ctx.lineTo(24, -1); ctx.lineTo(18, 1); ctx.closePath(); ctx.fill(); // focinho
+        ctx.fillStyle = darkColor;
+        ctx.beginPath(); ctx.moveTo(9, -6); ctx.lineTo(11, -12); ctx.lineTo(13, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(15, -6); ctx.lineTo(17, -12); ctx.lineTo(19, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-15, 0); ctx.quadraticCurveTo(-22, -6, -20, 4); ctx.quadraticCurveTo(-17, 2, -15, 4); ctx.closePath(); ctx.fill(); // cauda
+        // Patas (4 traços simples, o suficiente pra ler como "andando").
+        ctx.strokeStyle = darkColor;
+        ctx.lineWidth = 2.4;
+        for (const lx of [-8, -2, 5, 10]) { ctx.beginPath(); ctx.moveTo(lx, 7); ctx.lineTo(lx, 13); ctx.stroke(); }
+        // Olho — vermelho no Alfa (ameaça clara), âmbar comum no resto.
+        ctx.fillStyle = ev.isAlphaWolf ? '#c81e1e' : '#c89a3a';
+        ctx.beginPath(); ctx.arc(15, -3, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        ctx.restore();
+        this._drawChaseIndicator(ctx, ev, ev.isAlphaWolf ? 46 : 32);
     },
 
     // Ícones de objetos físicos (bug corrigido: chest/bridge/shrine/etc.
@@ -4900,6 +5052,25 @@ window.RoadEngine = {
             ctx.moveTo(-14, 10); ctx.lineTo(-14, -2); ctx.quadraticCurveTo(0, -16, 14, -2); ctx.lineTo(14, 10);
             ctx.closePath(); ctx.fill();
             ctx.strokeStyle = '#3a352e'; ctx.lineWidth = 3; ctx.stroke();
+        } else if (t === 'wolf_den_entrance') {
+            // Entrada da Toca dos Lobos (Expansão de Exploração e Mundo,
+            // item 8) — mesma linguagem de arco de caverna do 'cave' logo
+            // acima, mas maior e mais ameaçadora (nunca a mesma entrada
+            // genérica): brilho vermelho sutil saindo de dentro + ossos
+            // cruzados na base, avisando o perigo antes do jogador entrar.
+            const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
+            ctx.fillStyle = '#0f0d10';
+            ctx.beginPath();
+            ctx.moveTo(-20, 16); ctx.lineTo(-20, -4); ctx.quadraticCurveTo(0, -24, 20, -4); ctx.lineTo(20, 16);
+            ctx.closePath(); ctx.fill();
+            const glow = ctx.createRadialGradient(0, 8, 0, 0, 8, 16);
+            glow.addColorStop(0, `rgba(198,40,40,${0.35 * pulse})`);
+            glow.addColorStop(1, 'rgba(198,40,40,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.ellipse(0, 8, 16, 10, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#2a241e'; ctx.lineWidth = 4; ctx.stroke();
+            ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(-9, 16); ctx.lineTo(9, 22); ctx.moveTo(9, 16); ctx.lineTo(-9, 22); ctx.stroke();
         } else if (t === 'bridge') {
             ctx.strokeStyle = '#7a7264'; ctx.lineWidth = 5; ctx.lineCap = 'round';
             ctx.beginPath(); ctx.arc(0, 10, 14, Math.PI, 0); ctx.stroke();
@@ -5024,6 +5195,7 @@ window.RoadEngine = {
     },
 
     _drawEvent(ctx, ev, corrupted, isNight) {
+        if (ev.isWolf) { this._drawWolfCreature(ctx, ev); return; }
         if (this.CREATURE_ENTITIES[ev.type]) { this._drawCreature(ctx, ev); return; }
         this._drawEventIcon(ctx, ev, corrupted, isNight);
     },
