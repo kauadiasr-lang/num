@@ -40,8 +40,8 @@ class BattleSystem {
         // encantamento permanente do item (ver executeAttack/
         // _getEffectiveEnchantment) — sempre reseta pra null/0 no fim da
         // duração, nunca ficando "vazado" pra fora da batalha (não é salvo).
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0 };
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -102,8 +102,17 @@ class BattleSystem {
     // executeAttack funcionar sem NENHUMA mudança adicional, já que ele só
     // enxerga o objeto retornado aqui, nunca de qual registry ele veio.
     _getEffectiveEnchantment(entity, entityState) {
-        if (entityState.weaponImbueTurns > 0 && entityState.weaponImbueId && window.LINEAGE_IMBUES) {
-            const imbue = window.LINEAGE_IMBUES[entityState.weaponImbueId];
+        if (entityState.weaponImbueTurns > 0 && entityState.weaponImbueId) {
+            // BUFF do Punho do Colosso ("Punhos Encantados", ver
+            // combatstyles.js COMBAT_STYLE_IMBUES) — mesmo duck typing de
+            // LINEAGE_IMBUES, registry separado só porque Estilo e Linhagem
+            // são sistemas independentes (ver comentário no topo do
+            // arquivo). `imbueEnchantId` nunca colide entre os dois
+            // registries (prefixo `colosso_` vs `fio_`), então checar os
+            // dois em sequência é suficiente, sem precisar guardar DE QUAL
+            // registry a imbuição veio.
+            const imbue = (window.LINEAGE_IMBUES && window.LINEAGE_IMBUES[entityState.weaponImbueId])
+                || (window.COMBAT_STYLE_IMBUES && window.COMBAT_STYLE_IMBUES[entityState.weaponImbueId]);
             if (imbue) return imbue;
         }
         return this._getWeaponEnchantment(entity);
@@ -286,7 +295,25 @@ class BattleSystem {
                 window.GFX.spawnText(defX, defY - 50, "ESQUIVOU!", "#aaaaaa");
                 window.GFX.playAnim(!isPlayer, 'dodge');
             }
-            return { hit: false, crit: false, damage: 0, message: `${attacker.name} errou o ataque!` };
+            // BUFF do Punho do Colosso — Contra-Golpe: uma esquiva bem-sucedida
+            // vira chance de contra-ataque imediato, mesmo princípio do
+            // contra-ataque de escudo mais abaixo (Muralha de Ferro), só que
+            // disparado por ESQUIVA em vez de BLOQUEIO — "transformar defesa
+            // ou esquiva bem-sucedida em oportunidade de contra-ataque",
+            // pedido explícito. `!isCounter` evita corrente infinita (um
+            // contra-ataque nunca gera outro contra-ataque).
+            let dodgeCounter = null;
+            let missMsg = `${attacker.name} errou o ataque!`;
+            if (!isCounter && defender.currentHp > 0 && attacker.currentHp > 0
+                && window.CombatStyleSystem && window.CombatStyleSystem.hasActiveStyleNode(defender, 'colosso_contra_golpe')
+                && Utils.chance(35)) {
+                dodgeCounter = this.executeAttack(defender, attacker, defenderState, attackerState, 0.55, true);
+                missMsg += ` <span style="color:#ffcc66">${defender.name} aproveita a esquiva e contra-ataca! ${dodgeCounter.message}</span>`;
+            }
+            // Sequência Brutal (Fúria do Combate): errar quebra o combo —
+            // reinicia a contagem de golpes desarmados consecutivos.
+            if (attackerState) attackerState.colossoComboStreak = 0;
+            return { hit: false, crit: false, damage: 0, message: missMsg, counter: dodgeCounter };
         }
 
         // 2. Cálculo de Crítico — Linhagens com HP baixo (Vampirismo:
@@ -319,6 +346,34 @@ class BattleSystem {
         if (stylePassivesAtk && stylePassivesAtk.rangedDistanceDamageBonusPercent) {
             const distanceFactor = Utils.clamp(this.distance / 10, 0, 1);
             damage = Math.floor(damage * (1 + (stylePassivesAtk.rangedDistanceDamageBonusPercent * distanceFactor) / 100));
+        }
+        // BUFF do Punho do Colosso — Fúria do Combate: o espelho exato do
+        // Caminho do Predador acima, só que na direção OPOSTA (quanto mais
+        // PERTO, mais dano — "aumentem dano conforme se aproxima" pedido
+        // explícito). O alcance desarmado é {min:0, max:1} (ver player.js
+        // UNARMED_RANGE), então `proximityFactor` vai de 1 (colado, distância
+        // 0) a 0 (na borda do próprio alcance, distância 1) — nunca usa o
+        // range genérico 0-10 do resto do BattleSystem, que tornaria a
+        // diferença imperceptível dentro da janela minúscula em que
+        // desarmado consegue acertar.
+        if (stylePassivesAtk && stylePassivesAtk.unarmedCloseRangeDamageBonusPercent) {
+            const unarmedMaxRange = (attacker.getWeaponRangeFor ? attacker.getWeaponRangeFor(null).max : 1) || 1;
+            const proximityFactor = Utils.clamp(1 - (this.distance / unarmedMaxRange), 0, 1);
+            damage = Math.floor(damage * (1 + (stylePassivesAtk.unarmedCloseRangeDamageBonusPercent * proximityFactor) / 100));
+        }
+        // BUFF do Punho do Colosso — Fúria do Combate: "ataques
+        // consecutivos/combos quando as condições forem cumpridas" — cada
+        // golpe desarmado ACERTADO nesta batalha (contado em
+        // attackerState.colossoComboStreak, zerado a cada erro — ver o
+        // ramo de esquiva acima) aumenta o PRÓXIMO golpe, até um teto de
+        // 40% (nunca escala pra sempre — combos longos ficam fortes, não
+        // absurdos). Lido ANTES de incrementar (a Nª repetição usa o bônus
+        // acumulado das N-1 anteriores), incrementado mais abaixo só se o
+        // golpe realmente acertar.
+        if (stylePassivesAtk && stylePassivesAtk.unarmedComboDamageBonusPercent) {
+            const streak = (attackerState && attackerState.colossoComboStreak) || 0;
+            const comboBonus = Math.min(streak * stylePassivesAtk.unarmedComboDamageBonusPercent, 40);
+            if (comboBonus > 0) damage = Math.floor(damage * (1 + comboBonus / 100));
         }
         if (isCrit) damage = Math.floor(damage * 1.5); // Crítico padrão x1.5
 
@@ -413,6 +468,14 @@ class BattleSystem {
 
         defender.currentHp -= mitigatedDamage;
         if (defender.currentHp < 0) defender.currentHp = 0;
+
+        // BUFF do Punho do Colosso — Fúria do Combate: incrementa a
+        // sequência de golpes desarmados ACERTADOS (lida mais acima, ANTES
+        // deste incremento, pra que o bônus reflita os N-1 golpes
+        // anteriores) — zerada só quando o próprio ataque erra (ver o ramo
+        // de esquiva no topo desta função). Campo inofensivo pra qualquer
+        // combatente sem o nó (nunca lido sem a passiva correspondente).
+        if (attackerState) attackerState.colossoComboStreak = (attackerState.colossoComboStreak || 0) + 1;
 
         // Mecânica de Fúria Crescente (item 6 da mega-diretiva Arena+Estilos:
         // bosses especiais precisam de UMA mecânica própria e legível, nunca
@@ -869,7 +932,29 @@ class BattleSystem {
                 // o alcance próprio (skill.range); cura não tem restrição de alcance.
                 let skillRange = null;
                 if (skill.type === 'PHYSICAL' || skill.type === 'BLEED' || skill.type === 'STUN' || skill.type === 'LIFESTEAL' || skill.type === 'CURSE') {
-                    skillRange = this.player.getWeaponRange();
+                    // BUFF do Punho do Colosso — Avanço Fulminante: uma
+                    // técnica de APROXIMAÇÃO precisa ser conjurável de
+                    // qualquer distância (senão nunca poderia ser usada
+                    // pra fechar distância em primeiro lugar) — `skill.range`
+                    // sobrepõe o alcance da arma quando definido; nenhuma
+                    // outra habilidade PHYSICAL/BLEED/STUN/LIFESTEAL/CURSE
+                    // já cadastrada define esse campo, então isso nunca
+                    // muda o comportamento de nenhuma delas.
+                    // Bug crítico encontrado em teste: `Skill` (skills.js)
+                    // sempre inicializa `this.range = null` no construtor
+                    // pra QUALQUER habilidade que não define `range` em
+                    // `extra` — nunca `undefined`. `!== undefined` achava
+                    // isso "definido" pra TODA habilidade PHYSICAL/BLEED/
+                    // STUN/LIFESTEAL/CURSE já existente (heavy_strike,
+                    // fury, bleeding_cut, shield_bash, vampiric_strike,
+                    // execution_blow, Investida Bruta, Golpe Sísmico...),
+                    // produzindo `{min:0, max:null}` — `isInRange` então
+                    // comparava `distance <= null` (coagido a 0), travando
+                    // TODAS elas como "fora de alcance" o tempo inteiro.
+                    // `!= null` exclui null E undefined juntos, então só
+                    // Avanço Fulminante (o único que define `range` de
+                    // verdade) usa o alcance próprio.
+                    skillRange = skill.range != null ? { min: 0, max: skill.range } : this.player.getWeaponRange();
                 } else if (skill.type === 'MAGIC' && skill.range !== undefined) {
                     skillRange = { min: 0, max: skill.range };
                 }
@@ -940,23 +1025,43 @@ class BattleSystem {
                     window.AudioManager.playMagicCast();
                 }
                 else if (skill.type === 'PHYSICAL') {
+                    // BUFF do Punho do Colosso — Avanço Fulminante: fecha a
+                    // distância ANTES do golpe (sempre via applyDistanceChange,
+                    // nunca atribuição direta — o clamp 0-10 garante que o
+                    // jogador nunca ultrapassa o inimigo/fica com distância
+                    // negativa, não importa quão grande seja `rushDistance`).
+                    // Nenhuma outra habilidade PHYSICAL define este campo, então
+                    // isso nunca afeta nada além de Avanço Fulminante.
+                    if (skill.rushDistance) {
+                        this.applyDistanceChange(-skill.rushDistance);
+                        resultMsg = `${this.player.name} avança várias casas em direção a ${this.enemy.name}! `;
+                        if (window.GFX) window.GFX.playAnim(true, 'approach', 500);
+                    }
                     // Aproveita o cálculo base de ataque físico, com bônus de acerto e multiplicador de poder
                     let hitChance = 110 + (this.player.getTotalStat('acc') * 2) - this.enemy.derivedStats.dodgeChance;
                     if (Utils.chance(hitChance)) {
                         let damage = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti));
-                        let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
+                        // BUFF do Punho do Colosso — Golpe Sísmico: agora
+                        // ignora armadura DE VERDADE (a descrição sempre
+                        // prometeu isso, mas nenhum código lia esse campo
+                        // aqui até agora — mesma fórmula de armorPierce já
+                        // usada em executeAttack). `skill.armorPierce`
+                        // padrão 0 preserva o comportamento de toda outra
+                        // habilidade PHYSICAL que não define esse campo.
+                        let effectiveDefense = this.enemy.derivedStats.defenseRating * (1 - (skill.armorPierce || 0));
+                        let reductionPercent = effectiveDefense / (effectiveDefense + 50);
                         let mitigatedDamage = Math.floor(damage * (1 - reductionPercent));
                         if (mitigatedDamage < 1) mitigatedDamage = 1;
 
                         this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
-                        resultMsg = `<span style="color:var(--color-gold)">${this.player.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
+                        resultMsg += `<span style="color:var(--color-gold)">${this.player.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
                         window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ffcc00", true);
                         window.GFX.spawnParticles(enemyX, enemyY, "#cc0000", 25, 6, 5);
                         window.GFX.playAnim(false, 'hurt', 500, true);
                         window.Engine.triggerShake(10, 0.25);
                         window.AudioManager.playSwordClash();
                     } else {
-                        resultMsg = `${this.player.name} usou ${skill.name} mas errou o alvo!`;
+                        resultMsg += `${this.player.name} usou ${skill.name} mas errou o alvo!`;
                     }
                 }
                 else if (skill.type === 'BLEED') {
@@ -1027,6 +1132,19 @@ class BattleSystem {
                     window.GFX.playAnim(false, 'hurt', 500);
                     window.Engine.triggerShake(6, 0.15);
                     window.AudioManager.playSwordClash();
+
+                    // BUFF do Punho do Colosso — Investida Bruta: "habilidades
+                    // de impacto que possam empurrar ou interromper o
+                    // inimigo" pedido explícito — o impacto físico empurra o
+                    // alvo pra trás (applyDistanceChange sempre clampa
+                    // 0-10, nunca deixa a distância explodir por cima do
+                    // limite do BattleSystem). `skill.knockbackAmount`
+                    // padrão undefined preserva o comportamento de toda
+                    // outra habilidade STUN que não define esse campo.
+                    if (skill.knockbackAmount && this.enemy.currentHp > 0) {
+                        this.applyDistanceChange(skill.knockbackAmount);
+                        resultMsg += ` <span style="color:#ffaa55">O impacto empurra ${this.enemy.name} para trás! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+                    }
                 }
                 else if (skill.type === 'LIFESTEAL') {
                     let hitChance = 100 + (this.player.getTotalStat('acc') * 2) - this.enemy.derivedStats.dodgeChance;
@@ -1089,6 +1207,19 @@ class BattleSystem {
                     resultMsg = `<span style="color:#7a1030">${this.player.name} usa ${skill.name}, ganhando +${skill.evasionBonus}% de esquiva por ${skill.duration} turnos!</span>`;
                     window.GFX.spawnParticles(playerX, playerY, "#3a1020", 25, 4, 5);
                     window.AudioManager.playMagicCast();
+                    // BUFF do Punho do Colosso — Reviravolta: "técnicas de
+                    // recuo/esquiva próprias do estilo" pedido explícito —
+                    // além da esquiva temporária padrão de EVASION acima,
+                    // abre distância de verdade com um salto pra trás.
+                    // `skill.retreatDistance` padrão undefined preserva o
+                    // comportamento de qualquer outra habilidade EVASION
+                    // (ex: Véu da Noite, Linhagem Vampirismo) que não
+                    // define esse campo.
+                    if (skill.retreatDistance) {
+                        this.applyDistanceChange(skill.retreatDistance);
+                        resultMsg += ` <span style="color:#88ccff">${this.player.name} recua de um salto! (Distância: ${this.distance.toFixed(1)}m)</span>`;
+                        if (window.GFX) window.GFX.playAnim(true, 'retreat', 500);
+                    }
                 }
                 else if (skill.type === 'IMBUE_WEAPON') {
                     // Imbuição temporária de arma (item 14 da auditoria — Fio
@@ -1099,8 +1230,15 @@ class BattleSystem {
                     // nunca um efeito no alvo.
                     this.playerState.weaponImbueId = skill.imbueEnchantId;
                     this.playerState.weaponImbueTurns = skill.duration;
-                    const imbue = window.LINEAGE_IMBUES ? window.LINEAGE_IMBUES[skill.imbueEnchantId] : null;
-                    resultMsg = `<span style="color:${imbue ? imbue.color : '#fff2c0'}">${this.player.name} usa ${skill.name}, imbuindo a arma por ${skill.duration} turnos!</span>`;
+                    const imbue = (window.LINEAGE_IMBUES && window.LINEAGE_IMBUES[skill.imbueEnchantId])
+                        || (window.COMBAT_STYLE_IMBUES && window.COMBAT_STYLE_IMBUES[skill.imbueEnchantId]);
+                    // Punhos Encantados (Colosso): "imbuindo a arma" não faz
+                    // sentido narrativo pra quem está lutando desarmado —
+                    // detecta pela própria origem da imbuição (registry
+                    // COMBAT_STYLE_IMBUES, nunca LINEAGE_IMBUES) em vez de
+                    // checar equipamento de novo aqui.
+                    const bodyPart = (window.COMBAT_STYLE_IMBUES && window.COMBAT_STYLE_IMBUES[skill.imbueEnchantId]) ? 'os punhos' : 'a arma';
+                    resultMsg = `<span style="color:${imbue ? imbue.color : '#fff2c0'}">${this.player.name} usa ${skill.name}, imbuindo ${bodyPart} por ${skill.duration} turnos!</span>`;
                     window.GFX.spawnParticles(playerX, playerY, imbue ? imbue.color : "#fff2c0", 25, 4, 5);
                     window.AudioManager.playMagicCast();
                 }
@@ -1314,7 +1452,8 @@ class BattleSystem {
             // simetria já mantida por SHIELD/EVASION/CURSE).
             this.enemyState.weaponImbueId = skill.imbueEnchantId;
             this.enemyState.weaponImbueTurns = skill.duration;
-            const imbue = window.LINEAGE_IMBUES ? window.LINEAGE_IMBUES[skill.imbueEnchantId] : null;
+            const imbue = (window.LINEAGE_IMBUES && window.LINEAGE_IMBUES[skill.imbueEnchantId])
+                || (window.COMBAT_STYLE_IMBUES && window.COMBAT_STYLE_IMBUES[skill.imbueEnchantId]);
             message = `<span style="color:${imbue ? imbue.color : '#fff2c0'}">${this.enemy.name} usa ${skill.name}, imbuindo a arma por ${skill.duration} turnos!</span>`;
             window.GFX.spawnParticles(enemyX, enemyY, imbue ? imbue.color : "#fff2c0", 25, 4, 5);
             window.AudioManager.playMagicCast();

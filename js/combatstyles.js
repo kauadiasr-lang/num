@@ -48,8 +48,8 @@ const LIGHT_WEAPON_IDS = LIGHT_WEAPON_TEMPLATE_KEYS.map(k => ItemDatabase.weapon
 const COMBAT_STYLES = {
     colosso: {
         id: 'colosso', name: 'Punho do Colosso', icon: '👊', cityId: 'fortaleza_orc',
-        tagline: 'Combate desarmado, golpes pesados, controle de espaço.',
-        description: 'Estilo desarmado dos treinadores da Fortaleza Orc — nunca usa arma equipada no MAIN_HAND/RANGED, quanto mais puramente físico o combate, mais forte fica. Independente da (futura) Linhagem Titã.',
+        tagline: 'Lutador corpo a corpo móvel e agressivo — avança rápido, encadeia golpes, contra-ataca.',
+        description: 'Estilo desarmado dos treinadores da Fortaleza Orc — nunca usa arma equipada no MAIN_HAND/RANGED. Não é "personagem sem arma": é uma identidade própria de combate, construída em cima de mobilidade (avanços e recuos muito mais rápidos que qualquer arma), agressividade (dano cresce com sequências de golpes e com a proximidade do alvo) e versatilidade elemental (punhos podem ser imbuídos com fogo, gelo, luz ou sombra). Em troca, abre mão do alcance e dos encantamentos permanentes de uma arma de verdade. Independente da (futura) Linhagem Titã.',
         isCompatible(entity) {
             return !entity.equipment[SLOTS.MAIN_HAND] && !entity.equipment[SLOTS.RANGED];
         },
@@ -93,11 +93,82 @@ window.COMBAT_STYLES = COMBAT_STYLES;
 // separados, mesmo que a AGREGAÇÃO use o mesmo mecanismo).
 const COMBAT_STYLE_STAT_KEYS = [
     'unarmedDamageBonusPercent', 'unarmedDodgeBonusPercent',
+    // BUFF do Punho do Colosso (item explícito do pedido do usuário — "o
+    // bônus de força é insuficiente"): antes o único jeito de fortalecer
+    // punhos era um % sobre `str*1.5` (a mesma base fraca de sempre); um
+    // usuário de arma soma um `item.damage` FIXO em cima disso, que só
+    // cresce com raridade/região — nada no lado desarmado compensava essa
+    // ausência estrutural. `unarmedFlatDamageBonus` é o equivalente direto
+    // (soma flat, não percentual, ver player.js calculateDerivedStats),
+    // `unarmedApproachSpeedBonusFlat`/`unarmedRetreatSpeedBonusFlat`
+    // aceleram a movimentação em combate (mesmo padrão de
+    // rangedRetreatSpeedBonusFlat do Predador, ver getWeaponSpeed),
+    // `unarmedComboDamageBonusPercent` escala com golpes desarmados
+    // consecutivos ACERTADOS na mesma batalha (ver battle.js executeAttack
+    // `colossoComboStreak`), `unarmedCloseRangeDamageBonusPercent` escala
+    // com o quão perto do alvo o golpe foi desferido (distância 0 = bônus
+    // cheio, distância 1 = alcance máximo desarmado = bônus zero) —
+    // recompensa mecanicamente a identidade de "avançar e golpear de
+    // perto", não só narrativamente.
+    'unarmedFlatDamageBonus', 'unarmedApproachSpeedBonusFlat', 'unarmedRetreatSpeedBonusFlat',
+    'unarmedComboDamageBonusPercent', 'unarmedCloseRangeDamageBonusPercent',
     'lightWeaponDodgeBonusPercent', 'lightWeaponCritBonus',
     'shieldBlockChanceBonusFlat', 'shieldCounterChanceBonusFlat',
     'rangedDistanceDamageBonusPercent', 'rangedRetreatSpeedBonusFlat'
 ];
 window.COMBAT_STYLE_STAT_KEYS = COMBAT_STYLE_STAT_KEYS;
+
+// Punhos Encantados (BUFF do Punho do Colosso — pedido explícito do
+// usuário: "permita ENCANTAR OS PRÓPRIOS PUNHOS, fazendo com que ataques
+// desarmados possam receber efeitos como fogo, gelo, luz, sombra"). Mesmo
+// formato onHit(attacker, defender) do registry ENCHANTMENTS (enchantments.js)
+// e de LINEAGE_IMBUES (skilltrees.js) — battle.js _getEffectiveEnchantment
+// consome qualquer um dos três por duck typing, nenhuma lógica nova de
+// consumo precisa existir. Registry PRÓPRIO (nunca misturado em
+// LINEAGE_IMBUES, que pertence a Linhagem) pelo mesmo motivo de
+// COMBAT_STYLE_TREES ser separado de SKILL_TREES: Estilo e Linhagem são
+// sistemas totalmente independentes. As 4 fórmulas de onHit abaixo
+// reaproveitam formatos JÁ testados e em produção — nunca um efeito
+// inventado do zero: fogo espelha o encantamento `fogo` (dot de
+// queimadura), gelo espelha `gelo` (slowChance), luz espelha
+// `fio_consagrado` (dano extra vs. trevas + cura), sombra espelha
+// `fio_sombrio` (dano extra escala com o quanto o alvo já está ferido).
+const COMBAT_STYLE_IMBUES = {
+    colosso_fogo: {
+        id: 'colosso_fogo', name: 'Punhos Flamejantes', color: '#ff5a1e',
+        description: 'Imbui os punhos com fogo: cada acerto causa dano extra e queima o alvo por 2 turnos.',
+        onHit(attacker, defender) {
+            const burn = Math.max(2, Math.floor(attacker.getTotalStat('str') * 0.5));
+            return { extraDamage: Math.floor(attacker.derivedStats.physicalDamage * 0.15), dot: { type: 'queimadura', turns: 2, damage: burn }, particleColor: '#ff5a1e' };
+        }
+    },
+    colosso_gelo: {
+        id: 'colosso_gelo', name: 'Punhos Gélidos', color: '#7ec8e3',
+        description: 'Imbui os punhos com gelo: chance de reduzir a velocidade de reação do alvo por 1 turno.',
+        onHit(attacker, defender) {
+            return { extraDamage: Math.floor(attacker.derivedStats.physicalDamage * 0.08), slowChance: 30, particleColor: '#7ec8e3' };
+        }
+    },
+    colosso_luz: {
+        id: 'colosso_luz', name: 'Punhos Radiantes', color: '#fff2c0',
+        description: 'Imbui os punhos com luz: dano extra (maior contra inimigos das trevas) e cura uma fração do dano causado.',
+        onHit(attacker, defender) {
+            const isDarkfoe = defender.lineage === 'vampirismo' || defender.lineage === 'sombras';
+            const extra = isDarkfoe ? Math.floor(attacker.derivedStats.physicalDamage * 0.28) : Math.floor(attacker.derivedStats.physicalDamage * 0.10);
+            return { extraDamage: extra, healPercent: 10, particleColor: '#fff2c0' };
+        }
+    },
+    colosso_sombra: {
+        id: 'colosso_sombra', name: 'Punhos Sombrios', color: '#8a3ae0',
+        description: 'Imbui os punhos com sombra: dano extra, tanto maior quanto mais ferido já estiver o alvo.',
+        onHit(attacker, defender) {
+            const missingPercent = 1 - Utils.clamp(defender.currentHp / defender.derivedStats.maxHp, 0, 1);
+            const extra = Math.floor(attacker.derivedStats.physicalDamage * (0.10 + missingPercent * 0.30));
+            return { extraDamage: extra, particleColor: '#8a3ae0' };
+        }
+    }
+};
+window.COMBAT_STYLE_IMBUES = COMBAT_STYLE_IMBUES;
 
 function registerStyleSkillDef(d, styleId) {
     if (!window.SkillDB[d.id]) {
@@ -115,25 +186,91 @@ function registerStyleSkillDef(d, styleId) {
 }
 
 const COMBAT_STYLE_TREES = {
+    // BUFF COMPLETO do Punho do Colosso (pedido explícito do usuário: "o
+    // estilo está muito fraco... transforme em uma opção de combate
+    // realmente viável e diferente das armas"). Redesenhada do zero (6 nós
+    // rasos → 15 nós em 6 tiers) em torno de uma identidade clara —
+    // "lutador corpo a corpo MÓVEL e AGRESSIVO", nunca "personagem sem
+    // arma" — em vez de só subir os mesmos dois números de sempre:
+    //
+    // Tier 1 (raiz dupla): poder bruto (Punho Pesado) e mobilidade (Passo
+    // do Touro) nascem SEPARADOS de propósito — o jogador escolhe qual
+    // identidade puxar primeiro, os dois convergem de novo no Tier 4.
+    // Tier 2: cada raiz se ramifica em uma opção ativa e uma passiva
+    // (Investida Bruta+Pele de Pedra da força; Recuo Ágil da mobilidade).
+    // Tier 3: aproximação (Avanço Fulminante, "avança mais casas E golpeia"),
+    // defesa reativa (Contra-Golpe, esquiva vira contra-ataque) e evasão
+    // ativa (Reviravolta, recuo + esquiva temporária) — as 3 mecânicas de
+    // "recuo/esquiva própria do estilo" e "contra-ataque" pedidas.
+    // Tier 4: as duas metades convergem — Golpe Sísmico (poder, agora com
+    // perfuração de armadura de verdade, não só na descrição) e Fúria do
+    // Combate (combo consecutivo + bônus de proximidade, as duas mecânicas
+    // "dano aumenta conforme se aproxima/mantém sequência").
+    // Tier 5: escolha real entre 4 imbuições elementais (Punhos Encantados,
+    // pedido explícito) — cada uma custa pontos própria, nunca todas de
+    // graça juntas.
+    // Tier 6: capstone, exige qualquer imbuição já escolhida.
     colosso: {
         id: 'colosso', name: 'Árvore do Punho do Colosso',
         nodes: [
+            // --- Tier 1: raiz dupla (poder vs. mobilidade) ---
             { id: 'colosso_punho_pesado', name: 'Punho Pesado', tier: 1, type: 'passive', cost: 1, requires: [],
-                description: 'Lutando desarmado, +18% de dano físico.', statMods: { unarmedDamageBonusPercent: 18 } },
+                description: 'Lutando desarmado, +22% de dano físico e +5 de dano físico direto (o "peso de arma" que os punhos nunca tinham).',
+                statMods: { unarmedDamageBonusPercent: 22, unarmedFlatDamageBonus: 5 } },
+            { id: 'colosso_passo_do_touro', name: 'Passo do Touro', tier: 1, type: 'passive', cost: 1, requires: [],
+                description: 'Lutando desarmado, +1.5 de velocidade ao avançar — fecha distância muito mais rápido que qualquer arma.',
+                statMods: { unarmedApproachSpeedBonusFlat: 1.5 } },
+            // --- Tier 2: cada raiz se ramifica ---
             { id: 'colosso_investida_bruta', name: 'Investida Bruta', tier: 2, type: 'active', cost: 2, requires: ['colosso_punho_pesado'],
-                description: 'Golpe desarmado pesado com chance de atordoar o alvo.',
-                skillDef: { id: 'colosso_investida_bruta', name: 'Investida Bruta', type: 'STUN', mpCost: 14, powerMulti: 1.3,
-                    description: 'Golpe desarmado pesado — dano físico + 30% de chance de atordoar.', extra: { stunChance: 30 } } },
+                description: 'Golpe desarmado pesado com chance de atordoar o alvo e empurrá-lo pra trás com o impacto.',
+                skillDef: { id: 'colosso_investida_bruta', name: 'Investida Bruta', type: 'STUN', mpCost: 14, powerMulti: 1.4,
+                    description: 'Golpe desarmado pesado — dano físico, 30% de chance de atordoar e empurra o alvo pra trás.', extra: { stunChance: 30, knockbackAmount: 1.5, cooldown: 3 } } },
             { id: 'colosso_pele_de_pedra', name: 'Pele de Pedra', tier: 2, type: 'passive', cost: 2, requires: ['colosso_punho_pesado'],
-                description: 'Lutando desarmado, +6% de esquiva (reflexos livres de peso de arma).', statMods: { unarmedDodgeBonusPercent: 6 } },
-            { id: 'colosso_golpe_sismico', name: 'Golpe Sísmico', tier: 3, type: 'active', cost: 3, requires: ['colosso_investida_bruta'],
-                description: 'Golpe desarmado devastador que ignora parte da armadura do alvo.',
-                skillDef: { id: 'colosso_golpe_sismico', name: 'Golpe Sísmico', type: 'PHYSICAL', mpCost: 22, powerMulti: 2.1,
-                    description: 'Golpe desarmado devastador — dano físico bruto e pesado.' } },
-            { id: 'colosso_furia_inquebrantavel', name: 'Fúria Inquebrantável', tier: 3, type: 'passive', cost: 3, requires: ['colosso_pele_de_pedra'],
-                description: 'Lutando desarmado com menos de 30% de HP, +15% de dano físico adicional.', statMods: { unarmedDamageBonusPercent: 15 }, lowHpOnly: true },
-            { id: 'colosso_avatar_da_montanha', name: 'Avatar da Montanha', tier: 4, type: 'passive', cost: 4, requires: ['colosso_golpe_sismico', 'colosso_furia_inquebrantavel'],
-                description: 'Lutando desarmado, +12% de dano físico e +6% de esquiva — a força bruta de Gorkhal em pessoa.', statMods: { unarmedDamageBonusPercent: 12, unarmedDodgeBonusPercent: 6 } }
+                description: 'Lutando desarmado, +8% de esquiva (reflexos livres de peso de arma).', statMods: { unarmedDodgeBonusPercent: 8 } },
+            { id: 'colosso_recuo_agil', name: 'Recuo Ágil', tier: 2, type: 'passive', cost: 2, requires: ['colosso_passo_do_touro'],
+                description: 'Lutando desarmado, +1.5 de velocidade ao recuar — abre distância pra respirar ou preparar o próximo avanço.',
+                statMods: { unarmedRetreatSpeedBonusFlat: 1.5 } },
+            // --- Tier 3: aproximação, defesa reativa, evasão ativa ---
+            { id: 'colosso_avanco_fulminante', name: 'Avanço Fulminante', tier: 3, type: 'active', cost: 3, requires: ['colosso_passo_do_touro'],
+                description: 'Fecha a distância inteira num único movimento fulminante e golpeia o alvo em seguida — a técnica de aproximação rápida do estilo.',
+                skillDef: { id: 'colosso_avanco_fulminante', name: 'Avanço Fulminante', type: 'PHYSICAL', mpCost: 18, powerMulti: 1.3,
+                    description: 'Avança várias casas de uma vez em direção ao alvo e desfere um golpe desarmado — funciona de qualquer distância.', extra: { range: 10, rushDistance: 6.5, cooldown: 2 } } },
+            { id: 'colosso_contra_golpe', name: 'Contra-Golpe', tier: 3, type: 'passive', cost: 3, requires: ['colosso_pele_de_pedra'],
+                description: 'Lutando desarmado, esquivar com sucesso dá chance de contra-atacar imediatamente — a esquiva vira oportunidade, não só defesa.' },
+            { id: 'colosso_reviravolta', name: 'Reviravolta', tier: 3, type: 'active', cost: 3, requires: ['colosso_recuo_agil'],
+                description: 'Recua com um salto brusco e fica com reflexos afiados por 2 turnos — a técnica de recuo/esquiva própria do estilo.',
+                skillDef: { id: 'colosso_reviravolta', name: 'Reviravolta', type: 'EVASION', mpCost: 16, powerMulti: 0,
+                    description: 'Recua bruscamente e ganha +22% de esquiva por 2 turnos.', extra: { evasionBonus: 22, duration: 2, retreatDistance: 3, cooldown: 4 } } },
+            // --- Tier 4: convergência (poder vs. mobilidade se encontram) ---
+            { id: 'colosso_golpe_sismico', name: 'Golpe Sísmico', tier: 4, type: 'active', cost: 3, requires: ['colosso_investida_bruta'],
+                description: 'Golpe desarmado devastador que realmente ignora parte da armadura do alvo.',
+                skillDef: { id: 'colosso_golpe_sismico', name: 'Golpe Sísmico', type: 'PHYSICAL', mpCost: 22, powerMulti: 2.3,
+                    description: 'Golpe desarmado devastador — dano físico bruto e pesado, ignorando 25% da Defesa do alvo.', extra: { armorPierce: 0.25, cooldown: 3 } } },
+            { id: 'colosso_furia_do_combate', name: 'Fúria do Combate', tier: 4, type: 'passive', cost: 3, requires: ['colosso_contra_golpe', 'colosso_reviravolta'],
+                description: 'Lutando desarmado, cada golpe consecutivo ACERTADO na batalha aumenta o próximo em dano (até um teto), e golpear bem de perto (colado no alvo) causa ainda mais dano — a identidade "avançar e golpear" vira número de verdade.',
+                statMods: { unarmedComboDamageBonusPercent: 5, unarmedCloseRangeDamageBonusPercent: 14 } },
+            // --- Tier 5: Punhos Encantados — escolha real entre 4 elementos ---
+            { id: 'colosso_punhos_flamejantes', name: 'Punhos Flamejantes', tier: 5, type: 'active', cost: 4, requires: ['colosso_furia_do_combate', 'colosso_golpe_sismico'],
+                description: 'Desbloqueia Punhos Flamejantes: imbui os próprios punhos com fogo por vários turnos.',
+                skillDef: { id: 'colosso_punhos_flamejantes_skill', name: 'Punhos Flamejantes', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui os punhos com fogo: todo acerto desarmado causa dano extra e queima o alvo por 2 turnos, por 4 turnos.', extra: { imbueEnchantId: 'colosso_fogo', duration: 4, cooldown: 5 } } },
+            { id: 'colosso_punhos_gelidos', name: 'Punhos Gélidos', tier: 5, type: 'active', cost: 4, requires: ['colosso_furia_do_combate', 'colosso_golpe_sismico'],
+                description: 'Desbloqueia Punhos Gélidos: imbui os próprios punhos com gelo por vários turnos.',
+                skillDef: { id: 'colosso_punhos_gelidos_skill', name: 'Punhos Gélidos', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui os punhos com gelo: todo acerto desarmado tem chance de reduzir a reação do alvo, por 4 turnos.', extra: { imbueEnchantId: 'colosso_gelo', duration: 4, cooldown: 5 } } },
+            { id: 'colosso_punhos_radiantes', name: 'Punhos Radiantes', tier: 5, type: 'active', cost: 4, requires: ['colosso_furia_do_combate', 'colosso_golpe_sismico'],
+                description: 'Desbloqueia Punhos Radiantes: imbui os próprios punhos com luz por vários turnos.',
+                skillDef: { id: 'colosso_punhos_radiantes_skill', name: 'Punhos Radiantes', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui os punhos com luz: todo acerto desarmado causa dano extra (mais contra inimigos das trevas) e cura você, por 4 turnos.', extra: { imbueEnchantId: 'colosso_luz', duration: 4, cooldown: 5 } } },
+            { id: 'colosso_punhos_sombrios', name: 'Punhos Sombrios', tier: 5, type: 'active', cost: 4, requires: ['colosso_furia_do_combate', 'colosso_golpe_sismico'],
+                description: 'Desbloqueia Punhos Sombrios: imbui os próprios punhos com sombra por vários turnos.',
+                skillDef: { id: 'colosso_punhos_sombrios_skill', name: 'Punhos Sombrios', type: 'IMBUE_WEAPON', mpCost: 16, powerMulti: 1,
+                    description: 'Imbui os punhos com sombra: todo acerto desarmado causa mais dano quanto mais ferido o alvo já estiver, por 4 turnos.', extra: { imbueEnchantId: 'colosso_sombra', duration: 4, cooldown: 5 } } },
+            // --- Tier 6: capstone ---
+            { id: 'colosso_avatar_da_montanha', name: 'Avatar da Montanha', tier: 6, type: 'passive', cost: 5,
+                requires: ['colosso_punhos_flamejantes', 'colosso_punhos_gelidos', 'colosso_punhos_radiantes', 'colosso_punhos_sombrios'],
+                description: 'Lutando desarmado, +12% de dano físico, +5 de dano físico direto e +8% de esquiva — a força bruta de Gorkhal em pessoa.',
+                statMods: { unarmedDamageBonusPercent: 12, unarmedFlatDamageBonus: 5, unarmedDodgeBonusPercent: 8 } }
         ]
     },
     danca: {

@@ -241,6 +241,12 @@ const GuideSystem = {
         const styles = Object.values(window.COMBAT_STYLES || {});
         const statLabel = {
             unarmedDamageBonusPercent: 'Dano desarmado', unarmedDodgeBonusPercent: 'Esquiva desarmado',
+            // BUFF do Punho do Colosso — rótulos das chaves novas (ver
+            // combatstyles.js COMBAT_STYLE_STAT_KEYS); sem entrada aqui, o
+            // nó apareceria com um rótulo vazio no guia.
+            unarmedFlatDamageBonus: 'Dano físico direto (desarmado)', unarmedApproachSpeedBonusFlat: 'Velocidade ao avançar (desarmado)',
+            unarmedRetreatSpeedBonusFlat: 'Velocidade ao recuar (desarmado)', unarmedComboDamageBonusPercent: 'Dano por combo (golpes consecutivos)',
+            unarmedCloseRangeDamageBonusPercent: 'Dano por proximidade (escala quanto mais perto)',
             lightWeaponDodgeBonusPercent: 'Esquiva (arma leve)', lightWeaponCritBonus: 'Crítico (arma leve)',
             shieldBlockChanceBonusFlat: 'Bloqueio (escudo)', shieldCounterChanceBonusFlat: 'Contra-ataque (escudo)',
             rangedDistanceDamageBonusPercent: 'Dano à distância (escala com a distância)', rangedRetreatSpeedBonusFlat: 'Velocidade ao recuar'
@@ -252,14 +258,31 @@ const GuideSystem = {
                 const activeNodes = tree.nodes.filter(n => n.type === 'passive');
                 const skillNodes = tree.nodes.filter(n => n.type === 'active');
                 const cityName = (window.CityDatabase[style.cityId] && window.CityDatabase[style.cityId].name) || style.cityId;
+                // Número de tiers real da árvore, nunca hardcoded (o Punho
+                // do Colosso passou a ter 6 tiers na reformulação completa
+                // do estilo, enquanto os outros três continuam com 4 —
+                // um "4" fixo aqui estaria errado pra qualquer árvore que
+                // não seja mais rasa que a mais funda do jogo).
+                const tierCount = Math.max(...tree.nodes.map(n => n.tier));
+                // Lista TODOS os rótulos de statMods de um nó, não só o
+                // primeiro (bug de auditoria: um nó com dois statMods — ex:
+                // Punho Pesado com dano percentual E flat — só mostrava o
+                // primeiro no guia, escondendo metade do bônus real do
+                // jogador). Nós sem nenhum statMod (ex: Contra-Golpe, uma
+                // mecânica só, sem número somável) mostram só o nome.
+                const passiveLine = (n) => {
+                    if (!n.statMods) return n.name;
+                    const labels = Object.keys(n.statMods).map(k => statLabel[k] || k).join(' + ');
+                    return `${n.name} (${labels})`;
+                };
                 return `
                     <div class="guide-block">
                         <h4>${style.icon} ${style.name}</h4>
                         <p>${style.description}</p>
                         <p><strong>Aprendido em:</strong> ${cityName} (${window.CombatStyleSystem.LEARN_COST}g)</p>
                         <p style="color:#ffcc66;">${style.incompatibleMessage}</p>
-                        <p style="color:var(--color-marble-dark); font-size:0.85rem;">Árvore com ${tree.nodes.length} nós em 4 tiers — pré-requisitos reais (nunca compre pulando ou na diagonal, cada nó exige um nó-pai específico já desbloqueado).</p>
-                        <p><strong>Passivos:</strong> ${activeNodes.map(n => `${n.name} (${(Object.keys(n.statMods)[0] && statLabel[Object.keys(n.statMods)[0]]) || ''})`).join(', ')}</p>
+                        <p style="color:var(--color-marble-dark); font-size:0.85rem;">Árvore com ${tree.nodes.length} nós em ${tierCount} tiers — pré-requisitos reais (nunca compre pulando ou na diagonal, cada nó exige um nó-pai específico já desbloqueado).</p>
+                        <p><strong>Passivos:</strong> ${activeNodes.map(passiveLine).join(', ')}</p>
                         <p><strong>Habilidades ativas:</strong> ${skillNodes.map(n => n.name).join(', ')}</p>
                     </div>
                 `;

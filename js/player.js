@@ -282,6 +282,13 @@ class Entity {
         const stylePassives = window.CombatStyleSystem ? window.CombatStyleSystem.sumActiveStylePassives(this) : null;
         if (stylePassives) {
             if (stylePassives.unarmedDamageBonusPercent) physicalDamage = Math.floor(physicalDamage * (1 + stylePassives.unarmedDamageBonusPercent / 100));
+            // BUFF do Punho do Colosso: bônus FLAT de dano desarmado (ver
+            // combatstyles.js COMBAT_STYLE_STAT_KEYS) — o equivalente direto
+            // ao `item.damage` fixo que uma arma somaria (linha ~222 acima),
+            // que os punhos nunca tinham. Somado DEPOIS do percentual, igual
+            // a como o próprio `unarmedDamageBonusPercent` já funciona, pra
+            // nunca amplificar esse termo por engano.
+            if (stylePassives.unarmedFlatDamageBonus) physicalDamage += stylePassives.unarmedFlatDamageBonus;
             if (stylePassives.unarmedDodgeBonusPercent) dodgeChance += stylePassives.unarmedDodgeBonusPercent;
             if (stylePassives.lightWeaponDodgeBonusPercent) dodgeChance += stylePassives.lightWeaponDodgeBonusPercent;
             if (stylePassives.lightWeaponCritBonus) critChance += stylePassives.lightWeaponCritBonus;
@@ -451,8 +458,16 @@ class Entity {
         // daqui (sumActiveStylePassives trata `combatStyle` undefined
         // como "sem estilo ativo").
         const stylePassives = window.CombatStyleSystem ? window.CombatStyleSystem.sumActiveStylePassives(this) : null;
-        if (stylePassives && stylePassives.rangedRetreatSpeedBonusFlat) {
-            return { ...base, retreatSpeed: base.retreatSpeed + stylePassives.rangedRetreatSpeedBonusFlat };
+        if (stylePassives) {
+            // BUFF do Punho do Colosso: "maior deslocamento ao avançar" +
+            // "técnicas de recuo próprias do estilo" pedidos explicitamente —
+            // mesmo padrão flat já usado pelo Caminho do Predador acima, só
+            // que os dois lados (avançar E recuar) em vez de só um.
+            const approachBonus = stylePassives.unarmedApproachSpeedBonusFlat || 0;
+            const retreatBonus = (stylePassives.rangedRetreatSpeedBonusFlat || 0) + (stylePassives.unarmedRetreatSpeedBonusFlat || 0);
+            if (approachBonus || retreatBonus) {
+                return { ...base, approachSpeed: base.approachSpeed + approachBonus, retreatSpeed: base.retreatSpeed + retreatBonus };
+            }
         }
         return base;
     }
