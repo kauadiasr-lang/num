@@ -967,7 +967,14 @@ class Player extends Entity {
     }
 
     getExpRequired() {
-        return Math.floor(100 * Math.pow(1.5, this.level - 1));
+        // Delega pro Balance Core (js/balance.js) — fonte única de verdade
+        // pra curva de XP desde a MEGA ATUALIZAÇÃO de Balanceamento
+        // (Iteração 1). A fórmula antiga aqui (100 * 1.5^(nível-1)) crescia
+        // mais rápido que qualquer recompensa do jogo — nível 30 sozinho
+        // exigia ~13.500 duelos cumulativos, nível 100 era matematicamente
+        // inatingível. Ver js/balance.js pro racional e a simulação
+        // completa por trás da curva nova.
+        return window.BalanceCore.getXPRequired(this.level);
     }
 
     levelUp() {
