@@ -98,6 +98,11 @@ function registerBossSkills() {
             // auditoria: dava pra "comprar" Julgamento Final do Anjo Guardião
             // sem nunca ter enfrentado o boss).
             window.SkillDB[d.id].isBossSkill = true;
+            // Fase 18 da diretiva de balanceamento (Iteração 9) — ver
+            // comentário completo em skills.js perto de `window.SkillDB =
+            // SkillDatabase`: campo de origem de primeira classe, ao lado
+            // da flag booleana já existente (nunca a substitui).
+            window.SkillDB[d.id].origin = 'BOSS';
         }
     });
 }

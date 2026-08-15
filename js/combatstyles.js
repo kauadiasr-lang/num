@@ -177,6 +177,11 @@ function registerStyleSkillDef(d, styleId) {
         // Arcano, menu de habilidades COMUM) filtra por essa flag, mesmo
         // padrão de isMutationSkill/isBossSkill (nunca vaza pra lá).
         window.SkillDB[d.id].isStyleSkill = true;
+        // Fase 18 da diretiva de balanceamento (Iteração 9) — ver
+        // comentário completo em skills.js perto de `window.SkillDB =
+        // SkillDatabase`: campo de origem de primeira classe, ao lado da
+        // flag booleana já existente (nunca a substitui).
+        window.SkillDB[d.id].origin = 'COMBAT_STYLE';
         // A que estilo pertence — battle.js/ui.js usam pra checar
         // CombatStyleSystem.isStyleCompatible antes de deixar usar em
         // combate (ver "item 19 da diretiva": nunca remove o equipamento

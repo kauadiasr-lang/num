@@ -104,6 +104,29 @@ const SkillDatabase = {
 
 window.SkillDB = SkillDatabase;
 
+// Fase 18 da diretiva de balanceamento (Iteração 9) — achado #18 da
+// auditoria original: SkillDB não tinha metadado de ORIGEM explícito
+// por entrada. Investigação direta encontrou que os 3 pontos de
+// registro dinâmico (skilltrees.js/combatstyles.js/bossai.js, ver
+// `window.SkillDB[d.id] = new Skill(...)` em cada um) JÁ marcam cada
+// entrada com uma flag própria (isMutationSkill/isStyleSkill/
+// isBossSkill) que ui.js openSkillTree() já usa pra filtrar o Mercado
+// Arcano corretamente — não é um bug de gameplay, está confirmado
+// funcionando. O gap real é que as 13 entradas COMUNS abaixo (estáticas,
+// definidas aqui) nunca tinham o EQUIVALENTE: só dava pra inferir "isso
+// é comum" pela AUSÊNCIA das outras três flags, uma forma frágil de
+// descobrir a origem que já rendeu pelo menos um falso-positivo real
+// nesta mesma sessão (um script de auditoria que filtrava
+// `Object.values(SkillDB)` sem checar as flags "aprendeu" habilidades
+// de Linhagem/Chefe por engano). `origin` torna a categoria um campo
+// de primeira classe, igual em todo ponto de registro (ver os mesmos 3
+// arquivos, cada um agora também grava `origin`), em vez de uma
+// inferência por ausência — puramente aditivo, não substitui nem altera
+// o filtro já comprovado de ui.js.
+for (const skillId in SkillDatabase) {
+    SkillDatabase[skillId].origin = 'COMMON';
+}
+
 // Limite de habilidades "equipadas" para uso em batalha (pedido de
 // balanceamento): antes o jogador conjurava QUALQUER habilidade já
 // aprendida (comum ou de árvore de Mutação) simultaneamente, sem nenhum
