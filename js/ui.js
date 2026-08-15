@@ -961,6 +961,24 @@ class UIManager {
         document.getElementById('hub-player-name').innerText = p.name;
         document.getElementById('hub-player-level').innerText = p.level;
         document.getElementById('hub-player-gold').innerText = p.gold;
+        // Fase 13 da diretiva de balanceamento (Iteração 20) — achado #10:
+        // o jogo nunca sugeria sacar do Banco quando o jogador estava em
+        // crise de ouro carregado. "Crise" aqui é o mesmo piso usado como
+        // referência em toda a UI de baixo nível (menos de 20g já dificulta
+        // qualquer serviço básico — poção, encantamento simples). Só
+        // aparece quando há ouro de verdade parado no Banco pra sacar;
+        // nunca sugere uma ação que não resolveria nada. Reaproveita
+        // `p.bankGold`, o mesmo campo já usado por bankWithdraw/openBank —
+        // nenhuma lógica nova de saldo, só a exposição de uma informação
+        // que já existia mas nunca era destacada no momento em que
+        // importa (mesmo espírito do risco de ouro da Iteração 8 e do
+        // indicador de Estilo de Combate da Iteração 15).
+        const bankHintEl = document.getElementById('hub-bank-hint');
+        if (bankHintEl) {
+            const inCrisis = p.gold < 20 && (p.bankGold || 0) > 0;
+            bankHintEl.classList.toggle('hidden', !inCrisis);
+            if (inCrisis) bankHintEl.innerText = `🏦 Você tem ${p.bankGold}g guardados no Banco`;
+        }
         document.getElementById('hub-player-exp').innerText = p.exp;
         document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
         document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;

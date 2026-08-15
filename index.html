@@ -205,6 +205,12 @@
                     </div>
                     <div class="player-resources">
                         <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
+                        <!-- Fase 13 da diretiva de balanceamento (Iteração 20) —
+                             achado #10: "o jogo nunca sugere sacar do Banco quando o
+                             jogador está em crise". Escondida por padrão
+                             (updateHubStats só mostra quando o ouro carregado está
+                             criticamente baixo E existe ouro guardado no Banco). -->
+                        <p id="hub-bank-hint" class="hidden" style="font-size:0.85em; color:var(--color-gold);"></p>
                         <p>Exp: <span id="hub-player-exp">0</span> / <span id="hub-player-max-exp">100</span></p>
                         <p>Fadiga: <span id="hub-player-fatigue">0</span>/3</p>
                         <p title="Sua fama/reputação é a MESMA nas três Cidades-Hub">Reputação: <span id="hub-player-reputation">0</span> <span id="hub-player-reputation-tier"></span></p>
