@@ -508,14 +508,21 @@ class CityEngine {
             this.npcs.push(this._makeCaravanTraveler());
         }
 
-        // Guardas da Cidade (Expansão de Exploração e Mundo, item 7) — só
-        // na cidade natal por enquanto (escopo explícito do pedido: "cidade
-        // inicial", não todas as Cidades-Hub). Flanqueiam o Portão (mesmo
-        // GATE_XFRAC do Viajante/_makeCaravanTraveler) em vez de vagar pela
-        // praça — "permanecer em áreas estratégicas" — e usam o mesmo
-        // padrão de flag-de-spawn-único + reset em travelToCity/dawn já
-        // estabelecido por _arenaNpcsSpawned/_gateTravelerSpawned.
-        if (!this._guardsSpawned && window.getCurrentCityId && window.getCurrentCityId() === window.DEFAULT_CITY_ID) {
+        // Guardas da Cidade (Expansão de Exploração e Mundo, item 7,
+        // expandido pela auditoria mestre — achado #4: "guardas só na
+        // cidade natal" era escopo explícito DAQUELA iteração ("cidade
+        // inicial", não todas as Cidades-Hub), nunca uma decisão
+        // definitiva de design — cada Cidade-Hub regional é uma
+        // civilização real (CityDatabase), então cada uma também tem
+        // guardas próprios agora, sem nenhuma checagem de cidade
+        // específica. Flanqueiam o Portão (mesmo GATE_XFRAC do Viajante/
+        // _makeCaravanTraveler) em vez de vagar pela praça — "permanecer
+        // em áreas estratégicas" — e usam o mesmo padrão de
+        // flag-de-spawn-único + reset em travelToCity/dawn já
+        // estabelecido por _arenaNpcsSpawned/_gateTravelerSpawned (então
+        // guardas somem/renascem corretamente a cada viagem/amanhecer em
+        // QUALQUER cidade, não só na natal).
+        if (!this._guardsSpawned) {
             this._guardsSpawned = true;
             const w = this._worldWidth(), h = window.Engine.height;
             const gateX = w * CityEngine.GATE_XFRAC;
