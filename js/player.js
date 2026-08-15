@@ -53,6 +53,39 @@ function levelDefenseBonus(level) {
     if (level <= 25) return (level - 10);
     return 15 + (level - 25);
 }
+
+// ACHADO da Iteração 11 do balanceamento (Fase 3 continuada, ver
+// js/balance.js BalanceCore.getTotalStatPoints) — NÃO corrigido ainda,
+// registrado aqui de propósito pra não se perder: levelHpBonus/
+// levelDefenseBonus acima dão a HP/Defesa um bônus DIRETO por nível,
+// crescente por faixa (função explícita do nível, não só dos pontos de
+// atributo) — mas não existe NENHUM `levelDamageBonus` equivalente pro
+// dano físico/mágico, que continua vindo só de `str * 1.5`
+// (calculateDerivedStats abaixo). Confirmado com simulação de combate
+// REAL (não só a heurística de _powerScore): num duelo espelhado
+// (mesmo nível), a vitória de quem tem +15 níveis de vantagem cai de
+// ~58% no nível base 10 pra ~13% no nível base 90 — ou seja, a MESMA
+// diferença absoluta de nível fica proporcionalmente menos perigosa
+// quanto mais alto o nível base, porque HP/Defesa (que têm bônus
+// direto acelerado por nível) crescem mais rápido que Dano (que só tem
+// o bônus indireto, linear, dos pontos de atributo). Efeito colateral
+// provável: a sensação de "fica mais fácil no fim de jogo" mesmo com
+// oponentes nominalmente mais fortes.
+//
+// NÃO corrigido nesta iteração de propósito: a correção óbvia (um
+// `levelDamageBonus` simétrico, aplicado a QUALQUER Entity — jogador e
+// inimigo igualmente, nunca só um lado) exigiria o MESMO processo de
+// calibração cuidadosa por simulação que levelHpBonus/levelDefenseBonus
+// já passaram (ver comentário acima: "duas rodadas de ajuste" até o
+// nível 60 espelhado ficar em ~43 turnos) — sem isso, um bônus de dano
+// mal calibrado facilmente vira o oposto do problema (combates
+// instantâneos/injustos no lugar de arrastados). Fica registrado como
+// alvo dedicado de uma iteração futura, com o script de simulação já
+// escrito (ver /tmp/pw/sim_threat_flatten.js, não versionado — reescrever
+// a mesma lógica: BattleSystem.executeAttack em loop ATK-vs-ATK, medindo
+// taxa de vitória por delta de nível, ANTES e DEPOIS de qualquer
+// candidato a fórmula, nas duas métricas — espelhado E com delta —, não
+// só uma das duas.
 window.levelDefenseBonus = levelDefenseBonus;
 
 class Entity {
