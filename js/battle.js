@@ -3,6 +3,18 @@
  * + Sistema de Distância, Alcance e Movimentação Tática
  */
 
+// Fase 11 da diretiva de balanceamento (Iteração 13) — rede de segurança
+// anti-stall: milhares de batalhas simuladas (personagens bem construídos,
+// com arma e habilidades, vários níveis/arquétipos) nunca passaram de
+// ~40 turnos pra se resolver — mas a resolução de uma batalha sempre
+// dependeu inteiramente de algum HP chegar a 0 algum dia, uma convergência
+// PROVÁVEL, nunca GARANTIDA pela arquitetura em si. Combinações raras de
+// esquiva/cura/sustain (ou conteúdo futuro com self-sustain forte)
+// poderiam, em teoria, esticar uma luta por muito mais tempo. Ver
+// checkWinCondition() — nunca dispara em combate normal (a folga é de
+// ~4x o pior caso observado), só existe como garantia arquitetural.
+const MAX_STALL_TURNS = 150;
+
 class BattleSystem {
     constructor(player, enemy) {
         this.player = player;
@@ -666,6 +678,19 @@ class BattleSystem {
 
     // Processa o fim do combate
     checkWinCondition() {
+        // Disjuntor anti-stall (ver MAX_STALL_TURNS acima) — checado ANTES
+        // de qualquer outra condição, mas só entra em jogo muito além de
+        // qualquer duração normal de luta. Resolve pelo lado com maior %
+        // de HP restante (empate exato favorece o jogador) — nunca um
+        // "ninguém vence", já que o resto do jogo (endBattle/showBattleResults)
+        // espera sempre VICTORY ou DEFEAT.
+        if (this.turnCount > MAX_STALL_TURNS) {
+            this.isBattleActive = false;
+            const playerPct = this.player.derivedStats.maxHp > 0 ? this.player.currentHp / this.player.derivedStats.maxHp : 0;
+            const enemyPct = this.enemy.derivedStats.maxHp > 0 ? this.enemy.currentHp / this.enemy.derivedStats.maxHp : 0;
+            return playerPct >= enemyPct ? 'VICTORY' : 'DEFEAT';
+        }
+
         if (this.enemy.currentHp <= 0) {
             this.isBattleActive = false;
             return 'VICTORY';
