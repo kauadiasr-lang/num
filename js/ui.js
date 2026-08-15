@@ -221,7 +221,7 @@ class UIManager {
         // métodos diretamente (ver CityEngine.interact()) — nada aqui muda.
         document.getElementById('btn-city-arena-quick').addEventListener('click', () => {
             document.getElementById('city-arena-menu').classList.add('hidden');
-            this.startBattle();
+            this.previewDuel();
         });
         document.getElementById('btn-city-arena-ladder').addEventListener('click', () => {
             document.getElementById('city-arena-menu').classList.add('hidden');
@@ -1258,6 +1258,45 @@ class UIManager {
         const level = (regionLevel !== undefined && regionLevel !== null) ? regionLevel : p.level;
         const enemy = new Enemy(level);
         this.beginBattleWith(enemy);
+    }
+
+    // Fase 5 da diretiva de balanceamento (Iteração 4) — achado #9 da
+    // auditoria: o jogador nunca sabia a força real do oponente antes de
+    // já estar dentro do Duelo Rápido. Gera o oponente ANTES de entrar em
+    // combate, mostra nome/nível/Elite/arquétipo/arma principal/ameaça
+    // (via BalanceCore.getThreatLevel) e só chama beginBattleWith se o
+    // jogador confirmar — "Recuar" simplesmente volta pro Hub, sem
+    // nenhuma penalidade (mesmo espírito do botão "Voltar" do próprio
+    // menu da Arena). Só o Duelo Rápido usa isso: emboscadas da Estrada e
+    // batalhas de missão chamam startBattle()/beginBattleWith direto —
+    // o jogador já se comprometeu ao entrar naquela situação, um prompt
+    // de "quer lutar?" ali não faria sentido narrativo nenhum.
+    previewDuel() {
+        const p = window.Engine.state.player;
+        const enemy = new Enemy(p.level);
+        this._pendingDuelEnemy = enemy;
+
+        const threat = window.BalanceCore.getThreatLevel(p, enemy);
+        const weapon = enemy.equipment && enemy.equipment[enemy.activeWeaponSlot];
+        const archetype = (enemy.aiStyle && enemy.aiStyle.name) || enemy.personality || 'Desconhecido';
+        const lines = [
+            `${enemy.name}`,
+            `Nível ${enemy.level}${enemy.isElite ? ' · ★ Elite' : ''}`,
+            `${archetype}${weapon ? ' · ' + weapon.name : ''}`,
+            `Ameaça: ${threat.label}`,
+        ];
+        document.getElementById('duel-threat-text').innerText = lines.join('\n');
+        document.getElementById('duel-threat-preview').classList.remove('hidden');
+
+        document.getElementById('btn-duel-confirm').onclick = () => {
+            document.getElementById('duel-threat-preview').classList.add('hidden');
+            this.beginBattleWith(this._pendingDuelEnemy);
+            this._pendingDuelEnemy = null;
+        };
+        document.getElementById('btn-duel-decline').onclick = () => {
+            document.getElementById('duel-threat-preview').classList.add('hidden');
+            this._pendingDuelEnemy = null;
+        };
     }
 
     // Chefe opcional da Estrada (ver roads.js `elite`, item pedido na

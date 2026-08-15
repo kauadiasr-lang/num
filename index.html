@@ -221,6 +221,17 @@
                     <button id="btn-city-arena-ladder" class="btn primary hub-btn-wide">Adversários</button>
                     <button id="btn-city-arena-cancel" class="btn btn-small">Voltar</button>
                 </div>
+                <!-- Prévia de ameaça do Duelo Rápido (Fase 5 da diretiva de
+                     balanceamento — achado #9 da auditoria: jogador nunca
+                     sabia a força do oponente antes de já estar na luta).
+                     Só pro Duelo Rápido: emboscadas da Estrada e batalhas de
+                     missão já comprometem o jogador antes de chegar aqui,
+                     então não fazem sentido com um botão de recuar. -->
+                <div id="duel-threat-preview" class="city-arena-menu hidden">
+                    <p id="duel-threat-text" style="margin: 0 0 4px 0; color: var(--color-gold); white-space: pre-line;"></p>
+                    <button id="btn-duel-confirm" class="btn primary btn-large hub-btn-wide">Lutar</button>
+                    <button id="btn-duel-decline" class="btn btn-small hub-btn-wide">Recuar</button>
+                </div>
                 <!-- Bandido Anão (Reino Subterrâneo de Kharzum, ver
                      city.js _banditEncounter) — perigo urbano físico,
                      nunca um botão solto: só aparece depois do jogador

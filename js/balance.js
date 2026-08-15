@@ -87,6 +87,34 @@ const BalanceCore = {
         return Math.max(1, Math.floor(rawMagicDamage * (1 - reductionPercent)));
     },
 
+    // Fase 5 da diretiva de balanceamento (Iteração 4): estimativa de
+    // ameaça pra prévia do Duelo Rápido — o jogador nunca sabia se ia
+    // enfrentar algo tratável ou brutal até já estar dentro da luta
+    // (achado #9 da auditoria). Poder aproximado de uma entidade
+    // (jogador ou inimigo) combinando HP, dano físico e defesa num único
+    // número — os pesos só existem pra colocar as três grandezas na
+    // mesma escala (HP tipicamente na casa das centenas, dano/defesa na
+    // casa das dezenas), a RAZÃO entre os dois lados é o que importa,
+    // não o valor absoluto.
+    _powerScore(entity) {
+        const s = entity.derivedStats;
+        return (s.maxHp * 0.5) + (s.physicalDamage * 10) + (s.defenseRating * 3);
+    },
+
+    // Retorna { ratio, label } comparando o poder do inimigo contra o do
+    // jogador. Nunca revela números exatos de stat (só a categoria) —
+    // dá informação suficiente pra uma decisão consciente sem entregar a
+    // luta inteira de bandeja.
+    getThreatLevel(player, enemy) {
+        const ratio = this._powerScore(enemy) / Math.max(1, this._powerScore(player));
+        let label;
+        if (ratio < 0.75) label = 'BAIXA';
+        else if (ratio < 1.15) label = 'MÉDIA';
+        else if (ratio < 1.6) label = 'ALTA';
+        else label = 'EXTREMA';
+        return { ratio, label };
+    },
+
     // Exposto pra testes/simulação e pra futuras Fases (Power Budget etc.)
     // reaproveitarem a mesma referência de recompensa sem reimplementar.
     _expectedRewardAt: expectedRewardAt,
