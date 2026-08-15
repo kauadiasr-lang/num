@@ -4893,11 +4893,21 @@ class UIManager {
         // em combate como fera de verdade (ver enemy.js Enemy constructor)
         // em vez de herdar a construção humana padrão — sem isso o lobo
         // podia nascer empunhando espada e vestindo armadura.
+        //
+        // Segundo bug corrigido (pedido direto do usuário): sem
+        // `forcedBiome`, beginBattleWith cai no bioma de arena sorteado
+        // pela CIDADE atual (Coliseu/arquibancadas) — errado pra um
+        // encontro que acontece dentro da Toca dos Lobos, na Floresta. O
+        // bioma 'floresta_ancestral' (graphics.js ARENA_BIOMES) já existe
+        // pronto — paleta verde-escura, vegetação densa, vaga-lumes, SEM
+        // arquibancadas/bandeiras de arena (hasCrowd:false/hasBanners:
+        // false) — só nunca tinha sido aplicado aqui. Reaproveita
+        // 100% do que já existe, nenhum bioma novo precisou ser criado.
         if (isAlpha) {
             this._pendingWolfDenAlpha = true;
-            this.beginBattleWith(new Enemy(Utils.randomInt(9, 13), { species: 'alpha_wolf' }));
+            this.beginBattleWith(new Enemy(Utils.randomInt(9, 13), { species: 'alpha_wolf' }), 'floresta_ancestral');
         } else {
-            this.beginBattleWith(new Enemy(Utils.randomInt(3, 6), { species: 'wolf' }));
+            this.beginBattleWith(new Enemy(Utils.randomInt(3, 6), { species: 'wolf' }), 'floresta_ancestral');
         }
     }
 
@@ -5337,6 +5347,13 @@ class UIManager {
                 // `item.slot.toUpperCase()`).
                 document.getElementById('tt-type').innerText = `Matéria-Prima (Nível ${item.tier})`;
                 statsHtml += `<p style="color:#88ccee">${item.description}</p>`;
+            } else if (item.category === 'creature_material') {
+                // Material de criatura (ver items.js CreatureMaterial, novo —
+                // correção do bug "lobo dropa espada/armadura"): mesma forma
+                // sem slot que Material acima, precisa do próprio ramo pelo
+                // mesmo motivo (`item.slot.toUpperCase()` quebraria).
+                document.getElementById('tt-type').innerText = `Material de Criatura (Nível ${item.tier})`;
+                statsHtml += `<p style="color:#88ccee">${item.description}</p>`;
             } else {
                 document.getElementById('tt-type').innerText = `Slot: ${item.slot.toUpperCase()}`;
                 // Texto de identidade (Mega Atualização item 1/19 — ver
@@ -5452,6 +5469,7 @@ class UIManager {
     _itemIcon(item) {
         if (item.category === 'consumable') return this._consumableIcon(item);
         if (item.category === 'material') return '⛏️';
+        if (item.category === 'creature_material') return '🐾';
         // Bug de auditoria (Iteração 9): essência e runa nunca tinham
         // ícone próprio aqui — caíam no fallback `icons[item.slot]`, que
         // pra elas é sempre undefined (nenhuma das duas tem `.slot`),

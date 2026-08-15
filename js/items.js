@@ -646,6 +646,21 @@ const ItemDatabase = {
         lunar_essence: { id: 'e_02', name: "Essência Lunar", tier: 2, value: 35, description: "Só se condensa em clareiras iluminadas pela lua cheia — fria ao toque, quase cantando." },
         ancestral_essence: { id: 'e_03', name: "Essência Ancestral", tier: 3, value: 90, description: "Extraída das raízes mais antigas do Santuário — dizem que carrega memória própria." }
     },
+    // Materiais de criatura (correção crítica pedida pelo usuário — "lobos
+    // não devem dropar espadas/armaduras/equipamento humano"). MESMA forma
+    // que materials/essences acima (tier/value/description, sem slot/
+    // raridade própria), categoria PRÓPRIA ('creature_material') pra nunca
+    // se misturar com a mochila de matéria-prima da Forja anã nem com as
+    // Essências élficas — são identidades culturais/temáticas distintas,
+    // mesmo raciocínio já usado pra separar materials de essences. Só 2
+    // itens de propósito ("quantidade pequena, cada um com função real",
+    // mesma filosofia já usada pelos outros dois registries) — Pelagem
+    // (drop comum de qualquer lobo) e Presa do Alfa (só o Lobo Alfa da Toca
+    // dos Lobos, ver enemy.js Enemy.generateLoot, drop garantido/único).
+    creatureMaterials: {
+        wolf_pelt: { id: 'cm_01', name: "Pelagem de Lobo", tier: 1, value: 15, description: "Pelagem grossa e cinzenta, ainda quente — matéria-prima comum de qualquer lobo da Toca." },
+        alpha_fang: { id: 'cm_02', name: "Presa do Alfa", tier: 3, value: 80, description: "A presa do lobo que liderava a matilha — só o Alfa carrega uma assim." }
+    },
     // MEGA REWORK Econômico, Iteração 9 (item 7 da diretiva): "Elfos podem
     // ser os principais criadores de runas... Runa Ígnea/Glacial/Vital/
     // Precisão/Arcana... objetos de criação/personalização, NUNCA outra
@@ -694,6 +709,22 @@ class Material {
 class Essence {
     constructor(baseTemplate) {
         this.category = 'essence';
+        this.uuid = Utils.generateUUID();
+        this.id = baseTemplate.id;
+        this.name = baseTemplate.name;
+        this.tier = baseTemplate.tier;
+        this.value = baseTemplate.value;
+        this.description = baseTemplate.description;
+        this.rarity = RARITY.COMMON;
+    }
+}
+
+// Materiais de criatura (ver ItemDatabase.creatureMaterials acima) — MESMA
+// forma que Material/Essence, `category` própria ('creature_material') pra
+// nunca se misturar com nenhuma das outras duas mochilas de matéria-prima.
+class CreatureMaterial {
+    constructor(baseTemplate) {
+        this.category = 'creature_material';
         this.uuid = Utils.generateUUID();
         this.id = baseTemplate.id;
         this.name = baseTemplate.name;
@@ -819,6 +850,15 @@ window.ItemFactory = {
             return null;
         }
         return new Essence(template);
+    },
+
+    createCreatureMaterial(templateId) {
+        const template = ItemDatabase.creatureMaterials[templateId];
+        if (!template) {
+            console.error(`[ItemFactory] Material de criatura ${templateId} não encontrado.`);
+            return null;
+        }
+        return new CreatureMaterial(template);
     },
 
     createRune(templateId) {

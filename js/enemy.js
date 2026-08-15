@@ -458,6 +458,23 @@ class Enemy extends Entity {
     // já usada pelas lojas.
     generateLoot(playerLuk) {
         const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+
+        // Lobos/feras (ver species/isBeast no construtor acima, correção do
+        // bug "lobo dropa espada/armadura"): loot próprio de criatura, nunca
+        // o mesmo generateShopInventory (equipamento humano) usado abaixo.
+        // Alfa garante a presa (item raro/único do encontro); lobo comum
+        // segue a mesma curva de chance-por-sorte já usada pelo drop comum.
+        if (this.isBeast) {
+            if (this.species === 'alpha_wolf') {
+                return window.ItemFactory.createCreatureMaterial('alpha_fang');
+            }
+            const dropChance = 30 + (playerLuk * 2);
+            if (Utils.chance(dropChance)) {
+                return window.ItemFactory.createCreatureMaterial('wolf_pelt');
+            }
+            return null;
+        }
+
         if (this.isElite) {
             const dropTable = window.ItemFactory.generateShopInventory(this.level + 5, cityId);
             return dropTable[0];

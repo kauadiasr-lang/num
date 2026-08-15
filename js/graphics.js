@@ -769,7 +769,15 @@ class GraphicsEngine {
             ctx.translate(ex, groundY);
             ctx.scale(arenaScale, arenaScale);
             ctx.translate(-ex, -groundY);
-            this.drawGladiator(ctx, ex, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            // Fera (ver enemy.js Enemy species) usa um renderizador de
+            // quadrúpede próprio — drawGladiator só sabe desenhar o rig
+            // humanoide, mesmo sem equipamento nenhum ainda seria um corpo
+            // de humano desarmado, não um lobo de verdade.
+            if (window.BattleEngine.enemy.isBeast) {
+                this.drawWolfCreature(ctx, ex, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            } else {
+                this.drawGladiator(ctx, ex, groundY, window.BattleEngine.enemy, false, this.enemyAnim, window.BattleEngine.enemyState);
+            }
             ctx.restore();
             ctx.restore();
         } else if (screen === 'MAINMENU' || screen === 'CREDITS') {
@@ -2589,6 +2597,109 @@ class GraphicsEngine {
         this._drawFrontArm(ctx, entity, pose, anim);
 
         ctx.restore();
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    // Renderizador de batalha para feras (achado do usuário: "o lobo não
+    // deve simplesmente possuir um sprite humano escondido" — antes deste
+    // método, um lobo em combate desenhava via drawGladiator acima, que só
+    // sabe desenhar o rig humanoide de sempre — sem arma/armadura por causa
+    // do fix arquitetural anterior (ver enemy.js Enemy species), mas ainda
+    // um corpo/postura de HUMANO desarmado, nunca um quadrúpede de verdade.
+    // Mesmo princípio que road.js._drawWolfCreature já usa pro Mundo da
+    // Estrada ("lobo é quadrúpede, não dá pra usar o rig humanoide") —
+    // reaproveita a MESMA silhueta desenhada à mão (corpo/cabeça/focinho/
+    // orelhas/cauda/patas/olho), só escalada pro tamanho de tela de batalha
+    // em vez do ícone pequeno do mundo aberto, e reaproveita `computePose`
+    // (100% genérico — offsetX/offsetY/rotation/alpha/torsoLean, nenhum
+    // campo específico de humano) pra reagir a ataque/dano/morte exatamente
+    // como qualquer outro combatente, sem duplicar a máquina de animação.
+    drawWolfCreature(ctx, x, y, entity, isPlayer, anim, battleState) {
+        const pose = this.computePose(anim, battleState && battleState.isDefending);
+        const dir = isPlayer ? 1 : -1;
+        const isAlpha = entity.species === 'alpha_wolf';
+        const scale = isAlpha ? 1.35 : 1;
+        const bodyColor = isAlpha ? '#3a3238' : '#5a5258';
+        const darkColor = isAlpha ? '#221e22' : '#3a3438';
+
+        // Sombra — mesmo gradiente radial de drawGladiator, só mais larga e
+        // mais rasa (corpo de quadrúpede é mais comprido e mais baixo que
+        // um humano em pé).
+        const shadowRX = 46 * scale, shadowRY = 12 * scale;
+        const shadowGrad = ctx.createRadialGradient(x, y + 6, 2, x, y + 6, shadowRX);
+        shadowGrad.addColorStop(0, 'rgba(0,0,0,0.45)');
+        shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = shadowGrad;
+        ctx.beginPath();
+        ctx.ellipse(x, y + 6, shadowRX, shadowRY, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.globalAlpha = pose.alpha;
+        ctx.translate(x, y + pose.offsetY);
+        if (pose.rotation) ctx.rotate(pose.rotation);
+        ctx.scale(dir, 1);
+        ctx.translate(pose.offsetX, 0);
+        ctx.rotate(pose.torsoLean * Math.PI / 180 * 0.3); // leve inclinação do corpo inteiro (sem torso separado)
+        ctx.scale(scale, scale);
+
+        if (isAlpha) {
+            const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 450);
+            const glow = ctx.createRadialGradient(0, -20, 0, 0, -20, 70);
+            glow.addColorStop(0, `rgba(198,40,40,${0.2 * pulse})`);
+            glow.addColorStop(1, 'rgba(198,40,40,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(0, -20, 70, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Patas primeiro (atrás do corpo) — leve alternância de balanço no
+        // idle (pose.legSway), igual à perna humana em drawGladiator.
+        ctx.strokeStyle = darkColor;
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        const legSway = pose.legSway || 0;
+        [-46, -14, 24, 52].forEach((lx, i) => {
+            const sway = (i % 2 === 0 ? 1 : -1) * legSway;
+            ctx.beginPath();
+            ctx.moveTo(lx, -18);
+            ctx.lineTo(lx + sway, 6);
+            ctx.stroke();
+        });
+
+        // Corpo (elipse alongada e baixa — postura de predador rasteiro,
+        // NUNCA a silhueta ereta de um humano em pé).
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath(); ctx.ellipse(0, -30, 58, 26, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(50, -38, 22, 18, 0, 0, Math.PI * 2); ctx.fill(); // cabeça
+        ctx.beginPath(); ctx.moveTo(68, -40); ctx.lineTo(92, -34); ctx.lineTo(68, -28); ctx.closePath(); ctx.fill(); // focinho
+        ctx.fillStyle = darkColor;
+        ctx.beginPath(); ctx.moveTo(36, -52); ctx.lineTo(42, -68); ctx.lineTo(48, -52); ctx.closePath(); ctx.fill(); // orelha
+        ctx.beginPath(); ctx.moveTo(56, -52); ctx.lineTo(62, -68); ctx.lineTo(68, -52); ctx.closePath(); ctx.fill(); // orelha
+        ctx.beginPath(); ctx.moveTo(-56, -32); ctx.quadraticCurveTo(-82, -50, -76, -16); ctx.quadraticCurveTo(-64, -22, -56, -14); ctx.closePath(); ctx.fill(); // cauda
+        // Olho — vermelho no Alfa (ameaça clara), âmbar comum no resto.
+        ctx.fillStyle = isAlpha ? '#c81e1e' : '#c89a3a';
+        ctx.beginPath(); ctx.arc(60, -40, 5, 0, Math.PI * 2); ctx.fill();
+
+        // Mordida durante 'attack'/'attack_ranged' (fera não empunha arma —
+        // ver enemy.js Enemy species — então o gesto de ataque é a boca
+        // abrindo, nunca um swing de arma): abre um triângulo escuro no
+        // focinho proporcional ao progresso da animação já calculado por
+        // computePose (mesmo `weaponAngle` usado pelo braço humano, só
+        // reaproveitado aqui como "abertura da mandíbula").
+        if (anim.type === 'attack' || anim.type === 'attack_ranged') {
+            const bite = Utils.clamp(Math.abs(pose.weaponAngle) / 55, 0, 1);
+            if (bite > 0.05) {
+                ctx.fillStyle = '#3a0a0a';
+                ctx.beginPath();
+                ctx.moveTo(78, -34);
+                ctx.lineTo(92, -34 - bite * 10);
+                ctx.lineTo(92, -34 + bite * 10);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
 
         ctx.restore();
         ctx.globalAlpha = 1;
