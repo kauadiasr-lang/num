@@ -863,13 +863,19 @@ window.ItemFactory = {
     // por loot de Boss de Ritual, Campeão da Ladder, Boss Especial da
     // Arena E o bônus de conclusão da Arena dos Campeões — quebrando a
     // exclusividade pretendida.
-    _pickRandomEquipmentId(cityId, includeAllRegions) {
+    _pickRandomEquipmentId(cityId, includeAllRegions, forceCategory = null) {
         const categories = ['weapons', 'armors', 'shields', 'trinkets'];
         // craftOnly (MEGA REWORK econômico, Iteração 3): produtos exclusivos
         // do Ateliê Élfico nunca aparecem no sorteio de loja genérica — só
         // saem criados de verdade (ver js/elfcrafting.js).
         const availableInCity = (template) => !template.arenaExclusive && !template.craftOnly && (includeAllRegions || !template.region || template.region === cityId);
-        const category = categories[Utils.randomInt(0, categories.length - 1)];
+        // Fase 14 do balanceamento (Iteração 19, achado #08 da auditoria
+        // original): "loja pode sortear ZERO itens de uma categoria inteira
+        // no dia". `forceCategory`, opcional, permite ao chamador (ver
+        // generateShopInventory abaixo) pedir uma categoria específica em
+        // vez de sortear entre as 4 — usado pra garantir cobertura mínima
+        // sem duplicar o filtro de região/craftOnly/arenaExclusive aqui.
+        const category = forceCategory || categories[Utils.randomInt(0, categories.length - 1)];
         const pool = Object.keys(ItemDatabase[category]).filter(id => availableInCity(ItemDatabase[category][id]));
         if (pool.length === 0) return null; // categoria sem nenhum item disponível nesta cidade (não deveria ocorrer, mas evita crash)
         return { category, id: pool[Utils.randomInt(0, pool.length - 1)] };
@@ -878,9 +884,23 @@ window.ItemFactory = {
     generateShopInventory(playerLevel, cityId = null, includeAllRegions = false) {
         const shopInventory = [];
 
-        // Gera 8 itens de equipamento aleatórios entre as categorias disponíveis
+        // Fase 14 do balanceamento (Iteração 19) — achado #08 da auditoria
+        // original: as 8 vagas antes sorteavam a categoria de forma
+        // TOTALMENTE independente pra cada uma (4 categorias, 8 sorteios
+        // uniformes) — a chance de uma categoria inteira sair vazia no dia
+        // é (3/4)^8 ≈ 10% por categoria, ~34% de pelo menos uma categoria
+        // zerada em algum dia (confirmado por cálculo direto da distribuição
+        // binomial, não só intuição). Corrigido reservando 1 vaga garantida
+        // por categoria (as 4 primeiras, uma de cada uma das 4 categorias
+        // reais do jogo) — nunca mais um dia sem NENHUM escudo ou NENHUM
+        // acessório à venda — e mantendo as 4 vagas restantes totalmente
+        // aleatórias, exatamente como antes, pra preservar a variedade e o
+        // número total de itens (8) sem alterar a economia.
+        const categories = ['weapons', 'armors', 'shields', 'trinkets'];
+        const slotCategories = [...categories, null, null, null, null];
+
         for (let i = 0; i < 8; i++) {
-            const picked = this._pickRandomEquipmentId(cityId, includeAllRegions);
+            const picked = this._pickRandomEquipmentId(cityId, includeAllRegions, slotCategories[i]);
             if (!picked) continue;
 
             // Probabilidade de raridade baseada no nível do jogador — curva
