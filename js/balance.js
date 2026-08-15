@@ -45,6 +45,29 @@ function battlesPerLevelTarget(level) {
     return 30 + (level - 60) * (55 - 30) / 40;
 }
 
+// Curva de mitigação REAL usada em TODO dano físico do jogo (ver battle.js
+// `reductionPercent = defenseRating / (defenseRating + 50)`, repetida em
+// pelo menos 10 lugares diferentes) — dano mágico era a ÚNICA exceção
+// (Iteração 2 da diretiva de balanceamento): `finalDmg = magicDmg -
+// (defenderInt * 0.5)`, uma subtração FLAT em vez dessa mesma curva
+// percentual, e sem NENHUMA contribuição de `defenseRating` — armadura
+// literalmente não fazia diferença nenhuma contra magia. Root cause do
+// achado #4 da auditoria (Bola de Fogo causando 612-722 de dano contra
+// 958 HP máximo): um conjurador inimigo com INT alto multiplicava sem
+// nenhum teto percentual, e a resistência da vítima não escalava com
+// nada que o jogador pudesse realmente construir (armadura).
+const MAGIC_MITIGATION_K = 50; // mesma constante da curva física, mesmo "feel" de diminishing returns
+
+function getMagicResistRating(defender) {
+    // INT pesa mais (resistência mágica "de verdade", como já era a
+    // intenção original do código) — mas defenseRating (armadura/nível)
+    // agora também contribui de verdade, então investir em equipamento
+    // físico deixa de ser irrelevante contra conjuradores.
+    const int = defender.getTotalStat ? defender.getTotalStat('int') : 5;
+    const def = (defender.derivedStats && defender.derivedStats.defenseRating) || 0;
+    return int * 1.5 + def * 0.5;
+}
+
 const BalanceCore = {
     // Substitui a fórmula antiga (`100 * 1.5^(nível-1)`) — ver player.js
     // `getExpRequired()`, que agora delega pra cá em vez de calcular
@@ -53,10 +76,22 @@ const BalanceCore = {
         return Math.round(battlesPerLevelTarget(level) * expectedRewardAt(level));
     },
 
+    // Substitui a subtração flat de dano mágico (ver battle.js, os dois
+    // pontos — jogador conjurando no inimigo e vice-versa) pela MESMA
+    // curva percentual de diminishing returns usada em todo dano físico.
+    // `rawMagicDamage` já deve vir com o multiplicador de INT/powerMulti
+    // aplicado (essa parte não muda — só a mitigação).
+    mitigateMagicDamage(rawMagicDamage, defender) {
+        const resistRating = getMagicResistRating(defender);
+        const reductionPercent = resistRating / (resistRating + MAGIC_MITIGATION_K);
+        return Math.max(1, Math.floor(rawMagicDamage * (1 - reductionPercent)));
+    },
+
     // Exposto pra testes/simulação e pra futuras Fases (Power Budget etc.)
     // reaproveitarem a mesma referência de recompensa sem reimplementar.
     _expectedRewardAt: expectedRewardAt,
     _battlesPerLevelTarget: battlesPerLevelTarget,
+    _getMagicResistRating: getMagicResistRating,
 };
 
 window.BalanceCore = BalanceCore;

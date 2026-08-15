@@ -1012,9 +1012,11 @@ class BattleSystem {
                     // o custo/gestão de mana), só sem a explosão desproporcional
                     // tardia. Ver /tmp/pw/sim_coef_search.js para a simulação completa.
                     const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.getTotalStat('int') * 2.5 * skill.powerMulti));
-                    const resist = this.enemy.getTotalStat('int') * 0.5;
-                    let finalDmg = Math.floor(magicDmg - resist);
-                    if (finalDmg < 1) finalDmg = 1;
+                    // Mitigação real (Iteração 2 do balanceamento, ver
+                    // js/balance.js `mitigateMagicDamage`) — mesma curva
+                    // percentual de diminishing returns da defesa física,
+                    // em vez da subtração flat antiga que ignorava armadura.
+                    let finalDmg = window.BalanceCore.mitigateMagicDamage(magicDmg, this.enemy);
 
                     this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - finalDmg, 0, this.enemy.derivedStats.maxHp);
                     resultMsg = `<span style="color:#a335ee">${this.player.name} conjurou ${skill.name} causando ${finalDmg} de Dano Mágico!</span>`;
@@ -1302,8 +1304,13 @@ class BattleSystem {
             // executeSkill/player MAGIC, item 15) — mantém simetria entre
             // magos jogadores e magos inimigos.
             const magicDmg = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.getTotalStat('int') * 2.5 * skill.powerMulti));
-            const resist = this.player.getTotalStat('int') * 0.5;
-            let finalDmg = Math.max(1, Math.floor(magicDmg - resist));
+            // Mitigação real (Iteração 2 do balanceamento, ver
+            // js/balance.js `mitigateMagicDamage`) — mesma curva
+            // percentual de diminishing returns da defesa física, em vez
+            // da subtração flat antiga que ignorava armadura (achado #4
+            // da auditoria: Bola de Fogo causando 612-722 de dano contra
+            // 958 HP máximo).
+            let finalDmg = window.BalanceCore.mitigateMagicDamage(magicDmg, this.player);
             this.player.currentHp = Utils.clamp(this.player.currentHp - finalDmg, 0, this.player.derivedStats.maxHp);
             message = `<span style="color:#a335ee">${this.enemy.name} conjurou ${skill.name} causando ${finalDmg} de Dano Mágico!</span>`;
             window.GFX.spawnText(playerX, playerY - 50, `-${finalDmg}`, "#a335ee", true);
