@@ -2349,8 +2349,11 @@ class UIManager {
             if (!learned) {
                 const cityOk = currentCityId === style.cityId;
                 const cityName = (window.CityDatabase[style.cityId] && window.CityDatabase[style.cityId].name) || style.cityId;
+                const isFirstStyle = !p.combatStylesLearned || Object.keys(p.combatStylesLearned).length === 0;
+                const learnCost = isFirstStyle ? Math.round(window.CombatStyleSystem.LEARN_COST * window.CombatStyleSystem.FIRST_STYLE_DISCOUNT) : window.CombatStyleSystem.LEARN_COST;
+                const discountTag = isFirstStyle ? ' — 1º estilo, -50%' : '';
                 actionHtml = cityOk
-                    ? `<button class="btn btn-small btn-learn-style" ${p.gold < window.CombatStyleSystem.LEARN_COST ? 'disabled' : ''}>Aprender (${window.CombatStyleSystem.LEARN_COST}g)</button>`
+                    ? `<button class="btn btn-small btn-learn-style" ${p.gold < learnCost ? 'disabled' : ''}>Aprender (${learnCost}g${discountTag})</button>`
                     : `<div class="node-cost">Aprenda em: ${cityName}</div>`;
             } else {
                 actionHtml = `

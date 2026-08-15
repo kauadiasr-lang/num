@@ -455,6 +455,18 @@ window.CombatStyleSystem = {
     // aprendido, já vira o ATIVO automaticamente; senão, fica disponível
     // pra ativar manualmente (ver Player.setActiveCombatStyle).
     LEARN_COST: 150,
+    // Balanceamento (Iteração 21) — achado #11 do Diagnóstico da Arena:
+    // o primeiro Estilo colide direto com o Problema #5 (crise de ouro
+    // cedo no jogo) bem no momento em que o jogador mais precisaria de
+    // uma vantagem. A solução recomendada era reduzir o custo OU torná-lo
+    // gratuito — mas o próprio comentário acima ("nunca de graça no
+    // início do jogo, item 18 da diretiva") registra uma decisão de
+    // design deliberada de uma diretiva anterior. Em vez de violar essa
+    // regra, aplica a outra metade da recomendação: metade do preço só
+    // no PRIMEIRO estilo aprendido (nunca fica de graça, mas fica
+    // acessível). A viagem em si nunca foi o problema real (testes do
+    // Diagnóstico confirmaram aprendizado bem-sucedido na cidade natal).
+    FIRST_STYLE_DISCOUNT: 0.5,
     learnStyle(player, styleId) {
         const style = COMBAT_STYLES[styleId];
         if (!style) return { ok: false, reason: 'Estilo inexistente.' };
@@ -462,9 +474,11 @@ window.CombatStyleSystem = {
         if (player.combatStylesLearned[styleId]) return { ok: false, reason: 'Você já aprendeu este estilo.' };
         const currentCityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
         if (currentCityId !== style.cityId) return { ok: false, reason: `Só é possível aprender ${style.name} em sua cidade de origem.` };
-        if (player.gold < this.LEARN_COST) return { ok: false, reason: 'Ouro insuficiente.' };
+        const isFirstStyle = Object.keys(player.combatStylesLearned).length === 0;
+        const cost = isFirstStyle ? Math.round(this.LEARN_COST * this.FIRST_STYLE_DISCOUNT) : this.LEARN_COST;
+        if (player.gold < cost) return { ok: false, reason: 'Ouro insuficiente.' };
 
-        player.gold -= this.LEARN_COST;
+        player.gold -= cost;
         player.combatStylesLearned[styleId] = true;
         player.styleSkillPoints = player.styleSkillPoints || {};
         player.styleSkillPoints[styleId] = (player.styleSkillPoints[styleId] || 0) + 1;
