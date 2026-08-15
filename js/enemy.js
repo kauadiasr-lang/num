@@ -177,22 +177,83 @@ function getRegionEnemyLevel(cityId, biasHigh = false) {
 }
 window.getRegionEnemyLevel = getRegionEnemyLevel;
 
+// ============================================================================
+// FERAS (correção crítica da auditoria mestre) — lobos deixam de herdar a
+// construção humana. Antes, `new Enemy(level)` era o ÚNICO caminho de
+// construção pra QUALQUER inimigo não-boss, lobo incluído: mesmo sorteio de
+// nome/raça humana, mesmo AICombat.assignProfile genérico (estilo humano
+// aleatório), mesmo equipStyleWeapon()/equipArmor() incondicional — um lobo
+// podia literalmente nascer empunhando espada e vestindo armadura, porque
+// nada na Entity/Enemy jamais soube que "espécie" o inimigo era. `species`
+// (ver Enemy constructor abaixo) é o único gate arquitetural novo: quando
+// !== 'humanoid', pula TODO o pipeline de identidade humana (nome/raça,
+// AICombat.assignProfile aleatório, randomFighterVisuals, equipStyleWeapon,
+// equipArmor) e usa o caminho de fera abaixo, sempre no MESMO construtor —
+// nunca um `if (enemy.type === 'wolf')` espalhado por battle.js/ai.js (a
+// arquitetura de alcance/AI/combate continua 100% compartilhada, só a
+// IDENTIDADE da entidade muda).
+const BEAST_NAME_POOL = {
+    wolf: { names: ['Lobo Cinzento', 'Lobo das Sombras', 'Lobo Faminto', 'Lobo Uivante', 'Lobo Sarnento'], adjectives: [] },
+    alpha_wolf: { names: ['Lobo Alfa'], adjectives: [] },
+};
+
+// Habilidades naturais de fera — registradas no MESMO window.SkillDB
+// compartilhado (mesmo motor de execução de battle.js, zero duplicação),
+// mas com `origin: 'BEAST'`/`isBeastSkill: true` pra NUNCA aparecer como
+// aprendível pelo jogador via Mercado Arcano (mesmo padrão exato de
+// bossai.js registerBossSkills/isBossSkill — ver skills.js pelo motivo
+// completo do campo `origin`). Reaproveita os SKILL_TYPES já existentes
+// (PHYSICAL pra mordida, STUN pra investida) — nenhum tipo novo no motor.
+function registerBeastSkills() {
+    const defs = [
+        { id: 'mordida_lobo', name: 'Mordida', type: 'PHYSICAL', mpCost: 8, powerMulti: 1.3,
+            description: 'Um ataque de mordida selvagem que causa 130% do Dano Físico.', extra: { cooldown: 1, animation: 'attack' } },
+        { id: 'investida_lobo', name: 'Investida', type: 'STUN', mpCost: 12, powerMulti: 0.9,
+            description: 'Uma investida brutal que pode derrubar o alvo, atordoando-o por um turno.', extra: { stunChance: 35, cooldown: 3, animation: 'attack' } },
+    ];
+    defs.forEach(d => {
+        if (!window.SkillDB[d.id]) {
+            window.SkillDB[d.id] = new Skill(d.id, d.name, d.type, d.mpCost, d.powerMulti, d.description, 1, d.extra || {});
+            window.SkillDB[d.id].isBeastSkill = true;
+            window.SkillDB[d.id].origin = 'BEAST';
+        }
+    });
+}
+registerBeastSkills();
+
 class Enemy extends Entity {
-    constructor(playerLevel) {
-        // Raça sorteada ANTES do nome (ver RACE_ENEMY_NAMES acima) pra que o
-        // pool de nomes já reflita a identidade regional — mesma demografia
-        // ponderada por Cidade-Hub usada mais abaixo pra atribuir `this.race`,
-        // só que precisa ser calculada aqui em cima porque `super(name)` tem
-        // que rodar antes de qualquer atribuição em `this`.
-        const cityDefForName = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        const demographicsForName = (cityDefForName && cityDefForName.raceDemographics) ? cityDefForName.raceDemographics : null;
-        const raceIdsForName = window.RACES ? Object.keys(window.RACES) : ['humano'];
-        const pickedRace = (demographicsForName && window.Utils.weightedPick)
-            ? (Utils.weightedPick(demographicsForName) || 'humano')
-            : raceIdsForName[Utils.randomInt(0, raceIdsForName.length - 1)];
-        const namePool = RACE_ENEMY_NAMES[pickedRace] || { names: ENEMY_NAMES, adjectives: ENEMY_ADJECTIVES };
-        const name = `${namePool.names[Utils.randomInt(0, namePool.names.length - 1)]} ${namePool.adjectives[Utils.randomInt(0, namePool.adjectives.length - 1)]}`;
+    // `opts.species` (correção crítica da auditoria mestre) — 'humanoid'
+    // (padrão, comportamento 100% inalterado) ou 'wolf'/'alpha_wolf'. É o
+    // ÚNICO ponto de decisão de toda a construção: cada bloco abaixo checa
+    // `isBeast` UMA vez, nunca um `if (species === 'wolf')` espalhado por
+    // fora deste construtor.
+    constructor(playerLevel, opts = {}) {
+        const species = opts.species || 'humanoid';
+        const isBeast = species !== 'humanoid';
+
+        // Raça/nome sorteados ANTES do super() (precisa existir antes de
+        // qualquer atribuição em `this`). Fera pula inteiramente a
+        // demografia humana — nunca teve raça, nunca deveria ter nome de
+        // "Nikos Bravo"/"Grosh Sanguinário".
+        let pickedRace = null;
+        let name;
+        if (isBeast) {
+            const beastPool = BEAST_NAME_POOL[species] || BEAST_NAME_POOL.wolf;
+            name = beastPool.names[Utils.randomInt(0, beastPool.names.length - 1)];
+        } else {
+            const cityDefForName = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
+            const demographicsForName = (cityDefForName && cityDefForName.raceDemographics) ? cityDefForName.raceDemographics : null;
+            const raceIdsForName = window.RACES ? Object.keys(window.RACES) : ['humano'];
+            pickedRace = (demographicsForName && window.Utils.weightedPick)
+                ? (Utils.weightedPick(demographicsForName) || 'humano')
+                : raceIdsForName[Utils.randomInt(0, raceIdsForName.length - 1)];
+            const namePool = RACE_ENEMY_NAMES[pickedRace] || { names: ENEMY_NAMES, adjectives: ENEMY_ADJECTIVES };
+            name = `${namePool.names[Utils.randomInt(0, namePool.names.length - 1)]} ${namePool.adjectives[Utils.randomInt(0, namePool.adjectives.length - 1)]}`;
+        }
         super(name);
+
+        this.species = species;
+        this.isBeast = isBeast;
 
         // Balanceamento (pedido do usuário: jogo ficando fácil demais) —
         // era `randomInt(-1, 1)` (média = nível do jogador, podia até vir
@@ -202,10 +263,10 @@ class Enemy extends Entity {
         this.level = playerLevel + Utils.randomInt(0, 2);
         if (this.level < 1) this.level = 1;
 
-        // Elite: raro, mais forte, recompensa maior e nome de destaque (ver
-        // ELITE_ENEMY_CHANCE acima) — sorteado ANTES de generateStats/
-        // equipStyleWeapon/recompensas pra que todos eles já saibam reagir
-        // ao bônus sem precisar de nenhum caso especial fora daqui.
+        // Elite é uma fantasia HUMANA ("★ ... o Elite", aura dourada,
+        // equipamento raro) — feras têm sua própria escala de ameaça via
+        // `species` (comum vs. alfa, ver BEAST_NAME_POOL/ui.js
+        // onWolfEncounter), nunca precisou do sistema de Elite por cima.
         // Fase 6 da diretiva de balanceamento (Iteração 6) — achado #6 da
         // auditoria: taxa fixa em qualquer nível deixava um Elite (+2
         // níveis por cima do jitter normal) acessível já no nível 1, sem
@@ -213,82 +274,90 @@ class Enemy extends Entity {
         // BalanceCore.getEliteChance: zero nos 3 primeiros níveis, rampa
         // até a taxa cheia no nível 10, taxa cheia inalterada dali em
         // diante (mesmo comportamento de sempre pro resto do jogo).
-        const eliteChance = window.BalanceCore ? window.BalanceCore.getEliteChance(this.level, ELITE_ENEMY_CHANCE) : ELITE_ENEMY_CHANCE;
-        this.isElite = Utils.chance(eliteChance);
-        if (this.isElite) {
-            this.name = `★ ${this.name}, o Elite`;
-            this.level += 2;
+        if (isBeast) {
+            this.isElite = false;
+        } else {
+            const eliteChance = window.BalanceCore ? window.BalanceCore.getEliteChance(this.level, ELITE_ENEMY_CHANCE) : ELITE_ENEMY_CHANCE;
+            this.isElite = Utils.chance(eliteChance);
+            if (this.isElite) {
+                this.name = `★ ${this.name}, o Elite`;
+                this.level += 2;
+            }
         }
 
-        // Personalidade + estilo de luta (+ raramente um arquétipo raro) via
-        // motor de IA — nunca mais um simples multiplicador de dano. Sorteado
-        // ANTES da distribuição de atributos, de propósito: assim os pontos
-        // podem ser enviesados pelo `statFocus` do estilo (ver generateStats),
-        // e um "Mago" de verdade nasce com INT alto, um "Brutamontes" com
-        // STR alto, etc — antes disso os dois sistemas rolavam sem se
-        // conhecer, e um estilo podia nascer com o atributo que o define
-        // baixíssimo, por puro azar da rolagem uniforme.
-        //
-        // `raceId: pickedRace` (item 21 — ver RACE_STYLE_WEIGHTS em
-        // ai_data.js): já sorteada mais acima pro pool de nomes, então dá
-        // pra enviesar o ESTILO pela raça no mesmo passo, antes mesmo de
-        // `this.race` ser atribuído formalmente logo abaixo.
-        window.AICombat.assignProfile(this, { level: this.level, raceId: pickedRace });
+        // Personalidade + estilo de luta via motor de IA. Fera usa
+        // `forcedStyle: BEAST_FIGHTING_STYLES.fera` (ver ai.js
+        // assignProfile) — nunca o sorteio humano, e nunca um arquétipo
+        // raro por cima (rasos como "Trocador de Armas" não fazem sentido
+        // sem inventário). Personalidade (cauteloso/agressivo/veterano)
+        // continua sorteada normalmente — dá variação real de
+        // comportamento entre lobos sem precisar de nenhum sistema novo.
+        if (isBeast) {
+            window.AICombat.assignProfile(this, { level: this.level, forcedStyle: window.BEAST_FIGHTING_STYLES.fera, allowRareArchetype: false });
+        } else {
+            // `raceId: pickedRace` (item 21 — ver RACE_STYLE_WEIGHTS em
+            // ai_data.js): já sorteada mais acima pro pool de nomes, então dá
+            // pra enviesar o ESTILO pela raça no mesmo passo, antes mesmo de
+            // `this.race` ser atribuído formalmente logo abaixo.
+            window.AICombat.assignProfile(this, { level: this.level, raceId: pickedRace });
+        }
 
         // Raça (ver races.js) — antes só o Jogador tinha `.race` (escolhida
         // na Criação de Personagem); Entity.getTotalStat já soma o
         // modificador racial de forma genérica pra qualquer entidade que
         // tenha o campo, então bastava atribuir um aqui pros inimigos do
         // Duelo Rápido também terem identidade racial de verdade (não só
-        // visual), sem precisar mudar nenhuma fórmula de combate.
-        //
-        // Demografia por Cidade-Hub (ver citydatabase.js `raceDemographics`):
-        // a vasta maioria dos oponentes na Fortaleza Orc deve ser Orc, no
-        // Santuário Élfico deve ser Elfo, etc — sorteio ponderado em vez de
-        // uniforme entre todas as raças. Sem cidade definida (ou demografia
-        // ausente), cai no sorteio uniforme original entre todas as raças
-        // cadastradas, preservando o comportamento de antes do sistema de
-        // cidades existir. Já sorteada acima (`pickedRace`) pra poder
-        // escolher o pool de nome regional antes do `super(name)`.
+        // visual), sem precisar mudar nenhuma fórmula de combate. Fera
+        // nunca teve raça (null — Entity.getTotalStat já trata ausência de
+        // `.race` como "sem bônus racial", nenhum caso especial extra
+        // precisa existir por causa disso).
         this.race = pickedRace;
 
         // Distribui pontos de atributo com base no nível gerado, enviesados
-        // pelo estilo de luta já sorteado.
+        // pelo estilo de luta já sorteado (agora `fera` pra feras — STR/AGI
+        // altos, INT/CHA zerados, ver ai_data.js BEAST_FIGHTING_STYLES).
         this.generateStats();
 
-        // Aparência completa e coerente com o estilo sorteado — cada
-        // inimigo do Duelo Rápido agora parece um lutador diferente, não uma
-        // cópia idêntica só com equipamento trocado. `this.race` (linha
-        // acima) já está definido, então a pele já nasce coerente com a
-        // raça sorteada (ver races.js RaceSystem.pickSkinTone).
-        this.visuals = randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null, this.race);
+        // Aparência: fera ainda usa o gerador de visual humano por ora —
+        // um renderizador de quadrúpede próprio pra batalha é trabalho de
+        // Prioridade 4 (polimento visual) da auditoria mestre, fora do
+        // escopo desta correção arquitetural. O que MUDA de verdade em
+        // combate (nome "Lobo Cinzento", zero equipamento, habilidades
+        // próprias) já resolve a parte crítica do achado.
+        this.visuals = isBeast ? randomFighterVisuals(null, null) : randomFighterVisuals(this.aiStyle ? this.aiStyle.id : null, this.race);
 
-        // Aura dourada do Elite (reaproveita o mesmo hook visual da aura de
-        // Linhagem, ver graphics.js _drawLineageAura — `hasAura`/`auraColor`/
-        // `particle` já eram lidos genericamente ali; só nunca tinham sido
-        // setados por nada além do jogador com Linhagem despertada). Sem
-        // isso, o "★ ... o Elite" no nome era o ÚNICO sinal visual de que
-        // esse combatente é diferente — fácil de não perceber em batalha.
+        // Aura dourada do Elite — `this.isElite` já é sempre `false` pra
+        // fera (acima), então este bloco nunca dispara pra elas.
         if (this.isElite) {
             this.visuals.hasAura = true;
             this.visuals.auraColor = '#ffd700';
             this.visuals.particle = 'elite_sparks';
         }
 
-        // Arma coerente com o estilo sorteado (a menos que o arquétipo raro
-        // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
-        if (!this.aiRareArchetype || this.aiRareArchetype.id !== 'lutador_desarmado') {
-            this.equipStyleWeapon();
+        // CORREÇÃO CRÍTICA: fera nunca equipa NADA — nem arma (mordida/
+        // investida são habilidades naturais, não golpes de arma) nem
+        // armadura/capacete/trinket/runa/comida (todo o pipeline de
+        // `equipArmor()` é equipamento humano). `generateStats()` acima já
+        // finalizou HP/MP a partir dos atributos base (ver
+        // Entity.generateStatsFromStyle), então não falta nenhuma
+        // recalculação — só os humanos passam pelo equipamento.
+        if (!isBeast) {
+            // Arma coerente com o estilo sorteado (a menos que o arquétipo raro
+            // "Lutador de Punho Nu" já tenha recusado armas em assignProfile)
+            if (!this.aiRareArchetype || this.aiRareArchetype.id !== 'lutador_desarmado') {
+                this.equipStyleWeapon();
+            }
+            // Armadura independe do arquétipo — "Lutador de Punho Nu" recusa
+            // ARMA, não armadura (thematicamente é bem normal um brigão de
+            // punho nu ainda vestir proteção no torso). equipArmor() já faz a
+            // recalculação final de stats/HP/MP, então cobre os dois ramos
+            // acima sem precisar duplicar a chamada.
+            this.equipArmor();
         }
-        // Armadura independe do arquétipo — "Lutador de Punho Nu" recusa
-        // ARMA, não armadura (thematicamente é bem normal um brigão de
-        // punho nu ainda vestir proteção no torso). equipArmor() já faz a
-        // recalculação final de stats/HP/MP, então cobre os dois ramos
-        // acima sem precisar duplicar a chamada.
-        this.equipArmor();
 
         // Recompensa ao ser derrotado — Elite vale bem mais que o dobro,
-        // pra recompensar de verdade o risco extra de enfrentá-lo.
+        // pra recompensar de verdade o risco extra de enfrentá-lo (sempre
+        // 1x pra fera, já que `isElite` é sempre false pra elas).
         this.expValue = Math.floor(20 * Math.pow(1.2, this.level) * (this.isElite ? 2.2 : 1));
         this.goldValue = Math.floor(Utils.randomInt(10, 30) * (this.level * 0.5 + 1) * (this.isElite ? 2.2 : 1));
     }

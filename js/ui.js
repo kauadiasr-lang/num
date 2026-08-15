@@ -4874,11 +4874,15 @@ class UIManager {
     // lobo comum qualquer.
     onWolfEncounter(isAlpha) {
         window.SaveManager.save(window.Engine.state);
+        // Correção crítica (auditoria mestre): `species` faz o lobo entrar
+        // em combate como fera de verdade (ver enemy.js Enemy constructor)
+        // em vez de herdar a construção humana padrão — sem isso o lobo
+        // podia nascer empunhando espada e vestindo armadura.
         if (isAlpha) {
             this._pendingWolfDenAlpha = true;
-            this.beginBattleWith(new Enemy(Utils.randomInt(9, 13)));
+            this.beginBattleWith(new Enemy(Utils.randomInt(9, 13), { species: 'alpha_wolf' }));
         } else {
-            this.beginBattleWith(new Enemy(Utils.randomInt(3, 6)));
+            this.beginBattleWith(new Enemy(Utils.randomInt(3, 6), { species: 'wolf' }));
         }
     }
 

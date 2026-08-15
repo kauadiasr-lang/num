@@ -294,6 +294,35 @@ const AI_FIGHTING_STYLES = {
         statFocus: { int: 4, luk: 1, acc: 1, agi: 1, str: 1, def: 1, cha: 1 } },
 };
 
+// --- ESTILOS DE FERA (animais em combate) ---
+// Registry SEPARADO de AI_FIGHTING_STYLES de propósito — nunca deve
+// aparecer no sorteio uniforme/ponderado-por-raça que Enemy usa pra
+// humanoides (ver ai.js assignProfile: styleIds = Object.keys(
+// AI_FIGHTING_STYLES)); se 'fera' estivesse misturada ali, um Bandido ou
+// Guarda humano sem raça cadastrada em RACE_STYLE_WEIGHTS poderia sortear
+// aleatoriamente um estilo de "mordida"/"investida" sem arma — exatamente
+// o tipo de contaminação cruzada que este registro separado evita. Só é
+// usada quando um chamador passa `opts.forcedStyle` explicitamente pra
+// assignProfile (ver enemy.js Enemy constructor, espécie 'wolf'/
+// 'alpha_wolf') — nunca sorteada.
+//
+// Correção crítica (auditoria mestre): lobos usavam `new Enemy(level)`
+// exatamente como qualquer humano, herdando equipStyleWeapon()/
+// equipArmor() (espada, armadura, capacete) e um AI_FIGHTING_STYLES
+// humano qualquer via o sorteio genérico. `fera` dá aos animais um perfil
+// de combate PRÓPRIO — sem weaponPool (nunca equipa nada, ver
+// enemy.js espécie 'wolf'), habilidades naturais (mordida/investida, ver
+// registerBeastSkills em enemy.js) em vez do skillPool humano, e viés de
+// ação agressivo/corpo-a-corpo coerente com um predador.
+const BEAST_FIGHTING_STYLES = {
+    fera: { id: 'fera', name: 'Fera Selvagem', preferredRangeBand: 'melee_short',
+        weaponPool: [], preferShield: false,
+        skillPool: ['mordida_lobo', 'investida_lobo'],
+        actionBias: { ATK: 1.0, SKILL: 0.75, DEF: 0.05, APPROACH: 0.9, RETREAT: 0.25, HOLD: 0.05 },
+        statFocus: { str: 3, agi: 3, acc: 2, def: 1, luk: 1, int: 0, cha: 0 } },
+};
+window.BEAST_FIGHTING_STYLES = BEAST_FIGHTING_STYLES;
+
 // --- ARQUÉTIPOS RAROS (comportamentos únicos, chance muito baixa de aparecer) ---
 // Cada um sobrepõe regras específicas por cima de personalidade/estilo normais.
 const AI_RARE_ARCHETYPES = {
