@@ -131,6 +131,48 @@ const BalanceCore = {
         return fullChance;
     },
 
+    // Fase 3 da diretiva de balanceamento (Iteração 10) — "generalizar o
+    // Power Budget": enemy.js já tinha uma fórmula ÚNICA e deliberada de
+    // pontos de atributo por nível pra Enemy/Vampire/Ghost
+    // (`totalStatPointsForLevel`, unificada numa auditoria anterior —
+    // ver comentário lá), mas ELA NUNCA foi comparada contra a fórmula
+    // real do PRÓPRIO JOGADOR. Investigação direta (confirmada numa
+    // simulação real em runtime, não só na leitura do código) encontrou
+    // uma divergência de TAXA DE CRESCIMENTO entre os dois lados:
+    //   - Jogador (ver player.js Entity constructor + Player.levelUp):
+    //     TODA entidade (jogador ou inimigo, mesma classe base Entity)
+    //     começa com 35 de baseStats (5 × 7 atributos) — um "piso"
+    //     compartilhado, não uma escolha. Por cima disso, o jogador
+    //     ganha 10 pontos discricionários na criação de personagem e
+    //     +3 por level up. Total discricionário real: 10 + 3*(nível-1)
+    //     = 7 + 3*nível — o que soma pontos de atributo VERDADEIRAMENTE
+    //     alocados por cima do piso, exatamente como
+    //     `generateStatsFromStyle` consome este valor abaixo (`this.
+    //     baseStats[stat] += ...` por cima do MESMO piso de 35 herdado
+    //     do construtor de Entity).
+    //   - Inimigo comum (enemy.js, ANTES desta correção): recebia
+    //     35 + 5*nível pontos DISCRICIONÁRIOS (por cima do próprio piso
+    //     de 35 já embutido no construtor) — um formulista independente
+    //     que nunca foi cruzado com o do jogador, e que já testava o
+    //     piso DUAS VEZES sem perceber.
+    // Resultado medido em runtime (soma real de baseStats depois de
+    // gerar as duas entidades pelo código de verdade): nível 1,
+    // jogador=45, inimigo=84 (+87% já de saída); nível 100, jogador=342,
+    // inimigo=847 (+148%) — uma divergência que cresce sem limite e
+    // nunca aparece num teste isolado de baixo nível, só ao longo de
+    // uma campanha completa. Mesmo padrão da divergência de XP corrigida
+    // na Iteração 1, só que nos pontos de atributo, e contradiz
+    // diretamente o objetivo final da diretiva: "'mesmo nível' = poder
+    // comparável". `getTotalStatPoints` agora devolve exatamente o total
+    // DISCRICIONÁRIO do jogador (7 + 3*nível) — somado ao MESMO piso
+    // compartilhado de 35 que as duas classes já herdam de Entity, isso
+    // faz jogador e inimigo convergirem pro MESMO total de baseStats em
+    // QUALQUER nível (42 + 3*nível dos dois lados), em vez de uma
+    // divergência sem fim.
+    getTotalStatPoints(level) {
+        return 7 + level * 3;
+    },
+
     // Exposto pra testes/simulação e pra futuras Fases (Power Budget etc.)
     // reaproveitarem a mesma referência de recompensa sem reimplementar.
     _expectedRewardAt: expectedRewardAt,

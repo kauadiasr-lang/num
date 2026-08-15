@@ -139,8 +139,17 @@ function randomFighterVisuals(styleId, raceId) {
 // +2 níveis, Vampiro/Fantasma têm piso de nível mais alto que o Enemy
 // comum), só que agora só por meio do NÍVEL EFETIVO, nunca de um bônus
 // solto por cima da mesma fórmula.
+// Fase 3 da diretiva de balanceamento (Iteração 10) — a fórmula própria
+// que existia aqui (35 + nível*5) crescia numa taxa DIFERENTE da real
+// progressão de pontos de atributo do jogador (45 no nível 1, +3 por
+// level up — ver player.js), uma divergência que nunca tinha sido
+// cruzada entre os dois lados e crescia sem limite (nível 100: inimigo
+// tinha +56% de pontos sobre o jogador do MESMO nível). Delega pra
+// BalanceCore.getTotalStatPoints — ver o comentário completo lá —, que
+// agora É a fórmula real do jogador, garantindo que "mesmo nível" volte
+// a significar "mesmo total de pontos de atributo" nos dois lados.
 function totalStatPointsForLevel(level) {
-    return 35 + level * 5;
+    return window.BalanceCore.getTotalStatPoints(level);
 }
 window.totalStatPointsForLevel = totalStatPointsForLevel;
 
