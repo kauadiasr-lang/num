@@ -1359,13 +1359,28 @@ class UIManager {
     // inimigo procedural de uma emboscada comum da Estrada, só que força o
     // cenário `floresta_ancestral` (ver graphics.js ARENA_BIOMES: névoa
     // verde, vaga-lumes) em vez do bioma normal da cidade atual — a mata
-    // sagrada é neutra, nunca pertence a nenhuma Cidade-Hub. Auditoria de
-    // Combate e Escalonamento (Iteração 4) — Seção 3: por isso NUNCA
+    // sagrada é neutra, nunca pertence a nenhuma Cidade-Hub, então NUNCA
     // consulta CityDatabase/getRegionEnemyLevel (não haveria cidade pra
     // consultar) — usa uma faixa fixa própria, independente do nível do
-    // jogador, coerente com o resto da mudança.
+    // jogador.
+    //
+    // Correção (pedido direto do usuário): esta faixa fixa era 15-30 (~+2
+    // de jitter automático do construtor de Enemy, ver enemy.js "this.level
+    // = playerLevel + Utils.randomInt(0, 2)" — o parâmetro é sempre uma
+    // BASE, nunca o nível final exato). Essa era exatamente a luta que
+    // concede o Amuleto da Natureza (ver nature.js grantGuardianAmulet,
+    // chamada por _resolveNatureDiscoveryVictory ao vencer aqui) — mas a
+    // Floresta Ancestral é conteúdo INICIAL desta progressão (a primeira
+    // floresta explorável, não uma área de mid/end game), e o Amuleto
+    // precisa ser obtível por volta do nível 6. Faixa 15-30 tornava esse
+    // "primeiro chefe" da progressão dramaticamente mais forte que o
+    // esperado pra quem o encontra cedo. Nova faixa 6-9 (+jitter automático
+    // → nível final efetivo ~6-11): ainda um degrau acima de um inimigo
+    // comum do mesmo nível (é o "guardião corrompido" da floresta, deveria
+    // ser mais duro que um bandido qualquer), mas coerente com um jogador
+    // por volta do nível 6, não um personagem de mid/endgame.
     startNatureDiscoveryBattle() {
-        const enemy = new Enemy(Utils.randomInt(15, 30));
+        const enemy = new Enemy(Utils.randomInt(6, 9));
         this.beginBattleWith(enemy, 'floresta_ancestral');
     }
 

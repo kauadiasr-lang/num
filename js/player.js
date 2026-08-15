@@ -408,7 +408,21 @@ class Entity {
         // SECUNDÁRIA (Natureza) + raça, as três fontes empilham livremente.
         const sec = (key) => secondaryMutation ? (secondaryMutation[key] || 0) : 0;
         this.derivedStats.lifestealPercent = (mutation ? mutation.lifestealPercent : 0) + sec('lifestealPercent') + raceBonus('lifestealPercent');
-        this.derivedStats.hpRegenPerTurn = (mutation ? mutation.hpRegenPerTurn : 0) + sec('hpRegenPerTurn') + raceBonus('hpRegenPerTurn');
+        // Teto de regeneração passiva (pedido direto do usuário — "não deve
+        // permitir que o jogador regenere mais vida por rodada do que
+        // perde indefinidamente"): Vampirismo (árvore PRINCIPAL) sozinho já
+        // chega a 10%/turno com a árvore inteira desbloqueada (2+1+3+4, ver
+        // skilltrees.js vam_root_vigilia/vam_coagulacao/vam_regeneracao/
+        // vam_senhor_sangue) — o maior valor que QUALQUER linhagem única
+        // atinge sozinha no jogo hoje. Como Natureza é SECUNDÁRIA e pode
+        // coexistir com qualquer Principal (nunca ocupa player.lineage, ver
+        // nature.js), um personagem com Vampirismo + Natureza completos
+        // somava até 16%/turno sem nenhum teto — a identidade de cada
+        // árvore continua intacta (nenhum nó foi alterado, nenhum valor
+        // individual reduzido), só o TOTAL agregado nunca ultrapassa o
+        // teto que o próprio Vampirismo sozinho já representava como
+        // "regeneração máxima pretendida" de uma única árvore.
+        this.derivedStats.hpRegenPerTurn = Utils.clamp((mutation ? mutation.hpRegenPerTurn : 0) + sec('hpRegenPerTurn') + raceBonus('hpRegenPerTurn'), 0, 10);
         this.derivedStats.lowHpDamageBonusPercent = (mutation ? mutation.lowHpDamageBonusPercent : 0) + sec('lowHpDamageBonusPercent') + raceBonus('lowHpDamageBonusPercent');
         this.derivedStats.bleedResistPercent = (mutation ? mutation.bleedResistPercent : 0) + sec('bleedResistPercent') + raceBonus('bleedResistPercent');
         this.derivedStats.drainOnCritPercent = (mutation ? mutation.drainOnCritPercent : 0) + sec('drainOnCritPercent') + raceBonus('drainOnCritPercent');
