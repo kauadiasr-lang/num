@@ -478,17 +478,32 @@ class Entity {
     // fórmula de `totalPoints` por nível. Sem `statFocus` (estilo
     // desconhecido), cai de volta pro sorteio uniforme entre todos os atributos.
     generateStatsFromStyle(totalPoints) {
+        // Iteração 3 do balanceamento (Fase 4 da diretiva): a versão antiga
+        // sorteava CADA ponto independentemente entre os atributos (um
+        // multinomial puro, sem nenhuma baseline) — pra um inimigo de
+        // nível 50 (~285 pontos) isso significava ~285 rolagens
+        // independentes, produzindo variância absurda num único atributo
+        // sem foco (a auditoria mediu DEF entre 19 e 76 em oponentes do
+        // "mesmo nível" — reproduzido quase exatamente numa simulação
+        // Monte Carlo antes desta correção). Agora cada atributo recebe
+        // sua "cota justa" (proporcional ao peso do statFocus) como base
+        // determinística, com uma variação real mas contida (±20%) por
+        // cima — dois inimigos do mesmo nível/arquétipo continuam
+        // diferentes (nunca clones), mas nunca mais com um atributo
+        // quatro vezes maior só por sorte de rolagem. A MÉDIA fica igual
+        // à distribuição antiga (confirmado por simulação), então isso
+        // não muda o poder total esperado de nenhum arquétipo, só reduz
+        // a variância descontrolada.
         const statsArray = Object.keys(this.baseStats);
         const focus = this.aiStyle && this.aiStyle.statFocus;
-        const weightedPool = [];
+        const totalWeight = statsArray.reduce((sum, stat) => sum + (focus ? (focus[stat] || 1) : 1), 0);
         statsArray.forEach(stat => {
             const weight = focus ? (focus[stat] || 1) : 1;
-            for (let w = 0; w < weight; w++) weightedPool.push(stat);
+            const fairShare = totalPoints * (weight / totalWeight);
+            const variance = Math.round(fairShare * 0.20);
+            const allocated = variance > 0 ? fairShare + Utils.randomInt(-variance, variance) : fairShare;
+            this.baseStats[stat] += Math.max(0, Math.round(allocated));
         });
-        for (let i = 0; i < totalPoints; i++) {
-            const randomStat = weightedPool[Utils.randomInt(0, weightedPool.length - 1)];
-            this.baseStats[randomStat]++;
-        }
         this.calculateDerivedStats();
         this.currentHp = this.derivedStats.maxHp;
         this.currentMp = this.derivedStats.maxMp;
