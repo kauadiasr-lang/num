@@ -1036,7 +1036,20 @@ class BattleSystem {
                     // de INT continuam fortes (ainda ligeiramente à frente, compensando
                     // o custo/gestão de mana), só sem a explosão desproporcional
                     // tardia. Ver /tmp/pw/sim_coef_search.js para a simulação completa.
-                    const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.getTotalStat('int') * 2.5 * skill.powerMulti));
+                    //
+                    // Auditoria mestre (achado #2 — dano mágico sem levelDamageBonus):
+                    // `derivedStats.physicalDamage` (ver player.js calculateDerivedStats)
+                    // é `str*1.5 + levelDamageBonus(level)`, e toda habilidade PHYSICAL
+                    // multiplica essa SOMA pelo powerMulti (ver bloco PHYSICAL abaixo,
+                    // `physicalDamage * skill.powerMulti`) — o dano mágico nunca teve o
+                    // termo `levelDamageBonus` equivalente, ficando cada vez mais fraco
+                    // que o físico em personagens de nível alto (mesma causa raiz do
+                    // "achatamento de ameaça" documentado em levelDamageBonus acima,
+                    // só que nunca corrigida do lado mágico). Mesma forma estrutural do
+                    // físico: soma o bônus de nível ANTES de multiplicar por powerMulti
+                    // (não depois), pra escalar com a força da habilidade igual ao físico.
+                    const magicBase = this.player.getTotalStat('int') * 2.5 + levelDamageBonus(this.player.level);
+                    const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(magicBase * skill.powerMulti));
                     // Mitigação real (Iteração 2 do balanceamento, ver
                     // js/balance.js `mitigateMagicDamage`) — mesma curva
                     // percentual de diminishing returns da defesa física,
@@ -1327,8 +1340,13 @@ class BattleSystem {
         } else if (skill.type === 'MAGIC') {
             // Mesmo coeficiente 2.5 do lado do jogador (ver comentário em
             // executeSkill/player MAGIC, item 15) — mantém simetria entre
-            // magos jogadores e magos inimigos.
-            const magicDmg = this.applyLineageWeakness(this.enemy, this.player, Math.floor(this.enemy.getTotalStat('int') * 2.5 * skill.powerMulti));
+            // magos jogadores e magos inimigos. Mesmo `levelDamageBonus`
+            // do lado do jogador (auditoria mestre, achado #2) — sem isso,
+            // um inimigo conjurador de nível alto ficava desproporcionalmente
+            // fraco (a mesma causa raiz documentada em levelDamageBonus,
+            // nunca estendida ao lado mágico até agora).
+            const enemyMagicBase = this.enemy.getTotalStat('int') * 2.5 + levelDamageBonus(this.enemy.level);
+            const magicDmg = this.applyLineageWeakness(this.enemy, this.player, Math.floor(enemyMagicBase * skill.powerMulti));
             // Mitigação real (Iteração 2 do balanceamento, ver
             // js/balance.js `mitigateMagicDamage`) — mesma curva
             // percentual de diminishing returns da defesa física, em vez
