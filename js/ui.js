@@ -4170,7 +4170,16 @@ class UIManager {
         let message;
         if (!caught) {
             p.cureFatigue(3); // dormiu bem, sem pagar — mesma cura completa do dormir pago, foi a aposta que compensou
-            message = 'Você encontrou um canto tranquilo da Taverna e dormiu sem ser incomodado.';
+            // Fase 7 da diretiva de balanceamento (Iteração 5): mesmo
+            // gratuito, um descanso bem-sucedido também recupera uma
+            // fração do HP que falta — bem menor que o dormir pago (20%
+            // contra 50%), pra continuar valendo a pena pagar quando o
+            // jogador TEM ouro, mas dando uma saída real de uma espiral de
+            // derrota mesmo pra quem não tem nada (achado #3 da auditoria).
+            const missingHp = p.derivedStats.maxHp - p.currentHp;
+            const hpHealed = missingHp > 0 ? Math.floor(missingHp * 0.2) : 0;
+            if (hpHealed > 0) p.currentHp = Utils.clamp(p.currentHp + hpHealed, 0, p.derivedStats.maxHp);
+            message = 'Você encontrou um canto tranquilo da Taverna e dormiu sem ser incomodado.' + (hpHealed > 0 ? ` Recuperou ${hpHealed} HP.` : '');
             window.AudioManager.playHeal();
         } else {
             p.fatigue = 3;
@@ -4249,6 +4258,17 @@ class UIManager {
         if (fatigue > 0) p.cureFatigue(fatigue);
         p.nightsWithoutSleep = 0; // dormiu de verdade — zera o contador de noites em claro (ver city.js _onNightFalls)
 
+        // Fase 7 da diretiva de balanceamento (Iteração 5) — achado #3 da
+        // auditoria: "descanso" só tratava fadiga, nunca HP, então um
+        // personagem sem poção/bandagem não tinha NENHUM jeito de sair de
+        // uma espiral de derrota (perde -> HP trava em 10% -> perde de
+        // novo). Dormir pago cura metade do HP que falta — nunca 100%
+        // grátis (bandagem/poção continuam sendo a cura "de verdade"),
+        // mas o suficiente pra realmente quebrar o ciclo.
+        const missingHp = p.derivedStats.maxHp - p.currentHp;
+        const hpHealed = missingHp > 0 ? Math.floor(missingHp * 0.5) : 0;
+        if (hpHealed > 0) p.currentHp = Utils.clamp(p.currentHp + hpHealed, 0, p.derivedStats.maxHp);
+
         // Dormir avança o relógio da cidade pro período OPOSTO do atual —
         // dia vira noite e noite vira dia (dawn/sunset invertem entre si do
         // mesmo jeito, já que ficam exatamente na metade oposta do ciclo de
@@ -4271,9 +4291,10 @@ class UIManager {
         window.SaveManager.save(window.Engine.state);
         window.AudioManager.playHeal();
 
-        document.getElementById('healer-message').innerText = fatigue > 0
+        const hpNote = hpHealed > 0 ? ` Recuperou ${hpHealed} HP.` : '';
+        document.getElementById('healer-message').innerText = (fatigue > 0
             ? 'Você dormiu e descansou. Fadiga totalmente curada!'
-            : 'Você dormiu bem. Amanhã será outro dia.';
+            : 'Você dormiu bem. Amanhã será outro dia.') + hpNote;
         this.updateHealerScreen();
         this.updateHubStats();
     }
