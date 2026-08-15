@@ -54,38 +54,52 @@ function levelDefenseBonus(level) {
     return 15 + (level - 25);
 }
 
-// ACHADO da Iteração 11 do balanceamento (Fase 3 continuada, ver
-// js/balance.js BalanceCore.getTotalStatPoints) — NÃO corrigido ainda,
-// registrado aqui de propósito pra não se perder: levelHpBonus/
-// levelDefenseBonus acima dão a HP/Defesa um bônus DIRETO por nível,
-// crescente por faixa (função explícita do nível, não só dos pontos de
-// atributo) — mas não existe NENHUM `levelDamageBonus` equivalente pro
-// dano físico/mágico, que continua vindo só de `str * 1.5`
-// (calculateDerivedStats abaixo). Confirmado com simulação de combate
-// REAL (não só a heurística de _powerScore): num duelo espelhado
-// (mesmo nível), a vitória de quem tem +15 níveis de vantagem cai de
-// ~58% no nível base 10 pra ~13% no nível base 90 — ou seja, a MESMA
-// diferença absoluta de nível fica proporcionalmente menos perigosa
-// quanto mais alto o nível base, porque HP/Defesa (que têm bônus
-// direto acelerado por nível) crescem mais rápido que Dano (que só tem
-// o bônus indireto, linear, dos pontos de atributo). Efeito colateral
-// provável: a sensação de "fica mais fácil no fim de jogo" mesmo com
-// oponentes nominalmente mais fortes.
+// Iteração 12 do balanceamento (Fase 3 continuada) — implementa o
+// achado registrado na Iteração 11: levelHpBonus/levelDefenseBonus
+// davam a HP/Defesa um bônus direto e ACELERADO por nível, mas dano
+// físico só vinha do investimento indireto em Força — então a MESMA
+// vantagem de nível ficava cada vez menos perigosa em termos de
+// combate real conforme o nível base subia (medido por simulação:
+// +15 níveis dava ~58% de vitória pro mais forte no nível-base 10, mas
+// só ~13% no nível-base 90). `levelDamageBonus`, igual a
+// levelHpBonus/levelDefenseBonus, é compartilhado por TODA Entity
+// (jogador e inimigo pela mesma calculateDerivedStats) — nunca dá
+// vantagem a um lado só, só restaura o peso do NÍVEL (não só dos
+// pontos de atributo) também na ofensiva.
 //
-// NÃO corrigido nesta iteração de propósito: a correção óbvia (um
-// `levelDamageBonus` simétrico, aplicado a QUALQUER Entity — jogador e
-// inimigo igualmente, nunca só um lado) exigiria o MESMO processo de
-// calibração cuidadosa por simulação que levelHpBonus/levelDefenseBonus
-// já passaram (ver comentário acima: "duas rodadas de ajuste" até o
-// nível 60 espelhado ficar em ~43 turnos) — sem isso, um bônus de dano
-// mal calibrado facilmente vira o oposto do problema (combates
-// instantâneos/injustos no lugar de arrastados). Fica registrado como
-// alvo dedicado de uma iteração futura, com o script de simulação já
-// escrito (ver /tmp/pw/sim_threat_flatten.js, não versionado — reescrever
-// a mesma lógica: BattleSystem.executeAttack em loop ATK-vs-ATK, medindo
-// taxa de vitória por delta de nível, ANTES e DEPOIS de qualquer
-// candidato a fórmula, nas duas métricas — espelhado E com delta —, não
-// só uma das duas.
+// Calibrado por simulação de combate real (BattleSystem.executeAttack
+// em loop ATK-vs-ATK, não só a heurística de _powerScore) em DUAS
+// métricas simultâneas, seguindo a mesma disciplina que
+// levelHpBonus/levelDefenseBonus já documentam ter exigido:
+//   (A) duelo ESPELHADO (mesmo nível) não pode encurtar demais — os
+//       turnos médios só precisavam ficar moderadamente mais curtos
+//       (nível 90: ~23 → ~17 turnos na simulação, não uma queda livre).
+//   (B) taxa de vitória por DELTA de nível precisava subir de verdade
+//       em níveis altos — resultado observado: nível-base 90, +15
+//       níveis, taxa de vitória do mais forte foi de ~5% (sem este
+//       bônus) pra ~38% (com), sem inflar demais o padrão já existente
+//       em níveis baixos (nível-base 10, +15: ~65% sem, ~68% com —
+//       quase inalterado, de propósito).
+// Três candidatos testados (suave/médio/forte); "médio" foi o
+// escolhido por restaurar a maior parte da relação delta-de-nível
+// sem comprimir os duelos espelhados tão bruscamente quanto o
+// candidato "forte" chegava a fazer.
+function levelDamageBonus(level) {
+    if (level <= 10) return 0;
+    if (level <= 25) return Math.round((level - 10) * 0.6);
+    return Math.round(9 + (level - 25) * 1.2);
+}
+window.levelDamageBonus = levelDamageBonus;
+
+// Dano mágico (ver battle.js, calculado no momento do cast a partir de
+// `getTotalStat('int')`, fora de calculateDerivedStats) NÃO recebeu o
+// mesmo tratamento nesta iteração — é uma fórmula separada, com sua
+// própria calibração histórica (ver comentário da Iteração 2 do
+// balanceamento em battle.js sobre mitigação mágica), e mereceria a
+// MESMA disciplina de simulação em duas métricas antes de qualquer
+// mudança, não uma extensão apressada do que foi calibrado aqui pro
+// dano físico. Registrado como possível alvo de uma iteração futura,
+// não assumido como resolvido por tabela.
 window.levelDefenseBonus = levelDefenseBonus;
 
 class Entity {
@@ -231,7 +245,7 @@ class Entity {
         let maxMp = 20 + (int * 8) + (this.level * 3);
 
         // Fórmulas de combate
-        let physicalDamage = Math.floor(str * 1.5);
+        let physicalDamage = Math.floor(str * 1.5) + levelDamageBonus(this.level);
         let dodgeChance = Utils.clamp((agi * 0.5) + (luk * 0.1), 0, 45); // Max 45% esquiva natural
         let critChance = Utils.clamp((agi * 0.2) + (luk * 0.5), 1, 50);
         let defenseRating = def * 2 + levelDefenseBonus(this.level);
