@@ -1871,7 +1871,11 @@ class GraphicsEngine {
         // abertas, sem nenhuma estrutura fechando o perímetro ("as
         // muralhas não cercam a cidade inteira... incluindo as laterais").
         if (plazaBottom) {
-            const sideW = Math.max(28, w * 0.032);
+            // Fonte única (ver CityEngine.wallSideWidth/WALL_SIDE_MIN_WIDTH/
+            // WALL_SIDE_WIDTH_FRAC em city.js, auditoria mestre achado #5) —
+            // mesmo valor que os limites de movimento/colisão da Praça usam,
+            // pra nunca a muralha DESENHADA divergir da muralha COLIDIDA.
+            const sideW = typeof CityEngine !== 'undefined' ? CityEngine.wallSideWidth(w) : Math.max(28, w * 0.032);
             this._drawCitySideWall(ctx, 0, sideW, horizon, plazaBottom, wallColors, false);
             this._drawCitySideWall(ctx, w, sideW, horizon, plazaBottom, wallColors, true);
         }

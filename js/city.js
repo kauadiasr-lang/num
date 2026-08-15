@@ -428,7 +428,13 @@ class CityEngine {
         // Usa exatamente os mesmos bounds de _updateMovement (o clamp que
         // já roda todo frame durante o jogo normal), nunca um cálculo
         // paralelo — assim os dois nunca podem voltar a divergir.
-        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(newH) + 20 * this._cityScale(newH), maxY: this._plazaBottom(newH) + 30 };
+        // minX/maxX (auditoria mestre, achado #5): derivados da MESMA
+        // espessura de muralha lateral que graphics.js desenha de verdade
+        // (ver CityEngine.wallSideWidth), não mais uma margem fixa de 30px
+        // desconectada da parede visual.
+        const newWorldW = this._worldWidth();
+        const newSideW = CityEngine.wallSideWidth(newWorldW);
+        const bounds = { minX: newSideW, maxX: newWorldW - newSideW, minY: this._horizon(newH) + 20 * this._cityScale(newH), maxY: this._plazaBottom(newH) + 30 };
         const clampToBounds = (entity) => {
             entity.x = Utils.clamp(entity.x, bounds.minX, bounds.maxX);
             entity.y = Utils.clamp(entity.y, bounds.minY, bounds.maxY);
@@ -2266,7 +2272,13 @@ class CityEngine {
         // andável), tornando-a estruturalmente inalcançável. Escalar a
         // folga junto (mesmo fator que tudo mais nesta cena usa) resolve
         // sem precisar reduzir o valor de referência pra telas grandes.
-        const bounds = { minX: 30, maxX: this._worldWidth() - 30, minY: this._horizon(h) + 20 * this._cityScale(h), maxY: this._plazaBottom(h) + 30 };
+        // minX/maxX (auditoria mestre, achado #5): derivados da MESMA
+        // espessura de muralha lateral desenhada de verdade (ver
+        // CityEngine.wallSideWidth/graphics.js _drawCitySideWall), não mais
+        // uma margem fixa de 30px sem relação nenhuma com a parede visual.
+        const worldW = this._worldWidth();
+        const sideW = CityEngine.wallSideWidth(worldW);
+        const bounds = { minX: sideW, maxX: worldW - sideW, minY: this._horizon(h) + 20 * this._cityScale(h), maxY: this._plazaBottom(h) + 30 };
         const p = this.player;
         let targetVx = 0, targetVy = 0;
         const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
@@ -2370,7 +2382,15 @@ class CityEngine {
         // por findPath usaria um minY diferente do que o clamp de
         // movimento real aplica todo frame, podendo gerar um destino que o
         // próprio _updateMovement rejeitaria depois.
-        const bounds = { minX: 32, maxX: this._worldWidth() - 32, minY: this._horizon(h) + 24 * this._cityScale(h), maxY: this._plazaBottom(h) + 26 };
+        // minX/maxX (auditoria mestre, achado #5): mesma espessura real de
+        // muralha (CityEngine.wallSideWidth) que _updateMovement usa, +2px
+        // de folga de segurança — preserva a mesma relação "findPath um
+        // pouco mais apertado que o clamp real" que já existia entre 32 e
+        // 30 antes desta correção, só agora ancorada na parede de verdade
+        // em vez de dois números fixos escolhidos à mão.
+        const destWorldW = this._worldWidth();
+        const destSideW = CityEngine.wallSideWidth(destWorldW) + 2;
+        const bounds = { minX: destSideW, maxX: destWorldW - destSideW, minY: this._horizon(h) + 24 * this._cityScale(h), maxY: this._plazaBottom(h) + 26 };
         const path = PlayerController.findPath(this.player.x, this.player.y, x, y, this._obstacleRectsForCollision(), bounds);
         this.player.pathQueue = path.slice(1);
         const first = path[0];
@@ -4053,6 +4073,27 @@ class CityEngine {
     // quanto por _makeCaravanTraveler (posiciona o NPC exatamente dentro do
     // vão), pra nunca dessincronizar visual e posição de interação.
     static get GATE_XFRAC() { return 0.965; }
+
+    // Espessura das muralhas LATERAIS (ver GraphicsEngine._drawCitySideWall
+    // — MESMA fórmula `Math.max(WALL_SIDE_MIN_WIDTH, worldW *
+    // WALL_SIDE_WIDTH_FRAC)`, mesmo padrão de fonte única de GATE_XFRAC
+    // acima). Auditoria mestre (achado #5) — antes disso existir, a
+    // colisão/limite de movimento (`_updateMovement`/`_setPlayerDestination`/
+    // `handleResize`) usava uma margem plana hardcoded (30px) totalmente
+    // desconectada de onde a muralha lateral é REALMENTE desenhada (que
+    // escala com a largura do mundo, `worldW * 0.032`) — em mundos mais
+    // largos a muralha visual ficava bem mais grossa que a margem de
+    // colisão, deixando uma faixa "fantasma" entre o fim da área andável e
+    // a face interna real da muralha (ou, em mundos estreitos, o oposto:
+    // colisão mais generosa que a muralha visual, deixando o jogador
+    // visualmente "dentro" da pedra). Ter as duas em UMA fonte única
+    // elimina a divergência de vez, do mesmo jeito que GATE_XFRAC já fazia
+    // pro portão.
+    static get WALL_SIDE_MIN_WIDTH() { return 28; }
+    static get WALL_SIDE_WIDTH_FRAC() { return 0.032; }
+    static wallSideWidth(worldW) {
+        return Math.max(CityEngine.WALL_SIDE_MIN_WIDTH, worldW * CityEngine.WALL_SIDE_WIDTH_FRAC);
+    }
 
     // Mapa tier→id(s) de material (ver items.js ItemDatabase.materials/
     // _collectOreVein acima) — um veio guarda o TIER sorteado (número), não
