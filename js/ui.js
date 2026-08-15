@@ -1285,6 +1285,26 @@ class UIManager {
             `${archetype}${weapon ? ' · ' + weapon.name : ''}`,
             `Ameaça: ${threat.label}`,
         ];
+        // Fase 12 da diretiva de balanceamento (Iteração 8) — achado #13
+        // da auditoria original ("dreno de ouro por duelo"): o dreno em
+        // si é real e deliberado (ver battle.js endBattle, seção 2 do
+        // Sistema de Reputação — perde 8-15,5% do ouro CARREGADO numa
+        // derrota, nunca o guardado no Banco), mas o jogador nunca sabia
+        // disso ANTES de clicar em Lutar — só descobria depois de já ter
+        // perdido. Mesma fórmula EXATA de battle.js `goldLossPercent`
+        // (reaproveitando `ReputationSystem._opponentWeight`, nunca uma
+        // cópia divergente), só pra exibir o risco com antecedência —
+        // não muda nenhum valor de perda real, só a informação disponível
+        // antes da decisão (mesmo espírito do aviso de ameaça já exibido
+        // aqui desde a Iteração 4, e do telegraph de golpe finalizador da
+        // Iteração 7). Omitido quando o jogador não carrega ouro nenhum
+        // (nada a arriscar, nada a avisar).
+        if (p.gold > 0 && window.ReputationSystem) {
+            const weight = window.ReputationSystem._opponentWeight(enemy);
+            const goldLossPercent = 0.08 + weight * 0.015;
+            const goldAtRisk = Math.min(p.gold, Math.round(p.gold * goldLossPercent));
+            lines.push(`Risco: -${goldAtRisk}g se perder`);
+        }
         document.getElementById('duel-threat-text').innerText = lines.join('\n');
         document.getElementById('duel-threat-preview').classList.remove('hidden');
 
