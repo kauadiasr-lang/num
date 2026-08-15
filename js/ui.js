@@ -2881,6 +2881,33 @@ class UIManager {
         loadEl.innerText = p.derivedStats.currentLoad;
         loadEl.style.color = p.derivedStats.isOverloaded ? '#ff4444' : '';
         document.getElementById('stat-load-max').innerText = Math.round(p.derivedStats.carryCapacity);
+
+        // Fase 15 da diretiva de balanceamento (Iteração 15) — sinaliza aqui,
+        // no ponto exato onde o jogador troca de equipamento, se o Estilo de
+        // Combate ATIVO está realmente compatível com o que está equipado
+        // agora. Sem isso, a única forma de descobrir era abrir o menu
+        // dedicado de Estilos e reparar no rótulo "Equipamento incompatível"
+        // — nada avisava DURANTE a troca, o momento em que a incompatibilidade
+        // é criada. Mesmo espírito informacional do risco de ouro da prévia
+        // do Duelo Rápido (Iteração 8) e do telegraph de golpe finalizador
+        // (Iteração 7): nenhum número de jogo muda, só a informação
+        // disponível na hora certa. Só aparece se o jogador já tiver um
+        // estilo ativo (a maioria não tem, ver combatstyles.js LEARN_COST) —
+        // nunca polui a tela pra quem ainda não usa o sistema.
+        const styleStatusEl = document.getElementById('stat-combatstyle');
+        if (styleStatusEl) {
+            if (p.combatStyle && window.CombatStyleSystem) {
+                const style = window.CombatStyleSystem.getStyle(p.combatStyle);
+                const compatible = window.CombatStyleSystem.isStyleCompatible(p, p.combatStyle);
+                styleStatusEl.classList.remove('hidden');
+                styleStatusEl.innerHTML = compatible
+                    ? `<span style="color:#7ee787">✓ Estilo ${style.name}: passivas ativas</span>`
+                    : `<span style="color:#ff8866">⚠ Estilo ${style.name}: equipamento incompatível — passivas desativadas</span>`;
+            } else {
+                styleStatusEl.classList.add('hidden');
+                styleStatusEl.innerHTML = '';
+            }
+        }
     }
 
     renderEquipment() {

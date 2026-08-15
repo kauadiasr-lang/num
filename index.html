@@ -574,6 +574,19 @@
                                 <p>Carga: <span id="stat-load">0</span>/<span id="stat-load-max">0</span></p>
                             </div>
 
+                            <!-- Fase 15 da diretiva de balanceamento (Iteração 15) —
+                                 achado: fora do menu dedicado de Estilos de Combate, nenhum
+                                 lugar do jogo avisava se o estilo ATIVO do jogador estava
+                                 realmente contribuindo com as passivas ou não — equipar algo
+                                 incompatível (ex: escudo com um estilo de arma longa)
+                                 desativava tudo em silêncio. Aqui, no exato lugar onde o
+                                 jogador troca de equipamento, é o ponto de decisão certo pra
+                                 avisar ANTES do arrependimento (mesmo espírito do risco de
+                                 ouro na prévia do Duelo Rápido, Iteração 8). Escondido por
+                                 padrão (updateInventoryStats só mostra se houver estilo
+                                 aprendido e ativo). -->
+                            <p id="stat-combatstyle" class="hidden"></p>
+
                             <div class="setting-toggle">
                                 <span>Sangue nos combates:</span>
                                 <button id="btn-toggle-blood" class="btn-small">Desligado</button>
