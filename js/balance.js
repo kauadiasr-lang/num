@@ -115,6 +115,22 @@ const BalanceCore = {
         return { ratio, label };
     },
 
+    // Fase 6 da diretiva de balanceamento (Iteração 6) — achado #6 da
+    // auditoria: Elite podia aparecer com a MESMA chance (12%, ver
+    // enemy.js ELITE_ENEMY_CHANCE) em qualquer nível, inclusive o
+    // primeiro — um Elite soma +2 níveis por cima do jitter normal
+    // (+0..+2), então um jogador recém-criado podia encontrar um
+    // oponente até 4 níveis acima sem ter absolutamente nenhuma
+    // ferramenta pra lidar com isso. "O jogo deve ensinar antes de
+    // punir": zero chance de Elite nos 3 primeiros níveis, rampa linear
+    // até a taxa cheia no nível 10, taxa cheia inalterada dali pra
+    // frente (nunca muda o que já funcionava pro resto do jogo).
+    getEliteChance(level, fullChance) {
+        if (level <= 3) return 0;
+        if (level <= 10) return Math.round(fullChance * (level - 3) / 7);
+        return fullChance;
+    },
+
     // Exposto pra testes/simulação e pra futuras Fases (Power Budget etc.)
     // reaproveitarem a mesma referência de recompensa sem reimplementar.
     _expectedRewardAt: expectedRewardAt,

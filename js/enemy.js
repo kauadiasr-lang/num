@@ -197,7 +197,15 @@ class Enemy extends Entity {
         // ELITE_ENEMY_CHANCE acima) — sorteado ANTES de generateStats/
         // equipStyleWeapon/recompensas pra que todos eles já saibam reagir
         // ao bônus sem precisar de nenhum caso especial fora daqui.
-        this.isElite = Utils.chance(ELITE_ENEMY_CHANCE);
+        // Fase 6 da diretiva de balanceamento (Iteração 6) — achado #6 da
+        // auditoria: taxa fixa em qualquer nível deixava um Elite (+2
+        // níveis por cima do jitter normal) acessível já no nível 1, sem
+        // o jogador ter nenhuma ferramenta pra lidar com isso. Ver
+        // BalanceCore.getEliteChance: zero nos 3 primeiros níveis, rampa
+        // até a taxa cheia no nível 10, taxa cheia inalterada dali em
+        // diante (mesmo comportamento de sempre pro resto do jogo).
+        const eliteChance = window.BalanceCore ? window.BalanceCore.getEliteChance(this.level, ELITE_ENEMY_CHANCE) : ELITE_ENEMY_CHANCE;
+        this.isElite = Utils.chance(eliteChance);
         if (this.isElite) {
             this.name = `★ ${this.name}, o Elite`;
             this.level += 2;
