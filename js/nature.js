@@ -41,21 +41,7 @@ const NATURE_LINEAGE = {
     name: 'Natureza',
     tagline: 'A floresta lembra de quem a protege.',
     specialty: ['Cura', 'Regeneração', 'Purificação', 'Resistências', 'Espíritos'],
-    skillTreeId: 'natureza',
-    // Auditoria mestre (achado #3) — o encontro da Floresta Ancestral
-    // usa uma faixa de inimigo FIXA (nível 15-30, ver ui.js
-    // startNatureDiscoveryBattle, decisão deliberada da Auditoria de
-    // Combate e Escalonamento Iteração 4: conteúdo neutro/sagrado não
-    // escala pro jogador, igual não escala por cidade). Isso é coerente
-    // como DIFICULDADE, mas o ACESSO direto pelo Portão (ver
-    // ui.js openCaravan) nunca teve nenhum aviso ou trava — um
-    // personagem nível 1 podia entrar direto numa luta nível 15-30 sem
-    // nenhum sinal alem do texto de sabor. `minLevel` é só isso: o
-    // portão de ACESSO (mesmo padrão de `city.unlockLevel` já usado
-    // pelas cidades reais no Mestre de Caravanas), nunca uma mudança na
-    // dificuldade em si — o encontro continua nível 15-30 fixo pra quem
-    // já pode entrar.
-    minLevel: 15
+    skillTreeId: 'natureza'
 };
 window.NATURE_LINEAGE = NATURE_LINEAGE;
 

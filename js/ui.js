@@ -4647,34 +4647,11 @@ class UIManager {
         const forestCard = document.getElementById('caravan-forest-card');
         if (forestCard) {
             const alreadyDiscovered = window.NatureSystem && !window.NatureSystem.isDiscoveryAvailable(p);
-            // Auditoria mestre (achado #3) — trava de acesso pro nível
-            // mínimo (ver nature.js NATURE_LINEAGE.minLevel), MESMO padrão
-            // visual/estrutural já usado pelas cidades reais logo abaixo
-            // (`isLocked`/`🔒 Requer nível N`) em vez de um aviso novo e
-            // divergente. Nunca muda a dificuldade do encontro em si (ainda
-            // nível 15-30 fixo, decisão deliberada preservada) — só evita
-            // que um personagem nível 1 entre lá sem nenhum sinal.
-            const minLevel = (window.NatureSystem && window.NatureSystem.get().minLevel) || 1;
-            const isForestLocked = p.level < minLevel;
-            forestCard.classList.toggle('caravan-card-locked', isForestLocked);
-            forestCard.querySelector('.caravan-card-info p').innerText = isForestLocked
-                ? 'Os caminhos sagrados ainda não se revelam a você — volte quando for mais experiente.'
-                : (alreadyDiscovered
-                    ? 'A mata sagrada entre as cidades — segredos e recursos ainda esperam por quem a percorrer de novo.'
-                    : 'Uma mata neutra e antiga entre as cidades. Dizem que algo ancestral espreita lá dentro.');
-            // O card da Floresta é um elemento ESTÁTICO do index.html (ao
-            // contrário dos cards de cidade, recriados do zero a cada
-            // openCaravan() via cities.map/innerHTML) — nunca troca o
-            // outerHTML do botão por um `<span>` aqui: isso destruiria o
-            // elemento permanentemente, e uma reabertura futura desta tela
-            // (já acima do nível mínimo) não teria mais nenhum botão pra
-            // restaurar. Alterna disabled/texto/onclick no MESMO elemento.
+            forestCard.querySelector('.caravan-card-info p').innerText = alreadyDiscovered
+                ? 'A mata sagrada entre as cidades — segredos e recursos ainda esperam por quem a percorrer de novo.'
+                : 'Uma mata neutra e antiga entre as cidades. Dizem que algo ancestral espreita lá dentro.';
             const btn = forestCard.querySelector('#btn-forest-expedition');
-            if (btn) {
-                btn.disabled = isForestLocked;
-                btn.innerText = isForestLocked ? `🔒 Requer nível ${minLevel}` : 'Entrar na Floresta (a pé, grátis)';
-                btn.onclick = isForestLocked ? null : () => this.startForestExpedition();
-            }
+            if (btn) btn.onclick = () => this.startForestExpedition();
         }
 
         const container = document.getElementById('caravan-container');
@@ -4977,16 +4954,6 @@ class UIManager {
     startForestExpedition() {
         if (!window.RoadEngine) return;
         const p = window.Engine.state.player;
-        // Auditoria mestre (achado #3) — mesma trava de nível mínimo do
-        // card no Mestre de Caravanas (ver openCaravan), repetida aqui
-        // defensivamente (nunca confia só no botão estar desabilitado —
-        // mesmo padrão de outras ações com pré-requisito neste arquivo).
-        const minLevel = (window.NatureSystem && window.NatureSystem.get().minLevel) || 1;
-        if (p.level < minLevel) {
-            window.AudioManager.playError();
-            if (window.MainMenu) window.MainMenu.showToast(`Requer nível ${minLevel} para entrar na Floresta Ancestral.`, 'error');
-            return;
-        }
         if (p.roadWorldJourney) {
             window.AudioManager.playError();
             if (window.MainMenu) window.MainMenu.showToast('Não foi possível entrar na floresta agora.', 'error');
