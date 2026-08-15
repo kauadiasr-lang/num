@@ -578,7 +578,7 @@ const AICombat = {
             const nextStep = ai.comboQueue.shift();
             const flavor = ai.comboFlavor.shift();
             const resolved = this._resolveComboStep(battle, nextStep);
-            if (resolved) return { ...resolved, message: flavor };
+            if (resolved) return { ...resolved, message: this._appendFinisherWarning(flavor, ai.comboQueue) };
             // passo inválido agora (ex: habilidade em recarga) — descarta o resto do combo
             ai.comboQueue = []; ai.comboFlavor = [];
         }
@@ -819,7 +819,51 @@ const AICombat = {
         if (!first) return null;
         battle.enemy.aiState.comboQueue = combo.steps.slice(1);
         battle.enemy.aiState.comboFlavor = combo.flavor.slice(1);
-        return { ...first, message: combo.flavor[0] };
+        return { ...first, message: this._appendFinisherWarning(combo.flavor[0], battle.enemy.aiState.comboQueue) };
+    },
+
+    // Fase 8 da diretiva de balanceamento (Iteração 7) — achado #8 da
+    // auditoria original: "Golpe Pesado"/combos terminados em habilidade
+    // de dano relevante eram a MAIOR causa isolada de morte registrada
+    // (76/339 mortes). O dano em si (150-220% de multiplicador + até
+    // +50% de crítico em cima) não é irracional pra uma habilidade que
+    // custa MP e tem recarga — o problema real é que o combo não dava
+    // NENHUM aviso EXPLÍCITO de que o próximo golpe do inimigo seria o
+    // forte: a narração das etapas anteriores (ver AI_COMBOS flavor) é
+    // ambientação, não um sinal que o jogador aprendeu a ler, então o
+    // tombo de HP parecia loteria mesmo sendo, na prática, previsível
+    // com 1 turno inteiro de antecedência (o jogador SEMPRE age entre
+    // dois turnos do inimigo). Isso bate direto nos critérios de
+    // injustiça da própria auditoria ("o jogo ensinou isso?" = não).
+    //
+    // Correção: quando o PRÓXIMO passo já enfileirado é uma habilidade
+    // de dano relevante, anexa um aviso explícito na mensagem do turno
+    // ATUAL do inimigo — dando ao jogador a chance real de Defender
+    // (dobra a Defesa, ver battle.js `defenseRating *= 2`), recuar ou
+    // usar um consumível ANTES do golpe cair, em vez de descobrir só
+    // depois do dano aplicado. "Relevante" é lido do próprio SkillDB
+    // (powerMulti >= 1.3, tipo de dano direto) em vez de uma lista fixa
+    // de IDs — segue a convenção de registries orientados a dados do
+    // projeto (ver CLAUDE.md): qualquer habilidade nova que já se
+    // qualifique nesses termos passa a ser telegrafada automaticamente,
+    // sem precisar tocar neste arquivo de novo. Puramente uma mudança de
+    // INFORMAÇÃO — nenhum número de dano, chance de acerto ou crítico
+    // é alterado por esta correção.
+    _isFinisherSkill(skillId) {
+        const sk = window.SkillDB[skillId];
+        if (!sk) return false;
+        return (sk.type === 'PHYSICAL' || sk.type === 'LIFESTEAL' || sk.type === 'MAGIC') && sk.powerMulti >= 1.3;
+    },
+
+    _appendFinisherWarning(message, comboQueue) {
+        if (comboQueue.length > 0 && comboQueue[0].startsWith('SKILL:')) {
+            const skillId = comboQueue[0].slice(6);
+            if (this._isFinisherSkill(skillId)) {
+                const skillName = window.SkillDB[skillId].name;
+                return message + ` <span style="color:#ff6666">⚠ Prepara-se para um golpe mais forte (${skillName}) no próximo turno!</span>`;
+            }
+        }
+        return message;
     },
 
     // Monta a lista de candidatos com pontuação de utilidade
