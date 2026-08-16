@@ -196,57 +196,124 @@ class CityEngine {
             { slot: 'center', xFrac: 0.56, rowOffset: 148 },
         ];
 
-        // Casas residenciais de fundo (Expansão de Exploração e Mundo, item
-        // 5 — "aumentar a densidade da cidade inicial... estruturas próximas
-        // às bordas"). Puramente decorativas (sem colisão/interação, mesmo
-        // princípio de `vegetation`/`statues` acima) — preenchem a margem
-        // que já existe desde a Fundação Câmera/PlayerController, ver
-        // `_worldWidth()`. Generalizar o ARRAY de prédios INTERATIVOS em si
-        // (permitir contagem variável, múltiplas lojas do mesmo tipo) é uma
-        // mudança estrutural maior, já documentada como pendência em
-        // CLAUDE.md "Limitações conhecidas" — fora do escopo desta sessão
-        // (ver a regra "não é necessário criar sistemas completamente novos
-        // pra cada construção" do pedido: aqui a solução é ambientação, não
-        // comércio funcional novo). `variant` escolhe a silhueta (0-3, ver
-        // _paintHouseSilhouette) e `roofColor`/`wallColor` variam a pintura —
-        // nunca a mesma casa repetida (pedido explícito do usuário).
+        // Casas residenciais (Expansão de Exploração e Mundo, item 5 +
+        // correção estrutural pedida pelo usuário: "as casas estão
+        // praticamente encostadas na muralha e muito próximas umas das
+        // outras... crie uma verdadeira faixa interna junto à muralha").
+        // Puramente decorativas (sem colisão/interação, mesmo princípio de
+        // `vegetation`/`statues` acima). Generalizar o ARRAY de prédios
+        // INTERATIVOS em si (permitir contagem variável, múltiplas lojas do
+        // mesmo tipo) é uma mudança estrutural maior, já documentada como
+        // pendência em CLAUDE.md "Limitações conhecidas" — fora do escopo
+        // desta sessão. `variant` escolhe a silhueta (0-3, ver
+        // _paintHouseSilhouette), `orientationFlip` espelha a casa
+        // horizontalmente (variação de orientação pedida) e
+        // `roofColor`/`wallColor` variam a pintura — nunca a mesma casa
+        // repetida.
         //
-        // Escala (pedido direto do usuário, "deixe as nossas na mesma
-        // escala do banco"): as casas usavam `scale` 0.6-0.84, renderizando
-        // ~16-25px de largura — 4 a 6x menores que o MENOR prédio
-        // interativo (Banco/Sua Casa/Quadro de Missões, 95px de largura
-        // base, ver `_buildingRect`). Novo `scale` 2.8-4.0 (mesma
-        // progressão de 3 níveis, só ~4.7x maior) faz a largura renderizada
-        // média bater ~95px, igualando a escala do Banco (a altura fica
-        // naturalmente maior, pelo telhado em duas águas — mesmo princípio
-        // de uma casa real ao lado de um prédio civil baixo, não uma
-        // distorção de proporção). `rowOffset` também aumentou (60→70 de
-        // incremento por linha, era 34) pra dar mais respiro vertical às
-        // casas maiores. O espaço horizontal vem de `_worldWidth()` (2.4x,
-        // subiu de 1.4x) — pedido explícito do usuário ("aumente o tamanho
-        // das cidades... para se encaixar"). `edgeSpans` (fração do mundo)
-        // em si continua 0.085 — a MESMA fração de antes, só que agora
-        // sobre um mundo bem mais largo, o que já basta (2.4x mais pixels
-        // na mesma fração); alargar a fração além disso invadiria o xFrac
-        // do Ferreiro (0.11), o prédio interativo mais próximo da borda.
+        // Escala (pedido anterior do usuário, "deixe as nossas na mesma
+        // escala do banco"): `scale` 2.6-4.1 (4 níveis, era 3) faz a
+        // largura renderizada bater ~95-130px, na faixa do Banco (95px, o
+        // menor prédio interativo). A altura fica naturalmente maior
+        // (telhado em duas águas) — mesmo princípio de uma casa real ao
+        // lado de um prédio civil baixo, não uma distorção.
+        //
+        // Zoneamento (correção estrutural pedida: "área residencial deve
+        // ficar claramente afastada da muralha... faixa de circulação entre
+        // muralha e casas"): só o lado ESQUERDO recebe o bairro residencial
+        // — o lado direito (perto do Portão, GATE_XFRAC=0.965 + torres) não
+        // tem espaço real sem sobrepor a própria estrutura do portão (ver
+        // `_drawCityWall`/`_drawCitySideWall`), e vira só decoração leve
+        // (`urbanProps`, ver abaixo). RESIDENTIAL_ZONE começa em 0.045 (a
+        // muralha lateral + `_drawCitySideWall` ocupam só até ~0.022 do
+        // mundo, ver `CityEngine.wallSideWidth`) — a faixa 0.022-0.045 fica
+        // deliberadamente livre de casas (a "faixa de circulação junto à
+        // muralha" pedida, ver `urbanProps` do tipo lamppost/vegetation
+        // logo abaixo) e termina em 0.105, antes do Ferreiro (xFrac 0.11).
+        // 3 fileiras em zigue-zague (nunca colunas alinhadas entre
+        // fileiras — evita "parede contínua de casas") com contagem
+        // ímpar/par alternada (2/3/2) pra parecer orgânico, não uma grade.
+        // O espaço horizontal real vem de `_worldWidth()` (4.6x, subiu de
+        // 2.4x) — pedido explícito do usuário ("aumente o tamanho das
+        // cidades... se não houver espaço suficiente, aumente a área
+        // interna e/ou a dimensão total").
         const houseWallColors = ['#8a7a5a', '#7a6a52', '#9a8a6a', '#6b5a42'];
         const houseRoofColors = ['#7a3a2a', '#8a5a2a', '#6a4a2a', '#7a2a2a'];
         this.residentialHouses = [];
-        const edgeSpans = [{ from: 0.0, to: 0.085 }, { from: 0.915, to: 1.0 }];
-        edgeSpans.forEach((span, sideIdx) => {
-            const count = 6;
-            for (let i = 0; i < count; i++) {
-                const t = count === 1 ? 0.5 : i / (count - 1);
+        // xFracTo=0.07 (era 0.105): checado contra as 4 cidades reais via
+        // Playwright — o prédio mais à esquerda entre todas (Ferreiro da
+        // Fortaleza Orc, buildingPositions xFrac 0.10) tem sua borda
+        // esquerda REAL em xFrac ~0.089 (largura do prédio incluída), não
+        // exatamente 0.10. 0.07 deixa uma folga real (~0.019 de fração,
+        // ~110px no worldWidth atual) mesmo pro pior caso. A checagem
+        // `isClearOfBuildings` (ver draw()) ainda cobre qualquer cidade
+        // futura com prédio ainda mais próximo da borda — cinto e
+        // suspensório, nunca só uma das duas.
+        const RESIDENTIAL_ZONE = { xFracFrom: 0.045, xFracTo: 0.07, rowBase: 55, rowStep: 92 };
+        const houseRows = [
+            { count: 2, rowOffset: RESIDENTIAL_ZONE.rowBase },
+            { count: 3, rowOffset: RESIDENTIAL_ZONE.rowBase + RESIDENTIAL_ZONE.rowStep },
+            { count: 2, rowOffset: RESIDENTIAL_ZONE.rowBase + RESIDENTIAL_ZONE.rowStep * 2 },
+        ];
+        let houseIdx = 0;
+        const zoneWidth = RESIDENTIAL_ZONE.xFracTo - RESIDENTIAL_ZONE.xFracFrom;
+        houseRows.forEach((row, rowIdx) => {
+            // Zigue-zague: fileiras ímpares deslocadas por meio slot — a
+            // mesma razão de "evitar parede contínua" acima.
+            const zigzag = (rowIdx % 2 === 1) ? zoneWidth / (row.count * 2) : 0;
+            for (let i = 0; i < row.count; i++) {
+                const t = row.count === 1 ? 0.5 : i / (row.count - 1);
+                const xFrac = Utils.clamp(RESIDENTIAL_ZONE.xFracFrom + zigzag + (zoneWidth - zigzag) * t, RESIDENTIAL_ZONE.xFracFrom, RESIDENTIAL_ZONE.xFracTo);
                 this.residentialHouses.push({
-                    xFrac: span.from + (span.to - span.from) * t,
-                    rowOffset: 60 + (i % 3) * 70,
-                    scale: 2.8 + ((i + sideIdx) % 3) * 0.6,
-                    variant: (i + sideIdx * 2) % 4,
-                    wallColor: houseWallColors[(i + sideIdx) % houseWallColors.length],
-                    roofColor: houseRoofColors[(i + sideIdx * 3) % houseRoofColors.length],
+                    xFrac,
+                    rowOffset: row.rowOffset + (i % 2 === 0 ? -8 : 8),
+                    scale: 2.6 + (houseIdx % 4) * 0.5,
+                    variant: houseIdx % 4,
+                    orientationFlip: houseIdx % 3 === 0,
+                    wallColor: houseWallColors[houseIdx % houseWallColors.length],
+                    roofColor: houseRoofColors[(houseIdx * 3 + 1) % houseRoofColors.length],
                 });
+                houseIdx++;
             }
         });
+
+        // Mobiliário urbano (pedido explícito: "cercas, árvores, postes,
+        // bancos, vasos, pequenos jardins, poços") — preenche tanto a faixa
+        // de circulação junto à muralha (item 3) quanto os vãos ENTRE casas
+        // (item 4, "🏠 🌳 🏠 / caminho / 🌳 🏠 🏠") e os espaços vazios
+        // entre Ferreiro/Banco/Armeiro/Quadro de Missões (item 8). Cada
+        // `type` tem seu próprio `_paint*` (ver logo abaixo de
+        // `_drawUrbanProp`), sempre geometria desenhada à mão + bake-once
+        // via SpriteCache, mesmo padrão de `_paintHouseSilhouette`/
+        // `_paintVegetation` — nunca ícone de fonte.
+        this.urbanProps = [
+            // Faixa de circulação junto à muralha esquerda (xFrac ~0.022 a
+            // 0.045) — nunca uma casa aqui, só presença urbana leve.
+            { type: 'lamppost', xFrac: 0.028, rowOffset: 50, scale: 1 },
+            { type: 'lamppost', xFrac: 0.036, rowOffset: 140, scale: 1 },
+            // Vãos ENTRE casas residenciais (linhas do zigue-zague acima).
+            { type: 'gardenPatch', xFrac: 0.075, rowOffset: 40, scale: 1 },
+            { type: 'bench', xFrac: 0.06, rowOffset: 100, scale: 1 },
+            { type: 'lamppost', xFrac: 0.09, rowOffset: 100, scale: 1 },
+            { type: 'well', xFrac: 0.075, rowOffset: 205, scale: 1 },
+            { type: 'fence', xFrac: 0.05, rowOffset: 205, scale: 1 },
+            // Espaços vazios entre Ferreiro (0.11)/Banco (0.205)/Armeiro
+            // (0.30)/Quadro de Missões (0.35) — item 8, "não simplesmente
+            // aproxime os prédios, preencha com rua/decoração".
+            { type: 'bench', xFrac: 0.16, rowOffset: 150, scale: 1 },
+            { type: 'lamppost', xFrac: 0.155, rowOffset: 90, scale: 1 },
+            { type: 'gardenPatch', xFrac: 0.25, rowOffset: 140, scale: 0.9 },
+            { type: 'fence', xFrac: 0.42, rowOffset: 170, scale: 1 },
+            { type: 'bench', xFrac: 0.6, rowOffset: 150, scale: 1 },
+            { type: 'lamppost', xFrac: 0.62, rowOffset: 90, scale: 1 },
+            { type: 'gardenPatch', xFrac: 0.84, rowOffset: 140, scale: 0.9 },
+            // Faixa de circulação junto à muralha/portão direito — SEM
+            // casas (o Portão + torres, ver `_drawCityWall`, já ocupam boa
+            // parte de xFrac 0.9-1.0; um bairro inteiro ali sobreporia a
+            // própria estrutura do portão).
+            { type: 'lamppost', xFrac: 0.905, rowOffset: 60, scale: 1 },
+            { type: 'gardenPatch', xFrac: 0.895, rowOffset: 150, scale: 0.9 },
+        ];
 
         // Pedras de Luz (item 13 da auditoria de balanceamento): recurso do
         // Ritual da Luz (Fragmentos Sagrados, ver rituals.js) que antes só
@@ -324,7 +391,17 @@ class CityEngine {
         const w = window.Engine ? window.Engine.width : window.innerWidth;
         const h = window.Engine ? window.Engine.height : window.innerHeight;
         if (!this._initialized) {
-            this.player.x = w * 0.5;
+            // Spawn relativo ao MUNDO (fonte central, xFrac 0.5), não mais
+            // ao canvas — com a Praça agora 4.6x mais larga que a tela
+            // (ver `_worldWidth()`, correção estrutural do bairro
+            // residencial), `w * 0.5` (metade da largura do CANVAS) deixou
+            // de significar "centro da cidade": passou a cair bem na
+            // margem residencial, perto do Ferreiro, nunca perto da praça/
+            // fonte — o jogador via o bairro antes de ver a própria
+            // cidade. A fonte (xFrac 0.5) já é o marco central de
+            // orientação da praça (ver comentário de `this.fountain`
+            // acima), ponto de chegada natural.
+            this.player.x = this._worldWidth() * 0.5;
             this.player.y = this._plazaBottom(h);
             this._initialized = true;
             this._setupInput();
@@ -474,23 +551,25 @@ class CityEngine {
     // Largura do MUNDO caminhável da Praça — sempre maior que o canvas
     // atual (nunca um valor fixo em pixels, senão telas grandes não teriam
     // pra onde a câmera rolar e telas pequenas teriam mundo demais).
-    // Pedido direto do usuário ("aumente o tamanho das cidades
-    // horizontalmente, movendo os muros laterais... para se encaixar"):
-    // subiu de 1.4x pra 2.4x especificamente pra dar espaço às casas
-    // residenciais, que passaram a ter a MESMA escala dos prédios
-    // interativos (ver `residentialHouses` no construtor) — na largura
-    // antiga elas ficariam amontoadas/sobrepostas nas margens. A muralha
-    // de fundo e as muralhas laterais (graphics.js _drawCityWall,
-    // recebem `worldW` como parâmetro `w`) e os limites de colisão/
-    // movimento (`CityEngine.wallSideWidth(worldW)`) já são 100%
-    // derivados deste valor — aumentar só aqui já "move os muros" e
-    // "aumenta o muro de trás" automaticamente, sem tocar em nenhuma
-    // outra fórmula. Nunca cacheado — lido fresco a cada chamada, igual a
-    // todo outro valor derivado de window.Engine.width/height neste
-    // arquivo (mesmo motivo do bug de resize documentado em handleResize
-    // acima).
+    // Pedido explícito do usuário (correção estrutural completa do layout
+    // urbano — "não resolva a falta de espaço diminuindo as casas... se não
+    // houver espaço suficiente, aumente a área interna da cidade e/ou a
+    // dimensão total"): subiu de 2.4x pra 4.6x — o bairro residencial
+    // ganhou uma FAIXA DE CIRCULAÇÃO real junto à muralha (nunca mais casas
+    // nascendo na base dela) e espaçamento real entre casas (nunca mais
+    // coladas), o que precisa de bem mais espaço horizontal do que o
+    // aumento anterior já dava. A muralha de fundo e as muralhas laterais
+    // (graphics.js _drawCityWall, recebem `worldW` como parâmetro `w`) e os
+    // limites de colisão/movimento (`CityEngine.wallSideWidth(worldW)`) já
+    // são 100% derivados deste valor — aumentar só aqui já "move os muros"
+    // e "aumenta o muro de trás" automaticamente, sem tocar em nenhuma
+    // outra fórmula (ver `residentialHouses`/`urbanProps` no construtor
+    // pro novo zoneamento que passou a caber nesse espaço). Nunca cacheado
+    // — lido fresco a cada chamada, igual a todo outro valor derivado de
+    // window.Engine.width/height neste arquivo (mesmo motivo do bug de
+    // resize documentado em handleResize acima).
     _worldWidth() {
-        return (window.Engine ? window.Engine.width : window.innerWidth) * 2.4;
+        return (window.Engine ? window.Engine.width : window.innerWidth) * 4.6;
     }
 
     _isActive() {
@@ -3169,10 +3248,43 @@ class CityEngine {
         // momento da navegação; desenhar as ~12 sem checar visibilidade
         // seria o tipo de trabalho descartável que CLAUDE.md pede pra evitar
         // ao preparar a base pra cidades maiores.
+        // Trava de sobreposição (bug real encontrado via teste automatizado:
+        // `residentialHouses`/`urbanProps` têm posições FIXAS pensadas pro
+        // layout padrão de Porto Helênico, mas cada cidade reposiciona os 9
+        // prédios de forma bem diferente — ver citydatabase.js
+        // `buildingPositions`, ex: Fortaleza Orc tem o Ferreiro em xFrac
+        // 0.10 em vez de 0.11. Sem essa checagem, uma casa/prop podia
+        // nascer LITERALMENTE atrás de um prédio interativo numa cidade
+        // diferente da que os números foram pensados — exatamente o "casas
+        // coladas/sobrepondo construções" que o pedido veio corrigir.
+        // Recalculado a cada frame (barato: ~9 prédios) contra os
+        // retângulos REAIS da cidade atual — nunca preso a nenhum xFrac
+        // fixo, funciona pra qualquer planta baixa por cidade, presente ou
+        // futura.
+        const buildingRectsForClearance = this.buildings.map(b => this._buildingRect(b));
+        const isClearOfBuildings = (x, y, marginX) => !buildingRectsForClearance.some(r =>
+            x > r.left - marginX && x < r.right + marginX && y > r.top - 20 && y < r.bottom + 20
+        );
+
+        // Culling (Camera.isVisible) — as casas residenciais vivem nas
+        // bordas do mundo alargado, quase sempre fora da tela em algum
+        // momento da navegação; desenhar as ~12 sem checar visibilidade
+        // seria o tipo de trabalho descartável que CLAUDE.md pede pra evitar
+        // ao preparar a base pra cidades maiores.
         this.residentialHouses.forEach(house => {
             const x = house.xFrac * this._worldWidth();
             const y = horizon + house.rowOffset * this._cityScale(h);
-            if (window.Camera.isVisible(x, y, w, h, 120)) this._drawResidentialHouse(ctx, w, h, house);
+            if (window.Camera.isVisible(x, y, w, h, 120) && isClearOfBuildings(x, y, 45)) this._drawResidentialHouse(ctx, w, h, house);
+        });
+        // Mobiliário urbano (ver `this.urbanProps` no construtor) — mesma
+        // razão de culling acima, e desenhado ANTES do ordenamento por
+        // profundidade (drawables) porque é decoração de fundo, igual
+        // vegetação/estátuas/casas — nunca precisa competir em Y com
+        // NPC/jogador passando na frente.
+        this.urbanProps.forEach(prop => {
+            const x = prop.xFrac * this._worldWidth();
+            const y = horizon + prop.rowOffset * this._cityScale(h);
+            if (window.Camera.isVisible(x, y, w, h, 100) && isClearOfBuildings(x, y, 30)) this._drawUrbanProp(ctx, w, h, prop);
         });
 
         // Ordena tudo que fica "no chão" (prédios, NPCs, jogador) por Y, pra
@@ -3224,17 +3336,96 @@ class CityEngine {
         ctx.fillStyle = grad;
         ctx.fillRect(0, horizon, w, h - horizon);
 
-        // Juntas de pedra/mármore (grade simples, leve, barata em qualidade baixa)
+        // Textura de paralelepípedo (bug de auditoria reportado pelo
+        // usuário: a grade reta anterior — linhas retas em passo fixo de
+        // 60px, sem NENHUMA variação — lia como "mapa técnico/editor", não
+        // como piso medieval. Substituída por um ladrilho pré-desenhado
+        // (SpriteCache, mesmo padrão bake-once-reuse de
+        // _bakeFountainBasin/_bakeHouseSprite) com pedras IRREGULARES —
+        // polígonos de tamanho/rotação/tom variados, nunca um grid — repetido
+        // via ctx.createPattern. Um ladrilho grande o bastante (320x220) com
+        // pedras suficientes evita o "óbvio se repetindo" que um ladrilho
+        // pequeno teria. Continua pulando esse custo em qualidade baixa,
+        // igual a grade anterior.
         if (window.GFX && window.GFX.qualityLevel !== 'baixa') {
-            ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+            const pattern = this._getPlazaGroundPattern(ctx, colors);
+            if (pattern) {
+                // ctx.createPattern tiles from the canvas's own (0,0) origin
+                // regardless of where fillRect is called — não precisa de
+                // nenhum realinhamento manual pra `horizon`, o clip do
+                // fillRect já garante que só a região da praça é pintada.
+                ctx.fillStyle = pattern;
+                ctx.fillRect(0, horizon, w, h - horizon);
+            }
+        }
+    }
+
+    // Ladrilho de paralelepípedo cacheado por cidade (a cor base muda por
+    // `groundColors`, então o cache precisa de uma chave por cidade, não um
+    // ladrilho global único). Gerado UMA vez por combinação de cores —
+    // Math.random() aqui é seguro (não precisa ser determinístico: o
+    // resultado vira uma imagem estática no SpriteCache, nunca redesenhado
+    // depois) — nunca a cada frame, custo pago uma única vez.
+    _getPlazaGroundPattern(ctx, colors) {
+        const key = `plazaground:${colors[0]}:${colors[1]}`;
+        this._plazaGroundTileSize = { w: 320, h: 220 };
+        const tile = window.SpriteCache.get(key, this._plazaGroundTileSize.w, this._plazaGroundTileSize.h, (bctx) => this._paintPlazaGroundTile(bctx, colors));
+        this._plazaGroundPatternCache = this._plazaGroundPatternCache || {};
+        if (!this._plazaGroundPatternCache[key]) {
+            this._plazaGroundPatternCache[key] = ctx.createPattern(tile, 'repeat');
+        }
+        return this._plazaGroundPatternCache[key];
+    }
+
+    _paintPlazaGroundTile(ctx, colors) {
+        const { w, h } = this._plazaGroundTileSize;
+        // Pedras irregulares: polígonos de 5-6 lados com raio/rotação
+        // levemente aleatórios em cada vértice — nunca um retângulo puro,
+        // pra não formar linhas retas que voltam a ler como grade.
+        const stoneCount = 42;
+        for (let i = 0; i < stoneCount; i++) {
+            const cx = Math.random() * w, cy = Math.random() * h;
+            const baseR = 9 + Math.random() * 10;
+            const sides = 5 + Math.floor(Math.random() * 2);
+            const rot = Math.random() * Math.PI;
+            // Tom: variação sutil pra cima/baixo da cor base — desgaste e
+            // sujeira discretos, nunca contraste forte o bastante pra
+            // "brigar" com prédios/NPCs por cima. `_tintHex` espera
+            // `percent` como FRAÇÃO (0-1, ver assinatura abaixo), não um
+            // valor bruto — daí o /100.
+            const toneShiftPercent = Math.random() * 0.13;
+            const lighten = Math.random() < 0.5;
+            const baseColor = Math.random() < 0.5 ? colors[0] : colors[1];
+            ctx.fillStyle = this._tintHex(baseColor, lighten ? '#ffffff' : '#000000', toneShiftPercent);
+            ctx.beginPath();
+            for (let s = 0; s < sides; s++) {
+                const ang = rot + (s / sides) * Math.PI * 2;
+                const r = baseR * (0.82 + Math.random() * 0.36);
+                const px = cx + Math.cos(ang) * r, py = cy + Math.sin(ang) * r;
+                if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            // Junta escura fina — só o contorno da própria pedra (nunca uma
+            // linha reta cruzando o ladrilho inteiro), dá a leitura de
+            // "blocos encaixados" sem virar grade técnica.
+            ctx.strokeStyle = 'rgba(0,0,0,0.18)';
             ctx.lineWidth = 1;
-            const step = 60;
-            for (let x = -((performance.now() * 0.0001) % step); x < w; x += step) {
-                ctx.beginPath(); ctx.moveTo(x, horizon); ctx.lineTo(x, h); ctx.stroke();
-            }
-            for (let y = horizon + 30; y < h; y += step * 0.7) {
-                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-            }
+            ctx.stroke();
+        }
+        // Manchas de sujeira/desgaste — blobs radiais bem sutis, espalhados
+        // sem padrão, reforçando "piso usado há séculos" em vez de "ladrilho
+        // novo".
+        for (let i = 0; i < 5; i++) {
+            const cx = Math.random() * w, cy = Math.random() * h;
+            const r = 18 + Math.random() * 26;
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            grad.addColorStop(0, 'rgba(20,16,10,0.10)');
+            grad.addColorStop(1, 'rgba(20,16,10,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
@@ -3524,7 +3715,157 @@ class CityEngine {
         const scale = this._cityScale(h) * (house.scale || 0.7);
         const x = house.xFrac * this._worldWidth(), y = this._horizon(h) + house.rowOffset * this._cityScale(h);
         const sprite = this._bakeHouseSprite(scale, house.variant || 0, house.wallColor, house.roofColor);
+        // `orientationFlip` (variação de orientação pedida pelo usuário) —
+        // espelha em torno do próprio ponto de ancoragem, nunca desloca a
+        // casa (`ctx.translate` pro ponto, `scale(-1,1)`, desenha em 0,0).
+        if (house.orientationFlip) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(-1, 1);
+            window.RenderManager.blit(ctx, sprite.canvas, 0, 0, sprite.anchorX, sprite.anchorY);
+            ctx.restore();
+        } else {
+            window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
+        }
+    }
+
+    // Mobiliário urbano (ver `this.urbanProps` no construtor) — mesmo
+    // padrão bake-once-reuse (SpriteCache) de _bakeHouseSprite/
+    // _bakeVegetationSprite acima, um único dispatcher por `type` em vez
+    // de 5 métodos `_drawX` separados repetindo o mesmo cálculo de
+    // x/y/scale.
+    _drawUrbanProp(ctx, w, h, prop) {
+        const scale = this._cityScale(h) * (prop.scale || 1);
+        const x = prop.xFrac * this._worldWidth(), y = this._horizon(h) + prop.rowOffset * this._cityScale(h);
+        const sprite = this._bakeUrbanPropSprite(prop.type, scale);
         window.RenderManager.blit(ctx, sprite.canvas, x, y, sprite.anchorX, sprite.anchorY);
+    }
+
+    _bakeUrbanPropSprite(type, scale) {
+        const pad = 4;
+        const specs = {
+            lamppost: { w: 22, h: 82 },
+            bench: { w: 38, h: 34 },
+            well: { w: 36, h: 48 },
+            gardenPatch: { w: 32, h: 16 },
+            fence: { w: 46, h: 22 },
+        };
+        const spec = specs[type] || specs.bench;
+        const anchorX = (spec.w / 2) * scale + pad, anchorY = spec.h * scale + pad;
+        const bw = anchorX * 2, bh = anchorY + pad;
+        const key = `urbanprop:${type}:${Math.round(scale * 100)}`;
+        return {
+            canvas: window.SpriteCache.get(key, bw, bh, (bctx) => this._paintUrbanProp(bctx, anchorX, anchorY, scale, type)),
+            anchorX, anchorY
+        };
+    }
+
+    _paintUrbanProp(ctx, x, y, scale, type) {
+        if (type === 'lamppost') return this._paintLamppost(ctx, x, y, scale);
+        if (type === 'well') return this._paintWell(ctx, x, y, scale);
+        if (type === 'gardenPatch') return this._paintGardenPatch(ctx, x, y, scale);
+        if (type === 'fence') return this._paintFence(ctx, x, y, scale);
+        return this._paintBench(ctx, x, y, scale);
+    }
+
+    // Poste com lanterna — preenche a faixa de circulação junto à muralha
+    // (item 3 do pedido: "iluminação... elementos defensivos... espaço de
+    // circulação") e os vãos entre casas/lojas.
+    _paintLamppost(ctx, x, y, scale) {
+        const poleH = 70 * scale, poleW = 3 * scale;
+        ctx.fillStyle = '#1a1712';
+        ctx.fillRect(x - poleW * 1.6, y - 4 * scale, poleW * 3.2, 4 * scale);
+        ctx.fillStyle = '#2a2620';
+        ctx.fillRect(x - poleW / 2, y - poleH, poleW, poleH);
+        const lampW = 11 * scale, lampH = 15 * scale, lampY = y - poleH - lampH * 0.4;
+        const glowR = lampW * 1.9;
+        const grad = ctx.createRadialGradient(x, lampY + lampH / 2, 0, x, lampY + lampH / 2, glowR);
+        grad.addColorStop(0, 'rgba(255,200,120,0.5)');
+        grad.addColorStop(1, 'rgba(255,200,120,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(x, lampY + lampH / 2, glowR, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3a3226';
+        ctx.fillRect(x - lampW / 2, lampY, lampW, lampH);
+        ctx.fillStyle = '#ffcf80';
+        ctx.fillRect(x - lampW * 0.28, lampY + lampH * 0.2, lampW * 0.56, lampH * 0.6);
+    }
+
+    // Banco simples de madeira — permite "leitura visual individual" das
+    // casas ao redor sem virar mais uma construção (item 4/8 do pedido).
+    _paintBench(ctx, x, y, scale) {
+        const seatW = 34 * scale, seatH = 5 * scale, legH = 12 * scale, backH = 14 * scale;
+        ctx.fillStyle = '#5a4530';
+        ctx.fillRect(x - seatW / 2 + 2 * scale, y - legH, 3 * scale, legH);
+        ctx.fillRect(x + seatW / 2 - 5 * scale, y - legH, 3 * scale, legH);
+        ctx.fillStyle = '#6b5238';
+        ctx.fillRect(x - seatW / 2, y - legH - seatH, seatW, seatH);
+        ctx.fillStyle = '#5a4530';
+        ctx.fillRect(x - seatW / 2, y - legH - seatH - backH, seatW, 3 * scale);
+        ctx.fillRect(x - seatW / 2 + 2 * scale, y - legH - seatH - backH, 2 * scale, backH);
+        ctx.fillRect(x + seatW / 2 - 4 * scale, y - legH - seatH - backH, 2 * scale, backH);
+    }
+
+    // Poço de pedra com telhadinho — "poços" pedidos explicitamente, mesmo
+    // vocabulário de elemento urbano de bairro que fonte/estátua já usam
+    // pra praça central, aqui em escala menor.
+    _paintWell(ctx, x, y, scale) {
+        const r = 15 * scale;
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath(); ctx.ellipse(x, y, r * 1.1, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#6a655a';
+        ctx.beginPath(); ctx.ellipse(x, y - r * 0.3, r, r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a2a30';
+        ctx.beginPath(); ctx.ellipse(x, y - r * 0.42, r * 0.7, r * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+        const postH = 22 * scale;
+        ctx.fillStyle = '#4a3a26';
+        ctx.fillRect(x - r * 0.85, y - r * 0.3 - postH, 3 * scale, postH);
+        ctx.fillRect(x + r * 0.85 - 3 * scale, y - r * 0.3 - postH, 3 * scale, postH);
+        ctx.beginPath();
+        ctx.moveTo(x - r * 1.05, y - r * 0.3 - postH);
+        ctx.lineTo(x, y - r * 0.3 - postH - 12 * scale);
+        ctx.lineTo(x + r * 1.05, y - r * 0.3 - postH);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Pequeno jardim/vasos — "vasos, pequenos jardins" pedidos
+    // explicitamente, um cluster pequeno de arbustos + flores.
+    _paintGardenPatch(ctx, x, y, scale) {
+        const blobs = [
+            { dx: -10, dy: -2, r: 8, c: '#3a5a2a' },
+            { dx: 2, dy: -6, r: 9, c: '#4a6a34' },
+            { dx: 11, dy: -1, r: 7, c: '#355024' },
+        ];
+        blobs.forEach(b => {
+            ctx.fillStyle = b.c;
+            ctx.beginPath(); ctx.ellipse(x + b.dx * scale, y + b.dy * scale, b.r * scale, b.r * 0.7 * scale, 0, 0, Math.PI * 2); ctx.fill();
+        });
+        const flowerColors = ['#e0a0c0', '#e8c85a', '#ffffff'];
+        for (let i = 0; i < 5; i++) {
+            ctx.fillStyle = flowerColors[i % flowerColors.length];
+            const fx = x + (-12 + i * 6) * scale, fy = y + (-4 - (i % 2) * 3) * scale;
+            ctx.beginPath(); ctx.arc(fx, fy, 1.6 * scale, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    // Cerca curta de madeira — "cercas" pedidas explicitamente, marca a
+    // borda de um quintal sem bloquear passagem (puramente decorativa,
+    // mesmo princípio de todo `urbanProps`, sem entrada em
+    // `_obstacleRectsForCollision`).
+    _paintFence(ctx, x, y, scale) {
+        const slatW = 4 * scale, slatH = 18 * scale, gap = 7 * scale, count = 5;
+        const totalW = count * gap;
+        ctx.strokeStyle = '#5a4a34';
+        ctx.lineWidth = 2 * scale;
+        ctx.beginPath();
+        ctx.moveTo(x - totalW / 2, y - slatH * 0.55);
+        ctx.lineTo(x + totalW / 2, y - slatH * 0.55);
+        ctx.stroke();
+        ctx.fillStyle = '#6b5a42';
+        for (let i = 0; i < count; i++) {
+            const sx = x - totalW / 2 + i * gap;
+            ctx.fillRect(sx - slatW / 2, y - slatH, slatW, slatH);
+        }
     }
 
     _bakeVegetationSprite(scale, type) {
