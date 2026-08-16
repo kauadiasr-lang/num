@@ -3350,12 +3350,22 @@ class CityEngine {
         if (window.GFX && window.GFX.qualityLevel !== 'baixa') {
             const pattern = this._getPlazaGroundPattern(ctx, colors);
             if (pattern) {
+                // Opacidade reduzida (feedback direto do usuário: "o chão
+                // está muito poluído, abaixe a opacidade") — a textura
+                // inteira agora se funde com o degradê base em vez de
+                // competir visualmente com prédios/NPCs por cima dela.
+                // `globalAlpha` (não mais 1.0 implícito) é a alavanca mais
+                // direta: baixa a textura INTEIRA de uma vez, sem precisar
+                // recalcular cada pedra individualmente.
+                ctx.save();
+                ctx.globalAlpha = 0.4;
+                ctx.fillStyle = pattern;
                 // ctx.createPattern tiles from the canvas's own (0,0) origin
                 // regardless of where fillRect is called — não precisa de
                 // nenhum realinhamento manual pra `horizon`, o clip do
                 // fillRect já garante que só a região da praça é pintada.
-                ctx.fillStyle = pattern;
                 ctx.fillRect(0, horizon, w, h - horizon);
+                ctx.restore();
             }
         }
     }
@@ -3379,10 +3389,15 @@ class CityEngine {
 
     _paintPlazaGroundTile(ctx, colors) {
         const { w, h } = this._plazaGroundTileSize;
-        // Pedras irregulares: polígonos de 5-6 lados com raio/rotação
-        // levemente aleatórios em cada vértice — nunca um retângulo puro,
-        // pra não formar linhas retas que voltam a ler como grade.
-        const stoneCount = 42;
+        // Revisão visual (feedback direto do usuário: "o chão está muito
+        // poluído, abaixe a opacidade") — 3 ajustes na PRÓPRIA pedra, não só
+        // no `globalAlpha` de fora (ver _drawPlazaGround): menos pedras
+        // (30, era 42 — densidade menor lê como textura, não como "cascalho
+        // grosso"), contraste de tom bem mais sutil (teto 0.07, era 0.13) e
+        // junta quase invisível (0.08, era 0.18) — a junta é o que mais
+        // "brigava" visualmente com prédios/NPCs por cima, um contorno
+        // escuro em CADA uma das dezenas de pedras.
+        const stoneCount = 30;
         for (let i = 0; i < stoneCount; i++) {
             const cx = Math.random() * w, cy = Math.random() * h;
             const baseR = 9 + Math.random() * 10;
@@ -3393,7 +3408,7 @@ class CityEngine {
             // "brigar" com prédios/NPCs por cima. `_tintHex` espera
             // `percent` como FRAÇÃO (0-1, ver assinatura abaixo), não um
             // valor bruto — daí o /100.
-            const toneShiftPercent = Math.random() * 0.13;
+            const toneShiftPercent = Math.random() * 0.07;
             const lighten = Math.random() < 0.5;
             const baseColor = Math.random() < 0.5 ? colors[0] : colors[1];
             ctx.fillStyle = this._tintHex(baseColor, lighten ? '#ffffff' : '#000000', toneShiftPercent);
@@ -3409,18 +3424,18 @@ class CityEngine {
             // Junta escura fina — só o contorno da própria pedra (nunca uma
             // linha reta cruzando o ladrilho inteiro), dá a leitura de
             // "blocos encaixados" sem virar grade técnica.
-            ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+            ctx.strokeStyle = 'rgba(0,0,0,0.08)';
             ctx.lineWidth = 1;
             ctx.stroke();
         }
         // Manchas de sujeira/desgaste — blobs radiais bem sutis, espalhados
         // sem padrão, reforçando "piso usado há séculos" em vez de "ladrilho
         // novo".
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 4; i++) {
             const cx = Math.random() * w, cy = Math.random() * h;
             const r = 18 + Math.random() * 26;
             const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-            grad.addColorStop(0, 'rgba(20,16,10,0.10)');
+            grad.addColorStop(0, 'rgba(20,16,10,0.06)');
             grad.addColorStop(1, 'rgba(20,16,10,0)');
             ctx.fillStyle = grad;
             ctx.beginPath();
