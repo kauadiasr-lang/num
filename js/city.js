@@ -200,19 +200,35 @@ class CityEngine {
         // 5 — "aumentar a densidade da cidade inicial... estruturas próximas
         // às bordas"). Puramente decorativas (sem colisão/interação, mesmo
         // princípio de `vegetation`/`statues` acima) — preenchem a margem
-        // que já existe desde a Fundação Câmera/PlayerController (Praça
-        // alargada pra 1.4x a largura do canvas especificamente "pra dar
-        // espaço real da câmera panorâmica", ver `_worldWidth()`), que até
-        // agora ficava vazia fora do vão caminhável dos prédios interativos
-        // (xFrac ~0.11 a ~0.89). Generalizar o ARRAY de prédios INTERATIVOS
-        // em si (permitir contagem variável, múltiplas lojas do mesmo tipo)
-        // é uma mudança estrutural maior, já documentada como pendência em
+        // que já existe desde a Fundação Câmera/PlayerController, ver
+        // `_worldWidth()`. Generalizar o ARRAY de prédios INTERATIVOS em si
+        // (permitir contagem variável, múltiplas lojas do mesmo tipo) é uma
+        // mudança estrutural maior, já documentada como pendência em
         // CLAUDE.md "Limitações conhecidas" — fora do escopo desta sessão
         // (ver a regra "não é necessário criar sistemas completamente novos
         // pra cada construção" do pedido: aqui a solução é ambientação, não
         // comércio funcional novo). `variant` escolhe a silhueta (0-3, ver
         // _paintHouseSilhouette) e `roofColor`/`wallColor` variam a pintura —
         // nunca a mesma casa repetida (pedido explícito do usuário).
+        //
+        // Escala (pedido direto do usuário, "deixe as nossas na mesma
+        // escala do banco"): as casas usavam `scale` 0.6-0.84, renderizando
+        // ~16-25px de largura — 4 a 6x menores que o MENOR prédio
+        // interativo (Banco/Sua Casa/Quadro de Missões, 95px de largura
+        // base, ver `_buildingRect`). Novo `scale` 2.8-4.0 (mesma
+        // progressão de 3 níveis, só ~4.7x maior) faz a largura renderizada
+        // média bater ~95px, igualando a escala do Banco (a altura fica
+        // naturalmente maior, pelo telhado em duas águas — mesmo princípio
+        // de uma casa real ao lado de um prédio civil baixo, não uma
+        // distorção de proporção). `rowOffset` também aumentou (60→70 de
+        // incremento por linha, era 34) pra dar mais respiro vertical às
+        // casas maiores. O espaço horizontal vem de `_worldWidth()` (2.4x,
+        // subiu de 1.4x) — pedido explícito do usuário ("aumente o tamanho
+        // das cidades... para se encaixar"). `edgeSpans` (fração do mundo)
+        // em si continua 0.085 — a MESMA fração de antes, só que agora
+        // sobre um mundo bem mais largo, o que já basta (2.4x mais pixels
+        // na mesma fração); alargar a fração além disso invadiria o xFrac
+        // do Ferreiro (0.11), o prédio interativo mais próximo da borda.
         const houseWallColors = ['#8a7a5a', '#7a6a52', '#9a8a6a', '#6b5a42'];
         const houseRoofColors = ['#7a3a2a', '#8a5a2a', '#6a4a2a', '#7a2a2a'];
         this.residentialHouses = [];
@@ -223,8 +239,8 @@ class CityEngine {
                 const t = count === 1 ? 0.5 : i / (count - 1);
                 this.residentialHouses.push({
                     xFrac: span.from + (span.to - span.from) * t,
-                    rowOffset: 60 + (i % 3) * 34,
-                    scale: 0.6 + ((i + sideIdx) % 3) * 0.12,
+                    rowOffset: 60 + (i % 3) * 70,
+                    scale: 2.8 + ((i + sideIdx) % 3) * 0.6,
                     variant: (i + sideIdx * 2) % 4,
                     wallColor: houseWallColors[(i + sideIdx) % houseWallColors.length],
                     roofColor: houseRoofColors[(i + sideIdx * 3) % houseRoofColors.length],
@@ -457,17 +473,24 @@ class CityEngine {
 
     // Largura do MUNDO caminhável da Praça — sempre maior que o canvas
     // atual (nunca um valor fixo em pixels, senão telas grandes não teriam
-    // pra onde a câmera rolar e telas pequenas teriam mundo demais). 1.4x é
-    // deliberadamente modesto: o conteúdo da cidade continua o mesmo de
-    // sempre (nenhum prédio/NPC novo), só ganha uma margem real pra andar
-    // até as bordas e ver a câmera de fato acompanhar — ver design doc
-    // (docs/superpowers/specs/2026-08-02-explorable-world-travel-design.md),
-    // seção "Resolução da ambiguidade". Nunca cacheado — lido fresco a
-    // cada chamada, igual a todo outro valor derivado de
-    // window.Engine.width/height neste arquivo (mesmo motivo do bug de
-    // resize documentado em handleResize acima).
+    // pra onde a câmera rolar e telas pequenas teriam mundo demais).
+    // Pedido direto do usuário ("aumente o tamanho das cidades
+    // horizontalmente, movendo os muros laterais... para se encaixar"):
+    // subiu de 1.4x pra 2.4x especificamente pra dar espaço às casas
+    // residenciais, que passaram a ter a MESMA escala dos prédios
+    // interativos (ver `residentialHouses` no construtor) — na largura
+    // antiga elas ficariam amontoadas/sobrepostas nas margens. A muralha
+    // de fundo e as muralhas laterais (graphics.js _drawCityWall,
+    // recebem `worldW` como parâmetro `w`) e os limites de colisão/
+    // movimento (`CityEngine.wallSideWidth(worldW)`) já são 100%
+    // derivados deste valor — aumentar só aqui já "move os muros" e
+    // "aumenta o muro de trás" automaticamente, sem tocar em nenhuma
+    // outra fórmula. Nunca cacheado — lido fresco a cada chamada, igual a
+    // todo outro valor derivado de window.Engine.width/height neste
+    // arquivo (mesmo motivo do bug de resize documentado em handleResize
+    // acima).
     _worldWidth() {
-        return (window.Engine ? window.Engine.width : window.innerWidth) * 1.4;
+        return (window.Engine ? window.Engine.width : window.innerWidth) * 2.4;
     }
 
     _isActive() {
