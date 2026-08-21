@@ -1044,8 +1044,16 @@
             <!-- INDICADOR "SALVANDO..." -->
             <div id="saving-indicator" class="saving-indicator hidden">Salvando...</div>
 
-            <!-- CONTAINER DE TOASTS (feedback de ações: save, load, erro, etc) -->
-            <div id="toast-container" class="toast-container"></div>
+            <!-- CONTAINER DE TOASTS (feedback de ações: save, load, erro, etc).
+                 aria-live/role="status" (auditoria iteração 15): é o único
+                 canal de feedback pra ações comuns (mana insuficiente, fora
+                 de alcance, item comprado, save concluído) e não tinha
+                 NENHUMA marcação ARIA — leitor de tela nunca anunciava
+                 nada disso, silenciosamente. "polite" pra não interromper
+                 o que o leitor de tela já estava lendo (o toast some em
+                 3s, mas a fila de "polite" ainda alcança a maioria dos
+                 casos reais de uso). -->
+            <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
             <!-- MODAL GENÉRICO DE CONFIRMAÇÃO -->
             <div id="confirm-modal" class="modal-overlay hidden">
