@@ -5185,8 +5185,23 @@ window.RoadEngine = {
             ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 2.5;
             ctx.beginPath(); ctx.moveTo(-9, 16); ctx.lineTo(9, 22); ctx.moveTo(9, 16); ctx.lineTo(-9, 22); ctx.stroke();
         } else if (t === 'bridge') {
-            ctx.strokeStyle = '#7a7264'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.arc(0, 10, 14, Math.PI, 0); ctx.stroke();
+            // Ponte de pedra sobre um riacho ("pontes" na lista de escala
+            // do usuário) — os próprios textos de BRIDGE_LINES ("a ponte
+            // range sob seus passos", "de cima da ponte, dá pra ver a
+            // água correndo") deixam claro que é uma estrutura real que o
+            // jogador atravessa a pé, não um marcador simbólico. O arco
+            // original (raio 14, ~28px de largura total) lia como um
+            // fiapo, bem menor que o próprio jogador (~58px nesta tela).
+            // Redesenhada em escala plausível: riacho por baixo, tabuleiro
+            // de pedra por cima com guarda-corpos, mais larga que o
+            // jogador de um lado a outro.
+            ctx.fillStyle = corrupted ? '#2a3a42' : '#3a6a82';
+            ctx.beginPath(); ctx.ellipse(0, 20, 62, 13, 0, 0, Math.PI * 2); ctx.fill(); // riacho
+            ctx.strokeStyle = '#7a7264'; ctx.lineWidth = 13; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(0, 28, 46, Math.PI, 0); ctx.stroke(); // tabuleiro de pedra
+            ctx.strokeStyle = '#5a5448'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(-46, 28); ctx.lineTo(-46, 8); ctx.stroke(); // guarda-corpo esquerdo
+            ctx.beginPath(); ctx.moveTo(46, 28); ctx.lineTo(46, 8); ctx.stroke(); // guarda-corpo direito
         } else if (t === 'shrine') {
             ctx.fillStyle = '#c9a876';
             ctx.fillRect(-10, -2, 20, 10);
