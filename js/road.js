@@ -3968,6 +3968,19 @@ window.RoadEngine = {
             const cy = side * this._landmarkDepthY(0.85 - (this._hash(i * 41 + 54000) % 50) / 50 * 0.45);
             if (!window.Camera.isVisible(cx, cy, w, h, 140)) continue;
 
+            // Item 3 da diretiva de escala do usuário ("cavernas...
+            // extremamente pequenas em comparação ao jogador") — a
+            // formação inteira (rocha + boca) desenhava só ~70px de altura
+            // ao lado de um jogador de ~58px na mesma tela, lendo como do
+            // mesmo tamanho ou menor, nunca como uma entrada de caverna de
+            // verdade. Escalado em torno da própria base (cx,cy) — todo o
+            // resto do código abaixo continua em coordenadas relativas
+            // originais, só a transform deixa o resultado ~45% maior.
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(1.45, 1.45);
+            ctx.translate(-cx, -cy);
+
             const rockColor = corrupted ? '#241f26' : '#6a6258';
             const rockShade = corrupted ? '#1a1620' : '#524a42';
 
@@ -4047,6 +4060,7 @@ window.RoadEngine = {
             ctx.fillStyle = corrupted ? 'rgba(70,40,90,0.4)' : 'rgba(70,110,55,0.4)';
             ctx.beginPath(); ctx.ellipse(cx - 40, cy - 20, 12, 7, 0.4, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.ellipse(cx + 34, cy - 30, 10, 6, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
         }
     },
 
@@ -5054,13 +5068,31 @@ window.RoadEngine = {
             ctx.moveTo(0, 6); ctx.quadraticCurveTo(-6, -4, 0, -14); ctx.quadraticCurveTo(6, -4, 0, 6);
             ctx.fill();
         } else if (t === 'cart') {
+            // Carroça quebrada — item 1 da diretiva de escala do usuário
+            // ("carroças... extremamente pequenas em comparação ao
+            // jogador"): a caixa original de 32x14 com UMA roda só lia como
+            // brinquedo minúsculo ao lado do personagem (~58px de altura em
+            // pé nesta mesma tela, ver PLAYER_SCALE). Redesenhada em escala
+            // real de veículo — carroceria comparável à largura de um
+            // adulto deitado, duas rodas visíveis (nunca uma só, que lia
+            // como erro de desenho, não como veículo de verdade).
+            ctx.fillStyle = 'rgba(0,0,0,0.22)';
+            ctx.beginPath(); ctx.ellipse(0, 30, 46, 11, 0, 0, Math.PI * 2); ctx.fill();
             ctx.save();
-            ctx.rotate(0.25);
+            ctx.rotate(0.18);
             ctx.fillStyle = '#5a3e26';
-            ctx.fillRect(-16, -6, 32, 14);
+            ctx.fillRect(-38, -16, 76, 34); // carroceria
+            ctx.fillStyle = '#3e2a1a';
+            ctx.fillRect(-38, -16, 76, 9); // borda superior sombreada
+            ctx.strokeStyle = '#2e1e10'; ctx.lineWidth = 2;
+            ctx.strokeRect(-38, -16, 76, 34);
             ctx.restore();
-            ctx.fillStyle = '#2a1c10';
-            ctx.beginPath(); ctx.arc(-12, 10, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#241810';
+            ctx.beginPath(); ctx.arc(-26, 24, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 24, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#6b4a2e';
+            ctx.beginPath(); ctx.arc(-26, 24, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 24, 5, 0, Math.PI * 2); ctx.fill();
         } else if (t === 'abandoned_cabin') {
             // Cabana pequena e caindo aos pedaços (item 7 da Expansão de
             // Exploração e Mundo) — mesma linguagem de silhueta desenhada à
@@ -5068,25 +5100,42 @@ window.RoadEngine = {
             // _paintHouseSilhouette), mas deliberadamente torta/quebrada:
             // telhado desabado de um lado, sem porta de verdade (só um vão
             // escuro), pra ler como abandonada à distância, não habitada.
+            //
+            // Item 2 da diretiva de escala do usuário: as dimensões
+            // originais (paredes de 32x20, vão de porta de só 10x12)
+            // desenhavam uma cabana visivelmente MENOR que o próprio
+            // personagem parado ao lado dela — lia como casinha de
+            // brinquedo, não como construção que alguém já habitou.
+            // Redimensionada pra uma altura total (telhado + parede) maior
+            // que a altura do jogador nesta tela, com um vão de porta alto
+            // o bastante pra parecer que uma pessoa de verdade passava por
+            // ali.
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.ellipse(0, 63, 50, 10, 0, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#4a3a28';
-            ctx.fillRect(-16, -4, 32, 20); // paredes
+            ctx.fillRect(-45, -8, 90, 70); // paredes
             ctx.fillStyle = '#3a2e20';
             ctx.beginPath();
-            ctx.moveTo(-20, -4); ctx.lineTo(0, -22); ctx.lineTo(20, -4); ctx.lineTo(14, -6); ctx.lineTo(-2, -18); ctx.lineTo(-20, 2);
+            ctx.moveTo(-54, -8); ctx.lineTo(0, -70); ctx.lineTo(54, -8); ctx.lineTo(38, -14); ctx.lineTo(-6, -54); ctx.lineTo(-54, 4);
             ctx.closePath(); ctx.fill(); // telhado torto, desabado no canto direito
             ctx.fillStyle = '#0c0906';
-            ctx.fillRect(-5, 4, 10, 12); // vão escuro no lugar da porta
+            ctx.fillRect(-15, 18, 30, 44); // vão escuro no lugar da porta
         } else if (t === 'ruins') {
             ctx.fillStyle = corrupted ? '#4a4038' : '#a89a82';
             ctx.fillRect(-14, -10, 6, 20);
             ctx.fillRect(2, -4, 6, 14);
             ctx.fillRect(-4, -16, 6, 26);
         } else if (t === 'cave') {
+            // Item 3 da diretiva de escala do usuário ("cavernas...
+            // extremamente pequenas") — arco original de 28x18 lia como um
+            // buraco no chão, não uma boca de caverna que dá pra entrar.
+            // Aumentado pra uma abertura mais alta que o próprio jogador
+            // nesta tela, mantendo a mesma silhueta em arco.
             ctx.fillStyle = '#1a1a1e';
             ctx.beginPath();
-            ctx.moveTo(-14, 10); ctx.lineTo(-14, -2); ctx.quadraticCurveTo(0, -16, 14, -2); ctx.lineTo(14, 10);
+            ctx.moveTo(-26, 20); ctx.lineTo(-26, -6); ctx.quadraticCurveTo(0, -32, 26, -6); ctx.lineTo(26, 20);
             ctx.closePath(); ctx.fill();
-            ctx.strokeStyle = '#3a352e'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.strokeStyle = '#3a352e'; ctx.lineWidth = 4; ctx.stroke();
         } else if (t === 'wolf_den_entrance') {
             // Entrada da Toca dos Lobos (Expansão de Exploração e Mundo,
             // item 8) — mesma linguagem de arco de caverna do 'cave' logo
