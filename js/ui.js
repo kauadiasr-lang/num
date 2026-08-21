@@ -1369,6 +1369,22 @@ class UIManager {
     previewDuel() {
         const p = window.Engine.state.player;
         const enemy = new Enemy(p.level);
+        this._showDuelPreview(enemy);
+    }
+
+    // Auditoria (iteração 26): extraído de previewDuel() (Duelo Rápido) pra
+    // reaproveitar EXATAMENTE o mesmo aviso de ameaça/risco de ouro na
+    // Ladder de Rivais (ver openLadder mais abaixo) — antes, clicar num
+    // rival ia direto pro beginBattleWith(), sem nenhum aviso, apesar do
+    // MESMO dreno de ouro por derrota (battle.js endBattle) se aplicar a
+    // QUALQUER inimigo, Rival incluso (ver ReputationSystem._opponentWeight,
+    // que não distingue tipo de oponente). A ressalva original de "não
+    // mostrar isso em emboscadas/missões" (jogador já comprometido
+    // narrativamente) não se aplica à Ladder: é uma tela de menu, igual a
+    // Arena — o jogador navega, escolhe, e pode voltar sem penalidade,
+    // exatamente como o Duelo Rápido.
+    _showDuelPreview(enemy) {
+        const p = window.Engine.state.player;
         this._pendingDuelEnemy = enemy;
 
         const threat = window.BalanceCore.getThreatLevel(p, enemy);
@@ -1677,7 +1693,7 @@ class UIManager {
                 if (isUnlocked) {
                     card.onclick = () => {
                         const rival = new Rival(rivalDef);
-                        this.beginBattleWith(rival);
+                        this._showDuelPreview(rival);
                     };
                 }
 
@@ -1729,7 +1745,7 @@ class UIManager {
                 if (isUnlocked) {
                     card.onclick = () => {
                         const boss = window.createArenaBoss(bossDef.id, p.level);
-                        this.beginBattleWith(boss);
+                        this._showDuelPreview(boss);
                     };
                 }
                 bossGrid.appendChild(card);
@@ -1771,7 +1787,7 @@ class UIManager {
                 if (isUnlocked) {
                     card.onclick = () => {
                         const rival = new Rival(challengeDef);
-                        this.beginBattleWith(rival);
+                        this._showDuelPreview(rival);
                     };
                 }
                 challengeGrid.appendChild(card);

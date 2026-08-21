@@ -248,17 +248,6 @@
                     <button id="btn-city-arena-ladder" class="btn primary hub-btn-wide">Adversários</button>
                     <button id="btn-city-arena-cancel" class="btn btn-small">Voltar</button>
                 </div>
-                <!-- Prévia de ameaça do Duelo Rápido (Fase 5 da diretiva de
-                     balanceamento — achado #9 da auditoria: jogador nunca
-                     sabia a força do oponente antes de já estar na luta).
-                     Só pro Duelo Rápido: emboscadas da Estrada e batalhas de
-                     missão já comprometem o jogador antes de chegar aqui,
-                     então não fazem sentido com um botão de recuar. -->
-                <div id="duel-threat-preview" class="city-arena-menu hidden">
-                    <p id="duel-threat-text" style="margin: 0 0 4px 0; color: var(--color-gold); white-space: pre-line;"></p>
-                    <button id="btn-duel-confirm" class="btn primary btn-large hub-btn-wide">Lutar</button>
-                    <button id="btn-duel-decline" class="btn btn-small hub-btn-wide">Recuar</button>
-                </div>
                 <!-- Bandido Anão (Reino Subterrâneo de Kharzum, ver
                      city.js _banditEncounter) — perigo urbano físico,
                      nunca um botão solto: só aparece depois do jogador
@@ -1057,6 +1046,30 @@
                 <p id="tt-type">Tipo</p>
                 <div id="tt-stats" class="tt-stats"></div>
                 <p id="tt-price" class="tt-price">Valor: 0g</p>
+            </div>
+
+            <!-- Prévia de ameaça antes de um duelo (Fase 5 da diretiva de
+                 balanceamento — achado #9 da auditoria: jogador nunca sabia
+                 a força do oponente antes de já estar na luta). Usada pelo
+                 Duelo Rápido da Arena E pela Ladder de Rivais/Bosses/
+                 Desafios (ver ui.js _showDuelPreview, auditoria iteração
+                 26) — nunca por emboscadas da Estrada ou batalhas de
+                 missão, onde o jogador já se comprometeu antes de chegar
+                 lá (um botão de recuar não faria sentido narrativo).
+                 Movido pra fora de #screen-hub (auditoria iteração 26):
+                 vivia dentro da Praça, então nunca aparecia de verdade
+                 quando chamado a partir da tela de Ladder (#screen-ladder
+                 fica oculta como qualquer outra .screen inativa, e um
+                 filho dela não vira visível só porque perde a classe
+                 "hidden" — a TELA INTEIRA continuava invisível por trás).
+                 Reposicionado aqui, no mesmo nível de #item-tooltip/
+                 #toast-container/#confirm-modal — os outros overlays
+                 globais que já funcionam corretamente em cima de
+                 QUALQUER tela ativa, sem depender de nenhuma delas. -->
+            <div id="duel-threat-preview" class="city-arena-menu hidden">
+                <p id="duel-threat-text" style="margin: 0 0 4px 0; color: var(--color-gold); white-space: pre-line;"></p>
+                <button id="btn-duel-confirm" class="btn primary btn-large hub-btn-wide">Lutar</button>
+                <button id="btn-duel-decline" class="btn btn-small hub-btn-wide">Recuar</button>
             </div>
 
             <!-- CONTADOR DE FPS (opcional, ligado nas Configurações) -->
