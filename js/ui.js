@@ -4567,7 +4567,14 @@ class UIManager {
     bankDeposit() {
         const p = window.Engine.state.player;
         const amount = Math.floor(Number(document.getElementById('bank-amount').value));
-        if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
+        // Auditoria (iteração 19): este branch só tocava o som de erro, sem
+        // nenhum toast — ao contrário do branch seguinte (ouro insuficiente),
+        // que já mostra um. É também o caso MAIS comum de falha aqui: o
+        // campo "Quantidade de ouro" volta vazio toda vez que a tela abre/
+        // atualiza (ver updateBankScreen), então clicar Depositar/Sacar sem
+        // digitar nada de novo (comportamento natural após um depósito
+        // anterior) caía direto neste branch mudo.
+        if (!amount || amount <= 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Digite uma quantidade válida de ouro.', 'error'); return; }
         if (amount > p.gold) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro suficiente na mão!', 'error'); return; }
         p.gold -= amount;
         p.bankGold = (p.bankGold || 0) + amount;
@@ -4580,7 +4587,8 @@ class UIManager {
     bankWithdraw() {
         const p = window.Engine.state.player;
         const amount = Math.floor(Number(document.getElementById('bank-amount').value));
-        if (!amount || amount <= 0) { window.AudioManager.playError(); return; }
+        // Mesma correção de bankDeposit() acima (auditoria iteração 19).
+        if (!amount || amount <= 0) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Digite uma quantidade válida de ouro.', 'error'); return; }
         if (amount > (p.bankGold || 0)) { window.AudioManager.playError(); if (window.MainMenu) window.MainMenu.showToast('Você não tem ouro suficiente guardado!', 'error'); return; }
         p.bankGold -= amount;
         p.gold += amount;
