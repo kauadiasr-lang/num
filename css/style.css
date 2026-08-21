@@ -931,6 +931,16 @@ html, body {
 @media (max-width: 768px) {
     .hud-top { padding: 10px; flex-direction: column; text-align: center; }
     #screen-hub .hud-top { padding-top: 54px; padding-left: 10px; }
+    /* Auditoria mobile (iteração 12): a Estrada (screen-roadworld) reusa
+       .hud-top da Praça, mas nunca ganhou a folga extra que a Praça tem
+       aqui em cima (aquele padding-top:54px existe pra abrir espaço pros
+       botões redondos de Menu/Inventário, que a Estrada não tem — sem
+       eles, 18px já é folga suficiente, não precisa dos mesmos 54px).
+       Sem NENHUMA folga própria, o título da rota ("Cidade A → Cidade B",
+       que costuma quebrar em 2 linhas) ficava a só 10px do topo da tela,
+       quase colado na borda — visualmente apertado, sem o "respiro" que
+       toda outra tela do jogo tem. */
+    #screen-roadworld .hud-top { padding-top: 18px; }
     .battle-hud { flex-direction: column; gap: 10px; }
     .entity-status { width: 100%; text-align: left; }
     .distance-indicator { width: 100%; order: 3; }
