@@ -2954,9 +2954,18 @@ class UIManager {
             const item = p.equipment[slotKey];
 
             if (item) {
-                // Abreviado; armas de longo alcance também mostram a munição
-                // atual direto no slot, sem precisar abrir o tooltip.
-                slotEl.innerText = item.name.substring(0, 3) + ".." + (item.maxAmmo ? ` ${item.ammo}/${item.maxAmmo}` : "");
+                // Nome abreviado (bug de auditoria visual: cortava nas 3
+                // primeiras letras + ".." — "Esp.." pra "Espada Curta",
+                // ilegível). `_truncateLabel` corta num limite de
+                // caracteres bem maior e sempre numa fronteira de palavra
+                // (nunca no meio de uma palavra) — o `.equip-slot` já
+                // aceita quebra de linha (sem white-space:nowrap no CSS),
+                // então o nome real do item aparece de forma legível, com
+                // o tooltip (attachTooltip abaixo) continuando a ser a
+                // fonte completa de detalhes. Armas de longo alcance
+                // também mostram a munição atual direto no slot, sem
+                // precisar abrir o tooltip.
+                slotEl.innerText = this._truncateLabel(item.name, 16) + (item.maxAmmo ? ` ${item.ammo}/${item.maxAmmo}` : "");
                 slotEl.style.borderColor = item.rarity.color;
                 slotEl.style.color = item.rarity.color;
                 slotEl.classList.add('filled');
@@ -3000,8 +3009,11 @@ class UIManager {
                     }
                 };
             } else {
-                // Slot vazio
-                slotEl.innerText = slotKey;
+                // Slot vazio — rótulo em português (SLOT_LABELS, items.js),
+                // não mais a chave crua do slot ("head"/"offHand"/
+                // "mainHand"): bug de auditoria visual, texto em inglês/
+                // camelCase no meio de uma UI 100% em português.
+                slotEl.innerText = SLOT_LABELS[slotKey] || slotKey;
                 slotEl.style.borderColor = '#444';
                 slotEl.style.color = '#666';
                 // Bug de auditoria corrigido ("brilho de item encantado
@@ -5458,6 +5470,18 @@ class UIManager {
             tt.classList.remove('hidden');
         };
         element.onmouseleave = () => this.hideTooltip();
+    }
+
+    // Corta um texto num limite de caracteres sempre numa fronteira de
+    // PALAVRA (nunca no meio de uma palavra) — usado pelos rótulos de slot
+    // de equipamento (renderEquipment) que antes cortavam nas primeiras 3
+    // letras cruas ("Esp.." pra "Espada Curta"). Textos que já cabem no
+    // limite voltam intactos, sem reticências.
+    _truncateLabel(text, maxLen) {
+        if (text.length <= maxLen) return text;
+        const cut = text.slice(0, maxLen);
+        const lastSpace = cut.lastIndexOf(' ');
+        return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut) + '…';
     }
 
     // Ícone de item por slot (equipamento) ou categoria (consumível) — antes

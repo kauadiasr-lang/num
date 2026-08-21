@@ -26,6 +26,22 @@ const SLOTS = {
     RANGED: 'ranged'
 };
 
+// Rótulos em português por slot (bug de auditoria visual: a tela de
+// Inventário mostrava a própria CHAVE crua do slot ("head", "offHand",
+// "mainHand") como texto do slot vazio — inglês/camelCase cru no meio de
+// uma UI 100% em português, ver ui.js renderEquipment). Valores idênticos
+// ao texto original de cada `div.equip-slot` em index.html (Capacete/
+// Peitoral/Luvas/Calças/Botas, não nomes genéricos de parte do corpo) —
+// era exatamente esse texto que `renderEquipment()` sobrescrevia toda vez
+// que o slot ficava vazio; nunca usado pra lógica (SLOTS continua sendo a
+// fonte de verdade dos valores), só pra exibição.
+const SLOT_LABELS = {
+    [SLOTS.HEAD]: 'Capacete', [SLOTS.CHEST]: 'Peitoral', [SLOTS.HANDS]: 'Luvas',
+    [SLOTS.LEGS]: 'Calças', [SLOTS.FEET]: 'Botas', [SLOTS.MAIN_HAND]: 'Arma',
+    [SLOTS.OFF_HAND]: 'Escudo', [SLOTS.AMULET]: 'Amuleto', [SLOTS.RING]: 'Anel',
+    [SLOTS.RANGED]: 'Longo Alcance'
+};
+
 class Equipment {
     // `qualityValue` (0-100, ver js/forge.js) — NOVO, opcional, default
     // `null`. Todo item de loja/loot continua chamando `new
