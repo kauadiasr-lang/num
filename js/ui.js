@@ -1761,6 +1761,40 @@ class UIManager {
 
         this._renderLadderNav(navSections);
         this.showScreen('screen-ladder');
+        // rAF pelo mesmo motivo do aviso vertical genérico em showScreen():
+        // scrollWidth real só existe depois que a tela ativa aplica layout.
+        requestAnimationFrame(() => this._attachLadderNavScrollHint(document.getElementById('ladder-nav')));
+    }
+
+    // Auditoria mobile (iteração 6): a faixa de chips de liga (.ladder-nav)
+    // já era deliberadamente rolável na horizontal em telas estreitas (ver
+    // comentário de .ladder-panel em style.css), mas sem nenhum indício
+    // visual — a última liga simplesmente cortava na borda do painel,
+    // como se a lista tivesse acabado ali (achado real via captura em
+    // viewport 390px: "Liga de Bronze" cortada, "Liga de Prata" invisível
+    // logo depois). Mesmo padrão do .scroll-hint vertical (iterações 3/4),
+    // só que no eixo horizontal e restrito a este único elemento — no
+    // layout desktop (>=900px) .ladder-nav vira coluna vertical sem
+    // overflow-x, então o aviso nunca é relevante lá (guardado também via
+    // CSS, ver .ladder-nav-hint na media query).
+    _attachLadderNavScrollHint(nav) {
+        if (!nav || window.innerWidth >= 900) return;
+        const scrollable = nav.scrollWidth > nav.clientWidth + 4;
+        let hint = nav.querySelector(':scope > .ladder-nav-hint');
+        if (!scrollable) {
+            if (hint) hint.classList.add('hidden');
+            return;
+        }
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'ladder-nav-hint';
+            hint.setAttribute('aria-hidden', 'true');
+            hint.textContent = '→';
+            nav.appendChild(hint);
+            nav.addEventListener('scroll', () => this._attachLadderNavScrollHint(nav));
+        }
+        const atEnd = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 4;
+        hint.classList.toggle('hidden', atEnd);
     }
 
     // Item 28 da mega-diretiva ("use o espaço lateral em PC, mantenha

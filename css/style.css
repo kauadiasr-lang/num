@@ -1288,6 +1288,41 @@ html, body {
     white-space: nowrap; transition: 0.2s; font-family: var(--font-display); letter-spacing: 0.5px;
 }
 .ladder-nav-item:hover, .ladder-nav-item.active { border-color: var(--color-gold); color: var(--color-gold); }
+
+/* Auditoria mobile (iteração 6): a faixa de chips de liga já era
+   deliberadamente horizontal+rolável em telas estreitas (ver comentário
+   acima de .ladder-panel), mas sem NENHUM indício visual disso — a última
+   liga simplesmente cortava na borda do painel, parecendo que a lista
+   acabava ali (mesma classe de bug do aviso vertical .scroll-hint, só que
+   no eixo horizontal). `_attachLadderNavScrollHint` (ui.js, chamado logo
+   após _renderLadderNav) injeta esta seta "→" fixa na borda direita via
+   `position: sticky`, some quando o scroll chega no fim de verdade. Só
+   faz sentido no layout mobile (faixa horizontal); acima de 900px
+   .ladder-nav vira coluna vertical sem overflow-x, então o aviso nunca é
+   relevante ali. */
+.ladder-nav-hint {
+    position: sticky;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin-left: -28px;
+    width: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-panel) 70%);
+    color: var(--color-gold-bright);
+    font-size: 0.9rem;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+.ladder-nav-hint.hidden { opacity: 0; }
+@media (min-width: 900px) {
+    .ladder-nav-hint { display: none; }
+}
 @media (min-width: 900px) {
     .ladder-layout { flex-direction: row; align-items: flex-start; }
     .ladder-nav {
