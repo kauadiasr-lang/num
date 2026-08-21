@@ -2417,13 +2417,22 @@ class UIManager {
             // mínimo WCAG AA de 4.5:1. #999 (mesmo tom já usado pros rótulos
             // "Bloqueado" da iteração 9) resolve todas as ocorrências de uma
             // vez, mesma leitura visual de "texto discreto", contraste real (~5:1+).
+            // Auditoria (iteração 16): este botão nunca setava o atributo
+            // `disabled` quando o jogador não tinha ouro suficiente — ao
+            // contrário de Forja/Ateliê/Treinamento Orc/Negociante de
+            // Minérios, que já seguem o padrão `${affordable ? '' : 'disabled'}`.
+            // Resultado: "Aplicar (Xg)" ficava sempre visualmente ativo
+            // mesmo sem ouro, e clicar só tocava um som de erro sem
+            // nenhum toast — o jogador não tinha como saber por que nada
+            // aconteceu. Generalizado aqui pro mesmo padrão do resto do jogo.
+            const canAffordEnchant = p.gold >= enchantPrice;
             row.innerHTML = `
                 <span class="enchant-item-name">${item.name}<br><small style="color:#999">Atual: ${currentName}</small></span>
                 <div class="enchant-preview-col">
                     <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
                     <small class="enchant-preview-desc" style="color:${preview.color}">${preview.description}</small>
                 </div>
-                <button class="btn-small btn-enchant-apply">${enchantPriceLabel}</button>
+                <button class="btn-small btn-enchant-apply" ${canAffordEnchant ? '' : 'disabled'}>${enchantPriceLabel}</button>
             `;
 
             row.querySelector('.btn-enchant-cycle').addEventListener('click', () => {
@@ -2433,6 +2442,7 @@ class UIManager {
             row.querySelector('.btn-enchant-apply').addEventListener('click', () => {
                 if (p.gold < enchantPrice) {
                     window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Ouro insuficiente para esse encantamento!', 'error');
                     return;
                 }
                 p.gold -= enchantPrice;

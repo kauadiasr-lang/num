@@ -497,7 +497,20 @@ html, body {
     pointer-events: auto;
 }
 
-.btn-small:hover { filter: brightness(1.15); box-shadow: 0 0 8px rgba(212,175,55,0.4); }
+.btn-small:hover:not(:disabled) { filter: brightness(1.15); box-shadow: 0 0 8px rgba(212,175,55,0.4); }
+/* .btn-small é uma classe SEPARADA de .btn (não herda dela — grep confirma
+   nenhum lugar usa ".btn-small" esperando o CSS de ".btn"), então o
+   .btn:disabled da iteração 14 não cobre os botões que usam só
+   "btn-small" sozinho (ex: Aplicar/Gravar de Encantamentos e Runas no
+   Inventário). Mesmo problema, mesma correção, generalizada aqui também. */
+.btn-small:disabled {
+    background: var(--color-stone);
+    color: var(--color-marble-dark);
+    border-color: #5a4f3f;
+    cursor: not-allowed;
+    filter: none;
+    box-shadow: none;
+}
 
 /* Seletor de cor livre (tom de pele) — aceita qualquer cor, inclusive tons não convencionais */
 .color-picker {
