@@ -300,10 +300,20 @@ class MainMenuManager {
         container.innerHTML = '';
         const S = window.Settings;
 
-        const row = (label, inputHtml) => {
+        // Auditoria (iteração 22): rótulo era um <span> sem nenhuma ligação
+        // com o input — só o checkbox de 20x20px em si reagia ao toque,
+        // apesar do texto do rótulo (bem maior, óbvio candidato a "onde eu
+        // toco") ficar bem ao lado. `forId` (opcional, usado pelos toggles
+        // abaixo) torna o rótulo um <label for="..."> de verdade, então
+        // tocar o TEXTO também marca/desmarca a caixa — mesmo padrão HTML
+        // nativo de qualquer formulário bem-feito.
+        const row = (label, inputHtml, forId = null) => {
             const div = document.createElement('div');
             div.className = 'setting-row';
-            div.innerHTML = `<span class="setting-label">${label}</span><div class="setting-control">${inputHtml}</div>`;
+            const labelTag = forId
+                ? `<label class="setting-label" for="${forId}">${label}</label>`
+                : `<span class="setting-label">${label}</span>`;
+            div.innerHTML = `${labelTag}<div class="setting-control">${inputHtml}</div>`;
             return div;
         };
 
@@ -332,15 +342,15 @@ class MainMenuManager {
         container.appendChild(row('Escala da Interface', `<input type="range" min="0.85" max="1.25" step="0.05" value="${S.get('uiScale')}" data-key="uiScale" class="setting-slider">
             <span class="setting-value" data-value-for="uiScale">${Math.round(S.get('uiScale') * 100)}%</span>`));
 
-        container.appendChild(row('Mostrar FPS', `<input type="checkbox" data-key="showFPS" class="setting-checkbox" ${S.get('showFPS') ? 'checked' : ''}>`));
-        container.appendChild(row('Mostrar Dano Flutuante', `<input type="checkbox" data-key="showFloatingDamage" class="setting-checkbox" ${S.get('showFloatingDamage') ? 'checked' : ''}>`));
+        container.appendChild(row('Mostrar FPS', `<input type="checkbox" id="setting-showFPS" data-key="showFPS" class="setting-checkbox" ${S.get('showFPS') ? 'checked' : ''}>`, 'setting-showFPS'));
+        container.appendChild(row('Mostrar Dano Flutuante', `<input type="checkbox" id="setting-showFloatingDamage" data-key="showFloatingDamage" class="setting-checkbox" ${S.get('showFloatingDamage') ? 'checked' : ''}>`, 'setting-showFloatingDamage'));
 
         container.appendChild(row('Velocidade das Animações', `<input type="range" min="0.5" max="2" step="0.1" value="${S.get('animationSpeed')}" data-key="animationSpeed" class="setting-slider">
             <span class="setting-value" data-value-for="animationSpeed">${S.get('animationSpeed').toFixed(1)}x</span>`));
 
-        container.appendChild(row('Reduzir Efeitos Visuais', `<input type="checkbox" data-key="reduceEffects" class="setting-checkbox" ${S.get('reduceEffects') ? 'checked' : ''}>`));
+        container.appendChild(row('Reduzir Efeitos Visuais', `<input type="checkbox" id="setting-reduceEffects" data-key="reduceEffects" class="setting-checkbox" ${S.get('reduceEffects') ? 'checked' : ''}>`, 'setting-reduceEffects'));
 
-        container.appendChild(row('Tremor de Câmera', `<input type="checkbox" data-key="screenShake" class="setting-checkbox" ${S.get('screenShake') ? 'checked' : ''}>`));
+        container.appendChild(row('Tremor de Câmera', `<input type="checkbox" id="setting-screenShake" data-key="screenShake" class="setting-checkbox" ${S.get('screenShake') ? 'checked' : ''}>`, 'setting-screenShake'));
 
         // Referência rápida de controles de teclado — nunca documentados em
         // lugar nenhum da interface antes (WASD/setas e Esc funcionavam

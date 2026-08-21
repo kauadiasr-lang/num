@@ -1933,6 +1933,11 @@ html, body {
     flex-wrap: wrap;
 }
 .setting-label { color: var(--color-text); font-weight: bold; min-width: 160px; }
+/* Auditoria (iteração 22): quando .setting-label é um <label for="...">
+   de verdade (ver row() em mainmenu.js, usado pelos toggles de
+   checkbox), cursor:pointer avisa visualmente que o texto agora também é
+   clicável — sem isso pareceria texto comum mesmo já funcionando. */
+label.setting-label { cursor: pointer; }
 .setting-control { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; min-width: 140px; }
 /* Bug de auditoria (visual): "elementos HTML muito simples" — o slider só
    tinha `accent-color`, então continuava sendo o controle nativo cinza do
