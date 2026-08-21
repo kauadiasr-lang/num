@@ -3812,7 +3812,14 @@ class UIManager {
             row.querySelector('.btn-rune-apply').addEventListener('click', () => {
                 const success = window.RuneSystem.apply(item, previewRune);
                 if (!success) {
+                    // Auditoria (iteração 20): este era o único `playError()`
+                    // do arquivo sem nenhum toast — normalmente inalcançável
+                    // (a linha ~3778 já filtra `validRunes` por `canApply`
+                    // antes de renderizar o botão), mas mantido como rede de
+                    // segurança consistente com todo o resto do jogo (Forja,
+                    // Ateliê, Encantamentos, Banco) caso essa garantia mude.
                     window.AudioManager.playError();
+                    if (window.MainMenu) window.MainMenu.showToast('Não foi possível gravar esta runa nesse item.', 'error');
                     return;
                 }
                 const bagIdx = p.inventory.indexOf(previewEntry.item);
