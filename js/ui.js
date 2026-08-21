@@ -1374,11 +1374,25 @@ class UIManager {
         const threat = window.BalanceCore.getThreatLevel(p, enemy);
         const weapon = enemy.equipment && enemy.equipment[enemy.activeWeaponSlot];
         const archetype = (enemy.aiStyle && enemy.aiStyle.name) || enemy.personality || 'Desconhecido';
+        // Auditoria (iteração 25): as 4-5 linhas (nome, nível, arquétipo,
+        // ameaça, risco de ouro) eram todas o MESMO innerText plano — cor e
+        // peso idênticos pra tudo, sem nenhuma hierarquia. Isso ia contra o
+        // próprio propósito do recurso (ver comentário acima: "mostrar o
+        // risco com antecedência", Fase 12/Iteração 8) — nada aqui puxava o
+        // olho pro nome do inimigo ou pro aviso de ouro em risco, os dois
+        // itens mais importantes pra uma decisão consciente de "lutar ou
+        // recuar". Nome agora é destaque (maior/mais claro); Ameaça ganha
+        // cor por severidade (mesma lógica semântica verde→vermelho já usada
+        // em .stat-bonus-pos/.stat-bonus-neg); Risco usa a cor de perigo já
+        // estabelecida no jogo (--color-primary-hover / #ff9b9b, mesma de
+        // .btn-small.danger) — não introduz paleta nova.
+        const THREAT_COLORS = { 'BAIXA': '#7ec97e', 'MÉDIA': 'var(--color-gold)', 'ALTA': '#e8934a', 'EXTREMA': '#ff9b9b' };
+        const threatColor = THREAT_COLORS[threat.label] || 'var(--color-gold)';
         const lines = [
-            `${enemy.name}`,
+            `<strong style="font-size:1.1rem; color:var(--color-gold-bright);">${enemy.name}</strong>`,
             `Nível ${enemy.level}${enemy.isElite ? ' · ★ Elite' : ''}`,
             `${archetype}${weapon ? ' · ' + weapon.name : ''}`,
-            `Ameaça: ${threat.label}`,
+            `Ameaça: <strong style="color:${threatColor}">${threat.label}</strong>`,
         ];
         // Fase 12 da diretiva de balanceamento (Iteração 8) — achado #13
         // da auditoria original ("dreno de ouro por duelo"): o dreno em
@@ -1398,9 +1412,9 @@ class UIManager {
             const weight = window.ReputationSystem._opponentWeight(enemy);
             const goldLossPercent = 0.08 + weight * 0.015;
             const goldAtRisk = Math.min(p.gold, Math.round(p.gold * goldLossPercent));
-            lines.push(`Risco: -${goldAtRisk}g se perder`);
+            lines.push(`<strong style="color:#ff9b9b">Risco: -${goldAtRisk}g se perder</strong>`);
         }
-        document.getElementById('duel-threat-text').innerText = lines.join('\n');
+        document.getElementById('duel-threat-text').innerHTML = lines.join('<br>');
         document.getElementById('duel-threat-preview').classList.remove('hidden');
 
         document.getElementById('btn-duel-confirm').onclick = () => {
