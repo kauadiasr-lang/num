@@ -263,7 +263,7 @@ class MainMenuManager {
     }
 
     showExportModal(name, exportedString) {
-        const extra = `<textarea id="export-textarea" class="import-textarea" readonly>${exportedString}</textarea>
+        const extra = `<textarea id="export-textarea" class="import-textarea" readonly aria-label="Código exportado do save, pronto para copiar">${exportedString}</textarea>
             <button id="btn-copy-export" class="btn btn-small" style="margin-top:8px;">Copiar para a Área de Transferência</button>`;
         this.showConfirm(
             'Exportar Save',
