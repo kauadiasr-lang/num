@@ -447,11 +447,27 @@ html, body {
 .btn-randomize:hover { filter: brightness(1.15); }
 .btn-randomize:active { transform: scale(0.97); }
 
+/* Auditoria (iteração 8): quando usado junto de `.btn` (ex: `class="btn
+   btn-small"`, todos os botões "Comprar (Xg)" da Loja/Forja/Taverna),
+   `.btn-small` nunca sobrescrevia `font-size` — herdava os 1.2rem (~19px)
+   de `.btn`, pensado pra botões grandes e isolados (menu principal), não
+   pra caber ao lado de texto numa linha estreita de card. Resultado real
+   medido: o botão "Comprar (85g)" tinha só ~95px de largura disponível
+   num card de loja de ~307px, mas o texto (nesse tamanho de fonte)
+   precisava de ~136px — o texto quebrava numa 2ª linha que o
+   `overflow:hidden` de `.btn` (usado pro brilho de hover) cortava fora,
+   sobrando só "COMPR" visível, parecendo um bug de layout quebrado.
+   `font-size: 0.85rem` (~13.6px) bate com o tamanho que `.btn-small`
+   sozinho (sem `.btn`, ex: botões de Raça/Gênero da criação de
+   personagem) já usava de fato antes desta mudança — nunca foi uma
+   decisão de design ter dois tamanhos "pequenos" diferentes, só um
+   detalhe que nenhuma das duas classes preenchia sozinha. */
 .btn-small {
     background: linear-gradient(180deg, var(--color-bronze-light), var(--color-bronze-dark));
     color: var(--color-marble);
     border: 1px solid var(--color-gold);
     padding: 5px 15px;
+    font-size: 0.85rem;
     cursor: pointer;
     border-radius: 3px;
     transition: 0.2s;
@@ -1120,6 +1136,19 @@ html, body {
     transition: border-color 0.2s, transform 0.15s;
 }
 .shop-item-card:hover { border-color: var(--color-gold); transform: translateY(-2px); }
+/* Auditoria (iteração 8), continuação do fix de font-size em .btn-small
+   acima: mesmo no tamanho certo, o botão "Comprar (Xg)" ainda perdia a
+   disputa por espaço contra a descrição do item (ambos com flex-shrink
+   padrão = 1) sempre que o texto era mais longo — o botão encolhia
+   abaixo do necessário e a 2ª linha ficava cortada por overflow:hidden
+   (herdado de .btn, usado pro brilho de hover). flex-shrink:0 +
+   white-space:nowrap garantem que o botão SEMPRE reserva a largura da
+   sua própria linha (nunca quebra, nunca corta); min-width:0 no texto
+   (que normalmente teria um mínimo implícito baseado na palavra mais
+   longa) deixa ele ceder esse espaço de verdade — texto em prosa já
+   tolera quebra agressiva bem melhor que o rótulo de um botão. */
+.shop-item-card > div { min-width: 0; }
+.shop-item-card > button { flex-shrink: 0; white-space: nowrap; margin-left: 10px; }
 
 /* Rework da Taverna item 15: "⭐ Especialidade da Casa" — precisa parecer
    claramente diferente do estoque comum (item 15 da diretiva: "deve
