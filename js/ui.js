@@ -1141,7 +1141,7 @@ class UIManager {
             `<button class="btn btn-small debug-unlock-tree" data-tree="${id}">Desbloquear tudo: ${id}</button>`
         ).join(' ');
         const treesHtml = `<div style="display:flex; flex-wrap:wrap; gap:8px;">${treeBtns}</div>
-            <p style="font-size:0.75rem; color:#888; margin-top:6px;">Exige a linhagem correspondente ativa (principal ou secundária) — ative acima primeiro se precisar.</p>`;
+            <p style="font-size:0.75rem; color:#999; margin-top:6px;">Exige a linhagem correspondente ativa (principal ou secundária) — ative acima primeiro se precisar.</p>`;
 
         // --- Itens ---
         const equipCategories = ['weapons', 'armors', 'shields', 'trinkets'];
@@ -2174,8 +2174,8 @@ class UIManager {
 
             let statusLabel = `${skill.mpCost} MP`;
             let statusColor = '#3388ff';
-            if (onCooldown) { statusLabel = `Recarregando (${p.skillCooldowns[skillId]})`; statusColor = '#888'; }
-            else if (!hasMana) { statusColor = '#888'; }
+            if (onCooldown) { statusLabel = `Recarregando (${p.skillCooldowns[skillId]})`; statusColor = '#999'; }
+            else if (!hasMana) { statusColor = '#999'; }
             else if (!inRange) { statusLabel = 'Fora de alcance'; statusColor = '#ff5555'; }
             else if (!styleOk) { statusLabel = 'Estilo inativo'; statusColor = '#ff5555'; }
 
@@ -2410,8 +2410,15 @@ class UIManager {
             // tinha que aplicar (gastando ouro) ou já saber de cor pra
             // descobrir o efeito — a descrição só aparecia DEPOIS, no
             // tooltip do item já equipado (ver updateInventoryStats).
+            // Auditoria de acessibilidade (iteração 10, continuação da 9): #888
+            // (texto secundário/estado vazio em telas como esta, Forja, Rituais,
+            // Mutações, Negociante de Minérios, Estrada/Expedição) media só
+            // ~4.3:1 de contraste no fundo escuro dos painéis — abaixo do
+            // mínimo WCAG AA de 4.5:1. #999 (mesmo tom já usado pros rótulos
+            // "Bloqueado" da iteração 9) resolve todas as ocorrências de uma
+            // vez, mesma leitura visual de "texto discreto", contraste real (~5:1+).
             row.innerHTML = `
-                <span class="enchant-item-name">${item.name}<br><small style="color:#888">Atual: ${currentName}</small></span>
+                <span class="enchant-item-name">${item.name}<br><small style="color:#999">Atual: ${currentName}</small></span>
                 <div class="enchant-preview-col">
                     <button class="btn-small btn-enchant-cycle" data-preview="${preview.name}">${preview.name} ▸</button>
                     <small class="enchant-preview-desc" style="color:${preview.color}">${preview.description}</small>
@@ -2440,7 +2447,7 @@ class UIManager {
         });
 
         if (container.children.length === 0) {
-            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Equipe uma arma ou armadura para encantá-la.</p>';
+            container.innerHTML = '<p style="font-size:0.8rem; color:#999; text-align:center;">Equipe uma arma ou armadura para encantá-la.</p>';
         }
     }
 
@@ -2699,7 +2706,7 @@ class UIManager {
         const ritualsEl = document.getElementById('mutations-rituals');
         ritualsEl.innerHTML = '';
         if (hasLineage) {
-            ritualsEl.innerHTML = '<p style="text-align:center; color:#888; font-size:0.85rem;">Sua linhagem já foi despertada. Nenhum outro ritual pode ser realizado nesta campanha.</p>';
+            ritualsEl.innerHTML = '<p style="text-align:center; color:#999; font-size:0.85rem;">Sua linhagem já foi despertada. Nenhum outro ritual pode ser realizado nesta campanha.</p>';
         } else {
             window.RitualSystem.getAll().forEach(ritual => {
                 const lineage = window.LineageSystem.get(ritual.lineageId);
@@ -2714,7 +2721,7 @@ class UIManager {
                 const card = document.createElement('div');
                 card.className = 'ritual-card';
                 card.innerHTML = `
-                    <h4>${ritual.name} <small style="color:#888">(${lineage.name})</small></h4>
+                    <h4>${ritual.name} <small style="color:#999">(${lineage.name})</small></h4>
                     <p>${ritual.description}</p>
                     <div class="ritual-progress-bar"><div class="ritual-progress-fill" style="width:${Math.floor(progress * 100)}%"></div></div>
                     <button class="btn-small btn-ritual" ${canNow ? '' : 'disabled'}>${btnLabel}</button>
@@ -2793,7 +2800,7 @@ class UIManager {
                 bossesEl.appendChild(card);
             });
         } else {
-            bossesEl.innerHTML = '<p style="font-size:0.8rem; color:#888;">Nenhum boss derrotado ainda.</p>';
+            bossesEl.innerHTML = '<p style="font-size:0.8rem; color:#999;">Nenhum boss derrotado ainda.</p>';
         }
 
         this.showScreen('screen-mutations');
@@ -3611,7 +3618,7 @@ class UIManager {
             let stateLabel = '';
             if (completed) stateLabel = '<span style="color:#4caf50">✓ Concluído</span>';
             else if (isActive) stateLabel = '<span style="color:#ffb340">Desafio ativo</span>';
-            else if (!unlocked) stateLabel = '<span style="color:#888">🔒 Requer todos os outros Mestres</span>';
+            else if (!unlocked) stateLabel = '<span style="color:#999">🔒 Requer todos os outros Mestres</span>';
 
             card.className = 'forge-recipe-card' + (!unlocked && !completed ? ' forge-recipe-locked' : '');
             card.innerHTML = `
@@ -3656,7 +3663,7 @@ class UIManager {
         });
         const essenceIds = Object.keys(ItemDatabase.essences);
         if (essenceIds.every(id => !counts[ItemDatabase.essences[id].id])) {
-            essenceContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma essência na mochila — colha as nascentes espalhadas pela cidade.</p>';
+            essenceContainer.innerHTML = '<p style="color:#999; grid-column: 1 / -1;">Nenhuma essência na mochila — colha as nascentes espalhadas pela cidade.</p>';
         } else {
             essenceIds.forEach(templateKey => {
                 const template = ItemDatabase.essences[templateKey];
@@ -3760,7 +3767,7 @@ class UIManager {
             if (item.category === 'rune') runesInBag.push({ item, idx });
         });
         if (runesInBag.length === 0) {
-            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Nenhuma runa na mochila — crie uma acima primeiro.</p>';
+            container.innerHTML = '<p style="font-size:0.8rem; color:#999; text-align:center;">Nenhuma runa na mochila — crie uma acima primeiro.</p>';
             return;
         }
 
@@ -3781,7 +3788,7 @@ class UIManager {
             const row = document.createElement('div');
             row.className = 'enchant-row';
             row.innerHTML = `
-                <span class="enchant-item-name">${item.name}<br><small style="color:#888">Runas gravadas: ${applied}/${window.RuneSystem.MAX_RUNES_PER_ITEM}</small></span>
+                <span class="enchant-item-name">${item.name}<br><small style="color:#999">Runas gravadas: ${applied}/${window.RuneSystem.MAX_RUNES_PER_ITEM}</small></span>
                 <div class="enchant-preview-col">
                     <button class="btn-small btn-rune-cycle" data-preview="${previewRune.name}">${previewRune.name} ▸</button>
                     <small class="enchant-preview-desc" style="color:#ffb347">${previewRune.description}</small>
@@ -3809,7 +3816,7 @@ class UIManager {
         });
 
         if (container.children.length === 0) {
-            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center;">Nenhum equipamento compatível com as runas da mochila (ou já no limite de 2 por peça).</p>';
+            container.innerHTML = '<p style="font-size:0.8rem; color:#999; text-align:center;">Nenhum equipamento compatível com as runas da mochila (ou já no limite de 2 por peça).</p>';
         }
     }
 
@@ -3831,7 +3838,7 @@ class UIManager {
         });
         const materialIds = Object.keys(ItemDatabase.materials);
         if (materialIds.every(id => !counts[ItemDatabase.materials[id].id])) {
-            materialsContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma matéria-prima na mochila — minere os veios espalhados pela cidade.</p>';
+            materialsContainer.innerHTML = '<p style="color:#999; grid-column: 1 / -1;">Nenhuma matéria-prima na mochila — minere os veios espalhados pela cidade.</p>';
         } else {
             materialIds.forEach(templateKey => {
                 const template = ItemDatabase.materials[templateKey];
@@ -3959,7 +3966,7 @@ class UIManager {
         if (!p.oreTraderPurchasesToday) p.oreTraderPurchasesToday = {};
 
         const buyContainer = document.getElementById('oretrader-buy-container');
-        buyContainer.innerHTML = '<p style="color:#888; font-size:0.75rem; grid-column: 1 / -1; margin-bottom:8px;">⚒️ Materiais raros (Lingote de Aço, Cristal Mágico, Adamante Anão) não são vendidos aqui — só minerando os veios da cidade.</p>';
+        buyContainer.innerHTML = '<p style="color:#999; font-size:0.75rem; grid-column: 1 / -1; margin-bottom:8px;">⚒️ Materiais raros (Lingote de Aço, Cristal Mágico, Adamante Anão) não são vendidos aqui — só minerando os veios da cidade.</p>';
         Object.keys(ItemDatabase.materials).filter(key => ItemDatabase.materials[key].tier <= 2).forEach(templateKey => {
             const template = ItemDatabase.materials[templateKey];
             const price = Math.ceil(template.value * 4);
@@ -3991,7 +3998,7 @@ class UIManager {
         p.inventory.forEach(item => { if (item.category === 'material') counts[item.id] = (counts[item.id] || 0) + 1; });
         const anyMaterials = Object.keys(ItemDatabase.materials).some(key => counts[ItemDatabase.materials[key].id] > 0);
         if (!anyMaterials) {
-            sellContainer.innerHTML = '<p style="color:#888; grid-column: 1 / -1;">Nenhuma matéria-prima pra vender.</p>';
+            sellContainer.innerHTML = '<p style="color:#999; grid-column: 1 / -1;">Nenhuma matéria-prima pra vender.</p>';
         } else {
             Object.keys(ItemDatabase.materials).forEach(templateKey => {
                 const template = ItemDatabase.materials[templateKey];
@@ -5162,7 +5169,7 @@ class UIManager {
             if (sceneryCanvas) sceneryCanvas.classList.add('hidden');
 
             const logEl = document.getElementById('road-log');
-            logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A mata se fecha atrás de você...</p>';
+            logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#999;">A mata se fecha atrás de você...</p>';
 
             this.showScreen('screen-road');
             return;
@@ -5193,7 +5200,7 @@ class UIManager {
         }
 
         const logEl = document.getElementById('road-log');
-        logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#888;">A estrada se estende à sua frente...</p>';
+        logEl.innerHTML = journey.log.map(m => `<p>${m}</p>`).join('') || '<p style="color:#999;">A estrada se estende à sua frente...</p>';
 
         this.showScreen('screen-road');
     }
@@ -5578,7 +5585,7 @@ class UIManager {
                 if (item.maxAmmo) statsHtml += `<p style="color:#88ccff">Longo Alcance: ${item.ammo}/${item.maxAmmo} disparos (recarrega no início de cada batalha)</p>`;
                 if (item.maxDurability) {
                     const broken = item.durability <= 0;
-                    const color = broken ? '#ff4444' : (item.durability < item.maxDurability * 0.3 ? '#ffaa00' : '#888');
+                    const color = broken ? '#ff4444' : (item.durability < item.maxDurability * 0.3 ? '#ffaa00' : '#999');
                     statsHtml += `<p style="color:${color}">Durabilidade: ${item.durability}/${item.maxDurability}${broken ? ' — QUEBRADA! (metade do dano/defesa, repare no Ferreiro/Armeiro)' : ''}</p>`;
                 }
                 statsHtml += this._buildEquippedComparison(item);

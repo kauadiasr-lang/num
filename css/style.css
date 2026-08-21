@@ -1518,7 +1518,7 @@ html, body {
 .achievement-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-bronze-light), var(--color-gold)); transition: width 0.4s ease; }
 .achievement-progress-text { font-size: 0.75rem; color: var(--color-marble-dark); margin-bottom: 6px; }
 .achievement-rarity { text-transform: uppercase; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; margin-top: 4px; }
-.achievement-date { font-size: 0.7rem; color: #888; margin-top: 4px; }
+.achievement-date { font-size: 0.7rem; color: #999; margin-top: 4px; }
 .achievement-card.rarity-comum .achievement-rarity { color: #b9ae95; }
 .achievement-card.rarity-raro .achievement-rarity { color: #6bb2ff; }
 .achievement-card.rarity-epico .achievement-rarity { color: #a335ee; }
@@ -1847,7 +1847,7 @@ html, body {
 .save-slot-info { flex: 1 1 200px; min-width: 160px; }
 .save-slot-info h4 { color: var(--color-gold); margin-bottom: 3px; }
 .save-slot-info p { font-size: 0.85rem; color: var(--color-marble-dark); margin: 1px 0; }
-.save-slot-info.empty-info h4 { color: #888; }
+.save-slot-info.empty-info h4 { color: #999; }
 .save-slot-meta { font-size: 0.78rem !important; opacity: 0.85; }
 
 .save-slot-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
