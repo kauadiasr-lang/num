@@ -160,6 +160,18 @@ class UIManager {
     // 'slide' ou 'darken'. Nunca instantâneo — toda troca de tela anima.
     showScreen(screenId, transition = 'fade') {
         const target = document.getElementById(screenId);
+
+        // Bug de auditoria (mobile, iteração 5): attachTooltip só escuta
+        // mouseenter/mouseleave — em touch não existe "mouseleave" de
+        // verdade (o dedo simplesmente sai da tela), então o tooltip do
+        // último item tocado ficava aberto e sobrepondo o conteúdo da
+        // PRÓXIMA tela inteira (achado em Loja/mobile: o tooltip de uma
+        // poção continuava visível por cima do título "Ferreiro" depois de
+        // trocar de tela). Toda troca de tela agora fecha qualquer tooltip
+        // que tenha ficado preso, já que ele nunca faz sentido sobreviver
+        // a uma navegação real.
+        this.hideTooltip();
+
         this.screens.forEach(s => {
             s.classList.remove('active');
             s.classList.remove('transition-zoom', 'transition-slide', 'transition-darken');
@@ -260,6 +272,25 @@ class UIManager {
     }
 
     initEventListeners() {
+        // Bug de auditoria (mobile, iteração 5): attachTooltip só cobre
+        // mouseenter/mouseleave. Em navegadores touch, tocar num item com
+        // tooltip dispara um mouseenter sintético (é assim que "hover" via
+        // toque funciona na web), mas nunca um mouseleave de verdade — o
+        // dedo só sai da tela, sem nenhum evento equivalente. Resultado: o
+        // tooltip do último item tocado ficava preso aberto até a PRÓXIMA
+        // vez que o dedo passasse por cima de outro item (ver também o
+        // hideTooltip() adicionado em showScreen(), que cobre o caso de
+        // trocar de tela). Aqui cobre o caso de tocar em qualquer outro
+        // lugar DENTRO da mesma tela (rolar a loja, tocar num botão sem
+        // tooltip, etc.) — fecha o tooltip preso assim que o toque não for
+        // sobre o próprio item que o abriu.
+        document.addEventListener('touchstart', (e) => {
+            const tt = document.getElementById('item-tooltip');
+            if (tt && !tt.classList.contains('hidden') && !tt.contains(e.target)) {
+                this.hideTooltip();
+            }
+        }, { passive: true });
+
         // --- Navegação da Cidade (Hub) ---
         // O Hub deixou de ser um menu de botões: agora é a cidade explorável
         // (js/city.js). O jogador anda até cada prédio e interage com o
