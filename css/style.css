@@ -117,25 +117,15 @@ html, body {
 .screen.transition-darken.active { filter: brightness(1); }
 
 /* UI Elements */
-.game-title {
-    font-family: var(--font-display);
-    font-size: 3.2rem;
-    background: linear-gradient(180deg, var(--color-gold-bright), var(--color-gold) 55%, var(--color-bronze) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    text-transform: uppercase;
-    letter-spacing: 6px;
-    margin-bottom: 2rem;
-    text-align: center;
-    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.7));
-    animation: titleGlow 3.2s ease-in-out infinite;
-}
-
-@keyframes titleGlow {
-    0%, 100% { filter: drop-shadow(0 2px 10px rgba(0,0,0,0.7)) drop-shadow(0 0 6px rgba(212,175,55,0.25)); }
-    50% { filter: drop-shadow(0 2px 10px rgba(0,0,0,0.7)) drop-shadow(0 0 18px rgba(212,175,55,0.55)); }
-}
+/* Auditoria (iteração 18): a tela de Carregamento reusa agora o mesmo
+   .game-logo (duas linhas, ver mainmenu-content abaixo) que o Menu
+   Principal já usa — antes tinha seu próprio .game-title de uma linha só,
+   que em telas estreitas (~390px) ultrapassava a viewport e ficava colado
+   nas bordas (letter-spacing:6px + "ARENA OF BLADES" inteiro numa linha
+   só). .loader-content não tem `gap` como .mainmenu-content tem, então
+   esta margem substitui o antigo `margin-bottom` do .game-title só aqui
+   (não em .game-logo direto, pra não somar com o gap do Menu Principal). */
+#screen-loading .game-logo { margin-bottom: 2rem; }
 
 .btn {
     background: linear-gradient(180deg, var(--color-bronze-light) 0%, var(--color-bronze) 55%, var(--color-bronze-dark) 100%);
@@ -225,7 +215,6 @@ html, body {
 
 /* Responsividade Mobile */
 @media (max-width: 768px) {
-    .game-title { font-size: 2rem; }
     .btn { padding: 20px 40px; font-size: 1.5rem; width: 80%; margin: 10px auto; }
 }
 

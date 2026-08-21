@@ -17,7 +17,21 @@
             <!-- TELA: CARREGAMENTO INICIAL -->
             <div id="screen-loading" class="screen active">
                 <div class="loader-content">
-                    <h1 class="game-title">Arena of Blades</h1>
+                    <!-- Auditoria (iteração 18): esta era a ÚNICA tela usando
+                         .game-title (single-line, sem quebra) em vez do
+                         .game-logo de duas linhas já usado com sucesso no
+                         Menu Principal — em telas estreitas (~390px),
+                         "ARENA OF BLADES" em letter-spacing:6px numa linha
+                         só ultrapassava a viewport e ficava colado nas
+                         bordas, sem nenhuma margem, na PRIMEIRA tela que
+                         todo jogador vê. Reaproveita o mesmo .game-logo
+                         (título/subtítulo empilhados) que já resolve isso
+                         no Menu Principal, em vez de inventar um tratamento
+                         paralelo. -->
+                    <h1 class="game-logo">
+                        <span class="game-logo-main">ARENA</span>
+                        <span class="game-logo-sub">OF BLADES</span>
+                    </h1>
                     <div class="progress-bar-container">
                         <div id="loading-progress" class="progress-fill"></div>
                     </div>
