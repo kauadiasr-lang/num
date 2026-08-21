@@ -946,6 +946,18 @@ html, body {
     .distance-indicator { width: 100%; order: 3; }
     .battle-log { width: 95%; }
     .btn-action { padding: 15px; font-size: 1rem; }
+    /* Auditoria mobile (iteração 13): .toast-container é um overlay global
+       (top:16px), sem nenhuma consciência de qual tela está ativa — em
+       combate mobile isso cobre o próprio card de status do jogador (nome
+       fica escondido atrás do toast) toda vez que uma ação falha (mana
+       insuficiente, fora de alcance, inventário cheio etc.), um caso muito
+       comum. Empurra os toasts pra abaixo dos dois cards de status durante
+       a batalha (cada .entity-status mede ~200px de altura + 10px de gap
+       nesse layout empilhado), aceitando que ocasionalmente sobreponha o
+       .distance-indicator (menos crítico que esconder a identidade do
+       jogador). Escopo restrito a #screen-battle pra não afetar toasts em
+       nenhuma outra tela. */
+    #screen-battle.active ~ .toast-container { top: 432px; }
 }
 
 /* Telas baixas (celular em pé compacto ou deitado): encolhe o essencial para
