@@ -2647,6 +2647,9 @@ class UIManager {
                             window.SaveManager.save(window.Engine.state);
                             if (window.AudioManager) window.AudioManager.playConfirm();
                             this._renderCombatStyleDetail();
+                        } else {
+                            if (window.AudioManager) window.AudioManager.playError();
+                            if (window.MainMenu) window.MainMenu.showToast('Pontos insuficientes ou pré-requisito não desbloqueado.', 'error');
                         }
                     });
                 }
@@ -2704,6 +2707,9 @@ class UIManager {
                             window.SaveManager.save(window.Engine.state);
                             if (window.AudioManager) window.AudioManager.playConfirm();
                             this.openMutations();
+                        } else {
+                            if (window.AudioManager) window.AudioManager.playError();
+                            if (window.MainMenu) window.MainMenu.showToast('Pontos insuficientes ou pré-requisito não desbloqueado.', 'error');
                         }
                     });
                 }
