@@ -342,16 +342,20 @@ html, body {
     overflow-y: auto;
 }
 
-/* Aviso de rolagem (auditoria de UX): o painel de criação de personagem é
-   mais alto que a viewport em telas comuns (~1056px de conteúdo vs
-   ~714px visíveis a 800px de altura) e não tinha nenhum indício de que
-   "Entrar na Arena" ficava escondido logo abaixo do último atributo — um
-   jogador novo podia nem perceber que dava pra rolar. `position: sticky`
-   gruda no fundo da área rolável enquanto ela não chega ao final de
-   verdade (índice de padding negativo evita que ele ocupe espaço extra
-   no fluxo); `_updateCreationScrollHint` em ui.js soma opacidade 0 assim
-   que o scroll alcança o fim real, então o aviso nunca cobre o botão. */
-.creation-scroll-hint {
+/* Aviso genérico de rolagem (auditoria de UX, iteração 3 → generalizado na
+   4): praticamente todo `.panel` do jogo usa `overflow-y:auto` +
+   `max-height` e pode cortar conteúdo real — botões, atributos, texto —
+   sem nenhum indício visual de que dá pra rolar (achado primeiro no
+   criador de personagem, "Entrar na Arena" escondido; depois confirmado
+   em Inventário/Loja/Forja e outros). Em vez de um elemento estático por
+   tela, `UIManager._attachScrollHintIfNeeded` (ui.js) injeta este mesmo
+   `.scroll-hint` como último filho de QUALQUER painel que meça
+   scrollHeight > clientHeight, e o mantém escondido em painéis que já
+   cabem inteiros na viewport. `position: sticky` gruda no fundo da área
+   rolável enquanto ela não chega ao final de verdade (a margem negativa
+   evita que ele ocupe espaço extra no fluxo); a opacidade zera assim que
+   o scroll alcança o fim real, então o aviso nunca cobre o último botão. */
+.scroll-hint {
     position: sticky;
     bottom: 0;
     left: 0;
@@ -369,18 +373,18 @@ html, body {
     pointer-events: none;
     opacity: 1;
     transition: opacity 0.3s ease;
-    animation: creation-scroll-hint-bounce 1.6s ease-in-out infinite;
+    animation: scroll-hint-bounce 1.6s ease-in-out infinite;
 }
 
-.creation-scroll-hint.hidden { opacity: 0; }
+.scroll-hint.hidden { opacity: 0; }
 
-@keyframes creation-scroll-hint-bounce {
+@keyframes scroll-hint-bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(4px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .creation-scroll-hint { animation: none; }
+    .scroll-hint { animation: none; }
 }
 
 .creation-grid {

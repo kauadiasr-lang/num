@@ -177,15 +177,17 @@ class UIManager {
         document.getElementById('game-container').scrollTop = 0;
         document.getElementById(screenId).scrollTop = 0;
 
-        // Auditoria de UX: o painel de criação de personagem é mais alto que
-        // a viewport em resoluções comuns e "Entrar na Arena" ficava
-        // escondido abaixo da dobra sem nenhum indício de rolagem (ver
-        // _updateCreationScrollHint e .creation-scroll-hint no style.css).
-        // rAF porque a altura real do painel só existe depois que a classe
-        // 'active' aplica o layout desta tela.
-        if (screenId === 'screen-creation') {
-            requestAnimationFrame(() => this._updateCreationScrollHint());
-        }
+        // Auditoria de UX (iteração 3, generalizada na 4): quase todo painel
+        // modal do jogo usa `overflow-y:auto` + `max-height` (ver style.css)
+        // e pode cortar conteúdo real — HP/Defesa/botões inteiros — sem
+        // nenhum indício visual de que dá pra rolar. Descoberto primeiro no
+        // criador de personagem ("Entrar na Arena" escondido abaixo da
+        // dobra), depois confirmado em Inventário/Loja/Forja e outros — em
+        // vez de duplicar o aviso tela por tela, toda troca de tela injeta/
+        // atualiza o mesmo aviso genérico no painel ativo (ver
+        // _attachScrollHintIfNeeded). rAF porque a altura real do painel só
+        // existe depois que a classe 'active' aplica o layout desta tela.
+        requestAnimationFrame(() => this._attachScrollHintIfNeeded(target));
 
         // Sincroniza estado para o Motor Gráfico saber o que renderizar
         if (screenId === 'screen-battle') {
@@ -223,27 +225,41 @@ class UIManager {
         if (screenId === 'screen-hub' && window.Engine.state.player) this.updateHubStats();
     }
 
-    // Alterna a visibilidade do aviso "▼ Role para ver mais" do criador de
-    // personagem — some assim que o scroll chega no fim de verdade (onde
-    // está o botão "Entrar na Arena"), reaparece se o jogador rolar de
-    // volta pra cima. Também some sozinho se o conteúdo já couber inteiro
-    // na viewport (telas altas), já que nesse caso scrollHeight <= clientHeight.
-    _updateCreationScrollHint() {
-        const panel = document.querySelector('.creation-panel');
-        const hint = document.getElementById('creation-scroll-hint');
-        if (!panel || !hint) return;
+    // Injeta (uma vez) e mantém atualizado o aviso "▼ Role para ver mais" no
+    // `.panel` filho direto de uma tela — some assim que o scroll chega no
+    // fim de verdade do painel, reaparece se o jogador rolar de volta pra
+    // cima, e nunca aparece se o painel já couber inteiro na viewport
+    // (scrollHeight <= clientHeight, comum em telas menores/mobile onde o
+    // painel é proporcionalmente menor). Chamado a cada showScreen() —
+    // idempotente: painéis sem overflow real nunca ganham o elemento, e
+    // painéis que já têm o hint só atualizam a visibilidade dele.
+    _attachScrollHintIfNeeded(screenEl) {
+        const panel = screenEl.querySelector(':scope > .panel');
+        if (!panel) return;
+        // A tela de Créditos usa overflow:hidden com sua própria animação de
+        // rolagem via transform (ver _startCreditsScroll em mainmenu.js) —
+        // não é o usuário quem rola, então o aviso genérico não se aplica
+        // (senão apareceria um "▼ Role para ver mais" enganoso ali).
+        if (getComputedStyle(panel).overflowY !== 'auto' && getComputedStyle(panel).overflowY !== 'scroll') return;
+        const scrollable = panel.scrollHeight > panel.clientHeight + 4;
+        let hint = panel.querySelector(':scope > .scroll-hint');
+        if (!scrollable) {
+            if (hint) hint.classList.add('hidden');
+            return;
+        }
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'scroll-hint';
+            hint.setAttribute('aria-hidden', 'true');
+            hint.textContent = '▼ Role para ver mais';
+            panel.appendChild(hint);
+            panel.addEventListener('scroll', () => this._attachScrollHintIfNeeded(screenEl));
+        }
         const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 4;
         hint.classList.toggle('hidden', atBottom);
     }
 
     initEventListeners() {
-        // Ver _updateCreationScrollHint (auditoria de UX: criador de
-        // personagem rolável sem nenhum indício visual anterior).
-        const creationPanel = document.querySelector('.creation-panel');
-        if (creationPanel) {
-            creationPanel.addEventListener('scroll', () => this._updateCreationScrollHint());
-        }
-
         // --- Navegação da Cidade (Hub) ---
         // O Hub deixou de ser um menu de botões: agora é a cidade explorável
         // (js/city.js). O jogador anda até cada prédio e interage com o
