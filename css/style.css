@@ -176,6 +176,29 @@ html, body {
     filter: brightness(0.95);
 }
 
+/* Auditoria (iteração 14): .btn nunca teve um estado :disabled próprio —
+   dezenas de botões desabilitados no jogo inteiro (Forja, Ateliê Élfico,
+   Treinamento Orc, Negociante de Minérios, árvores de habilidade,
+   Mutações, Rituais, Estilos de Combate, alocação de atributos) herdavam
+   o mesmo gradiente dourado brilhante e cursor:pointer de um botão
+   totalmente clicável — a única pista visual de que estavam desabilitados
+   vinha de um elemento PAI com opacity reduzida (ex: .forge-recipe-locked),
+   não do próprio botão. Resultado: um botão "Forjar"/"Gravar"/"Comprar"
+   parecia idêntico a um ativo, e clicar nele não fazia nada (nem toast de
+   erro — disabled bloqueia o próprio evento de clique no navegador).
+   Mesmo padrão de esmaecimento já usado em .stat-controls button:disabled
+   (cor cinza + cursor not-allowed), agora generalizado pra toda a família
+   .btn/.btn-small de uma vez. */
+.btn:disabled {
+    background: var(--color-stone);
+    color: var(--color-marble-dark);
+    border-color: #5a4f3f;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: none;
+}
+.btn:disabled::before { content: none; }
+
 .hidden {
     display: none !important;
 }
