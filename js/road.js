@@ -5018,12 +5018,27 @@ window.RoadEngine = {
         ctx.save();
         ctx.translate(ev.x, ev.y);
         if (t === 'merchant') {
+            // Barraca do comerciante ("barracas" na lista de escala do
+            // usuário) — dimensões originais (balcão 28x8 + toldo até
+            // -14px) desenhavam uma barraca visivelmente MENOR que o
+            // próprio comerciante parado ao lado dela (~46px de altura
+            // nesta tela, ver escala 0.8*PLAYER_SCALE logo abaixo) — lia
+            // como bandeirinha de mesa, não uma banca de mercado de
+            // verdade. Redimensionada: balcão na altura da cintura de uma
+            // pessoa, toldo bem acima da cabeça, com uma dobra pra dar
+            // volume ao pano.
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath(); ctx.ellipse(4, 22, 42, 9, 0, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#8a5a2a';
-            ctx.fillRect(-14, 2, 28, 8);
+            ctx.fillRect(-26, 6, 52, 16); // balcão/mesa
             ctx.fillStyle = corrupted ? '#5a3a4a' : '#c9445a';
             ctx.beginPath();
-            ctx.moveTo(-16, 2); ctx.lineTo(0, -14); ctx.lineTo(16, 2);
-            ctx.closePath(); ctx.fill();
+            ctx.moveTo(-30, 6); ctx.lineTo(0, -38); ctx.lineTo(30, 6);
+            ctx.closePath(); ctx.fill(); // toldo
+            ctx.fillStyle = corrupted ? '#432a38' : '#a02f42';
+            ctx.beginPath();
+            ctx.moveTo(-30, 6); ctx.lineTo(-15, -16); ctx.lineTo(0, 6);
+            ctx.closePath(); ctx.fill(); // dobra do toldo, dá volume ao pano
             // Comerciante em pessoa, parado ao lado da própria barraca (ver
             // MERCHANT_ENTITY/_makeMerchantEntity acima) — antes só a
             // tenda/móvel aparecia, sem ninguém ali pra negociar de verdade.
@@ -5031,7 +5046,7 @@ window.RoadEngine = {
             if (window.GFX && window.GFX.drawGladiator) {
                 const anim = ev._anim || (ev._anim = { type: 'idle', start: performance.now(), duration: 0 });
                 ctx.save();
-                ctx.translate(28, 8);
+                ctx.translate(46, 12);
                 ctx.scale(this.PLAYER_SCALE * 0.8, this.PLAYER_SCALE * 0.8);
                 window.GFX.drawGladiator(ctx, 0, 0, merchantEntity, false, anim, null);
                 ctx.restore();
@@ -5121,10 +5136,24 @@ window.RoadEngine = {
             ctx.fillStyle = '#0c0906';
             ctx.fillRect(-15, 18, 30, 44); // vão escuro no lugar da porta
         } else if (t === 'ruins') {
+            // Fragmentos de ruína ("construções abandonadas"/coerência
+            // arquitetônica na lista de escala do usuário) — as três
+            // colunas originais (6px de largura, a mais alta com só 26px
+            // de altura) liam como gravetos no chão ao lado do jogador
+            // (~58px nesta tela), não como restos de uma construção
+            // antiga. Aumentadas pra colunas quebradas de verdade — a
+            // mais alta ainda de pé fica comparável à altura do jogador,
+            // com um fragmento caído no chão pra reforçar "isso já foi
+            // maior".
+            ctx.fillStyle = 'rgba(0,0,0,0.18)';
+            ctx.beginPath(); ctx.ellipse(0, 14, 40, 8, 0, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = corrupted ? '#4a4038' : '#a89a82';
-            ctx.fillRect(-14, -10, 6, 20);
-            ctx.fillRect(2, -4, 6, 14);
-            ctx.fillRect(-4, -16, 6, 26);
+            ctx.fillRect(-30, 0, 13, 14); // fragmento caído no chão
+            ctx.fillRect(4, -14, 13, 28);
+            ctx.fillRect(-9, -40, 13, 54); // coluna mais alta, ainda de pé
+            ctx.fillStyle = corrupted ? '#352e28' : '#8a7c64';
+            ctx.fillRect(-9, -40, 4, 54); // sombreado lateral, dá volume
+            ctx.fillRect(4, -14, 4, 28);
         } else if (t === 'cave') {
             // Item 3 da diretiva de escala do usuário ("cavernas...
             // extremamente pequenas") — arco original de 28x18 lia como um
