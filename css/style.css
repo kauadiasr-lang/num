@@ -1559,7 +1559,16 @@ html, body {
 
 .mutations-skillpoints { text-align: center; color: var(--color-gold); font-weight: bold; margin-bottom: 10px; }
 .mutations-skilltree { display: flex; flex-direction: column; gap: 14px; }
-.skilltree-tier { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+/* Auditoria mobile (iteração 11): com `justify-content:center`, um tier
+   com número ímpar de nós (ex: 3) que precisa quebrar linha em telas
+   estreitas (2 cabem por linha a 390px) deixava o nó sobrando sozinho
+   CENTRALIZADO na segunda linha, em vez de alinhado à esquerda como
+   os nós de cima — parecia um card perdido/desalinhado, não uma
+   escolha de design (os tiers reais desta árvore têm 3/3/6/3/2 nós,
+   sem afunilamento que justificasse centralização como metáfora de
+   hierarquia). `flex-start` alinha a esquerda sempre, consistente com
+   todo outro grid do jogo (.shop-grid, .ladder-grid, .forge-recipes). */
+.skilltree-tier { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }
 .skilltree-node {
     width: 130px; padding: 8px; border-radius: 6px; text-align: center; font-size: 0.78rem;
     background: rgba(0,0,0,0.3); border: 2px solid var(--color-bronze-dark); cursor: default;
