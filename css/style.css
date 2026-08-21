@@ -343,33 +343,49 @@ html, body {
 }
 
 /* Aviso genérico de rolagem (auditoria de UX, iteração 3 → generalizado na
-   4): praticamente todo `.panel` do jogo usa `overflow-y:auto` +
-   `max-height` e pode cortar conteúdo real — botões, atributos, texto —
-   sem nenhum indício visual de que dá pra rolar (achado primeiro no
-   criador de personagem, "Entrar na Arena" escondido; depois confirmado
-   em Inventário/Loja/Forja e outros). Em vez de um elemento estático por
-   tela, `UIManager._attachScrollHintIfNeeded` (ui.js) injeta este mesmo
-   `.scroll-hint` como último filho de QUALQUER painel que meça
-   scrollHeight > clientHeight, e o mantém escondido em painéis que já
-   cabem inteiros na viewport. `position: sticky` gruda no fundo da área
-   rolável enquanto ela não chega ao final de verdade (a margem negativa
-   evita que ele ocupe espaço extra no fluxo); a opacidade zera assim que
-   o scroll alcança o fim real, então o aviso nunca cobre o último botão. */
+   4 → refinado na 7): praticamente todo `.panel` do jogo usa
+   `overflow-y:auto` + `max-height` e pode cortar conteúdo real — botões,
+   atributos, texto — sem nenhum indício visual de que dá pra rolar
+   (achado primeiro no criador de personagem, "Entrar na Arena" escondido;
+   depois confirmado em Inventário/Loja/Forja e outros). Em vez de um
+   elemento estático por tela, `UIManager._attachScrollHintIfNeeded`
+   (ui.js) injeta este mesmo `.scroll-hint` como último filho de QUALQUER
+   painel que meça scrollHeight > clientHeight, e o mantém escondido em
+   painéis que já cabem inteiros na viewport. `position: sticky` gruda no
+   fundo da área rolável enquanto ela não chega ao final de verdade (a
+   margem negativa evita que ele ocupe espaço extra no fluxo); a
+   opacidade zera assim que o scroll alcança o fim real.
+   Refino da iteração 7: a versão original (barra de largura total com
+   fade em gradiente) inevitavelmente pousava em cima de QUALQUER coisa
+   que estivesse na borda inferior visível no momento — em painéis com
+   conteúdo mais denso (ex: Quadro de Missões) isso incluía o próprio
+   texto de um botão "Aceitar", parecendo um glitch de sobreposição em vez
+   de um aviso. Virou um selo (pill) compacto, opaco e ancorado só no
+   canto inferior direito (`margin-left:auto`) — ocupa uma fração pequena
+   da largura, então na pior das hipóteses toca só a borda direita de um
+   botão de largura total, nunca o texto centralizado dele. */
 .scroll-hint {
     position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin-top: -56px;
-    height: 56px;
+    bottom: 8px;
+    margin-top: -44px;
+    margin-left: auto;
+    margin-right: 6px;
+    width: fit-content;
+    max-width: 65%;
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: 6px;
-    background: linear-gradient(180deg, transparent, var(--color-panel) 65%);
+    align-items: center;
+    gap: 4px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    background: rgba(20, 16, 11, 0.94);
+    border: 1px solid var(--color-bronze);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.55);
     color: var(--color-gold-bright);
-    font-size: 0.82rem;
-    letter-spacing: 0.04em;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     pointer-events: none;
     opacity: 1;
     transition: opacity 0.3s ease;
