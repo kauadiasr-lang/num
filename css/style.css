@@ -335,10 +335,52 @@ html, body {
 }
 
 .creation-panel {
+    position: relative;
     width: 90%;
     max-width: 800px;
     max-height: 90vh;
     overflow-y: auto;
+}
+
+/* Aviso de rolagem (auditoria de UX): o painel de criação de personagem é
+   mais alto que a viewport em telas comuns (~1056px de conteúdo vs
+   ~714px visíveis a 800px de altura) e não tinha nenhum indício de que
+   "Entrar na Arena" ficava escondido logo abaixo do último atributo — um
+   jogador novo podia nem perceber que dava pra rolar. `position: sticky`
+   gruda no fundo da área rolável enquanto ela não chega ao final de
+   verdade (índice de padding negativo evita que ele ocupe espaço extra
+   no fluxo); `_updateCreationScrollHint` em ui.js soma opacidade 0 assim
+   que o scroll alcança o fim real, então o aviso nunca cobre o botão. */
+.creation-scroll-hint {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-top: -56px;
+    height: 56px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 6px;
+    background: linear-gradient(180deg, transparent, var(--color-panel) 65%);
+    color: var(--color-gold-bright);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    animation: creation-scroll-hint-bounce 1.6s ease-in-out infinite;
+}
+
+.creation-scroll-hint.hidden { opacity: 0; }
+
+@keyframes creation-scroll-hint-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .creation-scroll-hint { animation: none; }
 }
 
 .creation-grid {

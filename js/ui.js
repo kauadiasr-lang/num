@@ -177,6 +177,16 @@ class UIManager {
         document.getElementById('game-container').scrollTop = 0;
         document.getElementById(screenId).scrollTop = 0;
 
+        // Auditoria de UX: o painel de criação de personagem é mais alto que
+        // a viewport em resoluções comuns e "Entrar na Arena" ficava
+        // escondido abaixo da dobra sem nenhum indício de rolagem (ver
+        // _updateCreationScrollHint e .creation-scroll-hint no style.css).
+        // rAF porque a altura real do painel só existe depois que a classe
+        // 'active' aplica o layout desta tela.
+        if (screenId === 'screen-creation') {
+            requestAnimationFrame(() => this._updateCreationScrollHint());
+        }
+
         // Sincroniza estado para o Motor Gráfico saber o que renderizar
         if (screenId === 'screen-battle') {
             window.Engine.state.screen = 'BATTLE';
@@ -213,7 +223,27 @@ class UIManager {
         if (screenId === 'screen-hub' && window.Engine.state.player) this.updateHubStats();
     }
 
+    // Alterna a visibilidade do aviso "▼ Role para ver mais" do criador de
+    // personagem — some assim que o scroll chega no fim de verdade (onde
+    // está o botão "Entrar na Arena"), reaparece se o jogador rolar de
+    // volta pra cima. Também some sozinho se o conteúdo já couber inteiro
+    // na viewport (telas altas), já que nesse caso scrollHeight <= clientHeight.
+    _updateCreationScrollHint() {
+        const panel = document.querySelector('.creation-panel');
+        const hint = document.getElementById('creation-scroll-hint');
+        if (!panel || !hint) return;
+        const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 4;
+        hint.classList.toggle('hidden', atBottom);
+    }
+
     initEventListeners() {
+        // Ver _updateCreationScrollHint (auditoria de UX: criador de
+        // personagem rolável sem nenhum indício visual anterior).
+        const creationPanel = document.querySelector('.creation-panel');
+        if (creationPanel) {
+            creationPanel.addEventListener('scroll', () => this._updateCreationScrollHint());
+        }
+
         // --- Navegação da Cidade (Hub) ---
         // O Hub deixou de ser um menu de botões: agora é a cidade explorável
         // (js/city.js). O jogador anda até cada prédio e interage com o
