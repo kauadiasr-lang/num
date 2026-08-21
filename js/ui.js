@@ -1603,8 +1603,16 @@ class UIManager {
             card.innerHTML = `
                 <h4>Arena dos Campeões</h4>
                 <p>${window.CHAMPIONS_ARENA_STAGES.length} adversários em sequência, sem retorno ao Hub entre eles${allChampionsDefeated ? '' : ' · Requer: derrotar todos os 6 Campeões de liga'}${p.championsArenaCompletions > 0 ? ` · Completada ${p.championsArenaCompletions}x` : ''}</p>
-                <p class="rival-status" style="color:${allChampionsDefeated ? 'var(--color-gold)' : '#666'}">${allChampionsDefeated ? 'Disponível' : 'Bloqueado'}</p>
+                <p class="rival-status" style="color:${allChampionsDefeated ? 'var(--color-gold)' : '#999'}">${allChampionsDefeated ? 'Disponível' : 'Bloqueado'}</p>
             `;
+            // Auditoria de acessibilidade (iteração 9): "Bloqueado"/"Indisponível"
+            // usava #666 sobre o fundo escuro dos cards (~#2b241d) — contraste
+            // medido ~2.6:1, bem abaixo do mínimo WCAG AA de 4.5:1 pra texto
+            // deste tamanho (mesmo problema em .btn-action:disabled, fundo
+            // ainda mais escuro). #999 mantém a mesma leitura visual de "cinza
+            // apagado/indisponível" só que com contraste real (~5:1+ nos dois
+            // fundos) — mesmo #999 usado em TODOS os outros rótulos de status
+            // bloqueado da Ladder/Arena dos Campeões, pra consistência.
             if (allChampionsDefeated) {
                 card.onclick = () => this.startChampionsArena();
             }
@@ -1646,7 +1654,7 @@ class UIManager {
                 card.innerHTML = `
                     <h4>${rivalDef.name}</h4>
                     <p>Nível ${rivalDef.level} · ${personalityName} · ${styleName}</p>
-                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
+                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#999')}">
                         ${isDefeated ? 'Derrotado' : (isUnlocked ? (rivalDef.isChampion ? 'Campeão' : 'Disponível') : 'Bloqueado')}
                     </p>
                     ${showLevelWarning ? `<p class="rival-level-warning">⚠️ ${levelGap} níveis acima de você — considere subir de nível antes</p>` : ''}
@@ -1693,9 +1701,9 @@ class UIManager {
 
                 let statusLabel, statusColor, subtitle;
                 if (isDefeated) { statusLabel = 'Derrotado'; statusColor = '#1eff00'; subtitle = bossDef.title; }
-                else if (sameLineage) { statusLabel = 'Indisponível'; statusColor = '#666'; subtitle = `${bossDef.title} · Vocês compartilham a mesma linhagem`; }
+                else if (sameLineage) { statusLabel = 'Indisponível'; statusColor = '#999'; subtitle = `${bossDef.title} · Vocês compartilham a mesma linhagem`; }
                 else if (isUnlocked) { statusLabel = 'Disponível'; statusColor = 'var(--color-gold)'; subtitle = bossDef.title; }
-                else { statusLabel = 'Bloqueado'; statusColor = '#666'; subtitle = `${bossDef.title} · Requer: derrotar ${prereqRival ? prereqRival.name : bossDef.unlocksAfterRival}`; }
+                else { statusLabel = 'Bloqueado'; statusColor = '#999'; subtitle = `${bossDef.title} · Requer: derrotar ${prereqRival ? prereqRival.name : bossDef.unlocksAfterRival}`; }
 
                 const card = document.createElement('div');
                 card.className = `rival-card champion ${isDefeated ? 'defeated' : ''} ${!isUnlocked ? 'locked' : ''}`;
@@ -1742,7 +1750,7 @@ class UIManager {
                 card.innerHTML = `
                     <h4>${challengeDef.name}</h4>
                     <p>Nível ${challengeDef.level} · ${challengeDef.title}${isUnlocked ? '' : ` · Requer: derrotar ${originalChampion ? originalChampion.name : challengeDef.challengeOf}`}</p>
-                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#666')}">
+                    <p class="rival-status" style="color:${isDefeated ? '#1eff00' : (isUnlocked ? 'var(--color-gold)' : '#999')}">
                         ${isDefeated ? 'Derrotado' : (isUnlocked ? 'Disponível' : 'Bloqueado')}
                     </p>
                 `;
@@ -3126,7 +3134,7 @@ class UIManager {
                 // camelCase no meio de uma UI 100% em português.
                 slotEl.innerText = SLOT_LABELS[slotKey] || slotKey;
                 slotEl.style.borderColor = '#444';
-                slotEl.style.color = '#666';
+                slotEl.style.color = '#999';
                 // Bug de auditoria corrigido ("brilho de item encantado
                 // aparece mesmo sem estar encantado"): diferente da mochila
                 // (renderBag), que recria cada slot do zero a cada chamada,
