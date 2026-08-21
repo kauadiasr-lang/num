@@ -550,14 +550,23 @@ html, body {
 .stat-breakdown .stat-bonus-neg { color: #d97a6c; }
 .stat-breakdown .stat-total { color: var(--color-gold-bright, var(--color-gold)); font-weight: bold; }
 
+/* Auditoria (iteração 21): 25x25px é bem menor que o alvo de toque
+   confortável recomendado pra controles mobile (~44px, Apple HIG/Material
+   Design) — e estes botões especificamente são clicados REPETIDAMENTE
+   (distribuir pontos na Criação de Personagem, redistribuir atributos no
+   Inventário), o pior caso pra um alvo pequeno demais (erro de toque a
+   cada clique acumula frustração). 34px é um meio-termo seguro: melhora
+   bastante a precisão de toque sem precisar redesenhar a linha inteira
+   (.stat-row já tem espaço de sobra na horizontal). */
 .stat-controls button {
-    width: 25px;
-    height: 25px;
+    width: 34px;
+    height: 34px;
     background: linear-gradient(180deg, var(--color-bronze-light), var(--color-bronze-dark));
     color: var(--color-gold-bright);
     border: 1px solid var(--color-gold);
     border-radius: 3px;
     font-weight: bold;
+    font-size: 1rem;
     cursor: pointer;
     transition: filter 0.15s, transform 0.1s;
 }
