@@ -452,8 +452,18 @@ class MainMenuManager {
         this._stopCreditsScroll();
         const wrap = document.querySelector('.credits-scroll-wrap');
         const content = document.getElementById('credits-scroll-content');
-        content.style.transform = `translateY(${wrap.clientHeight}px)`;
-        let y = wrap.clientHeight;
+        // Bug de auditoria visual (revisão de UX): o crawl nascia
+        // INTEIRAMENTE abaixo do painel (`translateY(wrap.clientHeight)`,
+        // facilmente 600-700px num painel cheio) e sobe a só 22px/s — o
+        // jogador ficava olhando pra um painel praticamente em branco por
+        // ~30 segundos antes da primeira linha aparecer, sem nenhum sinal
+        // de que os créditos estavam de fato rodando. Um offset inicial
+        // pequeno e fixo (não mais proporcional à altura do painel) faz o
+        // título já entrar em poucos segundos, preservando o mesmo efeito
+        // de rolagem cinematográfica pro resto do conteúdo.
+        const startOffset = Math.min(wrap.clientHeight, 160);
+        content.style.transform = `translateY(${startOffset}px)`;
+        let y = startOffset;
         const speed = 22; // px por segundo
         let lastT = performance.now();
 
@@ -463,7 +473,9 @@ class MainMenuManager {
             y -= speed * dt;
             content.style.transform = `translateY(${y}px)`;
             if (y < -content.scrollHeight) {
-                y = wrap.clientHeight; // recomeça em loop suave
+                y = startOffset; // recomeça em loop suave — mesmo offset
+                // pequeno do início, pelo mesmo motivo (nunca mais de ~7s
+                // de painel em branco entre uma volta do crawl e a próxima).
             }
             this._creditsRAF = requestAnimationFrame(step);
         };
