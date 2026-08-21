@@ -125,7 +125,14 @@
                     <div class="creation-grid">
                         <!-- Customização Visual -->
                         <div class="creation-visuals">
-                            <input type="text" id="char-name" placeholder="Nome do Herói" maxlength="15" autocomplete="off">
+                            <!-- Auditoria (iteração 23): campo dependia só do
+                                 placeholder como identificação — some assim
+                                 que o jogador digita algo, e placeholder não
+                                 é um substituto confiável de nome acessível
+                                 (leitores de tela variam no suporte). aria-label
+                                 mantém o mesmo texto sempre disponível pra
+                                 tecnologia assistiva, sem mudar nada visual. -->
+                            <input type="text" id="char-name" placeholder="Nome do Herói" aria-label="Nome do Herói" maxlength="15" autocomplete="off">
 
                             <div class="creator-preview-wrap">
                                 <canvas id="creator-preview-canvas" width="220" height="220"></canvas>
@@ -838,7 +845,7 @@
                             </div>
                         </div>
                         <div class="bank-actions">
-                            <input type="number" id="bank-amount" class="bank-amount-input" min="1" placeholder="Quantidade de ouro">
+                            <input type="number" id="bank-amount" class="bank-amount-input" min="1" placeholder="Quantidade de ouro" aria-label="Quantidade de ouro">
                             <div class="bank-buttons">
                                 <button id="btn-bank-deposit" class="btn primary">Depositar</button>
                                 <button id="btn-bank-withdraw" class="btn">Sacar</button>

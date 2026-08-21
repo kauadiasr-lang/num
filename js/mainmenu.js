@@ -242,7 +242,7 @@ class MainMenuManager {
 
     promptImport(slotId) {
         this._pendingImportSlot = slotId;
-        const extra = `<textarea id="import-textarea" class="import-textarea" placeholder="Cole aqui o código exportado..."></textarea>`;
+        const extra = `<textarea id="import-textarea" class="import-textarea" placeholder="Cole aqui o código exportado..." aria-label="Código do save exportado"></textarea>`;
         this.showConfirm(
             'Importar Save',
             `Cole abaixo o código de um save exportado anteriormente para restaurá-lo no Slot ${slotId + 1}.`,
