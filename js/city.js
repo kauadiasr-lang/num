@@ -272,6 +272,14 @@ class CityEngine {
                     orientationFlip: houseIdx % 3 === 0,
                     wallColor: houseWallColors[houseIdx % houseWallColors.length],
                     roofColor: houseRoofColors[(houseIdx * 3 + 1) % houseRoofColors.length],
+                    // Varal com roupa estendida (loop de qualidade visual —
+                    // "sinais de vida"/"varais"/"objetos nas portas" da
+                    // lista do usuário): metade das casas (índice ímpar,
+                    // independente de variant/orientationFlip pra não
+                    // colar sempre na mesma combinação) ganha um varal ao
+                    // lado, reforçando que a Praça é habitada, não só um
+                    // cenário de fundo.
+                    hasClothesline: houseIdx % 2 === 1,
                 });
                 houseIdx++;
             }
@@ -3678,18 +3686,18 @@ class CityEngine {
     // como chaminé/janela) combinadas com paletas de parede/telhado
     // variadas evitam a "mesma casa copiada" que o pedido explicitamente
     // rejeitou.
-    _bakeHouseSprite(scale, variant, wallColor, roofColor) {
+    _bakeHouseSprite(scale, variant, wallColor, roofColor, hasClothesline) {
         const pad = 4;
         const anchorX = 26 * scale + pad, anchorY = 46 * scale + pad;
         const w = anchorX * 2, h = anchorY + pad;
-        const key = `house:${variant}:${wallColor}:${roofColor}:${Math.round(scale * 100)}`;
+        const key = `house:${variant}:${wallColor}:${roofColor}:${Math.round(scale * 100)}:${hasClothesline ? 1 : 0}`;
         return {
-            canvas: window.SpriteCache.get(key, w, h, (bctx) => this._paintHouseSilhouette(bctx, anchorX, anchorY, scale, variant, wallColor, roofColor)),
+            canvas: window.SpriteCache.get(key, w, h, (bctx) => this._paintHouseSilhouette(bctx, anchorX, anchorY, scale, variant, wallColor, roofColor, hasClothesline)),
             anchorX, anchorY
         };
     }
 
-    _paintHouseSilhouette(ctx, x, y, scale, variant, wallColor, roofColor) {
+    _paintHouseSilhouette(ctx, x, y, scale, variant, wallColor, roofColor, hasClothesline) {
         const bodyW = (20 + (variant % 2) * 4) * scale, bodyH = 26 * scale;
         const bx = x - bodyW / 2, by = y - bodyH;
         ctx.fillStyle = wallColor;
@@ -3724,12 +3732,43 @@ class CityEngine {
             ctx.fillStyle = wallColor;
             ctx.fillRect(bx + bodyW * 0.68, by - roofRise * 0.55, 4 * scale, roofRise * 0.55 + 4 * scale);
         }
+
+        // Varal com roupa estendida (ver `hasClothesline` no construtor) —
+        // dois postes de madeira ao lado da casa (nunca sobre a porta),
+        // corda entre eles e 3 peças de roupa penduradas, cores variando
+        // por `variant` pra não repetir sempre a mesma "roupa". Fica
+        // inteiramente dentro da largura já reservada pro sprite (o
+        // afastamento máximo, bodyW*0.5 + 10*scale + clothW/2, cabe com
+        // folga na anchorX original de 26*scale + pad).
+        if (hasClothesline) {
+            const postH = 16 * scale;
+            const postX0 = x + bodyW * 0.5 + 2 * scale, postX1 = x + bodyW * 0.5 + 10 * scale;
+            const lineY = y - postH;
+            ctx.strokeStyle = '#3a2e20';
+            ctx.lineWidth = Math.max(1, 1.5 * scale);
+            ctx.beginPath();
+            ctx.moveTo(postX0, y); ctx.lineTo(postX0, lineY);
+            ctx.moveTo(postX1, y); ctx.lineTo(postX1, lineY);
+            ctx.stroke();
+            ctx.strokeStyle = '#4a4034';
+            ctx.lineWidth = Math.max(1, 0.8 * scale);
+            ctx.beginPath();
+            ctx.moveTo(postX0, lineY); ctx.lineTo(postX1, lineY);
+            ctx.stroke();
+            const clothColors = ['#c9445a', '#e8d8a8', '#7a9a6a', '#8a6ab8'];
+            const clothW = 5 * scale, clothH = 8 * scale;
+            [0.22, 0.5, 0.78].forEach((frac, i) => {
+                const cx = postX0 + (postX1 - postX0) * frac;
+                ctx.fillStyle = clothColors[(variant + i) % clothColors.length];
+                ctx.fillRect(cx - clothW / 2, lineY, clothW, clothH);
+            });
+        }
     }
 
     _drawResidentialHouse(ctx, w, h, house) {
         const scale = this._cityScale(h) * (house.scale || 0.7);
         const x = house.xFrac * this._worldWidth(), y = this._horizon(h) + house.rowOffset * this._cityScale(h);
-        const sprite = this._bakeHouseSprite(scale, house.variant || 0, house.wallColor, house.roofColor);
+        const sprite = this._bakeHouseSprite(scale, house.variant || 0, house.wallColor, house.roofColor, !!house.hasClothesline);
         // `orientationFlip` (variação de orientação pedida pelo usuário) —
         // espelha em torno do próprio ponto de ancoragem, nunca desloca a
         // casa (`ctx.translate` pro ponto, `scale(-1,1)`, desenha em 0,0).
