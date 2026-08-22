@@ -4474,6 +4474,55 @@ class CityEngine {
         // jogador (e um título de fama, conforme seu número de vitórias
         // sobe), ou "Nenhum campeão ainda" antes da primeira vitória.
         if (b.id === 'arena') this._drawChampionMural(ctx, door, top, nameSize, scale);
+
+        // Selo "missão nova" (polimento informacional — antes só se
+        // descobria que havia missão disponível entrando no prédio; agora
+        // o estado já existente do QuestSystem fica visível de fora).
+        if (b.id === 'questboard' && this._hasAvailableQuestsBadge()) {
+            this._drawQuestBadge(ctx, door.x + iconSize * 0.7, top - bh * 0.32 - 6 - iconSize * 0.55, scale);
+        }
+    }
+
+    // Só recalcula quando a cidade atual ou o dia mudam (getBoardForCity
+    // filtra arrays a cada chamada — caro demais pra rodar todo frame no
+    // loop de desenho). `invalidateQuestBadge()` força recálculo imediato
+    // depois de aceitar/abandonar uma missão (ver ui.js openQuestBoard).
+    _hasAvailableQuestsBadge() {
+        const cityId = window.getCurrentCityId ? window.getCurrentCityId() : null;
+        const p = window.Engine && window.Engine.state && window.Engine.state.player;
+        if (!cityId || !p || !window.QuestSystem) return false;
+        if (this._questBadgeValue !== undefined && this._questBadgeCityId === cityId && this._questBadgeDay === this.dayCount) {
+            return this._questBadgeValue;
+        }
+        const board = window.QuestSystem.getBoardForCity(p, cityId);
+        this._questBadgeCityId = cityId;
+        this._questBadgeDay = this.dayCount;
+        this._questBadgeValue = board.available.length > 0;
+        return this._questBadgeValue;
+    }
+
+    invalidateQuestBadge() {
+        this._questBadgeValue = undefined;
+    }
+
+    _drawQuestBadge(ctx, x, y, scale) {
+        const pulse = 0.85 + Math.sin(Date.now() / 300) * 0.15;
+        const r = Math.max(7, Math.round(9 * scale)) * pulse;
+        ctx.save();
+        ctx.fillStyle = 'rgba(20,10,0,0.85)';
+        ctx.beginPath();
+        ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffcf40';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#3a2a08';
+        ctx.font = `bold ${Math.round(r * 1.3)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('!', x, y + 1);
+        ctx.restore();
     }
 
     _drawChampionMural(ctx, door, top, nameSize, scale) {

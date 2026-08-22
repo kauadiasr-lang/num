@@ -857,6 +857,45 @@ html, body {
 .bar-text { font-size: 0.9rem; text-align: center; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .ammo-text { color: var(--color-gold-bright, #ffd700); font-weight: bold; }
 
+/* Painel do Hub: vida/exp visíveis fora de batalha + relógio/clima
+   (polimento informacional pedido — vida só era visível no HUD de Batalha,
+   e o ciclo dia/noite e o clima por cidade já existiam no motor mas não
+   apareciam em lugar nenhum da UI). Reaproveita .bar-container/.bar-fill/
+   .hp-fill/.hp-chip já usados no HUD de batalha, só em tamanho reduzido. */
+.hub-vital-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.hub-vital-icon { font-size: 0.85rem; flex-shrink: 0; }
+.hub-bar-container { height: 12px; width: 130px; margin-top: 0; }
+.hub-bar-text { font-size: 0.75rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.exp-fill { background: linear-gradient(90deg, #6a4a10, #f2d98a); box-shadow: 0 0 6px rgba(242,217,138,0.5); }
+/* Pulso breve ao ganhar experiência (ver ui.js updateHubStats) — mesma
+   técnica de animação já usada em hpCriticalPulse/mpLowPulse acima. */
+.exp-fill.exp-gain-pulse { animation: expGainPulse 0.5s ease-out; }
+@keyframes expGainPulse {
+    0% { filter: brightness(1); }
+    30% { filter: brightness(1.7); box-shadow: 0 0 14px rgba(242,217,138,0.95); }
+    100% { filter: brightness(1); }
+}
+
+.hub-time-weather {
+    font-size: 0.85rem; margin-bottom: 4px; color: var(--color-marble-dark);
+    display: flex; align-items: center; gap: 5px; justify-content: flex-end;
+}
+
+/* Fadiga: pips coloridos em vez de número cru (ver ui.js updateHubStats) —
+   antes só um número, sem nenhuma pista visual de severidade. */
+.fatigue-pips { display: inline-flex; gap: 3px; vertical-align: middle; }
+.fatigue-pip {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+    display: inline-block;
+}
+.fatigue-pip.filled { background: #e0a030; border-color: #f2d98a; box-shadow: 0 0 5px rgba(224,160,48,0.6); }
+#hub-player-fatigue.fatigue-max .fatigue-pip.filled { animation: fatigueMaxPulse 1s ease-in-out infinite; }
+@keyframes fatigueMaxPulse {
+    0%, 100% { background: #e0a030; box-shadow: 0 0 5px rgba(224,160,48,0.6); }
+    50% { background: #ff4d4d; box-shadow: 0 0 12px rgba(255,77,77,0.9); }
+}
+
 /* Ícones de efeito ativo (sangramento/atordoado/barreira/evasão) na batalha
    — ver ui.js updateBattleBars/_buildStatusIconsHtml */
 .status-icons {
@@ -975,6 +1014,9 @@ html, body {
        quase colado na borda — visualmente apertado, sem o "respiro" que
        toda outra tela do jogo tem. */
     #screen-roadworld .hud-top { padding-top: 18px; }
+    .hub-vital-row { justify-content: center; }
+    .hub-time-weather { justify-content: center; }
+    .hub-bar-container { width: 100px; }
     .battle-hud { flex-direction: column; gap: 10px; }
     .entity-status { width: 100%; text-align: left; }
     .distance-indicator { width: 100%; order: 3; }

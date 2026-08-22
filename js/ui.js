@@ -1038,6 +1038,19 @@ class UIManager {
         document.getElementById('hub-player-name').innerText = p.name;
         document.getElementById('hub-player-level').innerText = p.level;
         document.getElementById('hub-player-gold').innerText = p.gold;
+
+        // Barra de vida (polimento informacional — antes só existia no HUD
+        // de Batalha; fora dela o jogador não tinha como ver seu HP sem
+        // abrir o Inventário). `p.currentHp`/`derivedStats.maxHp` já
+        // existem e persistem fora de batalha, nenhum campo novo de save.
+        const maxHp = p.derivedStats.maxHp || 1;
+        const hpPct = Utils.clamp((p.currentHp / maxHp) * 100, 0, 100);
+        const hubHpBar = document.getElementById('hub-hp-bar');
+        hubHpBar.style.width = `${hpPct}%`;
+        hubHpBar.classList.toggle('critical', hpPct > 0 && hpPct <= 25);
+        document.getElementById('hub-hp-chip').style.width = `${hpPct}%`;
+        document.getElementById('hub-hp-text').innerText = `${p.currentHp}/${p.derivedStats.maxHp}`;
+
         // Fase 13 da diretiva de balanceamento (Iteração 20) — achado #10:
         // o jogo nunca sugeria sacar do Banco quando o jogador estava em
         // crise de ouro carregado. "Crise" aqui é o mesmo piso usado como
@@ -1056,9 +1069,36 @@ class UIManager {
             bankHintEl.classList.toggle('hidden', !inCrisis);
             if (inCrisis) bankHintEl.innerText = `🏦 Você tem ${p.bankGold}g guardados no Banco`;
         }
+        // Barra de EXP (antes só texto cru) + pulso breve quando o valor
+        // aumenta (ganho de experiência real, não a primeira chamada após
+        // carregar/criar o personagem nem uma queda por algum motivo futuro).
+        const expBar = document.getElementById('hub-exp-bar');
+        const expReq = p.getExpRequired();
+        const expPct = Utils.clamp((p.exp / expReq) * 100, 0, 100);
+        const prevExp = this._lastHubExpShown;
+        const prevLevel = this._lastHubLevelShown;
+        expBar.style.width = `${expPct}%`;
+        if (typeof prevExp === 'number' && (p.exp > prevExp || (typeof prevLevel === 'number' && p.level > prevLevel))) {
+            expBar.classList.remove('exp-gain-pulse');
+            void expBar.offsetWidth; // reinicia a animação mesmo em ganhos seguidos
+            expBar.classList.add('exp-gain-pulse');
+        }
+        this._lastHubExpShown = p.exp;
+        this._lastHubLevelShown = p.level;
         document.getElementById('hub-player-exp').innerText = p.exp;
-        document.getElementById('hub-player-max-exp').innerText = p.getExpRequired();
-        document.getElementById('hub-player-fatigue').innerText = p.fatigue || 0;
+        document.getElementById('hub-player-max-exp').innerText = expReq;
+
+        // Fadiga como pips coloridos (antes um número cru sem nenhuma pista
+        // de severidade) — máximo continua 3 (ver Player.addFatigue/
+        // cureFatigue, Utils.clamp(...,0,3)); `|| 0` preserva o fallback já
+        // usado aqui antes desta mudança, pra saves anteriores à fadiga
+        // (iteração #87) que nunca tiveram esse campo.
+        const fatigue = p.fatigue || 0;
+        const fatigueEl = document.getElementById('hub-player-fatigue');
+        fatigueEl.title = `Fadiga: ${fatigue}/3`;
+        fatigueEl.innerHTML = [0, 1, 2].map(i => `<span class="fatigue-pip${i < fatigue ? ' filled' : ''}"></span>`).join('');
+        fatigueEl.classList.toggle('fatigue-max', fatigue >= 3);
+
         // Reputação (ver reputation.js) — GLOBAL, a mesma nas três
         // Cidades-Hub (pedido explícito do usuário: nunca reputação
         // separada por cidade). O rótulo de faixa (Infame/Malvisto/Neutro/
@@ -1076,6 +1116,26 @@ class UIManager {
         // topo do Hub, não só dentro do menu do Viajante do Portão.
         if (window.getCurrentCityDef) {
             document.getElementById('hub-city-name').innerText = window.getCurrentCityDef().name;
+        }
+
+        // Hora do dia + clima (o ciclo dia/noite e o clima por cidade já
+        // existiam no motor — ver js/city.js dayPhases/weather — mas não
+        // apareciam em lugar nenhum da UI; puramente leitura, nenhum
+        // estado novo). Guarda defensiva: updateHubStats() é chamado em
+        // alguns fluxos antes de window.City/GFX existirem de fato.
+        const timeWeatherEl = document.getElementById('hub-time-weather');
+        if (timeWeatherEl && window.GFX && window.City) {
+            const phaseMeta = {
+                dawn: { icon: '🌅', label: 'Amanhecer' },
+                day: { icon: '☀️', label: 'Dia' },
+                sunset: { icon: '🌇', label: 'Entardecer' },
+                night: { icon: '🌙', label: 'Noite' },
+            }[window.GFX.arenaTime] || { icon: '☀️', label: 'Dia' };
+            let weatherSuffix = '';
+            if (window.City.weather === 'rain') {
+                weatherSuffix = window.City.isStorm ? ' ⛈️, Tempestade' : ' 🌧️, Chuva';
+            }
+            timeWeatherEl.innerText = `${phaseMeta.icon} ${phaseMeta.label}${weatherSuffix}`;
         }
     }
 
@@ -5442,6 +5502,7 @@ class UIManager {
             card.querySelector('.btn-quest-abandon').addEventListener('click', () => {
                 window.QuestSystem.abandonQuest(p, quest.instanceId);
                 window.SaveManager.save(window.Engine.state);
+                if (window.City) window.City.invalidateQuestBadge();
                 this.openQuestBoard();
             });
             activeEl.appendChild(card);
@@ -5467,6 +5528,7 @@ class UIManager {
                 window.QuestSystem.acceptQuest(p, quest);
                 window.SaveManager.save(window.Engine.state);
                 if (window.AudioManager) window.AudioManager.playConfirm();
+                if (window.City) window.City.invalidateQuestBadge();
                 this.openQuestBoard();
             });
             availableEl.appendChild(card);

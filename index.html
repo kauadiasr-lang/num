@@ -223,8 +223,25 @@
                         <p>Nível <span id="hub-player-level">1</span></p>
                         <p class="city-location">📍 <span id="hub-city-name">Porto Helênico</span></p>
                         <p id="hud-debug-badge" class="hidden" style="color:#ff6ec7; font-weight:bold;">🧪 MODO CRIATIVO/DEBUG</p>
+                        <!-- Vida fora de batalha (polimento informacional — antes só
+                             aparecia no HUD da Batalha; na Praça o jogador não tinha
+                             como ver seu HP sem abrir o Inventário). Reaproveita
+                             .bar-container/.hp-fill/.hp-chip já usados no HUD de
+                             batalha, só em tamanho reduzido. -->
+                        <div class="hub-vital-row" title="Vida">
+                            <span class="hub-vital-icon">❤️</span>
+                            <div class="bar-container hub-bar-container">
+                                <div class="bar-fill hp-chip" id="hub-hp-chip"></div>
+                                <div class="bar-fill hp-fill" id="hub-hp-bar"></div>
+                            </div>
+                            <span class="hub-bar-text" id="hub-hp-text">0/0</span>
+                        </div>
                     </div>
                     <div class="player-resources">
+                        <!-- Hora do dia e clima (o ciclo dia/noite e o clima por cidade
+                             já existiam no motor mas não apareciam em lugar nenhum da
+                             UI). Puramente leitura de estado já existente. -->
+                        <div class="hub-time-weather" id="hub-time-weather"></div>
                         <p>Ouro: <span id="hub-player-gold" class="highlight-gold">0</span></p>
                         <!-- Fase 13 da diretiva de balanceamento (Iteração 20) —
                              achado #10: "o jogo nunca sugere sacar do Banco quando o
@@ -232,8 +249,14 @@
                              (updateHubStats só mostra quando o ouro carregado está
                              criticamente baixo E existe ouro guardado no Banco). -->
                         <p id="hub-bank-hint" class="hidden" style="font-size:0.85em; color:var(--color-gold);"></p>
-                        <p>Exp: <span id="hub-player-exp">0</span> / <span id="hub-player-max-exp">100</span></p>
-                        <p>Fadiga: <span id="hub-player-fatigue">0</span>/3</p>
+                        <div class="hub-vital-row" title="Experiência">
+                            <span class="hub-vital-icon">✦</span>
+                            <div class="bar-container hub-bar-container">
+                                <div class="bar-fill exp-fill" id="hub-exp-bar"></div>
+                            </div>
+                            <span class="hub-bar-text">Exp: <span id="hub-player-exp">0</span> / <span id="hub-player-max-exp">100</span></span>
+                        </div>
+                        <p>Fadiga: <span id="hub-player-fatigue" class="fatigue-pips"></span></p>
                         <p title="Sua fama/reputação é a MESMA nas três Cidades-Hub">Reputação: <span id="hub-player-reputation">0</span> <span id="hub-player-reputation-tier"></span></p>
                     </div>
                 </div>
