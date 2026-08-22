@@ -1703,6 +1703,18 @@ class GraphicsEngine {
         const t = this._torchClock || 0;
 
         this._drawSky(ctx, w, h, horizon, null, t, this.cityDayProgress);
+        // Nublado/tempestade (loop de qualidade visual, iluminação/cores) —
+        // City._updateWeather já toca chuva/raio e prometia nos próprios
+        // toasts "nuvens escuras cobrem a praça"/"o céu escurece de vez",
+        // mas o CÉU em si nunca mudava: sol brilhando normalmente num azul
+        // intocado mesmo debaixo de uma tempestade. Overlay translúcido
+        // cinza-azulado sobre a faixa do céu, mais escuro em tempestade —
+        // só aqui, não no chão/prédios abaixo do horizonte, que já têm sua
+        // própria leitura de luz.
+        if (window.City && window.City.weather === 'rain') {
+            ctx.fillStyle = window.City.isStorm ? 'rgba(30,32,42,0.55)' : 'rgba(60,64,74,0.32)';
+            ctx.fillRect(0, 0, w, horizon);
+        }
         this._drawMountains(ctx, w, horizon);
         // Floresta silenciosa fora da muralha (mais ao fundo, entre as
         // montanhas e a própria muralha) — reaproveita a mesma silhueta de
