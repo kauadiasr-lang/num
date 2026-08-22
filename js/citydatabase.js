@@ -85,7 +85,13 @@ const CityDatabase = {
         fountainColors: { rim: '#8891a0', basin: '#3a6a8a', jet: 'rgba(200,225,255,0.7)', spout: '#6b7280' },
         // Cores da muralha/torres (ver graphics.js _drawCityWall) — Porto
         // Helênico preserva a pedra cinza original de antes deste campo existir.
-        wallColors: { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' },
+        // Alpha 1 (era 0.92/0.95) — bug reportado pelo usuário ("a muralha
+        // está meio transparente"): confirmado via amostragem de pixel real
+        // no canvas que a cor renderizada blendava com o chão por baixo
+        // (ambos tons terrosos próximos), lendo como transparência mesmo
+        // sem ser 50%. 100% opaco elimina qualquer blend com o que está
+        // atrás, deixando a muralha sempre sólida.
+        wallColors: { base: 'rgba(94,88,76,1)', tower: 'rgba(82,76,64,1)' },
         // Cor da floresta silenciosa fora da muralha (ver graphics.js
         // drawCityBackdrop/_drawTreeline) — Porto Helênico preserva a cor
         // original de antes deste campo existir.
@@ -200,7 +206,7 @@ const CityDatabase = {
         fountainColors: { rim: '#3a2f28', basin: '#8a3a1a', jet: 'rgba(255,140,50,0.75)', spout: '#2a221c' },
         // Muralha de rocha vulcânica escura, mais bruta que a pedra cinza
         // padrão — mesmo motivo do campo acima (ver graphics.js _drawCityWall).
-        wallColors: { base: 'rgba(58,46,40,0.92)', tower: 'rgba(48,38,32,0.95)' },
+        wallColors: { base: 'rgba(58,46,40,1)', tower: 'rgba(48,38,32,1)' },
         // Vegetação escassa e ressecada fora da muralha, não a mesma mata
         // cerrada do Santuário Élfico — condizente com a própria descrição
         // da Fortaleza ("rocha vulcânica"), ver graphics.js _drawTreeline.
@@ -303,7 +309,7 @@ const CityDatabase = {
         // Muralha viva de madeira/raiz entrelaçada com musgo, não pedra
         // cinza comum — mesmo motivo do campo acima (ver graphics.js
         // _drawCityWall).
-        wallColors: { base: 'rgba(74,90,56,0.9)', tower: 'rgba(60,74,44,0.92)' },
+        wallColors: { base: 'rgba(74,90,56,1)', tower: 'rgba(60,74,44,1)' },
         // Floresta densa e vívida fora da muralha, mais rica que a mata
         // padrão — condizente com a própria descrição do Santuário ("entre
         // raízes ancestrais"), ver graphics.js _drawTreeline.
@@ -444,7 +450,7 @@ const CityDatabase = {
         fountainColors: { rim: '#2a2622', basin: '#7a2e10', jet: 'rgba(255,150,60,0.8)', spout: '#1a1613' },
         // Muralha/torres de pedra de montanha escura, mais fria e maciça
         // que a pedra vulcânica orc — mesmo motivo do campo acima.
-        wallColors: { base: 'rgba(40,38,44,0.94)', tower: 'rgba(30,28,34,0.96)' },
+        wallColors: { base: 'rgba(40,38,44,1)', tower: 'rgba(30,28,34,1)' },
         // Sem floresta nenhuma lá fora (é uma montanha) — a mesma "silhueta
         // de fundo" vira a escuridão profunda da caverna, não uma cor de
         // copa de árvore (ver graphics.js drawCityBackdrop/_drawTreeline).

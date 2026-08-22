@@ -140,10 +140,19 @@ class CityEngine {
         // meio e acabavam colidindo com as bordas dos dois ao mesmo tempo.
         this.buildings = [
             { id: 'arena', name: 'Arena', icon: '⚔️', xFrac: 0.5, rowOffset: 40, w: 240, h: 175, wall: '#8a7a5a', roof: '#8a2a2a', row: 'back' },
-            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.11, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
-            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.30, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
-            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.70, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
-            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.89, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
+            // Espaçamento entre lojas reduzido (bug reportado pelo usuário:
+            // "a distância entre as lojas está muito grande") — xFrac
+            // original (0.11/0.30/0.70/0.89) espalhava as 4 lojas quase até
+            // a borda do mundo, com ~1119px de vão vazio de cada lado
+            // (0.19 de fração * worldWidth). Reaproximadas em ~55% (gap
+            // agora 0.11 de cada lado) mas verificadas linha a linha contra
+            // TODOS os outros prédios da fileira 'front' (Banco 0.205,
+            // Quadro 0.35, Casa 0.795) — nenhuma delas chega perto o
+            // bastante de colidir (folga real de 300px+ em cada caso).
+            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.15, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
+            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.26, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
+            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.74, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
+            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.85, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
             { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
             { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
             { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
@@ -267,7 +276,18 @@ class CityEngine {
                 this.residentialHouses.push({
                     xFrac,
                     rowOffset: row.rowOffset + (i % 2 === 0 ? -8 : 8),
-                    scale: 2.6 + (houseIdx % 4) * 0.5,
+                    // Escala reduzida (era 2.6 + (houseIdx%4)*0.5, até
+                    // 4.1x) — bug reportado pelo usuário ("a distância
+                    // entre as casas está muito pequena"). RESIDENTIAL_ZONE
+                    // (xFracFrom/xFracTo acima) tem seus limites travados
+                    // por uma checagem cross-city já verificada via
+                    // Playwright contra as 4 cidades reais — alargar a
+                    // zona arriscaria colidir com o prédio real mais à
+                    // esquerda de alguma cidade (ver comentário de
+                    // xFracTo). Reduzir a escala das casas em vez disso dá
+                    // o mesmo resultado (gaps visíveis de verdade entre
+                    // elas) sem tocar nesse limite já testado.
+                    scale: 1.7 + (houseIdx % 4) * 0.3,
                     variant: houseIdx % 4,
                     orientationFlip: houseIdx % 3 === 0,
                     wallColor: houseWallColors[houseIdx % houseWallColors.length],
@@ -2168,6 +2188,30 @@ class CityEngine {
     // plugar seu próprio "reroll de novo dia" AQUI, nunca duplicar esta
     // função em outro lugar.
     advanceToNewDay() {
+        // Recomeço da população visual (NPCs comuns + vampiros noturnos) —
+        // SEMPRE roda, incondicionalmente, ANTES da trava anti-spam abaixo.
+        // Bug reportado pelo usuário ("NPCs não estão constantes durante o
+        // dia" / "vampiros não estão constantes durante a noite"): raiz
+        // confirmada com teste automatizado (forçar vários ciclos
+        // dawn→...→night seguidos) — _onNightFalls() SEMPRE empilha 1-2
+        // vampiros novos em `nightWanderers` (nenhuma trava), mas até esta
+        // correção só a trava anti-spam ABAIXO decidia quando
+        // `nightWanderers`/`npcs` eram limpos. Como "dormir" no Curandeiro/
+        // Taverna chama esta MESMA função (ver ui.js), um jogador dormindo
+        // perto de uma transição natural de fase (ou duas vezes seguidas)
+        // caía dentro da janela de 20s da trava — o reset era silenciosamente
+        // pulado, deixando vampiros de noites anteriores acumulados sem
+        // limite e os MESMOS NPCs de antes em vez de uma população nova.
+        // Resetar a população não tem valor econômico nenhum pra explorar
+        // (diferente de juros do Banco/dayCount abaixo), então não precisa
+        // dessa trava — só os efeitos ECONÔMICOS continuam protegidos.
+        this.nightWanderers = [];
+        this.npcs = [];
+        this._arenaNpcsSpawned = false;
+        this._gateTravelerSpawned = false;
+        this._guardsSpawned = false;
+        this._spawnNpcsIfNeeded();
+
         // Trava anti-spam (Rework Econômico, item 15 — "duplicação de
         // dinheiro"/"exploits de progressão"): antes desta trava, QUALQUER
         // clique em "dormir" com fadiga 0 (grátis, sem custo nenhum, ver
@@ -2175,17 +2219,19 @@ class CityEngine {
         // novo, incluindo _applyBankInterest() — clicar repetidamente
         // rendia juros de 2% compostos ILIMITADAS vezes por sessão, ouro
         // efetivamente infinito com qualquer valor guardado no Banco. Como
-        // esta é a ÚNICA função que executa QUALQUER consequência de "um
-        // dia se passou" (juros do Banco, reroll de estoque de loja via
-        // dayCount, quadro de missões, NPCs/Viajante/Mercador novos — ver
-        // comentário "PONTO DE EXTENSÃO" abaixo), travar bem AQUI protege
-        // todos esses sistemas de uma vez, sem precisar de uma trava
-        // separada em cada um. `lastDayAdvanceAt` usa Date.now() (não
+        // esta é a ÚNICA função que executa QUALQUER consequência
+        // ECONÔMICA de "um dia se passou" (juros do Banco, reroll de
+        // estoque de loja via dayCount, quadro de missões, Mercador novo —
+        // ver comentário "PONTO DE EXTENSÃO" abaixo), travar bem AQUI
+        // protege todos esses sistemas de uma vez, sem precisar de uma
+        // trava separada em cada um. `lastDayAdvanceAt` usa Date.now() (não
         // performance.now()) e vive no Player — sobrevive a save/load e
         // reload de página, então recarregar a página pra "resetar" o
         // relógio não escapa da trava. 20s reais nunca atrapalha o ciclo
         // natural dia/noite (uma transição real a cada 300s, ver
-        // dayPhaseDuration=75 * 4 fases), só barra clique repetido.
+        // dayPhaseDuration=75 * 4 fases), só barra clique repetido — e,
+        // desde esta correção, nunca mais bloqueia o reset de população
+        // acima, que já rodou incondicionalmente.
         const p = window.Engine && window.Engine.state && window.Engine.state.player;
         const now = Date.now();
         const MIN_INTERVAL_MS = 20000;
@@ -2218,17 +2264,6 @@ class CityEngine {
             dayCountPlayer.activeBuffs = dayCountPlayer.activeBuffs.filter(b => b.expiresAtDay === undefined || b.expiresAtDay > this.dayCount);
         }
 
-        // Vampiros noturnos se recolhem com a luz do sol.
-        this.nightWanderers = [];
-
-        // NPCs comuns/presos e Viajante do Portão são trocados por gente
-        // nova — mesmo padrão (e mesmas flags) já usado ao trocar de
-        // cidade (ver travelToCity), reaproveitado aqui em vez de duplicado.
-        this.npcs = [];
-        this._arenaNpcsSpawned = false;
-        this._gateTravelerSpawned = false;
-        this._guardsSpawned = false;
-
         // Mercador Viajante e promoção de loja não "sobrevivem" a um dia
         // inteiro passado — um novo dia pode trazer (ou não) um mercador/
         // promoção diferente pelo sorteio normal de _updateRandomEvents.
@@ -2250,7 +2285,6 @@ class CityEngine {
         this.oreVeins = [];
         this._pendingCollectOre = null;
 
-        this._spawnNpcsIfNeeded();
         this._spawnLightStonesIfNeeded();
         this._spawnOreVeinsIfNeeded();
         this._spawnEssenceNodesIfNeeded();

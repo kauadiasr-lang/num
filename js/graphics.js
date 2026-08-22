@@ -1796,7 +1796,11 @@ class GraphicsEngine {
         const towerW = Math.max(20, w * 0.024);
         const towerH = wallH + horizon * 0.05;
         const cityDef = window.getCurrentCityDef ? window.getCurrentCityDef() : null;
-        const wallColors = (cityDef && cityDef.wallColors) || { base: 'rgba(94,88,76,0.92)', tower: 'rgba(82,76,64,0.95)' };
+        // Alpha 1 (era 0.92/0.95) — mesmo motivo do wallColors por cidade
+        // em citydatabase.js: bug reportado ("muralha meio transparente"),
+        // confirmado por amostragem de pixel real (a cor blendava com o
+        // chão de tons terrosos parecidos, mesmo sem ser 50% opaca).
+        const wallColors = (cityDef && cityDef.wallColors) || { base: 'rgba(94,88,76,1)', tower: 'rgba(82,76,64,1)' };
 
         ctx.fillStyle = wallColors.base;
         ctx.fillRect(0, topY, Math.max(0, gateX - gateW / 2 - towerW), wallH);
