@@ -32,6 +32,10 @@ class CityEngine {
         this.walkSpeed = 210; // px/s
 
         this.keysHeld = { up: false, down: false, left: false, right: false };
+        // Corrida (Shift) — mesmo campo/mesma tecla já usados por
+        // RoadEngine (js/road.js `_running`/`_speed()`/case 'Shift'),
+        // reaproveitados aqui em vez de inventar um sistema novo pra Praça.
+        this._running = false;
         this._mouseX = null;
         this._initialized = false;
         this._hintShown = true;
@@ -145,14 +149,25 @@ class CityEngine {
             // original (0.11/0.30/0.70/0.89) espalhava as 4 lojas quase até
             // a borda do mundo, com ~1119px de vão vazio de cada lado
             // (0.19 de fração * worldWidth). Reaproximadas em ~55% (gap
-            // agora 0.11 de cada lado) mas verificadas linha a linha contra
-            // TODOS os outros prédios da fileira 'front' (Banco 0.205,
-            // Quadro 0.35, Casa 0.795) — nenhuma delas chega perto o
-            // bastante de colidir (folga real de 300px+ em cada caso).
-            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.15, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
-            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.26, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
-            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.74, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
-            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.85, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
+            // Bug reportado de novo pelo usuário mesmo após a 1ª correção
+            // (xFrac 0.11/0.30/0.70/0.89 → 0.15/0.26/0.74/0.85): aquela
+            // correção só reduziu a FRAÇÃO de cada lado sem levar em conta
+            // que `_worldWidth()` é 4.6x a largura da tela — o vão real
+            // entre Armeiro e Taverna continuava ~0.48 de fração, ou seja
+            // ~2700px no mundo, o "quase do outro lado do mapa" que o
+            // usuário via de novo. Reagrupadas num cluster único centrado
+            // na Arena (xFrac 0.5, fileira 'back'): vão real entre bordas
+            // agora ~160-220px (medido em `w`, o mesmo valor usado por
+            // `_buildingRect`/colisão) — perto o bastante da Arena e umas
+            // das outras pra parecer uma praça de verdade, não uma cidade
+            // vazia. Verificado sem colidir com a fileira 'front' (Banco
+            // 0.205, Quadro 0.35, Hall da Fama 0.5, Casa 0.795) porque
+            // ficam numa fileira DIFERENTE (rowOffset menor = mais perto do
+            // horizonte, nunca a mesma linha Y que a fileira 'front').
+            { id: 'blacksmith', name: 'Ferreiro', icon: '🔨', xFrac: 0.42, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#7a4a2a', row: 'mid' },
+            { id: 'armorer', name: 'Armeiro', icon: '🛡️', xFrac: 0.47, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#5a6a7a', row: 'mid' },
+            { id: 'tavern', name: 'Taverna', icon: '🍺', xFrac: 0.53, rowOffset: 95, w: 130, h: 105, wall: '#6b5a42', roof: '#8a5a2a', row: 'mid' },
+            { id: 'arcane', name: 'Mercado Arcano', icon: '🔮', xFrac: 0.58, rowOffset: 95, w: 130, h: 105, wall: '#5a4a6b', roof: '#3a2a5a', row: 'mid' },
             { id: 'bank', name: 'Banco', icon: '💰', xFrac: 0.205, rowOffset: 165, w: 95, h: 78, wall: '#8891a0', roof: '#c9a227', row: 'front' },
             { id: 'halloffame', name: 'Hall da Fama', icon: '🏆', xFrac: 0.5, rowOffset: 185, w: 110, h: 85, wall: '#9a8a70', roof: '#c9a227', row: 'front' },
             { id: 'house', name: 'Sua Casa', icon: '🏠', xFrac: 0.795, rowOffset: 165, w: 95, h: 78, wall: '#6b5a42', roof: '#7a4a2a', row: 'front' },
@@ -258,10 +273,25 @@ class CityEngine {
         // `isClearOfBuildings` (ver draw()) ainda cobre qualquer cidade
         // futura com prédio ainda mais próximo da borda — cinto e
         // suspensório, nunca só uma das duas.
-        const RESIDENTIAL_ZONE = { xFracFrom: 0.045, xFracTo: 0.07, rowBase: 55, rowStep: 92 };
+        // Fileiras reduzidas de (2,3,2)=7 pra (2,2,2)=6 e rowStep maior
+        // (92→110): bug reportado de novo pelo usuário ("estruturas não são
+        // proporcionais ao tamanho dos NPCs, muito pequenas") — confirmado
+        // visualmente via Playwright/screenshot (um NPC parado ao lado de
+        // uma casa ficava quase 2x mais alto que o telhado, o oposto do
+        // esperado). A causa raiz nunca foi a fração de `scale` em si, mas
+        // o número de casas por fileira: com 3 por fileira, o `scale`
+        // precisava ficar pequeno pra caber nos mesmos 0.025 de fração
+        // (xFracFrom/xFracTo abaixo, ~147px no worldWidth atual) sem
+        // sobrepor. Reduzir pra 2 por fileira dá quase o dobro de espaço
+        // por casa, permitindo dobrar o `scale` (ver abaixo) sem tocar em
+        // xFracFrom/xFracTo — que continuam EXATAMENTE como estavam,
+        // preservando a checagem cross-city já verificada (ver comentário
+        // de xFracTo mais abaixo) e sem deslocar nenhum `urbanProps`
+        // (bancos/poços/cercas hoje posicionados nos vãos deste layout).
+        const RESIDENTIAL_ZONE = { xFracFrom: 0.045, xFracTo: 0.07, rowBase: 55, rowStep: 110 };
         const houseRows = [
             { count: 2, rowOffset: RESIDENTIAL_ZONE.rowBase },
-            { count: 3, rowOffset: RESIDENTIAL_ZONE.rowBase + RESIDENTIAL_ZONE.rowStep },
+            { count: 2, rowOffset: RESIDENTIAL_ZONE.rowBase + RESIDENTIAL_ZONE.rowStep },
             { count: 2, rowOffset: RESIDENTIAL_ZONE.rowBase + RESIDENTIAL_ZONE.rowStep * 2 },
         ];
         let houseIdx = 0;
@@ -278,16 +308,24 @@ class CityEngine {
                     rowOffset: row.rowOffset + (i % 2 === 0 ? -8 : 8),
                     // Escala reduzida (era 2.6 + (houseIdx%4)*0.5, até
                     // 4.1x) — bug reportado pelo usuário ("a distância
-                    // entre as casas está muito pequena"). RESIDENTIAL_ZONE
-                    // (xFracFrom/xFracTo acima) tem seus limites travados
-                    // por uma checagem cross-city já verificada via
-                    // Playwright contra as 4 cidades reais — alargar a
-                    // zona arriscaria colidir com o prédio real mais à
-                    // esquerda de alguma cidade (ver comentário de
-                    // xFracTo). Reduzir a escala das casas em vez disso dá
-                    // o mesmo resultado (gaps visíveis de verdade entre
-                    // elas) sem tocar nesse limite já testado.
-                    scale: 1.7 + (houseIdx % 4) * 0.3,
+                    // entre as casas está muito pequena"). Nova queixa,
+                    // mesma raiz na direção OPOSTA: "estruturas não são
+                    // proporcionais ao tamanho dos NPCs" — confirmado via
+                    // screenshot (ver houseRows acima) que 1.7-2.6 deixava
+                    // a casa com METADE da altura de um NPC parado do lado,
+                    // o oposto de qualquer proporção real (uma casa deveria
+                    // ser bem mais alta que uma pessoa). RESIDENTIAL_ZONE
+                    // (xFracFrom/xFracTo) continua com os limites travados
+                    // pela checagem cross-city já verificada via Playwright
+                    // (ver comentário de xFracTo) — não tocados. O espaço
+                    // ganho reduzindo de 3 pra 2 casas por fileira (ver
+                    // houseRows acima) é que permite dobrar a escala sem
+                    // sobrepor: testado visualmente em 1.7/4/6/8x (ver
+                    // /tmp/pw/house_scale_test.js) — 6x já lê como um
+                    // casebre pequeno só um pouco maior que uma pessoa; a
+                    // faixa 4.2-5.7 abaixo fica confortavelmente entre "bem
+                    // maior que o NPC" e "cabe em 2 por fileira sem colar".
+                    scale: 4.2 + (houseIdx % 3) * 0.5,
                     variant: houseIdx % 4,
                     orientationFlip: houseIdx % 3 === 0,
                     wallColor: houseWallColors[houseIdx % houseWallColors.length],
@@ -905,7 +943,12 @@ class CityEngine {
             // _updateNpcs/_sendNpcToVisitBuilding/_rollNpcBuildingVisits):
             // 'wandering' (padrão) | 'visiting' (a caminho de uma loja) |
             // 'inside' (parado e invisível, "dentro" da loja).
-            routineState: 'wandering', invisible: false, insideTimer: 0
+            routineState: 'wandering', invisible: false, insideTimer: 0,
+            // Ociosidade viva (pedido "vida na cidade" — NPCs parados
+            // "olham ao redor" ou "conversam" com um vizinho, em vez de só
+            // ficarem parados olhando pro mesmo lado): 'none' | 'look' |
+            // 'chat'. Ver _rollNpcIdleAction/_updateNpcs/_drawNpc.
+            idleAction: 'none', idleActionTimer: 0
         };
     }
 
@@ -1065,7 +1108,9 @@ class CityEngine {
                 npc.y += (dy / dist) * speed * dt;
                 npc.facing = dx >= 0 ? 1 : -1;
                 npc.anim.type = 'walk';
+                if (npc.idleAction) npc.idleAction = 'none';
             } else {
+                const justArrived = npc.anim.type !== 'idle';
                 npc.anim.type = 'idle';
                 // Chegou à porta do prédio que estava visitando — entra.
                 if (npc.routineState === 'visiting') {
@@ -1074,17 +1119,63 @@ class CityEngine {
                     npc.insideTimer = Utils.randomFloat(18, 45);
                     continue;
                 }
+                // Ociosidade viva (pedido "vida na cidade" — NPCs parados
+                // "olham ao redor" ou puxam conversa com um vizinho perto,
+                // em vez de ficar parado olhando pro mesmo lado o tempo
+                // todo). Só rola quando o NPC ACABA de chegar num ponto de
+                // espera comum (não os que estão indo visitar uma loja).
+                if (justArrived && npc.routineState === 'wandering') this._rollNpcIdleAction(npc, list);
+                if (npc.idleAction === 'look') {
+                    npc.idleLookTimer -= dt;
+                    if (npc.idleLookTimer <= 0) {
+                        npc.facing = -npc.facing;
+                        npc.idleLookTimer = Utils.randomFloat(0.6, 1.1);
+                    }
+                }
                 if (npc.waitTimer <= 0 && npc.pin) {
                     npc.targetX = Utils.randomFloat(npc.pin.x - npc.pin.radius, npc.pin.x + npc.pin.radius);
                     npc.targetY = Utils.randomFloat(npc.pin.y - npc.pin.radius * 0.4, npc.pin.y + npc.pin.radius * 0.4);
                     npc.waitTimer = Utils.randomFloat(2, 6);
+                    npc.idleAction = 'none';
                 } else if (npc.waitTimer <= 0) {
                     const w = window.Engine.width;
                     npc.targetX = Utils.randomFloat(w * 0.1, w * 0.9);
                     npc.targetY = Utils.randomFloat(this._horizon(h) + 30, this._plazaBottom(h));
                     npc.waitTimer = Utils.randomFloat(2, 6);
+                    npc.idleAction = 'none';
                 }
             }
+        }
+    }
+
+    // Rola a ação de ociosidade de um NPC que acabou de chegar num ponto de
+    // espera (ver _updateNpcs) — "olhar ao redor" (inverte facing por um
+    // tempo, reaproveitando o mesmo `facing` que já controla o espelhamento
+    // do sprite em _drawNpc) ou "conversar" com outro NPC comum ocioso bem
+    // perto (os dois ganham uma pausa extra e viram um de frente pro
+    // outro). Vampiros/Mercador Viajante nunca chegam aqui (routineState
+    // só existe em NPCs de _makeNpc, ver chamada condicional acima).
+    _rollNpcIdleAction(npc, list) {
+        if (Utils.chance(35)) {
+            npc.idleAction = 'look';
+            npc.idleLookTimer = Utils.randomFloat(0.6, 1.1);
+            return;
+        }
+        npc.idleAction = 'none';
+        if (!list || list.length < 2) return;
+        const partner = list.find(other => other !== npc
+            && other.routineState === 'wandering'
+            && other.anim.type === 'idle'
+            && other.idleAction !== 'chat'
+            && Math.hypot(other.x - npc.x, other.y - npc.y) < 70);
+        if (partner && Utils.chance(30)) {
+            const chatDuration = Utils.randomFloat(3, 5);
+            npc.idleAction = 'chat';
+            partner.idleAction = 'chat';
+            npc.waitTimer = Math.max(npc.waitTimer, chatDuration);
+            partner.waitTimer = Math.max(partner.waitTimer, chatDuration);
+            npc.facing = (partner.x >= npc.x) ? 1 : -1;
+            partner.facing = (npc.x >= partner.x) ? 1 : -1;
         }
     }
 
@@ -1183,6 +1274,8 @@ class CityEngine {
             case 'ArrowDown': case 's': case 'S': this.keysHeld.down = isDown; break;
             case 'ArrowLeft': case 'a': case 'A': this.keysHeld.left = isDown; break;
             case 'ArrowRight': case 'd': case 'D': this.keysHeld.right = isDown; break;
+            // Corrida — mesmo case/campo já usado por RoadEngine.handleKey.
+            case 'Shift': this._running = isDown; break;
             case 'e': case 'E':
                 if (isDown && this._nearBuilding) this.interact(this._nearBuilding.id);
                 break;
@@ -2401,6 +2494,18 @@ class CityEngine {
     // collides, via this._collides) continua compartilhada.
     static get ACCEL() { return 900; } // px/s² ao acelerar (sair do zero ou mudar de direção)
     static get DECEL() { return 1400; } // px/s² ao soltar as teclas/chegar no alvo — freia mais rápido do que acelera
+    // Corrida (Shift) — mesmo multiplicador de RoadEngine._speed() (1.6),
+    // reaproveitado por consistência: "correr" deve ter a mesma sensação de
+    // velocidade na Praça e na Estrada, não dois valores arbitrários
+    // diferentes pro mesmo conceito.
+    static get RUN_MULTIPLIER() { return 1.6; }
+
+    // Velocidade-alvo do jogador, considerando corrida (Shift) — usada
+    // tanto pelo movimento via WASD quanto por clique-pra-andar (mesmo
+    // conceito de RoadEngine._speed(), que também vale pros dois modos).
+    _currentSpeed() {
+        return this._running ? this.walkSpeed * CityEngine.RUN_MULTIPLIER : this.walkSpeed;
+    }
 
     _updateMovement(dt) {
         const h = window.Engine.height;
@@ -2426,6 +2531,7 @@ class CityEngine {
         const p = this.player;
         let targetVx = 0, targetVy = 0;
         const keyMoving = this.keysHeld.up || this.keysHeld.down || this.keysHeld.left || this.keysHeld.right;
+        const speed = this._currentSpeed();
 
         if (keyMoving) {
             if (this.keysHeld.up) targetVy -= 1;
@@ -2433,8 +2539,8 @@ class CityEngine {
             if (this.keysHeld.left) targetVx -= 1;
             if (this.keysHeld.right) targetVx += 1;
             const len = Math.hypot(targetVx, targetVy) || 1;
-            targetVx = (targetVx / len) * this.walkSpeed;
-            targetVy = (targetVy / len) * this.walkSpeed;
+            targetVx = (targetVx / len) * speed;
+            targetVy = (targetVy / len) * speed;
             p.targetX = null;
             p.targetY = null;
             p.pathQueue = [];
@@ -2451,8 +2557,8 @@ class CityEngine {
                     p.targetY = null;
                 }
             } else {
-                targetVx = (dx / dist) * this.walkSpeed;
-                targetVy = (dy / dist) * this.walkSpeed;
+                targetVx = (dx / dist) * speed;
+                targetVy = (dy / dist) * speed;
             }
         }
 
@@ -2471,13 +2577,27 @@ class CityEngine {
         p.y = Utils.clamp(p.y, bounds.minY, bounds.maxY);
 
         // Som de passo / poeira nos pés — apresentação, não movimento em
-        // si, continua vivendo aqui.
+        // si, continua vivendo aqui. Intervalo e poeira agora escalam com a
+        // velocidade REAL (realSpeed, não só a flag `_running`) — pedido de
+        // "corrida com feedback visual" (poeira) e "ajuste o intervalo dos
+        // passos... dependendo da velocidade": passos mais rápidos e
+        // poeira maior enquanto a corrida está de fato em curso (não só a
+        // tecla pressionada, ex: ainda acelerando ou travado por colisão).
         if (this.player.moving) {
+            const speedRatio = Utils.clamp(realSpeed / this.walkSpeed, 0.4, CityEngine.RUN_MULTIPLIER);
             this._footstepTimer -= dt;
             if (this._footstepTimer <= 0) {
-                this._footstepTimer = 0.32;
+                this._footstepTimer = 0.32 / speedRatio;
                 if (window.AudioManager) window.AudioManager.playFootstep();
-                if (window.GFX) window.GFX.spawnParticles(this.player.x, this.player.y + 4, '#9a8a70', 2, 0.6, 2);
+                const isRunningNow = speedRatio > 1.2;
+                if (window.GFX) {
+                    window.GFX.spawnParticles(
+                        this.player.x, this.player.y + 4, '#9a8a70',
+                        isRunningNow ? 4 : 2,
+                        isRunningNow ? 1.1 : 0.6,
+                        isRunningNow ? 3 : 2
+                    );
+                }
             }
         } else {
             this._footstepTimer = 0;
@@ -4900,6 +5020,15 @@ class CityEngine {
             ctx.translate(npc.x, npc.y);
             ctx.scale(scale, scale);
             window.GFX.drawGladiator(ctx, 0, 0, npc.entity, npc.facing > 0, npc.anim, null);
+            // Balão de conversa (ver _rollNpcIdleAction/_updateNpcs) — só
+            // feedback visual, não abre nenhuma fala de verdade; desenhado
+            // já dentro do translate/scale do próprio NPC, ~acima da cabeça
+            // (gladiador nativo mede ~160px pés-cabeça, ver NPC_EXTRA_SHRINK).
+            if (npc.idleAction === 'chat') {
+                ctx.font = 'bold 26px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('💬', 0, -175);
+            }
             ctx.restore();
         }
     }
