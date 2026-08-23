@@ -296,7 +296,23 @@ const COMBAT_STYLE_TREES = {
             { id: 'danca_corte_fatal', name: 'Corte Fatal', tier: 3, type: 'passive', cost: 3, requires: ['danca_reflexos_afiados'],
                 description: 'Com arma leve, +10 de chance de crítico adicional.', statMods: { lightWeaponCritBonus: 10 } },
             { id: 'danca_mestre_duelista', name: 'Mestre Duelista', tier: 4, type: 'passive', cost: 4, requires: ['danca_valsa_das_laminas', 'danca_corte_fatal'],
-                description: 'Com arma leve, +10% de esquiva e +10 de crítico — a lâmina se torna extensão do corpo.', statMods: { lightWeaponDodgeBonusPercent: 10, lightWeaponCritBonus: 10 } }
+                description: 'Com arma leve, +10% de esquiva e +10 de crítico — a lâmina se torna extensão do corpo.', statMods: { lightWeaponDodgeBonusPercent: 10, lightWeaponCritBonus: 10 } },
+            // Mecânica nova (pedido explícito: "quero mecânicas novas em
+            // cada um", não só mais um bônus percentual) — Fluxo: um
+            // contador que sobe a cada ESQUIVA bem-sucedida nesta batalha
+            // (ver battle.js executeAttack, ramo de esquiva/`dancaFluxoStreak`)
+            // e zera ao ser atingido — o oposto de `colossoComboStreak`
+            // (que sobe ao ACERTAR). Investida do Vazio consome todo o
+            // Fluxo acumulado num só golpe: recompensa reflexo defensivo, não
+            // agressão pura, dando à Dança uma identidade mecânica própria em
+            // vez de reciclar a do Punho do Colosso com nomes diferentes.
+            { id: 'danca_investida_do_vazio', name: 'Investida do Vazio', tier: 5, type: 'active', cost: 4, requires: ['danca_mestre_duelista'],
+                description: 'Ataque fulminante que consome todo o Fluxo acumulado por esquivas bem-sucedidas nesta batalha — quanto mais você desviou, mais forte o golpe (efeito consumido ao usar).',
+                skillDef: { id: 'danca_investida_do_vazio', name: 'Investida do Vazio', type: 'PHYSICAL', mpCost: 20, powerMulti: 1.3,
+                    description: 'Ataque de arma leve que consome o Fluxo (esquivas bem-sucedidas) — dano físico escalado pelo Fluxo acumulado.',
+                    extra: { consumesStreak: 'dancaFluxoStreak', streakDamageMultPerStack: 12, streakDamageCapPercent: 60 } } },
+            { id: 'danca_espirito_etereo', name: 'Espírito Etéreo', tier: 6, type: 'passive', cost: 5, requires: ['danca_investida_do_vazio'],
+                description: 'Com arma leve, +12% de esquiva e +12 de crítico — o corpo se torna quase intangível em pleno combate.', statMods: { lightWeaponDodgeBonusPercent: 12, lightWeaponCritBonus: 12 } }
         ]
     },
     muralha: {
@@ -315,7 +331,22 @@ const COMBAT_STYLE_TREES = {
             { id: 'muralha_baluarte', name: 'Baluarte', tier: 3, type: 'passive', cost: 3, requires: ['muralha_resistencia_inabalavel'],
                 description: 'Com escudo equipado, +10 de chance de bloqueio adicional.', statMods: { shieldBlockChanceBonusFlat: 10 } },
             { id: 'muralha_guardiao_inabalavel', name: 'Guardião Inabalável', tier: 4, type: 'passive', cost: 4, requires: ['muralha_escudo_vivo', 'muralha_baluarte'],
-                description: 'Com escudo equipado, +8 de bloqueio e +15% de resistência a efeitos negativos — a muralha que Kharzum nunca derrubou.', statMods: { shieldBlockChanceBonusFlat: 8, negativeEffectResistPercent: 15 } }
+                description: 'Com escudo equipado, +8 de bloqueio e +15% de resistência a efeitos negativos — a muralha que Kharzum nunca derrubou.', statMods: { shieldBlockChanceBonusFlat: 8, negativeEffectResistPercent: 15 } },
+            // Mecânica nova — Postura: um contador que sobe a cada
+            // BLOQUEIO bem-sucedido nesta batalha (ver battle.js
+            // executeAttack, ramo de bloqueio/`muralhaPosturaStacks`) e
+            // zera quando um golpe passa sem ser bloqueado. Diferente de
+            // `muralhaCounterBonus` (bônus de UM turno só, concedido só por
+            // escolher Defender) — Postura acumula ao longo da batalha
+            // inteira e é descarregada de propósito em Fúria Retida,
+            // recompensando quem segura a linha por vários turnos seguidos.
+            { id: 'muralha_furia_retida', name: 'Fúria Retida', tier: 5, type: 'active', cost: 4, requires: ['muralha_guardiao_inabalavel'],
+                description: 'Descarrega toda a Postura acumulada por bloqueios bem-sucedidos nesta batalha num golpe de escudo devastador (efeito consumido ao usar).',
+                skillDef: { id: 'muralha_furia_retida', name: 'Fúria Retida', type: 'PHYSICAL', mpCost: 20, powerMulti: 1.1,
+                    description: 'Golpe de escudo que consome a Postura (bloqueios bem-sucedidos) — dano físico escalado pela Postura acumulada.',
+                    extra: { consumesStreak: 'muralhaPosturaStacks', streakDamageMultPerStack: 15, streakDamageCapPercent: 75 } } },
+            { id: 'muralha_baluarte_eterno', name: 'Baluarte Eterno', tier: 6, type: 'passive', cost: 5, requires: ['muralha_furia_retida'],
+                description: 'Com escudo equipado, +10 de bloqueio e +20% de resistência a efeitos negativos — a muralha que se tornou lenda.', statMods: { shieldBlockChanceBonusFlat: 10, negativeEffectResistPercent: 20 } }
         ]
     },
     predador: {
@@ -336,7 +367,21 @@ const COMBAT_STYLE_TREES = {
                 skillDef: { id: 'predador_chuva_de_flechas', name: 'Chuva de Flechas', type: 'PHYSICAL', mpCost: 24, powerMulti: 2.0,
                     description: 'Rajada de disparos consecutivos — dano físico multiplicado.' } },
             { id: 'predador_cacador_supremo', name: 'Caçador Supremo', tier: 4, type: 'passive', cost: 4, requires: ['predador_tiro_de_precisao', 'predador_chuva_de_flechas'],
-                description: 'Com arma de longo alcance ativa, dano à distância +12% adicional e recuo +1 de velocidade — o predador nunca deixa o alvo escolher a distância.', statMods: { rangedDistanceDamageBonusPercent: 12, rangedRetreatSpeedBonusFlat: 1 } }
+                description: 'Com arma de longo alcance ativa, dano à distância +12% adicional e recuo +1 de velocidade — o predador nunca deixa o alvo escolher a distância.', statMods: { rangedDistanceDamageBonusPercent: 12, rangedRetreatSpeedBonusFlat: 1 } },
+            // Mecânica nova — Tensão: um contador que sobe a cada turno em
+            // que o jogador escolhe Manter Distância ou Recuar nesta
+            // batalha (ver battle.js executePlayerTurn/`predadorTensaoStacks`)
+            // e zera ao escolher Aproximar/Correr/Investida (fechar a
+            // distância de propósito) — recompensa POSICIONAMENTO paciente,
+            // não só "atire mais forte": um jogador que passa o combate
+            // todo mantendo distância acumula um tiro final devastador.
+            { id: 'predador_tiro_da_paciencia', name: 'Tiro da Paciência', tier: 5, type: 'active', cost: 4, requires: ['predador_cacador_supremo'],
+                description: 'Um tiro carregado por cada turno de paciência mantendo distância nesta batalha — quanto mais você esperou, mais devastador (efeito consumido ao usar).',
+                skillDef: { id: 'predador_tiro_da_paciencia', name: 'Tiro da Paciência', type: 'PHYSICAL', mpCost: 20, powerMulti: 1.2,
+                    description: 'Disparo à distância que consome a Tensão (turnos mantendo distância) — dano físico escalado pela Tensão acumulada.',
+                    extra: { consumesStreak: 'predadorTensaoStacks', streakDamageMultPerStack: 14, streakDamageCapPercent: 70 } } },
+            { id: 'predador_olho_paciente', name: 'Olho Paciente', tier: 6, type: 'passive', cost: 5, requires: ['predador_tiro_da_paciencia'],
+                description: 'Com arma de longo alcance ativa, dano à distância +15% adicional e recuo +1.5 de velocidade — a presa nunca escapa de quem sabe esperar.', statMods: { rangedDistanceDamageBonusPercent: 15, rangedRetreatSpeedBonusFlat: 1.5 } }
         ]
     }
 };

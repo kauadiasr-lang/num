@@ -52,8 +52,15 @@ class BattleSystem {
         // encantamento permanente do item (ver executeAttack/
         // _getEffectiveEnchantment) — sempre reseta pra null/0 no fim da
         // duração, nunca ficando "vazado" pra fora da batalha (não é salvo).
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0 };
+        // dancaFluxoStreak/muralhaPosturaStacks/predadorTensaoStacks:
+        // mecânicas novas dos Estilos de Combate (Dança das Lâminas/Muralha
+        // de Ferro/Caminho do Predador) — mesmo padrão de colossoComboStreak
+        // acima (campo inofensivo pra qualquer combatente sem o nó
+        // correspondente, só lido quando a habilidade que os consome é
+        // usada). Ver executeAttack (esquiva/bloqueio) e executePlayerTurn
+        // (HOLD/RETREAT/APPROACH) pros pontos onde cada um sobe/zera.
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -325,8 +332,17 @@ class BattleSystem {
             // Sequência Brutal (Fúria do Combate): errar quebra o combo —
             // reinicia a contagem de golpes desarmados consecutivos.
             if (attackerState) attackerState.colossoComboStreak = 0;
+            // Mecânica nova da Dança das Lâminas — Fluxo: cada esquiva
+            // bem-sucedida soma um Fluxo (consumido por Investida do
+            // Vazio, ver combatstyles.js); o oposto de colossoComboStreak
+            // acima (que zera na esquiva) — aqui é a esquiva que ALIMENTA.
+            if (defenderState) defenderState.dancaFluxoStreak = (defenderState.dancaFluxoStreak || 0) + 1;
             return { hit: false, crit: false, damage: 0, message: missMsg, counter: dodgeCounter };
         }
+
+        // O golpe acertou — o defensor falhou em esquivar, quebrando
+        // qualquer Fluxo (Dança das Lâminas) que estivesse acumulando.
+        if (defenderState) defenderState.dancaFluxoStreak = 0;
 
         // 2. Cálculo de Crítico — Linhagens com HP baixo (Vampirismo:
         // "Sanguinário") podem ganhar chance crítica extra nessa condição.
@@ -416,6 +432,12 @@ class BattleSystem {
             blocked = true;
             mitigatedDamage = Math.max(1, Math.floor(mitigatedDamage * 0.5));
         }
+        // Mecânica nova da Muralha de Ferro — Postura: cada bloqueio
+        // bem-sucedido soma uma Postura (consumida por Fúria Retida, ver
+        // combatstyles.js); zera assim que um golpe passa sem ser
+        // bloqueado — só bloqueios CONSECUTIVOS acumulam, não a batalha
+        // inteira de uma vez.
+        if (defenderState) defenderState.muralhaPosturaStacks = blocked ? (defenderState.muralhaPosturaStacks || 0) + 1 : 0;
 
         // 5b. Barreira temporária (Escudo Dourado, Luz) reduz uma % fixa do
         // dano já mitigado — empilha com defesa/bloqueio, mas só dura N turnos.
@@ -846,9 +868,17 @@ class BattleSystem {
         }
         else if (actionCode === 'HOLD') {
             this.playerState.holdingDistance = true;
+            // Mecânica nova do Caminho do Predador — Tensão: cada turno
+            // mantendo/aumentando distância soma Tensão (consumida por
+            // Tiro da Paciência, ver combatstyles.js); zerada só ao
+            // Aproximar/Correr/Investida (fechar a distância de propósito),
+            // nunca ao atacar — o arqueiro precisa poder atirar sem perder
+            // a paciência acumulada.
+            this.playerState.predadorTensaoStacks = (this.playerState.predadorTensaoStacks || 0) + 1;
             resultMsg = `${this.player.name} se posiciona com cautela, pronto para manter a distância!`;
         }
         else if (actionCode === 'APPROACH') {
+            this.playerState.predadorTensaoStacks = 0;
             // Bug de auditoria: a resistência de HOLD (ver enemyState.
             // holdingDistance) só era conferida do lado do inimigo (a
             // APPROACH dele já lia playerState.holdingDistance) — o
@@ -871,6 +901,7 @@ class BattleSystem {
         else if (actionCode === 'RETREAT') {
             const speed = this.player.getWeaponSpeed();
             this.applyDistanceChange(speed.retreatSpeed);
+            this.playerState.predadorTensaoStacks = (this.playerState.predadorTensaoStacks || 0) + 1;
             resultMsg = `${this.player.name} recua, abrindo distância. (Distância: ${this.distance.toFixed(1)}m)`;
             if (window.GFX) window.GFX.playAnim(true, 'retreat', 700);
         }
@@ -878,12 +909,14 @@ class BattleSystem {
             const speed = this.player.getWeaponSpeed();
             this.applyDistanceChange(-speed.approachSpeed * 2);
             this.playerState.justRan = true; // fica vulnerável (menos esquiva) no próximo ataque sofrido
+            this.playerState.predadorTensaoStacks = 0;
             resultMsg = `${this.player.name} corre para encurtar a distância rapidamente! (Distância: ${this.distance.toFixed(1)}m)`;
             if (window.GFX) window.GFX.playAnim(true, 'run', 700);
         }
         else if (actionCode === 'CHARGE') {
             const speed = this.player.getWeaponSpeed();
             this.applyDistanceChange(-speed.approachSpeed * 2);
+            this.playerState.predadorTensaoStacks = 0;
             if (window.GFX) window.GFX.playAnim(true, 'charge', 700);
 
             const range = this.player.getWeaponRange();
@@ -1077,10 +1110,26 @@ class BattleSystem {
                         resultMsg = `${this.player.name} avança várias casas em direção a ${this.enemy.name}! `;
                         if (window.GFX) window.GFX.playAnim(true, 'approach', 500);
                     }
+                    // Mecânicas novas dos Estilos de Combate — Investida do
+                    // Vazio (Dança)/Fúria Retida (Muralha)/Tiro da Paciência
+                    // (Predador) consomem um contador acumulado (Fluxo/
+                    // Postura/Tensão, ver playerState) pra um bônus de dano
+                    // escalado. Nenhuma outra habilidade PHYSICAL já
+                    // cadastrada define `consumesStreak`, mesmo princípio de
+                    // `rushDistance`/`armorPierce` acima. Lido e ZERADO
+                    // aqui, ANTES do teste de acerto — o recurso é gasto ao
+                    // USAR a habilidade (acerte ou erre), igual à mana.
+                    let streakBonusPercent = 0;
+                    if (skill.consumesStreak) {
+                        const stacks = this.playerState[skill.consumesStreak] || 0;
+                        streakBonusPercent = Math.min(stacks * (skill.streakDamageMultPerStack || 0), skill.streakDamageCapPercent || 0);
+                        this.playerState[skill.consumesStreak] = 0;
+                    }
                     // Aproveita o cálculo base de ataque físico, com bônus de acerto e multiplicador de poder
                     let hitChance = 110 + (this.player.getTotalStat('acc') * 2) - this.enemy.derivedStats.dodgeChance;
                     if (Utils.chance(hitChance)) {
                         let damage = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti));
+                        if (streakBonusPercent > 0) damage = Math.floor(damage * (1 + streakBonusPercent / 100));
                         // BUFF do Punho do Colosso — Golpe Sísmico: agora
                         // ignora armadura DE VERDADE (a descrição sempre
                         // prometeu isso, mas nenhum código lia esse campo
@@ -1095,6 +1144,7 @@ class BattleSystem {
 
                         this.enemy.currentHp = Utils.clamp(this.enemy.currentHp - mitigatedDamage, 0, this.enemy.derivedStats.maxHp);
                         resultMsg += `<span style="color:var(--color-gold)">${this.player.name} executou ${skill.name} causando esmagadores ${mitigatedDamage} de Dano!</span>`;
+                        if (streakBonusPercent > 0) resultMsg += ` <span style="color:#88ccff">(+${streakBonusPercent.toFixed(0)}% consumindo o acúmulo do Estilo)</span>`;
                         window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ffcc00", true);
                         window.GFX.spawnParticles(enemyX, enemyY, "#cc0000", 25, 6, 5);
                         window.GFX.playAnim(false, 'hurt', 500, true);

@@ -249,41 +249,66 @@ const GuideSystem = {
             unarmedCloseRangeDamageBonusPercent: 'Dano por proximidade (escala quanto mais perto)',
             lightWeaponDodgeBonusPercent: 'Esquiva (arma leve)', lightWeaponCritBonus: 'Crítico (arma leve)',
             shieldBlockChanceBonusFlat: 'Bloqueio (escudo)', shieldCounterChanceBonusFlat: 'Contra-ataque (escudo)',
+            negativeEffectResistPercent: 'Resistência a efeitos negativos',
             rangedDistanceDamageBonusPercent: 'Dano à distância (escala com a distância)', rangedRetreatSpeedBonusFlat: 'Velocidade ao recuar'
+        };
+        // Mecânica própria de cada árvore (item pedido explicitamente:
+        // "aba dos combates e suas skill trees no guia") — o contador que
+        // cada estilo acumula/consome (ver combatstyles.js/battle.js) e
+        // como ele sobe/zera, pra o jogador entender a IDENTIDADE mecânica
+        // sem precisar ler código. Nunca duplicado como texto solto: cada
+        // entrada aqui é só a explicação de um campo real de playerState.
+        const styleMechanic = {
+            colosso: { name: 'Sequência de Combos', desc: 'Cada golpe desarmado ACERTADO soma combo (até um teto); errar zera tudo.' },
+            danca: { name: 'Fluxo', desc: 'Cada ESQUIVA bem-sucedida soma Fluxo; ser atingido zera tudo. Investida do Vazio consome todo o Fluxo acumulado num golpe.' },
+            muralha: { name: 'Postura', desc: 'Cada BLOQUEIO bem-sucedido soma Postura; um golpe não bloqueado zera tudo. Fúria Retida consome toda a Postura acumulada num golpe de escudo.' },
+            predador: { name: 'Tensão', desc: 'Cada turno mantendo/aumentando distância (Manter Distância/Recuar) soma Tensão; Aproximar/Correr/Investida zera tudo. Tiro da Paciência consome toda a Tensão acumulada num disparo.' }
         };
         return `
             <p class="guide-section-intro">Uma camada de especialização de combate separada de Linhagem — não substitui a Árvore de Mutação, e as duas podem estar ativas ao mesmo tempo. Cada estilo é aprendido com ouro na sua cidade de origem (Mercado Arcano → "Estilos de Combate") e exige um equipamento específico pra funcionar; equipar algo incompatível nunca remove o item sozinho, só desativa os bônus e bloqueia as habilidades do estilo até você reequipar o certo. Só UM estilo fica ATIVO por vez, mas o progresso de cada estilo aprendido é preservado independentemente — trocar de estilo ativo (botão "Ativar") não apaga nada.</p>
             ${styles.map(style => {
                 const tree = window.COMBAT_STYLE_TREES[style.id];
-                const activeNodes = tree.nodes.filter(n => n.type === 'passive');
-                const skillNodes = tree.nodes.filter(n => n.type === 'active');
                 const cityName = (window.CityDatabase[style.cityId] && window.CityDatabase[style.cityId].name) || style.cityId;
                 // Número de tiers real da árvore, nunca hardcoded (o Punho
-                // do Colosso passou a ter 6 tiers na reformulação completa
-                // do estilo, enquanto os outros três continuam com 4 —
-                // um "4" fixo aqui estaria errado pra qualquer árvore que
-                // não seja mais rasa que a mais funda do jogo).
+                // do Colosso e os outros três agora têm 6 tiers cada —
+                // um número fixo aqui quebraria assim que qualquer árvore
+                // mudasse de profundidade de novo).
                 const tierCount = Math.max(...tree.nodes.map(n => n.tier));
+                const nameById = {};
+                tree.nodes.forEach(n => nameById[n.id] = n.name);
                 // Lista TODOS os rótulos de statMods de um nó, não só o
                 // primeiro (bug de auditoria: um nó com dois statMods — ex:
                 // Punho Pesado com dano percentual E flat — só mostrava o
                 // primeiro no guia, escondendo metade do bônus real do
                 // jogador). Nós sem nenhum statMod (ex: Contra-Golpe, uma
                 // mecânica só, sem número somável) mostram só o nome.
-                const passiveLine = (n) => {
-                    if (!n.statMods) return n.name;
-                    const labels = Object.keys(n.statMods).map(k => statLabel[k] || k).join(' + ');
-                    return `${n.name} (${labels})`;
-                };
+                const statLine = (n) => n.statMods ? Object.keys(n.statMods).map(k => statLabel[k] || k).join(' + ') : null;
+                const mechanic = styleMechanic[style.id];
+                // Árvore organizada por TIER de verdade (não uma lista
+                // plana de passivos/ativos misturados) — cada linha mostra
+                // o pré-requisito real pelo NOME, não pelo id interno,
+                // pra realmente parecer uma árvore navegável no guia.
+                const tierRows = [];
+                for (let t = 1; t <= tierCount; t++) {
+                    const nodesAtTier = tree.nodes.filter(n => n.tier === t);
+                    if (nodesAtTier.length === 0) continue;
+                    const nodeLines = nodesAtTier.map(n => {
+                        const reqNames = (n.requires || []).map(id => nameById[id] || id).join(', ');
+                        const kind = n.type === 'active' ? '⚔️ ativa' : '🛡️ passiva';
+                        const detail = n.type === 'active' ? n.skillDef.description : (statLine(n) || n.description);
+                        return `<li><strong>${n.name}</strong> <span style="color:var(--color-marble-dark); font-size:0.78rem;">(${kind}, custo ${n.cost}${reqNames ? `, requer ${reqNames}` : ''})</span><br><span style="font-size:0.82rem;">${detail}</span></li>`;
+                    }).join('');
+                    tierRows.push(`<p style="margin-bottom:2px;"><strong>Tier ${t}:</strong></p><ul style="margin:0 0 8px 18px; padding:0;">${nodeLines}</ul>`);
+                }
                 return `
                     <div class="guide-block">
                         <h4>${style.icon} ${style.name}</h4>
                         <p>${style.description}</p>
                         <p><strong>Aprendido em:</strong> ${cityName} (${window.CombatStyleSystem.LEARN_COST}g)</p>
                         <p style="color:#ffcc66;">${style.incompatibleMessage}</p>
+                        ${mechanic ? `<p style="color:#88ccff;"><strong>Mecânica própria — ${mechanic.name}:</strong> ${mechanic.desc}</p>` : ''}
                         <p style="color:var(--color-marble-dark); font-size:0.85rem;">Árvore com ${tree.nodes.length} nós em ${tierCount} tiers — pré-requisitos reais (nunca compre pulando ou na diagonal, cada nó exige um nó-pai específico já desbloqueado).</p>
-                        <p><strong>Passivos:</strong> ${activeNodes.map(passiveLine).join(', ')}</p>
-                        <p><strong>Habilidades ativas:</strong> ${skillNodes.map(n => n.name).join(', ')}</p>
+                        ${tierRows.join('')}
                     </div>
                 `;
             }).join('')}
