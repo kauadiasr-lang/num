@@ -405,8 +405,13 @@ const GuideSystem = {
     // ==========================================================================
     // LINHAGENS (MUTAÇÕES)
     // ==========================================================================
-    _renderTreeNode(node) {
-        const isCapstone = node.tier === 5;
+    _renderTreeNode(node, maxTier) {
+        // `maxTier` real da árvore (nunca fixo em 5) — Vampirismo e Luz
+        // ganharam um tier 6 novo (ver skilltrees.js), então travar isso em
+        // 5 faria o topo de verdade perder o selo de capstone e o antigo
+        // tier 5 (agora só um degrau no meio) continuar marcado como se
+        // fosse o topo.
+        const isCapstone = node.tier === maxTier;
         const typeLabel = node.type === 'active' ? 'Ativo' : 'Passivo';
         let effect = node.description;
         if (node.type === 'active' && node.skillDef) {
@@ -427,9 +432,10 @@ const GuideSystem = {
         const byTier = {};
         tree.nodes.forEach(n => { (byTier[n.tier] = byTier[n.tier] || []).push(n); });
         const tiers = Object.keys(byTier).sort((a, b) => a - b);
+        const maxTier = Math.max(...tree.nodes.map(n => n.tier));
         return `
             <p style="font-size:0.82rem; color:var(--color-marble-dark); margin-bottom:8px;">Cada nó pode ser desbloqueado assim que QUALQUER UM de seus pré-requisitos já estiver aberto (não é preciso abrir todos) — a árvore permite convergir para builds diferentes a partir das mesmas raízes.</p>
-            ${tiers.map(t => `<div class="guide-tree-tier">${byTier[t].map(n => this._renderTreeNode(n)).join('')}</div>`).join('')}
+            ${tiers.map(t => `<div class="guide-tree-tier">${byTier[t].map(n => this._renderTreeNode(n, maxTier)).join('')}</div>`).join('')}
         `;
     },
 

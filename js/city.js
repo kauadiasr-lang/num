@@ -772,7 +772,13 @@ class CityEngine {
     _spawnLightStonesIfNeeded() {
         const p = window.Engine.state.player;
         const rp = p ? p.ritualProgress.luz : null;
-        const eligible = p && !p.lineage && (!rp || rp.sacredFragments < 5);
+        // Lido de RITUALS.luz_ritual.fragmentsRequired (nunca um "5" cru
+        // aqui) — bug de auditoria evitado: o rebalanceamento do Ritual da
+        // Luz mudou esse número pra 12, e um valor duplicado hardcoded
+        // aqui ficaria desatualizado silenciosamente na próxima vez que o
+        // requisito mudar.
+        const required = window.RITUALS.luz_ritual.fragmentsRequired;
+        const eligible = p && !p.lineage && (!rp || rp.sacredFragments < required);
         if (!eligible) { this.lightStones = []; return; }
         if (this.lightStones.length > 0) return;
         this.lightStones = this.lightStoneSpots.map((spot, i) => ({ id: i, spot, collected: false, respawnTimer: 0 }));
@@ -1536,24 +1542,29 @@ class CityEngine {
         const p = window.Engine.state.player;
         if (!p) return;
         stone.collected = true;
-        // Mesma janela de tempo (50-100s) que o evento aleatório substituído
-        // usava para sortear de novo — preserva o ritmo de raridade original.
-        stone.respawnTimer = Utils.randomFloat(50, 100);
+        // Janela de respawn alargada de 50-100s pra 240-420s (rebalanceamento
+        // do Ritual da Luz, ver rituals.js luz_ritual) — testado em prática
+        // via Playwright: com as 3 pedras da praça e o requisito subindo de
+        // 5 pra 12 fragmentos, essa janela mais longa é o que de fato torna
+        // o recurso escasso (com a janela antiga, 12 fragmentos ainda
+        // saíam em poucos minutos).
+        stone.respawnTimer = Utils.randomFloat(240, 420);
 
         window.RitualSystem.onSacredFragmentFound(p, 1);
         const have = p.ritualProgress.luz.sacredFragments;
+        const required = window.RITUALS.luz_ritual.fragmentsRequired;
         const pos = this._lightStonePos(stone);
         if (window.GFX) {
             window.GFX.spawnParticles(pos.x, pos.y - 10, '#fff2b8', 18, 4, 3);
             window.GFX.spawnText(pos.x, pos.y - 40, '+1 Fragmento Sagrado', '#ffe9a3', false);
         }
         if (window.AudioManager) window.AudioManager.playLightPickup();
-        this._toast(`Você recolhe um Fragmento Sagrado que brilhava entre as pedras... (${have}/5)`, 'success');
+        this._toast(`Você recolhe um Fragmento Sagrado que brilhava entre as pedras... (${have}/${required})`, 'success');
 
         // Já reuniu tudo que precisava — a última pedra some de vez (sem
         // respawn) e o resto da praça também some no próximo
         // _spawnLightStonesIfNeeded (ver onEnterCity/travelToCity).
-        if (have >= 5) this.lightStones.forEach(s => { s.collected = true; s.respawnTimer = Infinity; });
+        if (have >= required) this.lightStones.forEach(s => { s.collected = true; s.respawnTimer = Infinity; });
     }
 
     // Posição de tela de um Veio de Minério — mesma convenção de
@@ -1657,7 +1668,7 @@ class CityEngine {
             stone.respawnTimer -= dt;
             if (stone.respawnTimer <= 0) {
                 const rp = p ? p.ritualProgress.luz : null;
-                const stillEligible = p && !p.lineage && (!rp || rp.sacredFragments < 5);
+                const stillEligible = p && !p.lineage && (!rp || rp.sacredFragments < window.RITUALS.luz_ritual.fragmentsRequired);
                 if (stillEligible) stone.collected = false;
             }
         }

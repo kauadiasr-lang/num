@@ -36,10 +36,29 @@ const RITUALS = {
         id: 'luz_ritual', lineageId: 'luz',
         name: 'Vigília da Luz',
         requiresNight: false,
-        potionsRequired: 15,
-        noMagicWinsRequired: 5,
-        fragmentsRequired: 5,
-        description: 'Prove sua devoção: use ao menos 15 poções de cura, vença 5 batalhas sem usar nenhuma magia ofensiva, e reúna 5 Fragmentos Sagrados espalhados pelo mundo.',
+        // Rebalanceamento (pedido do usuário: "nivele a dificuldade da luz
+        // que está baixa com o vampirismo") — testado em prática via
+        // Playwright (/tmp/pw/ritual_difficulty_test.js) ANTES desta
+        // mudança: no melhor caso possível (zero deslocamento, vence toda
+        // luta, nunca erra), o Ritual do Vampirismo levava ~37 noites
+        // (~187 minutos) pras 10 Essências (18% de chance de drop, só 1-2
+        // vampiros por noite), enquanto os requisitos antigos da Luz
+        // (15/5/5) levavam ~1-2 MINUTOS no total — um vão de quase 100x,
+        // não uma diferença de tema. Os 3 números subiram junto (não só um)
+        // pra não deslocar o gargalo de "fragmentos" pra "poções" sozinho:
+        // 40 poções (custo real em ouro, várias idas à loja), 20 vitórias
+        // sem magia (~20-40min de combates reais) e 12 Fragmentos com o
+        // tempo de respawn de cada pedra ampliado de 50-100s pra 240-420s
+        // (ver _collectLightStone em city.js) — só isso já mede ~17-18min
+        // no melhor caso simulado, contra ~1.3min antes. Resultado
+        // combinado fica na mesma ORDEM DE GRANDEZA do Vampirismo (dezenas
+        // de minutos a mais de uma hora de jogo real), sem copiar o
+        // mecanismo de sorte/drop dele — Luz continua sendo devoção
+        // (repetição garantida), não RNG.
+        potionsRequired: 40,
+        noMagicWinsRequired: 20,
+        fragmentsRequired: 12,
+        description: 'Prove sua devoção: use ao menos 40 poções de cura, vença 20 batalhas sem usar nenhuma magia ofensiva, e reúna 12 Fragmentos Sagrados espalhados pelo mundo.',
         progress(player) {
             const rp = player.ritualProgress.luz || {};
             const a = Utils.clamp((rp.potionsUsed || 0) / this.potionsRequired, 0, 1);

@@ -170,7 +170,22 @@ const SKILL_TREES = {
             { id: 'vam_abraco_trevas', name: 'Abraço das Trevas', tier: 5, type: 'active', cost: 2, requires: ['vam_veu_noite', 'vam_sanguinario'],
                 description: 'Desbloqueia Abraço das Trevas: o golpe vampírico definitivo.',
                 skillDef: { id: 'abraco_das_trevas', name: 'Abraço das Trevas', type: 'LIFESTEAL', mpCost: 28, powerMulti: 2.1,
-                    description: 'O golpe vampírico definitivo: dano avassalador e rouba 70% como HP. Usa o alcance da sua arma.', extra: { lifestealPercent: 70, cooldown: 5 } } }
+                    description: 'O golpe vampírico definitivo: dano avassalador e rouba 70% como HP. Usa o alcance da sua arma.', extra: { lifestealPercent: 70, cooldown: 5 } } },
+
+            // --- Tier 6: mecânica própria (pedido explícito: "nivele as
+            // linhagens", mesma vara dos Estilos de Combate, ver
+            // combatstyles.js dancaFluxoStreak/muralhaPosturaStacks/
+            // predadorTensaoStacks) — Fome de Sangue: cada dreno de vida
+            // bem-sucedido nesta batalha (passiva lifestealPercent OU a
+            // própria Abraço das Trevas) soma Fome, zerada ao ser atingido
+            // (ver battle.js executeAttack). Festim Eterno consome tudo.
+            { id: 'vam_festim_eterno', name: 'Festim Eterno', tier: 6, type: 'active', cost: 3, requires: ['vam_abraco_trevas'],
+                description: 'Desbloqueia Festim Eterno: consome toda a Fome de Sangue acumulada (cada dreno de vida bem-sucedido nesta batalha) num golpe vampírico avassalador.',
+                skillDef: { id: 'festim_eterno', name: 'Festim Eterno', type: 'LIFESTEAL', mpCost: 30, powerMulti: 1.6,
+                    description: 'Consome a Fome de Sangue (drenos de vida bem-sucedidos nesta batalha) — dano e roubo de vida escalados pela Fome acumulada. Usa o alcance da sua arma.',
+                    extra: { lifestealPercent: 60, cooldown: 5, consumesStreak: 'vampirismoFomeStacks', streakDamageMultPerStack: 10, streakDamageCapPercent: 80 } } },
+            { id: 'vam_rei_noite_eterna', name: 'Rei da Noite Eterna', tier: 6, type: 'passive', cost: 3, requires: ['vam_festim_eterno'],
+                description: 'Mais 10% de roubo de vida e +3% de regeneração por turno — a fome nunca mais se sacia por completo.', statMods: { lifestealPercent: 10, hpRegenPerTurn: 3 } }
         ]
     },
     luz: {
@@ -239,7 +254,21 @@ const SKILL_TREES = {
             { id: 'luz_ira_celestial', name: 'Ira Celestial', tier: 5, type: 'active', cost: 2, requires: ['luz_julgamento', 'luz_guarda_inabalavel'],
                 description: 'Desbloqueia Ira Celestial: a magia sagrada definitiva.',
                 skillDef: { id: 'ira_celestial', name: 'Ira Celestial', type: 'MAGIC', mpCost: 38, powerMulti: 3.0,
-                    description: 'A magia sagrada definitiva: dano cataclísmico de longo alcance (10m).', extra: { cooldown: 5, range: 10 } } }
+                    description: 'A magia sagrada definitiva: dano cataclísmico de longo alcance (10m).', extra: { cooldown: 5, range: 10 } } },
+
+            // --- Tier 6: mecânica própria (pedido explícito: "nivele as
+            // linhagens", mesma vara dos Estilos de Combate) — Graça: cada
+            // cura lançada nesta batalha (Toque Curador/Santuário/Luz
+            // Penitente/etc) soma Graça, zerada ao ser atingido (ver
+            // battle.js branch HEAL/executeAttack). Juízo Final consome
+            // tudo — recompensa devoção sustentada, não um botão isolado.
+            { id: 'luz_juizo_final', name: 'Juízo Final', tier: 6, type: 'active', cost: 3, requires: ['luz_ira_celestial'],
+                description: 'Desbloqueia Juízo Final: consome toda a Graça acumulada (cada cura lançada nesta batalha) numa explosão de luz cataclísmica.',
+                skillDef: { id: 'juizo_final', name: 'Juízo Final', type: 'MAGIC', mpCost: 35, powerMulti: 2.2,
+                    description: 'Consome a Graça (curas lançadas nesta batalha) — dano mágico de longo alcance (10m) escalado pela Graça acumulada.',
+                    extra: { cooldown: 5, range: 10, consumesStreak: 'luzGracaStacks', streakDamageMultPerStack: 12, streakDamageCapPercent: 80 } } },
+            { id: 'luz_ascensao', name: 'Ascensão', tier: 6, type: 'passive', cost: 3, requires: ['luz_juizo_final'],
+                description: 'Mais 10% de poder de cura e +10% de resistência a efeitos negativos — a devoção se torna transcendência.', statMods: { healPowerBonusPercent: 10, negativeEffectResistPercent: 10 } }
         ]
     },
 

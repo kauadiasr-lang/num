@@ -59,8 +59,14 @@ class BattleSystem {
         // correspondente, só lido quando a habilidade que os consome é
         // usada). Ver executeAttack (esquiva/bloqueio) e executePlayerTurn
         // (HOLD/RETREAT/APPROACH) pros pontos onde cada um sobe/zera.
-        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0 };
-        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0 };
+        // vampirismoFomeStacks/luzGracaStacks: mesmas mecânicas próprias,
+        // agora nas árvores de Linhagem (Vampirismo/Luz) — Fome sobe a cada
+        // dreno de vida bem-sucedido nesta batalha (LIFESTEAL, ver
+        // executeAttack/branch LIFESTEAL), Graça sobe a cada cura lançada
+        // (branch HEAL); ambas zeram ao serem atingidas, mesmo princípio de
+        // dancaFluxoStreak.
+        this.playerState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0, vampirismoFomeStacks: 0, luzGracaStacks: 0 };
+        this.enemyState = { isDefending: false, bleedTurns: 0, bleedDamage: 0, bleedIgnoresArmor: false, dotType: 'sangramento', stunned: false, justRan: false, holdingDistance: false, shieldTurns: 0, shieldPercent: 0, evasionTurns: 0, evasionBonus: 0, curseTurns: 0, curseDefensePercent: 0, weaponImbueId: null, weaponImbueTurns: 0, muralhaCounterBonus: 0, colossoComboStreak: 0, dancaFluxoStreak: 0, muralhaPosturaStacks: 0, predadorTensaoStacks: 0, vampirismoFomeStacks: 0, luzGracaStacks: 0 };
 
         // Rastreia se o jogador usou alguma magia OFENSIVA (tipo MAGIC) nesta
         // luta — usado pelo Ritual da Luz ("vencer sem usar magia ofensiva").
@@ -341,8 +347,16 @@ class BattleSystem {
         }
 
         // O golpe acertou — o defensor falhou em esquivar, quebrando
-        // qualquer Fluxo (Dança das Lâminas) que estivesse acumulando.
-        if (defenderState) defenderState.dancaFluxoStreak = 0;
+        // qualquer Fluxo (Dança das Lâminas) ou Graça (Luz) que estivesse
+        // acumulando, e a Fome de Sangue (Vampirismo) só some se o próprio
+        // defensor já não tiver drenado neste mesmo turno de ataque — como
+        // ambos os campos vivem no mesmo objeto de estado, zerar aqui é
+        // seguro (o dreno do PRÓXIMO golpe do defensor soma de novo do 0).
+        if (defenderState) {
+            defenderState.dancaFluxoStreak = 0;
+            defenderState.luzGracaStacks = 0;
+            defenderState.vampirismoFomeStacks = 0;
+        }
 
         // 2. Cálculo de Crítico — Linhagens com HP baixo (Vampirismo:
         // "Sanguinário") podem ganhar chance crítica extra nessa condição.
@@ -558,6 +572,10 @@ class BattleSystem {
             lifestealHealed = Math.floor(mitigatedDamage * (lsPercent / 100));
             if (lifestealHealed > 0) {
                 attacker.currentHp = Utils.clamp(attacker.currentHp + lifestealHealed, 0, attacker.derivedStats.maxHp);
+                // Mecânica nova do Vampirismo — Fome de Sangue: cada dreno
+                // de vida bem-sucedido nesta batalha soma Fome (consumida
+                // por Festim Eterno, ver skilltrees.js).
+                if (attackerState) attackerState.vampirismoFomeStacks = (attackerState.vampirismoFomeStacks || 0) + 1;
             }
         }
         if (enchantEff) {
@@ -1052,6 +1070,10 @@ class BattleSystem {
                     window.GFX.spawnText(playerX, playerY - 50, `+${healAmount}`, "#1eff00", false);
                     window.GFX.spawnParticles(playerX, playerY, "#1eff00", 25, 4, 4);
                     window.AudioManager.playHeal();
+                    // Mecânica nova da Luz — Graça: cada cura lançada nesta
+                    // batalha soma Graça (consumida por Juízo Final, ver
+                    // skilltrees.js).
+                    this.playerState.luzGracaStacks = (this.playerState.luzGracaStacks || 0) + 1;
                 }
                 else if (skill.type === 'MAGIC') {
                     // Dano mágico ignora armadura, mitigado apenas pela Inteligência do inimigo
@@ -1082,7 +1104,16 @@ class BattleSystem {
                     // físico: soma o bônus de nível ANTES de multiplicar por powerMulti
                     // (não depois), pra escalar com a força da habilidade igual ao físico.
                     const magicBase = this.player.getTotalStat('int') * 2.5 + levelDamageBonus(this.player.level);
-                    const magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(magicBase * skill.powerMulti));
+                    let magicDmg = this.applyLineageWeakness(this.player, this.enemy, Math.floor(magicBase * skill.powerMulti));
+                    // Mecânica nova da Luz — Juízo Final consome a Graça
+                    // (curas lançadas nesta batalha), mesmo campo genérico
+                    // `consumesStreak` já usado pelos Estilos de Combate.
+                    if (skill.consumesStreak) {
+                        const stacks = this.playerState[skill.consumesStreak] || 0;
+                        const streakBonusPercent = Math.min(stacks * (skill.streakDamageMultPerStack || 0), skill.streakDamageCapPercent || 0);
+                        if (streakBonusPercent > 0) magicDmg = Math.floor(magicDmg * (1 + streakBonusPercent / 100));
+                        this.playerState[skill.consumesStreak] = 0;
+                    }
                     // Mitigação real (Iteração 2 do balanceamento, ver
                     // js/balance.js `mitigateMagicDamage`) — mesma curva
                     // percentual de diminishing returns da defesa física,
@@ -1237,9 +1268,20 @@ class BattleSystem {
                     }
                 }
                 else if (skill.type === 'LIFESTEAL') {
+                    // Mecânica nova do Vampirismo — Festim Eterno consome a
+                    // Fome de Sangue (drenos bem-sucedidos nesta batalha),
+                    // mesmo campo genérico `consumesStreak` já usado pelos
+                    // Estilos de Combate (ver branch PHYSICAL acima).
+                    let streakBonusPercent = 0;
+                    if (skill.consumesStreak) {
+                        const stacks = this.playerState[skill.consumesStreak] || 0;
+                        streakBonusPercent = Math.min(stacks * (skill.streakDamageMultPerStack || 0), skill.streakDamageCapPercent || 0);
+                        this.playerState[skill.consumesStreak] = 0;
+                    }
                     let hitChance = 100 + (this.player.getTotalStat('acc') * 2) - this.enemy.derivedStats.dodgeChance;
                     if (Utils.chance(hitChance)) {
                         let damage = this.applyLineageWeakness(this.player, this.enemy, Math.floor(this.player.derivedStats.physicalDamage * skill.powerMulti));
+                        if (streakBonusPercent > 0) damage = Math.floor(damage * (1 + streakBonusPercent / 100));
                         let reductionPercent = this.enemy.derivedStats.defenseRating / (this.enemy.derivedStats.defenseRating + 50);
                         let mitigatedDamage = Math.max(1, Math.floor(damage * (1 - reductionPercent)));
 
@@ -1248,6 +1290,7 @@ class BattleSystem {
                         this.player.currentHp = Utils.clamp(this.player.currentHp + healed, 0, this.player.derivedStats.maxHp);
 
                         resultMsg = `<span style="color:#aa0044">${this.player.name} usou ${skill.name}: ${mitigatedDamage} de dano, recuperando ${healed} HP!</span>`;
+                        if (streakBonusPercent > 0) resultMsg += ` <span style="color:#88ccff">(+${streakBonusPercent.toFixed(0)}% consumindo a Fome de Sangue)</span>`;
                         window.GFX.spawnText(enemyX, enemyY - 50, `-${mitigatedDamage}`, "#ff0066", true);
                         window.GFX.spawnText(playerX, playerY - 50, `+${healed}`, "#1eff00", false);
                         window.GFX.spawnParticles(enemyX, enemyY, "#aa0044", 30, 6, 5);
